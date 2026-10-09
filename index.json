@@ -8423,15 +8423,15 @@
       "name": "ViewSonic Commercial Display",
       "manufacturer": "ViewSonic",
       "category": "display",
-      "version": "2.0.1",
+      "version": "2.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls ViewSonic CDE-series commercial displays (and other ViewSonic large-format displays publishing the LFD RS-232 & LAN protocol) on TCP port 5000 or direct RS-232. Power, input select, volume, mute, brightness, backlight, picture values, freeze and screen blank, PIP, video-wall tiling, keypad navigation, control locks, ambient sensor readings, and a Power On that wakes a display whose standby closes the network port over Wake-on-LAN. Listens for the display's own status pushes and polls for the rest.",
+      "description": "Controls ViewSonic CDE-series commercial displays (and other ViewSonic large-format displays publishing the LFD RS-232 & LAN protocol) on TCP port 5000 or direct RS-232. Power, input select, volume, mute, brightness, backlight, picture values, freeze and screen blank, PIP, video-wall tiling, keypad navigation, control locks, the display's clock, ambient sensor readings, and a Power On that wakes a display whose standby closes the network port over Wake-on-LAN. Listens for the display's own status pushes and polls for the rest.",
       "source_url": "https://viewsonicvsa.freshdesk.com/support/solutions/articles/43000470279-viewsonic-lfd-rs-232-lan-protocol",
       "file": "displays/viewsonic_cde.avcdriver",
       "format": "avcdriver",
       "files": {
-        "displays/viewsonic_cde.avcdriver": "ed6ee53753acb5748d004387ea49be318ffc4976f90f3f85592bcc36d9ed0602"
+        "displays/viewsonic_cde.avcdriver": "042371c41ba405d9bdf3aa7926860d7e85617b5c35ebd62c75dc86a7c1ad2ef6"
       },
       "ports": [
         5000
@@ -8440,11 +8440,13 @@
         "viewsonic_lfd_rs232_lan"
       ],
       "simulated": true,
-      "min_platform_version": "0.36.0",
+      "verified": true,
+      "min_platform_version": "0.37.0",
       "tags": [
         "display",
         "viewsonic",
         "cde",
+        "cde31",
         "signage",
         "lfd",
         "rs232",
@@ -8456,6 +8458,38 @@
         "connection": "A display whose standby mode shuts the network down does not answer on TCP 5000. Power On wakes it over Wake-on-LAN; the display's MAC is learned automatically on every connection, or can be typed in under Edit Device for a display that has never connected."
       },
       "compatible_models": [
+        {
+          "manufacturer": "ViewSonic",
+          "models": [
+            "CDE8631",
+            "CDE8631-1C",
+            "CDE8631-1B"
+          ],
+          "confidence": "full",
+          "notes": "Verified on a CDE8631-1C (firmware 20250609234259) over TCP 5000. Inputs: HDMI 1-3, USB-C, the embedded Android player, and the slot-in PC when one is installed. PIP, surround sound and the customized hot keys are not available on this model. Brightness, contrast and sharpness are refused while the embedded Android source is showing; use Backlight there."
+        },
+        {
+          "manufacturer": "ViewSonic",
+          "models": [
+            "CDE4331",
+            "CDE5531",
+            "CDE6531",
+            "CDE7531",
+            "CDE9831",
+            "CDE4331-1C",
+            "CDE5531-1C",
+            "CDE6531-1C",
+            "CDE7531-1C",
+            "CDE9831-1C",
+            "CDE4331-1B",
+            "CDE5531-1B",
+            "CDE6531-1B",
+            "CDE7531-1B",
+            "CDE9831-1B"
+          ],
+          "confidence": "untested",
+          "notes": "The rest of the CDE31 series, documented in the same user guide as the verified CDE8631-1C. The slot-in PC input exists on 65-inch models and larger."
+        },
         {
           "manufacturer": "ViewSonic",
           "models": [

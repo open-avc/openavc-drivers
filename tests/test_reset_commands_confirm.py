@@ -107,7 +107,10 @@ def test_the_command_asks_first_in_its_own_words(rel, command):
     confirm = info["commands"][command].get("confirm")
     assert isinstance(confirm, str) and confirm.strip(), (rel, command)
     assert "—" not in confirm
-    assert str(info["min_platform_version"]) == "0.36.0"
+    # confirm is a 0.36.0 field; a driver may need a later platform for
+    # something else.
+    floor = tuple(int(p) for p in str(info["min_platform_version"]).split("."))
+    assert floor >= (0, 36, 0)
 
 
 def test_the_acmx_reset_help_has_no_em_dash():

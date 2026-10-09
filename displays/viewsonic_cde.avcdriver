@@ -1,9 +1,47 @@
 # ViewSonic Commercial Display (LFD RS-232 & LAN protocol)
 # Reference: ViewSonic "LFD RS-232 & LAN Protocol Specification" rev 3.3.2
 #            (Dec 2020), the brand-wide grammar every CDE/ViewBoard/NMP model
-#            publishes per model at manuals.viewsonic.com.
+#            publishes per model at manuals.viewsonic.com. The CDE31 series
+#            user guide (viewsonicglobal.com, CDE31_Series_UG_ENG.pdf, June
+#            2026) prints the same Set table up to rev 3.2.6 and no Get table.
 # Protocol: ASCII framed packets, CR terminated, over TCP 5000 (no login) or
 #           RS-232 9600 8N1 (fixed).
+#
+# Verified on a CDE8631-1C (firmware 20250609234259). What that unit does
+# beyond the document, and what the driver does about it:
+#   - Several TCP connections are served at once, and every one of them
+#     receives the auto-reply frames, including after a change made over LAN
+#     (the spec describes them for changes made by a user).
+#   - The display looks for changes once a second and pushes what changed,
+#     so a push lands up to about a second after the ack; an input change is
+#     pushed about 5 s after it takes effect, and also pushes brightness.
+#   - Contrast, sharpness, color, tint and the tiling values are not pushed.
+#   - Rarely (twice in about sixty tries) a command sent within a second of
+#     another level or mute change was acked and not applied.
+#   So every set whose value a get reads correctly straight after the ack
+#     carries that get in the same send (source, volume, mute, brightness,
+#     the picture values, screen blank, tiling), and the state follows the
+#     display at once, a dropped command included.
+#   - Volume Up / Down and freeze apply after their ack, so a get sent with
+#     them reads the old value; they send no read-back and the push brings
+#     the new one (freeze in the Function On_Off form, r=102 / r=002).
+#   - Screen Unblank holds its ack about 2 s until the backlight is lit. Sent
+#     within about 2 s of a Screen Blank it is acked at once and ignored;
+#     its read-back then reports the screen still blank.
+#   - Info replies are padded with spaces instead of NULs (the runtime strips
+#     trailing whitespace; the rules accept both).
+#   - The ambient sensor get takes about 2 s and holds every reply behind
+#     it, so it is polled only when the ambient sensor option is on. The
+#     CDE8631-1C answers it without a Smart Hub accessory, from its own
+#     temperature and light sensors (humidity 0, presence off). The fields
+#     are not fixed-width (A28.2B000.0C-1D00000), and each single-field get
+#     answers "none" on a unit without the accessory.
+#   - While the embedded Android source is showing, brightness, contrast and
+#     sharpness sets are refused (and the sharpness get); Backlight sets the
+#     level there. Color and tint still apply.
+#   - PIP, surround and the customized hot key are refused, and the slot-in
+#     PC input is refused with no OPS module installed.
+#   - Tiling position reports the stored position with tiling off.
 #
 #   Set:    [len][ID two digits]['s'][code][value 3 bytes]<CR>
 #   Get:    [len][ID two digits]['g'][code]['000']<CR>
@@ -15,8 +53,9 @@
 # the standard 9-byte packet, which is every command here, so it is part of
 # command_prefix with the Monitor ID. Info replies (device name, MAC, IP,
 # serial, firmware, operation hours, smart hub) use the fixed "32-byte
-# format": the value is NUL-padded and its length byte is a literal '2', so
-# every response rule matches positionally and strips the padding itself.
+# format": the value is padded (NULs per the spec, spaces on the CDE31) and
+# its length byte is a literal '2', so every response rule matches
+# positionally and strips the padding itself.
 #
 # The backlight level rides its own command-type pair inherited from the
 # color-calibration command set: set type 'A' / get type 'a', code 'B'.
@@ -25,8 +64,9 @@
 #
 # Push vs poll: HYBRID. Since protocol 3.2.1 the display auto-replies (sends
 # the updated power / input / brightness / backlight / volume / mute frame
-# unsolicited when a user changes one locally); the rules below match any
-# 'r' frame whenever it arrives, and polling refreshes the rest.
+# unsolicited when one changes); the CDE31 also pushes backlight on/off and
+# freeze in the Function On_Off form. The rules below match any 'r' frame
+# whenever it arrives, and polling refreshes the rest.
 #
 # Power on: "001" on, "000" standby. Whether LAN control survives standby
 # depends on the display's standby/network setting; the spec says power-on
@@ -43,24 +83,59 @@ id: viewsonic_cde
 name: ViewSonic Commercial Display
 manufacturer: ViewSonic
 category: display
-version: 2.0.1
+version: 2.1.0
 author: OpenAVC
 description: >-
   Controls ViewSonic CDE-series commercial displays (and other ViewSonic
   large-format displays publishing the LFD RS-232 & LAN protocol) on TCP
   port 5000 or direct RS-232. Power, input select, volume, mute,
   brightness, backlight, picture values, freeze and screen blank, PIP,
-  video-wall tiling, keypad navigation, control locks, ambient sensor
-  readings, and a Power On that wakes a display whose standby closes the
-  network port over Wake-on-LAN. Listens for the display's own status
-  pushes and polls for the rest.
+  video-wall tiling, keypad navigation, control locks, the display's
+  clock, ambient sensor readings, and a Power On that wakes a display
+  whose standby closes the network port over Wake-on-LAN. Listens for the
+  display's own status pushes and polls for the rest.
 source_url: https://viewsonicvsa.freshdesk.com/support/solutions/articles/43000470279-viewsonic-lfd-rs-232-lan-protocol
-tags: [display, viewsonic, cde, signage, lfd, rs232, lan-control]
-verified: false
+tags: [display, viewsonic, cde, cde31, signage, lfd, rs232, lan-control]
+verified: true
 simulated: true
 ports: [5000]
-min_platform_version: "0.36.0"
+min_platform_version: "0.37.0"
 compatible_models:
+  - manufacturer: ViewSonic
+    models:
+      - CDE8631
+      - CDE8631-1C
+      - CDE8631-1B
+    confidence: full
+    notes: >-
+      Verified on a CDE8631-1C (firmware 20250609234259) over TCP 5000.
+      Inputs: HDMI 1-3, USB-C, the embedded Android player, and the slot-in
+      PC when one is installed. PIP, surround sound and the customized hot
+      keys are not available on this model. Brightness, contrast and
+      sharpness are refused while the embedded Android source is showing;
+      use Backlight there.
+  - manufacturer: ViewSonic
+    models:
+      - CDE4331
+      - CDE5531
+      - CDE6531
+      - CDE7531
+      - CDE9831
+      - CDE4331-1C
+      - CDE5531-1C
+      - CDE6531-1C
+      - CDE7531-1C
+      - CDE9831-1C
+      - CDE4331-1B
+      - CDE5531-1B
+      - CDE6531-1B
+      - CDE7531-1B
+      - CDE9831-1B
+    confidence: untested
+    notes: >-
+      The rest of the CDE31 series, documented in the same user guide as the
+      verified CDE8631-1C. The slot-in PC input exists on 65-inch models and
+      larger.
   - manufacturer: ViewSonic
     models:
       - CDE4330
@@ -145,6 +220,7 @@ default_config:
   bytesize: 8
   stopbits: 1
   mac_address: ""
+  ambient_sensors: false
 
 config_schema:
   host:
@@ -183,6 +259,11 @@ config_schema:
     default: ""
     label: MAC Address (for Wake-on-LAN)
     description: Optional. Learned automatically on every connection; fill in manually to wake a display that has never connected.
+  ambient_sensors:
+    type: boolean
+    default: false
+    label: Read Ambient Sensors
+    description: Reads ambient temperature, humidity, light and presence on every poll, from the display's own sensors or a ViewSonic Smart Hub accessory. Each reading holds the display's replies for about 2 seconds, so leave it off unless you use these values.
 
 state_variables:
   power:
@@ -199,7 +280,7 @@ state_variables:
   signal_detected:
     type: boolean
     label: Signal Present
-    help: Whether the current input has a detected video signal (reported with every input read).
+    help: Whether the current input has a detected video signal (reported with every input read). After an input change the display reports the signal about 5 seconds later.
   volume:
     type: integer
     label: Volume
@@ -220,14 +301,14 @@ state_variables:
     min: 0
     max: 100
     step: 1
-    help: Picture brightness, 0-100. On Android-based models the embedded source is governed by Backlight instead.
+    help: Picture brightness, 0-100. On Android-based models the display refuses it while the embedded Android source is showing; Backlight sets the level there.
   backlight:
     type: integer
     label: Backlight
     min: 0
     max: 100
     step: 1
-    help: Backlight level, 0-100.
+    help: Backlight level, 0-100. On Android-based models this is the level for the embedded Android source.
   contrast:
     type: integer
     label: Contrast
@@ -312,7 +393,7 @@ state_variables:
   tiling_position:
     type: integer
     label: Tiling Position
-    help: This display's position in the video wall (1-25; 0 while tiling is off).
+    help: This display's position in the video wall (1-25). Some models report 0 while tiling is off; the CDE31 reports the stored position.
   thermal_c:
     type: integer
     label: Temperature (C)
@@ -320,19 +401,20 @@ state_variables:
   amb_temperature_c:
     type: number
     label: Ambient Temperature (C)
-    help: Ambient temperature from the Smart Hub sensor accessory (models with a sensor hub only).
+    help: Ambient temperature from the display's sensor or a Smart Hub accessory. Read only while Read Ambient Sensors is on.
   amb_humidity:
     type: number
     label: Ambient Humidity (%)
-    help: Ambient relative humidity from the Smart Hub sensor accessory.
+    help: Ambient relative humidity from a Smart Hub accessory (0 on a display without one). Read only while Read Ambient Sensors is on.
   amb_light:
     type: integer
     label: Ambient Light
-    help: Ambient light level from the Smart Hub sensor accessory.
+    unknown: [-1]
+    help: Ambient light level from the display's sensor or a Smart Hub accessory. Empty while the display has no light reading. Read only while Read Ambient Sensors is on.
   amb_presence:
     type: boolean
     label: Presence Detected
-    help: PIR presence detection from the Smart Hub sensor accessory, usable as an occupancy trigger.
+    help: Presence detected by a Smart Hub accessory's motion sensor, usable as an occupancy trigger. Read only while Read Ambient Sensors is on.
   operation_hours:
     type: integer
     label: Operation Hours
@@ -359,7 +441,10 @@ state_variables:
     help: Firmware version reported by the display.
 
 # Every command below is one 9-byte packet: command_prefix supplies the
-# length byte and Monitor ID, the send string is [type][code][value].
+# length byte and Monitor ID, the send string is [type][code][value]. A set
+# whose value the display does not push carries its matching get as a second
+# packet ("\r8{monitor_id:02d}g..."), so the state reads back at once; the
+# display answers the get after the set has taken effect.
 commands:
   power_on:
     label: Power On
@@ -380,8 +465,9 @@ commands:
     sets: { power: standby }
   set_source:
     label: Select Source
-    help: Select an input. Sources a given model lacks answer a reject the driver ignores.
-    send: "s\"{source}"
+    help: Selects an input. The display refuses an input this model does not have.
+    send: "s\"{source}\r8{monitor_id:02d}gj000"
+    sets: { source: "{source}" }
     params:
       source:
         type: enum
@@ -429,84 +515,101 @@ commands:
           tv: "000"
   input_cycle:
     label: Cycle Input
-    help: Step to the next input in the display's own cycle list.
-    send: "s\"00Z"
+    help: Steps to the next input in the display's own input list.
+    send: "s\"00Z\r8{monitor_id:02d}gj000"
   set_volume:
     label: Set Volume
-    send: "s5{level:03d}"
+    help: Sets the speaker volume.
+    send: "s5{level:03d}\r8{monitor_id:02d}gf000"
     params:
       level: { type: integer, required: true, label: Volume (0-100), min: 0, max: 100 }
     sets: { volume: "{level}" }
+  # The volume steps apply after their ack (a get sent with them reads the
+  # old level); the display pushes the new level within about a second.
   volume_up:
     label: Volume Up
+    help: Raises the speaker volume one step.
     send: "s5901"
   volume_down:
     label: Volume Down
+    help: Lowers the speaker volume one step.
     send: "s5900"
   mute_on:
     label: Mute On
-    send: "s6001"
+    help: Mutes the speakers and audio output.
+    send: "s6001\r8{monitor_id:02d}gg000"
     sets: { mute: true }
   mute_off:
     label: Mute Off
-    send: "s6000"
+    help: Unmutes the speakers and audio output.
+    send: "s6000\r8{monitor_id:02d}gg000"
     sets: { mute: false }
   set_brightness:
     label: Set Brightness
-    send: "s${level:03d}"
+    help: Sets the picture brightness. Refused while the embedded Android source is showing on Android-based models; use Backlight there.
+    send: "s${level:03d}\r8{monitor_id:02d}gb000"
     params:
       level: { type: integer, required: true, label: Brightness (0-100), min: 0, max: 100 }
     sets: { brightness: "{level}" }
   brightness_up:
     label: Brightness Up
-    send: "s$901"
+    help: Raises the picture brightness one step.
+    send: "s$901\r8{monitor_id:02d}gb000"
   brightness_down:
     label: Brightness Down
-    send: "s$900"
+    help: Lowers the picture brightness one step.
+    send: "s$900\r8{monitor_id:02d}gb000"
   set_contrast:
     label: Set Contrast
-    send: "s#{level:03d}"
+    help: Sets the picture contrast. Refused while the embedded Android source is showing on Android-based models.
+    send: "s#{level:03d}\r8{monitor_id:02d}ga000"
     params:
       level: { type: integer, required: true, label: Contrast (0-100), min: 0, max: 100 }
     sets: { contrast: "{level}" }
   set_sharpness:
     label: Set Sharpness
-    send: "s%{level:03d}"
+    help: Sets the picture sharpness. Refused while the embedded Android source is showing on Android-based models.
+    send: "s%{level:03d}\r8{monitor_id:02d}gc000"
     params:
       level: { type: integer, required: true, label: Sharpness (0-100), min: 0, max: 100 }
     sets: { sharpness: "{level}" }
   set_color:
     label: Set Color
-    send: "s&{level:03d}"
+    help: Sets the picture color saturation.
+    send: "s&{level:03d}\r8{monitor_id:02d}gd000"
     params:
       level: { type: integer, required: true, label: Color (0-100), min: 0, max: 100 }
     sets: { color: "{level}" }
   set_tint:
     label: Set Tint
-    send: "s'{level:03d}"
+    help: Sets the picture tint.
+    send: "s'{level:03d}\r8{monitor_id:02d}ge000"
     params:
       level: { type: integer, required: true, label: Tint (0-100), min: 0, max: 100 }
     sets: { tint: "{level}" }
   backlight_off:
     label: Screen Blank (Backlight Off)
-    help: Blank the picture by switching the backlight off. The display stays on and controllable, the right 'off' for a short pause.
-    send: "s(000"
+    help: Blanks the picture by switching the backlight off. The display stays on and keeps answering, so it suits a short pause.
+    send: "s(000\r8{monitor_id:02d}gh000"
     sets: { backlight_on: false }
   backlight_on:
     label: Screen Unblank (Backlight On)
-    send: "s(001"
+    help: Switches the backlight back on. The display ignores it for about 2 seconds after a Screen Blank, and the screen then reads as still blank; send it again after that.
+    send: "s(001\r8{monitor_id:02d}gh000"
     sets: { backlight_on: true }
   freeze_on:
     label: Freeze Picture
+    help: Holds the current picture on screen.
     send: "s*001"
     sets: { freeze: true }
   freeze_off:
     label: Unfreeze Picture
+    help: Releases a frozen picture.
     send: "s*000"
     sets: { freeze: false }
   set_color_mode:
     label: Set Color Mode
-    help: "Color temperature preset. Set-only: the protocol has no color-mode read-back."
+    help: Sets the color temperature preset. The display does not report the preset back.
     send: "s){mode}"
     params:
       mode:
@@ -521,7 +624,7 @@ commands:
         map: { normal: "000", warm: "001", cold: "002", personal: "003" }
   set_picture_size:
     label: Set Picture Size
-    help: "Aspect handling. Set-only: the protocol has no picture-size read-back."
+    help: Sets how the picture fills the screen. The display does not report the size back.
     send: "s1{size}"
     params:
       size:
@@ -535,32 +638,33 @@ commands:
         map: { full: "000", normal: "001", real: "002" }
   set_bass:
     label: Set Bass
-    help: "Set-only: the protocol has no bass read-back."
+    help: Sets the speaker bass. The display does not report it back.
     send: "s.{level:03d}"
     params:
       level: { type: integer, required: true, label: Bass (0-100), min: 0, max: 100 }
   set_treble:
     label: Set Treble
-    help: "Set-only: the protocol has no treble read-back."
+    help: Sets the speaker treble. The display does not report it back.
     send: "s/{level:03d}"
     params:
       level: { type: integer, required: true, label: Treble (0-100), min: 0, max: 100 }
   set_balance:
     label: Set Balance
-    help: "50 is centered. Set-only: the protocol has no balance read-back."
+    help: Sets the left-right speaker balance; 50 is centered. The display does not report it back.
     send: "s0{level:03d}"
     params:
       level: { type: integer, required: true, label: Balance (0-100), min: 0, max: 100 }
   surround_on:
     label: Surround Sound On
-    help: "Set-only: the protocol has no surround read-back."
+    help: Turns the speakers' surround effect on. Not available on the CDE31 series. The display does not report it back.
     send: "s-001"
   surround_off:
     label: Surround Sound Off
+    help: Turns the speakers' surround effect off. Not available on the CDE31 series.
     send: "s-000"
   set_osd_language:
     label: Set OSD Language
-    help: Set-only; some models extend the list beyond these three documented languages.
+    help: Sets the language of the on-screen menus. Some models offer more languages than these three. The display does not report it back.
     send: "s2{language}"
     params:
       language:
@@ -574,6 +678,7 @@ commands:
         map: { english: "000", french: "001", spanish: "002" }
   set_pip_mode:
     label: Set PIP Mode
+    help: Shows a second source in a window (PIP) or side by side (PBP), or turns that off. Not available on the CDE31 series.
     send: "s9{mode}"
     params:
       mode:
@@ -588,6 +693,7 @@ commands:
     sets: { pip_mode: "{mode}" }
   set_pip_input:
     label: Set PIP Input
+    help: Selects the source shown in the PIP window. Not available on the CDE31 series.
     send: "s7{source}"
     params:
       source:
@@ -636,7 +742,7 @@ commands:
           tv: "000"
   set_pip_sound:
     label: Set PIP Sound
-    help: "Which picture's audio plays. Set-only: no read-back."
+    help: Chooses whether the main picture's or the PIP window's audio plays. Not available on the CDE31 series. The display does not report it back.
     send: "s:{from_window}"
     params:
       from_window:
@@ -649,7 +755,7 @@ commands:
         map: { main: "000", sub: "001" }
   set_pip_position:
     label: Set PIP Position
-    help: "Set-only: no read-back."
+    help: Moves the PIP window. Not available on the CDE31 series. The display does not report it back.
     send: "s;{position}"
     params:
       position:
@@ -664,8 +770,8 @@ commands:
         map: { up: "000", down: "001", left: "002", right: "003" }
   set_tiling_mode:
     label: Set Tiling Mode
-    help: Video-wall tiling on/off (video-wall models only).
-    send: "sP{mode}"
+    help: Turns video-wall tiling on or off. With tiling on, the display shows its own part of the picture for its position in the wall.
+    send: "sP{mode}\r8{monitor_id:02d}gv000"
     params:
       mode:
         type: enum
@@ -677,7 +783,8 @@ commands:
         map: { "on": "001", "off": "000" }
   set_tiling_compensation:
     label: Set Tiling Bezel Compensation
-    send: "sQ{mode}"
+    help: Turns compensation for the bezels between video-wall displays on or off.
+    send: "sQ{mode}\r8{monitor_id:02d}gw000"
     params:
       mode:
         type: enum
@@ -689,21 +796,21 @@ commands:
         map: { "on": "001", "off": "000" }
   set_tiling_layout:
     label: Set Tiling Layout
-    help: Video-wall size in monitors, 1-9 each way.
-    send: "sR0{horizontal}{vertical}"
+    help: Sets the video-wall size in displays, 1-9 across and 1-9 down.
+    send: "sR0{horizontal}{vertical}\r8{monitor_id:02d}gx000"
     params:
       horizontal: { type: integer, required: true, label: Horizontal Monitors (1-9), min: 1, max: 9 }
       vertical: { type: integer, required: true, label: Vertical Monitors (1-9), min: 1, max: 9 }
   set_tiling_position:
     label: Set Tiling Position
-    help: This display's position in the video wall (1-25, row-major from top left).
-    send: "sS{position:03d}"
+    help: Sets this display's position in the video wall, counted across from the top left (1-25).
+    send: "sS{position:03d}\r8{monitor_id:02d}gy000"
     params:
       position: { type: integer, required: true, label: Position (1-25), min: 1, max: 25 }
     sets: { tiling_position: "{position}" }
   nav_key:
     label: Press Navigation Key
-    help: Send a virtual keypad press for OSD navigation.
+    help: Presses a key on the display's keypad, for moving through its on-screen menus.
     send: "sA{key}"
     params:
       key:
@@ -722,19 +829,31 @@ commands:
         map: { up: "000", down: "001", left: "002", right: "003", enter: "004", input: "005", menu: "006", exit: "007" }
   press_number:
     label: Press Number Key
+    help: Presses a number key, as on the remote.
     send: "s@{number:03d}"
     params:
       number: { type: integer, required: true, label: Number (0-9), min: 0, max: 9 }
   custom_hot_key:
     label: Trigger Custom Hot Key
-    help: Fire a model-defined customized hot key (e.g. 1 opens the MVBA app on supporting models).
+    help: Runs one of the model's customized hot keys (1 opens the MVBA app on models that have it). Not available on the CDE31 series.
     send: "sX{key:03d}"
     params:
       key: { type: integer, required: true, label: Hot Key (1-999), min: 1, max: 999 }
+  set_clock:
+    label: Set Clock
+    help: Sets the display's own date and time, which its built-in on and off schedules use.
+    send: "sVY{year:02d}\r8{monitor_id:02d}sVM{month:02d}\r8{monitor_id:02d}sVD{day:02d}\r8{monitor_id:02d}sWH{hour:02d}\r8{monitor_id:02d}sWM{minute:02d}\r8{monitor_id:02d}sWS{second:02d}"
+    params:
+      year: { type: integer, required: true, label: Year, min: 2017, max: 2098, offset: 2000 }
+      month: { type: integer, required: true, label: Month (1-12), min: 1, max: 12 }
+      day: { type: integer, required: true, label: Day (1-31), min: 1, max: 31 }
+      hour: { type: integer, required: true, label: Hour (0-23), min: 0, max: 23 }
+      minute: { type: integer, required: true, label: Minute (0-59), min: 0, max: 59 }
+      second: { type: integer, required: true, label: Second (0-59), min: 0, max: 59 }
   restore_default:
     label: Restore Factory Defaults
     confirm: "Returns the display to its factory settings, erasing its own configuration."
-    help: Recover the display to factory settings. This wipes the display's own configuration; use with care.
+    help: Returns the display to its factory settings, erasing its own configuration.
     send: "s~000"
   raw_command:
     label: Send Raw Command
@@ -764,15 +883,15 @@ commands:
 
 # Settings are written as a full frame (command_prefix does not apply to a
 # setting write) followed by the matching get, so the value reads back at
-# once. Enum labels are the state tokens: the platform confirms a queued
-# write by matching the state variable's value against the label.
+# once. Enum settings take the state variable's own tokens and write the
+# display's code through map:.
 device_settings:
   backlight:
     type: integer
     min: 0
     max: 100
     label: Backlight
-    help: Backlight level, 0-100. Persisted on the display.
+    help: Backlight level, 0-100. The display keeps it.
     state_key: backlight
     default: 100
     setup: false
@@ -781,10 +900,11 @@ device_settings:
   power_lock:
     type: enum
     values:
-      - { value: "000", label: unlocked }
-      - { value: "001", label: locked }
+      - { value: unlocked, label: Unlocked }
+      - { value: locked, label: Locked }
+    map: { unlocked: "000", locked: "001" }
     label: Power Key Lock
-    help: Lock the power key on the panel and remote. RS-232/LAN power control keeps working.
+    help: Locks the power key on the display and the remote. Power control over the network and RS-232 keeps working.
     state_key: power_lock
     default: unlocked
     setup: false
@@ -793,10 +913,11 @@ device_settings:
   button_lock:
     type: enum
     values:
-      - { value: "000", label: unlocked }
-      - { value: "001", label: locked }
+      - { value: unlocked, label: Unlocked }
+      - { value: locked, label: Locked }
+    map: { unlocked: "000", locked: "001" }
     label: Button Lock
-    help: Lock the front-panel buttons and remote (power key excepted).
+    help: Locks the display's buttons and the remote, except the power key.
     state_key: button_lock
     default: unlocked
     setup: false
@@ -805,10 +926,11 @@ device_settings:
   menu_lock:
     type: enum
     values:
-      - { value: "000", label: unlocked }
-      - { value: "001", label: locked }
+      - { value: unlocked, label: Unlocked }
+      - { value: locked, label: Locked }
+    map: { unlocked: "000", locked: "001" }
     label: Menu Lock
-    help: Lock the OSD menu key.
+    help: Locks the menu key, so the on-screen menu cannot be opened from the display or the remote.
     state_key: menu_lock
     default: unlocked
     setup: false
@@ -817,11 +939,12 @@ device_settings:
   remote_control_mode:
     type: enum
     values:
-      - { value: "001", label: enabled }
-      - { value: "000", label: disabled }
-      - { value: "002", label: passthrough }
+      - { value: enabled, label: Enabled }
+      - { value: disabled, label: Disabled }
+      - { value: passthrough, label: Pass Through }
+    map: { enabled: "001", disabled: "000", passthrough: "002" }
     label: Remote Control Mode
-    help: Pass Through forwards IR remote keys to the RS-232 port instead of acting on them.
+    help: Enabled lets the IR remote control the display. Disabled ignores it. Pass Through sends the remote's keys out of the RS-232 port instead of acting on them.
     state_key: remote_control_mode
     default: enabled
     setup: false
@@ -830,19 +953,19 @@ device_settings:
   touch:
     type: boolean
     label: Touch Screen
-    help: Enable or disable the touch screen (touch-capable models only).
+    help: Turns the touch screen on or off (touch-capable models only).
     state_key: touch_enabled
     default: true
     setup: false
     write:
       send: "8{monitor_id:02d}s={value:d}03\r8{monitor_id:02d}g=003\r"
 
-quick_actions: [power_on, power_off]
+quick_actions: [power_on, power_off, mute_on, mute_off]
 
-# Replies are CR-framed and matched after the CR is stripped; the length
-# byte is any character and the Monitor ID must be this display's. Info
-# replies keep their NUL padding through the strip, so those rules end in
-# \x00*. First match wins.
+# Replies are CR-framed and matched after the frame is stripped of the CR
+# and any trailing spaces; the length byte is any character and the Monitor
+# ID must be this display's. NUL padding survives the strip, so the info
+# rules end in \x00*. First match wins.
 responses:
   - match: '^.{monitor_id:02d}rl(00[01])$'
     mappings:
@@ -1048,7 +1171,8 @@ responses:
   - match: '^.{monitor_id:02d}r=([01])03$'
     mappings:
       - { group: 1, state: touch_enabled, map: { "1": "true", "0": "false" } }
-  # 32-byte info replies: value, then NUL padding.
+  # 32-byte info replies: value, then padding (NULs per the spec; the
+  # CDE31's spaces are gone by the time a rule sees the frame).
   - match: '^.{monitor_id:02d}r1(\d+)\x00*$'
     set: { operation_hours: "$1" }
   - match: '^.{monitor_id:02d}r4([^\x00]+)\x00*$'
@@ -1061,15 +1185,22 @@ responses:
     set: { serial_number: "$1" }
   - match: '^.{monitor_id:02d}r8([^\x00]+)\x00*$'
     set: { firmware_version: "$1" }
-  # Smart Hub: fixed 6-byte sub-fields, marker + 5 chars (A-05.0 B030.0
-  # C00080 D00001), any subset in any order. Each field is an optional
-  # lookahead so one rule reads whatever the accessory reports.
-  - match: '^.{monitor_id:02d}r:(?=(?:.*?A([-\d.]{5}))?)(?=(?:.*?B([\d.]{5}))?)(?=(?:.*?C(\d{5}))?)(?=(?:.*?D(\d{5}))?)'
+  # Smart Hub: a marker letter and a number per sensor, any subset in any
+  # order. The spec gives fixed 6-byte fields (A-05.0B030.0C00080D00001); a
+  # CDE31 sends them unpadded (A28.2B000.0C-1D00000), with C-1 for no light
+  # reading, and "none" for a single-field get without the accessory. Each
+  # field is an optional lookahead, so one rule reads whatever arrives and a
+  # field that is missing leaves its variable alone.
+  - match: '^.{monitor_id:02d}r:(?=(?:.*?A(-?\d+(?:\.\d+)?))?)(?=(?:.*?B(-?\d+(?:\.\d+)?))?)(?=(?:.*?C(-?\d+))?)(?=(?:.*?D(\d+))?)'
     mappings:
       - { group: 1, state: amb_temperature_c }
       - { group: 2, state: amb_humidity }
       - { group: 3, state: amb_light }
-      - { group: 4, state: amb_presence, map: { "00001": "true", "00000": "false" } }
+      - { group: 4, state: amb_presence, map: { "00001": "true", "00000": "false", "1": "true", "0": "false" } }
+  # A set's acknowledgement ('+'). Last, so every reply above is tried
+  # first; a refusal ('-') is left unmatched, so it still shows as one.
+  - match: '^.{monitor_id:02d}\+$'
+    set: {}
 
 # Identity (and the MAC Power On needs) once per connection.
 on_connect:
@@ -1107,19 +1238,38 @@ polling:
     - { send: "8{monitor_id:02d}gw000\r", query_for: tiling_compensation }
     - { send: "8{monitor_id:02d}gx000\r", query_for: tiling_layout }
     - { send: "8{monitor_id:02d}gy000\r", query_for: tiling_position }
-    - { send: "8{monitor_id:02d}g:000\r", query_for: amb_temperature_c }
     - { send: "8{monitor_id:02d}g1000\r", query_for: operation_hours }
+    # Last: the display holds every reply for about 2 s while it reads the
+    # ambient sensors, so this runs only when that option is on.
+    - { send: "8{monitor_id:02d}g:000\r", when: ambient_sensors, query_for: amb_temperature_c }
+
+# Over RS-232 nothing else notices a display that stops answering. Get-ACK
+# is the protocol's own link test, answered on and in standby; a refusal
+# ('-') counts as an answer too.
+liveness:
+  send: "8{monitor_id:02d}gz000\r"
+  expect: '\d\d(?:rz|-)'
+  interval: 30
+  timeout: 5
+  max_failures: 2
 
 # ── Simulator ──
-# One dispatcher script handler speaks the whole framed grammar, because the
-# standby gate is stateful: in standby only the power set/get and the
-# Get-ACK link test answer (the closest testable approximation of a display
-# whose standby mode closes the LAN port). Sets answer '+' / '-', gets the
-# framed 'r' reply, info gets the 32-byte NUL-padded form, and a packet for
-# another Monitor ID gets no reply, like a real RS-232 chain. State is kept
-# in the driver's own vocabulary so the Simulator UI's controls (generated
-# from state_variables) read and write it directly; a magic packet from
-# Power On applies its declared sets: the simulated display comes on.
+# Models the CDE8631-1C the driver was verified on. One dispatcher script
+# handler speaks the whole framed grammar: sets answer '+' / '-', gets the
+# framed 'r' reply, info gets the 32-byte form padded with spaces, and a
+# packet for another Monitor ID gets no reply (ID 99 is answered as display
+# 1, as the spec says). Everything answers in standby, as it does in the
+# display's Sleep power-save mode. What that model refuses is refused here:
+# PIP, surround, the hot keys, the slot-in PC with no module installed,
+# inputs it does not have, and brightness while the Android source shows.
+# The notifications map sends the auto-reply frames on every change, from a
+# command or from the Simulator UI; its frames carry Monitor ID 01, the ID a
+# display answers on the LAN. State is kept in the driver's own vocabulary so
+# the Simulator UI's controls read and write it directly, and a magic packet
+# from Power On applies its declared sets: the simulated display comes on.
+# Not modelled: the about 5 s delay before a real display pushes an input
+# change, the about 2 s it holds every reply while it reads its sensors,
+# and the Screen Unblank it ignores within about 2 s of a Screen Blank.
 simulator:
   initial_state:
     power: "on"
@@ -1140,32 +1290,59 @@ simulator:
     button_lock: unlocked
     menu_lock: unlocked
     remote_control_mode: enabled
-    pip_mode: "off"
-    pip_input: hdmi1
     tiling_mode: false
     tiling_compensation: false
     tiling_layout: 1x1
     tiling_position: 1
-    thermal_c: 42
+    thermal_c: 48
     amb_temperature_c: 23.5
     amb_humidity: 45.0
     amb_light: 80
     amb_presence: true
-    operation_hours: 1234
-    device_name: CDE5530
-    mac_address: 040ec2123456
+    operation_hours: 33
+    device_name: CDE8631-1C
+    mac_address: 00e04c123456
     ip_address: 192.168.1.50
-    serial_number: ABC180212345
-    firmware_version: 3.02.001
+    serial_number: Y9125ABC0001
+    firmware_version: "20250609234259"
   delays:
     command_response: 0.02
+  notifications:
+    power: { "on": "801rl001", standby: "801rl000" }
+    source:
+      hdmi1: "801rj{state.signal_detected:d}04"
+      hdmi2: "801rj{state.signal_detected:d}14"
+      hdmi3: "801rj{state.signal_detected:d}24"
+      hdmi4: "801rj{state.signal_detected:d}34"
+      dp1: "801rj{state.signal_detected:d}09"
+      dp2: "801rj{state.signal_detected:d}29"
+      typec1: "801rj{state.signal_detected:d}19"
+      typec2: "801rj{state.signal_detected:d}39"
+      ops: "801rj{state.signal_detected:d}07"
+      android: "801rj{state.signal_detected:d}0A"
+      vga1: "801rj{state.signal_detected:d}06"
+      vga2: "801rj{state.signal_detected:d}16"
+      vga3: "801rj{state.signal_detected:d}26"
+      dvi: "801rj{state.signal_detected:d}05"
+      internal: "801rj{state.signal_detected:d}08"
+      ypbpr: "801rj{state.signal_detected:d}03"
+      av: "801rj{state.signal_detected:d}01"
+      svideo: "801rj{state.signal_detected:d}02"
+      tv: "801rj{state.signal_detected:d}00"
+    volume: "801rf{value:03d}"
+    mute: { "true": "801rg001", "false": "801rg000" }
+    brightness: "801rb{value:03d}"
+    backlight: "801rB{value:03d}"
+    backlight_on: { "true": "801r=101", "false": "801r=001" }
+    freeze: { "true": "801r=102", "false": "801r=002" }
   command_handlers:
     - match: '.(\d\d)([sgAa])(.)(.*)'
       handler: |
-        mid = int(config.get("monitor_id", 1) or 1)
-        if int(match.group(1)) != mid:
-            pass  # another display on the chain: silence
-        else:
+        def _run():
+            mid = int(config.get("monitor_id", 1) or 1)
+            target = int(match.group(1))
+            if target != mid and not (target == 99 and mid == 1):
+                return  # another display on the chain: silence
             ftype, code, value = match.group(2), match.group(3), match.group(4)
             head = "8" + format(mid, "02d")
 
@@ -1175,7 +1352,9 @@ simulator:
                       "007": "ops", "008": "internal", "009": "dp1", "029": "dp2",
                       "019": "typec1", "039": "typec2", "00A": "android"}
             CODES = dict((v, k) for k, v in INPUTS.items())
-            CYCLE = ["hdmi1", "hdmi2", "ops", "android", "vga1"]
+            # The inputs a CDE8631-1C with no slot-in PC accepts, in the
+            # order its input cycle steps through them.
+            HAS = ["hdmi1", "hdmi2", "hdmi3", "typec1", "android"]
             NUM_SET = {"#": "contrast", "$": "brightness", "%": "sharpness",
                        "&": "color", "'": "tint", "5": "volume"}
             NUM_GET = {"a": "contrast", "b": "brightness", "c": "sharpness",
@@ -1187,19 +1366,29 @@ simulator:
             LOCK_SET = {"4": "power_lock", "8": "button_lock", ">": "menu_lock"}
             LOCK_GET = {"o": "power_lock", "p": "button_lock", "q": "menu_lock"}
             RCU = {"000": "disabled", "001": "enabled", "002": "passthrough"}
-            PIP = {"000": "off", "001": "pip", "002": "pbp"}
             FUNC = {"01": "backlight_on", "02": "freeze", "03": "touch_enabled"}
-            ACK_ONLY = {")": 4, "1": 3, "2": 3, "-": 2, ":": 2, ";": 4}
+            # Picture sets the embedded Android source refuses (brightness,
+            # contrast, sharpness); the sharpness get is refused there too.
+            ANDROID_REFUSES = ("$", "#", "%")
+            # Set-only codes and how many values each takes (000..n-1).
+            ACK_ONLY = {")": 4, "1": 3, "2": 3, "A": 8, "@": 10}
+            CLOCK = {"V": {"Y": (17, 98), "M": (1, 12), "D": (1, 31)},
+                     "W": {"H": (0, 23), "M": (0, 59), "S": (0, 59)}}
+            CLOCK_NOW = {"2": {"Y": "26", "M": "10", "D": "09"},
+                         "3": {"H": "12", "M": "00", "S": "00"}}
 
             def ack(ok):
-                respond(("5" + format(mid, "02d") + ("+" if ok else "-")) + "\r")
+                respond("4" + format(mid, "02d") + ("+" if ok else "-") + "\r")
 
             def reply(c, v):
                 respond(head + "r" + c + v + "\r")
 
             def reply32(c, v):
                 body = str(v)[:26]
-                respond("2" + format(mid, "02d") + "r" + c + body + "\x00" * (26 - len(body)) + "\r")
+                respond("2" + format(mid, "02d") + "r" + c + body + " " * (26 - len(body)) + "\r")
+
+            def level(v):
+                return v.isdigit() and 0 <= int(v) <= 100
 
             def inv(d, v):
                 for k in d:
@@ -1207,164 +1396,179 @@ simulator:
                         return k
                 return None
 
-            on = state.get("power") == "on"
+            def hub_field(f):
+                if f == "A":
+                    return "A" + format(float(state.get("amb_temperature_c") or 0), ".1f")
+                if f == "B":
+                    return "B" + format(float(state.get("amb_humidity") or 0), "05.1f")
+                if f == "C":
+                    light = state.get("amb_light")
+                    return "C" + ("-1" if light is None else str(int(light)))
+                return "D" + ("00001" if state.get("amb_presence") else "00000")
+
+            if ftype == "A":
+                if code == "B" and level(value):
+                    state["backlight"] = int(value)
+                    ack(True)
+                else:
+                    ack(False)
+                return
+            if ftype == "a":
+                if code == "B":
+                    reply("B", format(int(state.get("backlight", 0)), "03d"))
+                else:
+                    ack(False)
+                return
+
             if ftype == "s":
                 if code == "!":
-                    if value == "001":
-                        state["power"] = "on"; ack(True)
-                    elif value == "000":
-                        state["power"] = "standby"; ack(True)
+                    if value in ("000", "001"):
+                        state["power"] = "on" if value == "001" else "standby"
+                        ack(True)
                     else:
                         ack(False)
-                elif not on:
-                    ack(False)
                 elif code == '"':
                     if value == "00Z":
                         cur = state.get("source")
-                        nxt = CYCLE[(CYCLE.index(cur) + 1) % len(CYCLE)] if cur in CYCLE else CYCLE[0]
-                        state["source"] = nxt; ack(True)
-                    elif value in INPUTS:
-                        state["source"] = INPUTS[value]; ack(True)
+                        nxt = HAS[(HAS.index(cur) + 1) % len(HAS)] if cur in HAS else HAS[0]
+                        state["source"] = nxt
+                        ack(True)
+                    elif INPUTS.get(value) in HAS:
+                        if INPUTS[value] == "android":
+                            state["signal_detected"] = True
+                        state["source"] = INPUTS[value]
+                        ack(True)
                     else:
                         ack(False)
                 elif code in ("$", "5") and value in ("900", "901"):
                     key = "brightness" if code == "$" else "volume"
-                    state[key] = max(0, min(100, int(state.get(key, 0)) + (1 if value == "901" else -1)))
+                    if key == "brightness" and state.get("source") == "android":
+                        ack(False)
+                        return
+                    step = 1 if value == "901" else -1
+                    state[key] = max(0, min(100, int(state.get(key, 0)) + step))
                     ack(True)
-                elif code in NUM_SET or code in (".", "/", "0"):
-                    if value.isdigit() and 0 <= int(value) <= 100:
-                        if code in NUM_SET:
-                            state[NUM_SET[code]] = int(value)
+                elif code in NUM_SET:
+                    if code in ANDROID_REFUSES and state.get("source") == "android":
+                        ack(False)
+                    elif level(value):
+                        state[NUM_SET[code]] = int(value)
                         ack(True)
                     else:
                         ack(False)
+                elif code in (".", "/", "0"):
+                    ack(level(value))
                 elif code in BOOL_SET:
                     if value in ("000", "001"):
-                        state[BOOL_SET[code]] = value == "001"; ack(True)
+                        state[BOOL_SET[code]] = value == "001"
+                        ack(True)
                     else:
                         ack(False)
                 elif code in LOCK_SET:
                     if value in ("000", "001"):
-                        state[LOCK_SET[code]] = "locked" if value == "001" else "unlocked"; ack(True)
+                        state[LOCK_SET[code]] = "locked" if value == "001" else "unlocked"
+                        ack(True)
                     else:
                         ack(False)
                 elif code == "B":
                     if value in RCU:
-                        state["remote_control_mode"] = RCU[value]; ack(True)
-                    else:
-                        ack(False)
-                elif code == "9":
-                    if value in PIP:
-                        state["pip_mode"] = PIP[value]; ack(True)
-                    else:
-                        ack(False)
-                elif code == "7":
-                    if value in INPUTS:
-                        state["pip_input"] = INPUTS[value]; ack(True)
+                        state["remote_control_mode"] = RCU[value]
+                        ack(True)
                     else:
                         ack(False)
                 elif code == "=":
                     fid = value[1:3] if len(value) == 3 else ""
                     if fid in FUNC and value[0] in ("0", "1"):
-                        state[FUNC[fid]] = value[0] == "1"; ack(True)
+                        state[FUNC[fid]] = value[0] == "1"
+                        ack(True)
                     else:
                         ack(False)
                 elif code == "R":
                     if len(value) == 3 and value[0] == "0" and value[1] in "123456789" and value[2] in "123456789":
-                        state["tiling_layout"] = value[1] + "x" + value[2]; ack(True)
+                        state["tiling_layout"] = value[1] + "x" + value[2]
+                        ack(True)
                     else:
                         ack(False)
                 elif code == "S":
                     if value.isdigit() and 1 <= int(value) <= 25:
-                        state["tiling_position"] = int(value); ack(True)
+                        state["tiling_position"] = int(value)
+                        ack(True)
                     else:
                         ack(False)
-                elif code == "A":
-                    ack(value in ["00" + str(i) for i in range(8)])
-                elif code == "@":
-                    ack(value.isdigit() and 0 <= int(value) <= 9)
-                elif code == "X":
-                    ack(value.isdigit() and 1 <= int(value) <= 999)
                 elif code in ACK_ONLY:
                     ack(value.isdigit() and int(value) < ACK_ONLY[code])
+                elif code in CLOCK:
+                    span = CLOCK[code].get(value[:1])
+                    num = value[1:]
+                    ack(span is not None and num.isdigit() and span[0] <= int(num) <= span[1])
                 elif code == "~":
                     ack(value == "000")
                 else:
+                    # surround, PIP, the hot keys and unknown codes
                     ack(False)
-            elif ftype == "A" and code == "B":
-                if on and value.isdigit() and 0 <= int(value) <= 100:
-                    state["backlight"] = int(value); ack(True)
+                return
+
+            # ftype == "g"
+            if code == "z":
+                reply("z", "000")
+            elif code == "l":
+                reply("l", "001" if state.get("power") == "on" else "000")
+            elif code == "j":
+                reply("j", ("1" if state.get("signal_detected") else "0") + CODES.get(state.get("source"), "004")[1:])
+            elif code == "c" and state.get("source") == "android":
+                ack(False)
+            elif code in NUM_GET:
+                reply(code, format(int(state.get(NUM_GET[code], 0)), "03d"))
+            elif code in BOOL_GET:
+                reply(code, "001" if state.get(BOOL_GET[code]) else "000")
+            elif code in LOCK_GET:
+                reply(code, "001" if state.get(LOCK_GET[code]) == "locked" else "000")
+            elif code == "n":
+                reply("n", inv(RCU, state.get("remote_control_mode")) or "001")
+            elif code == "x":
+                lay = str(state.get("tiling_layout", "1x1"))
+                reply("x", "0" + lay[0] + lay[-1])
+            elif code == "y":
+                reply("y", format(int(state.get("tiling_position", 1)), "03d"))
+            elif code == "=":
+                fid = value[1:3] if len(value) == 3 else ""
+                if fid in FUNC:
+                    reply("=", ("1" if state.get(FUNC[fid]) else "0") + fid)
                 else:
                     ack(False)
-            elif ftype == "a" and code == "B":
-                if on:
-                    reply("B", format(int(state.get("backlight", 0)), "03d"))
-                else:
-                    ack(False)
-            elif ftype == "g":
-                if code == "z":
-                    reply("z", "000")
-                elif code == "l":
-                    reply("l", "001" if on else "000")
-                elif not on:
-                    ack(False)
-                elif code == "j":
-                    reply("j", ("1" if state.get("signal_detected") else "0") + CODES.get(state.get("source"), "004")[1:])
-                elif code in NUM_GET:
-                    reply(code, format(int(state.get(NUM_GET[code], 0)), "03d"))
-                elif code in BOOL_GET:
-                    reply(code, "001" if state.get(BOOL_GET[code]) else "000")
-                elif code in LOCK_GET:
-                    reply(code, "001" if state.get(LOCK_GET[code]) == "locked" else "000")
-                elif code == "n":
-                    reply("n", inv(RCU, state.get("remote_control_mode")) or "001")
-                elif code == "t":
-                    reply("t", inv(PIP, state.get("pip_mode")) or "000")
-                elif code == "u":
-                    reply("u", CODES.get(state.get("pip_input"), "004"))
-                elif code == "x":
-                    lay = str(state.get("tiling_layout", "1x1"))
-                    reply("x", "0" + lay[0] + lay[-1])
-                elif code == "y":
-                    reply("y", format(int(state.get("tiling_position", 0)), "03d") if state.get("tiling_mode") else "000")
-                elif code == "=":
-                    fid = value[1:3] if len(value) == 3 else ""
-                    if fid in FUNC:
-                        reply("=", ("1" if state.get(FUNC[fid]) else "0") + fid)
+            elif code in CLOCK_NOW and value[:1] in CLOCK_NOW[code]:
+                reply(code, value[:1] + CLOCK_NOW[code][value[:1]])
+            elif code == "0":
+                t = int(state.get("thermal_c", 0))
+                reply("0", format(t, "03d") if t >= 0 else "-" + format(abs(t), "02d"))
+            elif code == "1":
+                reply32("1", format(int(state.get("operation_hours", 0)), "06d"))
+            elif code == "4":
+                reply32("4", state.get("device_name", ""))
+            elif code == "5":
+                reply32("5", str(state.get("mac_address", "")).replace(":", "").lower())
+            elif code == "6":
+                reply32("6", state.get("ip_address", ""))
+            elif code == "7":
+                reply32("7", state.get("serial_number", ""))
+            elif code == "8":
+                reply32("8", state.get("firmware_version", ""))
+            elif code == ":":
+                hub = bool(config.get("ambient_sensors"))
+                if value == "000":
+                    if hub:
+                        reply32(":", "".join(hub_field(f) for f in "ABCD"))
                     else:
-                        ack(False)
-                elif code == "0":
-                    t = int(state.get("thermal_c", 0))
-                    reply("0", format(t, "03d") if t >= 0 else "-" + format(abs(t), "02d"))
-                elif code == "1":
-                    reply32("1", format(int(state.get("operation_hours", 0)), "06d"))
-                elif code == "4":
-                    reply32("4", state.get("device_name", ""))
-                elif code == "5":
-                    reply32("5", str(state.get("mac_address", "")).replace(":", "").lower())
-                elif code == "6":
-                    reply32("6", state.get("ip_address", ""))
-                elif code == "7":
-                    reply32("7", state.get("serial_number", ""))
-                elif code == "8":
-                    reply32("8", state.get("firmware_version", ""))
-                elif code == ":":
-                    fields = {
-                        "00A": "A" + format(float(state.get("amb_temperature_c", 0)), "05.1f"),
-                        "00B": "B" + format(float(state.get("amb_humidity", 0)), "05.1f"),
-                        "00C": "C" + format(int(state.get("amb_light", 0)), "05d"),
-                        "00D": "D" + ("00001" if state.get("amb_presence") else "00000"),
-                    }
-                    if value == "000":
-                        reply32(":", "".join(fields.values()))
-                    elif value in fields:
-                        reply32(":", fields[value])
-                    else:
-                        ack(False)
+                        reply32(":", "A28.2B000.0C-1D00000")
+                elif value in ("00A", "00B", "00C", "00D"):
+                    reply32(":", hub_field(value[2]) if hub else "none")
                 else:
                     ack(False)
             else:
+                # PIP mode / input and unknown codes
                 ack(False)
+
+        _run()
   error_modes:
     communication_timeout:
       description: Display stops answering

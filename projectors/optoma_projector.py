@@ -311,7 +311,7 @@ class OptomaProjectorDriver(BaseDriver):
         "name": "Optoma Projector",
         "manufacturer": "Optoma",
         "category": "projector",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "author": "OpenAVC",
         "description": (
             "Controls Optoma projectors over Optoma's RS232/LAN command "
@@ -962,15 +962,21 @@ class OptomaProjectorDriver(BaseDriver):
                 self._apply_read((cmd, value), reply)
 
     async def poll(self) -> None:
+        # A read this projector does not support answers F, so no answer at
+        # all means it is not answering: the cycle stops there rather than
+        # waiting out every remaining read (5 s each, ten while on), and the
+        # platform counts the poll as one that drew no reply.
         for cmd, value in _POLL_ALWAYS:
             reply = await self._request(cmd, value)
-            if reply is not None:
-                self._apply_read((cmd, value), reply)
+            if reply is None:
+                return
+            self._apply_read((cmd, value), reply)
         if self.get_state("power_state") == "on":
             for cmd, value in _POLL_WHEN_ON:
                 reply = await self._request(cmd, value)
-                if reply is not None:
-                    self._apply_read((cmd, value), reply)
+                if reply is None:
+                    return
+                self._apply_read((cmd, value), reply)
 
     # ── Commands ─────────────────────────────────────────────────────────────
 

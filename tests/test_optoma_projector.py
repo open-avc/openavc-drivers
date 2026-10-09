@@ -199,7 +199,7 @@ def pair():
 
 def test_metadata_shape():
     info = DRV.OptomaProjectorDriver.DRIVER_INFO
-    assert info["version"] == "1.0.1"
+    assert info["version"] == "1.0.2"
     assert info["min_platform_version"] == "0.25.0"
     assert info["ports"] == [23]
     assert info["transports"] == ["tcp", "serial"]
@@ -535,3 +535,29 @@ def test_probe_expect_matches_sim_reply(pair):
     sim_old = SIM.OptomaProjectorSimulator("sim2", {"ok_casing": "OK"})
     reply_old = sim_old.handle_command(probe["send_ascii"].encode("ascii"))
     assert re.search(probe["expect_regex"], reply_old.decode("ascii"))
+
+
+def _quick(driver, name):
+    """Shorten one request helper's reply wait to 50 ms for a silent unit."""
+    real = getattr(driver, name)
+
+    async def quick(*args, **kwargs):
+        kwargs["timeout"] = 0.05
+        return await real(*args, **kwargs)
+
+    setattr(driver, name, quick)
+
+
+def test_a_poll_stops_at_the_first_read_nothing_answers():
+    # An unsupported read answers F, so silence means the projector is not
+    # answering: the poll once waited out every read (5 s each, ten while
+    # on) and held the link from the commands behind it.
+    async def go():
+        driver, sim = _make_pair()
+        driver.set_state("power_state", "on")
+        _quick(driver, "_request")
+        driver.transport.silent = True
+        await driver.poll()
+        assert len(driver.transport.sent) == 1
+
+    _run(go())

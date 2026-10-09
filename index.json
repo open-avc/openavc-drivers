@@ -5465,7 +5465,7 @@
       "name": "Optoma Projector",
       "manufacturer": "Optoma",
       "category": "projector",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Optoma projectors over Optoma's RS232/LAN command protocol (Telnet port 23 or direct RS-232). Power, input select, A/V mute, shutter, audio, display modes, aspect, brightness/contrast, keystone, motorized lens with lens memories, remote-key navigation, light-source hours, and live fault notifications. Covers the ZU/ZK installation and large-venue laser series and other Optoma models sharing the published command table \u2014 the full brand feature set beyond what generic PJLink offers.",
@@ -5473,7 +5473,7 @@
       "file": "projectors/optoma_projector.py",
       "format": "python",
       "files": {
-        "projectors/optoma_projector.py": "2ea3e6e7df17dedf480ff1553f14937de1bdf23250335149059b6dc6cf4a0b3a",
+        "projectors/optoma_projector.py": "9c93eef6a98af4c3eee73e61375f9e07ea02db8d3dd872787b25b94365319e1a",
         "projectors/optoma_projector_sim.py": "d5329a4dfe13ada3d5675f593a677626944e85fc31b0b0eb363a0da897ad8cbd"
       },
       "ports": [

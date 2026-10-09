@@ -334,7 +334,7 @@ def test_parse_frame_multiple_and_garbage():
 
 def test_version_and_platform_floor():
     info = DRV.LGSICPDriver.DRIVER_INFO
-    assert info["version"] == "2.0.5"
+    assert info["version"] == "2.0.6"
     # Child entities + child-prop cloud tiers are the hard runtime need.
     # The 0.25.0 floor is the package move: this file imports openavc.*.
     assert info["min_platform_version"] == "0.25.0"
@@ -800,6 +800,31 @@ def test_standby_skips_full_surface():
             sim.set_state("power", "on")
             await driver.poll()
             assert driver.get_child_state("display", 1)["brightness"] == 90
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_silence_is_expected_only_while_every_display_is_off():
+    # The manual promises a power reply only from a display that is fully
+    # on, so the platform's silence check must not count a quiet chain while
+    # every display reads off; one display on and it counts again.
+    async def go():
+        driver, sim = await _make_pair(
+            sim_config={"set_ids": "1,2"},
+            driver_overrides={"display_ids": "1,2"},
+        )
+        await driver.connect()
+        try:
+            await driver.poll()
+            assert driver.get_child_state("display", 1)["power"] == "off"
+            assert driver.get_child_state("display", 2)["power"] == "off"
+            assert driver._silence_expected() is True
+            await driver.send_command("power_on", {"display": 2})
+            await driver.poll()
+            assert driver.get_child_state("display", 2)["power"] == "on"
+            assert driver._silence_expected() is False
         finally:
             await driver.disconnect()
 

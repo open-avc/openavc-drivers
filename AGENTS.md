@@ -113,7 +113,7 @@ The runtime decides "is this device actually online?" differently per transport.
 
 | Transport | How `connected` becomes `False` |
 |-----------|----------------------------------|
-| `tcp` | Socket open fails or the connection drops. From OpenAVC 0.37.0, also when three polls in a row draw no reply at all, for a driver that polls, reads replies (YAML: any `responses` rule; Python: overrides `on_data_received` on the platform transport) and has no liveness probe; the reconnects then keep it offline until it answers a poll. A socket that opens proves only that something listens on the port. |
+| `tcp` | Socket open fails or the connection drops. From OpenAVC 0.37.0, also when three polls in a row draw no reply at all, for a driver that polls, reads replies (YAML: any `responses` rule; Python: overrides `on_data_received` on the platform transport) and has no liveness probe; the reconnects then keep it offline until it answers a poll (it still takes commands meanwhile). A Python driver whose device may answer nothing in a state it can see (a display it knows is off) returns `True` from `_silence_expected()` while in that state. A socket that opens proves only that something listens on the port. |
 | `serial` | The OS rejects the port open. |
 | `http` | Pre-connect `verify()` HEAD probe; periodic poll on `poll_interval`. |
 | `osc` | Pre-connect `verify()` probe (send + listen). After that, from OpenAVC 0.37.0, three polls in a row with no reply on any of its sockets, for a polled driver that reads replies and has no liveness probe; on earlier releases a fire-and-forget OSC poll never notices a console that went away, so keep a `liveness:` block (or an awaited Python poll that raises). |

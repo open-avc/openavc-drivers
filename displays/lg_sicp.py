@@ -54,7 +54,10 @@ after it comes back on.
 Liveness: not armed here — a dropped TCP socket surfaces offline via the
 transport, matching the samsung_mdc decision. Arming the platform
 ``_liveness_probe`` hook (a ka FF probe) is queued for the batch
-liveness-arming pass.
+liveness-arming pass. The platform takes a connection offline when its
+polls draw no reply at all; ``_silence_expected`` keeps that from
+happening while every display reads off, since the manual does not say a
+display in standby answers the power query.
 """
 
 from __future__ import annotations
@@ -281,7 +284,7 @@ class LGSICPDriver(BaseDriver):
         "name": "LG SICP Display",
         "manufacturer": "LG",
         "category": "display",
-        "version": "2.0.5",
+        "version": "2.0.6",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
@@ -1062,3 +1065,17 @@ class LGSICPDriver(BaseDriver):
                     await self._send_to(cmd, set_id, "FF")
         except ConnectionError:
             log.warning(f"[{self.device_id}] Poll failed — not connected")
+
+    def _silence_expected(self) -> bool:
+        """No reply is a fault only while some display reads "on".
+
+        With every display off the poll sends only the power query, and the
+        manual promises its reply only "when the monitor is fully powered
+        on" (Power, k a). Whether a display in standby answers it at all is
+        not documented, so a quiet chain then is not taken as a dead link:
+        OpenAVC keeps it online, as it did before it watched for silence.
+        """
+        return all(
+            self.get_child_state("display", set_id).get("power") != "on"
+            for set_id in self.list_children("display")
+        )

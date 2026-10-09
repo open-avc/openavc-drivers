@@ -140,7 +140,7 @@ class PanasonicPTDriver(BaseDriver):
         "name": "Panasonic PT-MZ / PT-RZ Projector",
         "manufacturer": "Panasonic",
         "category": "projector",
-        "version": "1.4.3",
+        "version": "1.4.4",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -564,7 +564,12 @@ class PanasonicPTDriver(BaseDriver):
         # True once connect() has finished its initial sync; until then a
         # refusal is raised from the connect stage that met it.
         self._session_up = False
-        self._pending_queries: list[str] = []
+        # One entry per command sent, oldest first: the query's state name,
+        # or None for a control command. Protocol 2 answers every command
+        # once (a control's echo, a query's bare value, or an error token)
+        # and a query's answer does not say which query it was, so each
+        # response pops exactly one entry.
+        self._pending: list[str | None] = []
         super().__init__(device_id, config, state, events)
 
     # ── Lifecycle ──
@@ -579,7 +584,7 @@ class PanasonicPTDriver(BaseDriver):
         self._auth_failed = False
         self._greeting_error = ""
         self._session_up = False
-        self._pending_queries.clear()
+        self._pending.clear()
 
     async def _post_connect(self) -> None:
         host = self.config.get("host", "")
@@ -651,14 +656,15 @@ class PanasonicPTDriver(BaseDriver):
         self._auth_failed = False
         self._greeting_error = ""
         self._session_up = False
-        self._pending_queries.clear()
+        self._pending.clear()
 
     # ── Sending ──
 
-    async def _send_ntcontrol(self, body: str) -> None:
+    async def _send_ntcontrol(self, body: str, name: str | None = None) -> None:
         """Send a NTCONTROL command body. The session auth prefix (if
         any), the literal ``00`` framing pair, and the trailing CR are
-        added automatically.
+        added automatically. ``name`` is the state a query's answer feeds;
+        a control command queues None, so its echo pops its own entry.
         """
         if self._auth_failed:
             # The projector refused this session's hash; send nothing more
@@ -667,14 +673,14 @@ class PanasonicPTDriver(BaseDriver):
         if not self.transport or not self.transport.connected:
             raise ConnectionError(f"[{self.device_id}] Not connected")
         line = f"{self._auth_prefix}00{body}\r".encode("ascii")
+        self._pending.append(name)
         await self.transport.send(line)
 
     async def _send_query(self, body: str, name: str) -> None:
-        # NTCONTROL responses come back in order without echoing the
-        # query, so we queue ``name`` and pop it when a response
-        # arrives. Same trick the Sony VPL driver uses.
-        self._pending_queries.append(name)
-        await self._send_ntcontrol(body)
+        # A query's answer is its bare value ("it is not known what the
+        # sent command was", LAN Control Protocol 4.3), so it is matched
+        # to the query by order.
+        await self._send_ntcontrol(body, name)
 
     async def send_command(
         self, command: str, params: dict[str, Any] | None = None
@@ -738,9 +744,8 @@ class PanasonicPTDriver(BaseDriver):
 
         if followup is not None:
             body, name = followup
-            # Brief pause so the setter's ack arrives before we issue
-            # the follow-up query — keeps responses paired correctly.
-            await asyncio.sleep(0.05)
+            # The setter's echo pops its own entry, so the read-back can
+            # go straight after it.
             await self._send_query(body, name)
 
     # ── Device settings ──
@@ -795,9 +800,12 @@ class PanasonicPTDriver(BaseDriver):
             # dropped the connection, typed (or _initial_sync raises it).
             return
         except ConnectionError:
+            # Let it out: the platform counts a poll that fails toward
+            # taking the device offline.
             log.warning(
                 f"[{self.device_id}] Poll failed: not connected"
             )
+            raise
 
     # ── Receiving ──
 
@@ -874,11 +882,7 @@ class PanasonicPTDriver(BaseDriver):
         # responses. The error itself is usually benign (ERR3 during
         # cooldown / warmup, ERR2 for an unsupported input on this
         # chassis) — only ERRA is fatal.
-        pending = (
-            self._pending_queries.pop(0)
-            if self._pending_queries
-            else None
-        )
+        pending = self._pending.pop(0) if self._pending else None
         if token == "ERRA":
             self._on_refused()
             return
@@ -926,15 +930,10 @@ class PanasonicPTDriver(BaseDriver):
             )
 
     def _dispatch_response(self, body: str) -> None:
-        pending = (
-            self._pending_queries.pop(0)
-            if self._pending_queries
-            else None
-        )
+        pending = self._pending.pop(0) if self._pending else None
 
-        # Setter acknowledgements echo the command, e.g. ``PON``,
-        # ``OSH:1``, ``IIS:HD1``. They have no pending entry because
-        # we don't queue setters — bail out quietly.
+        # A control command's echo (``PON``, ``OSH``, ``IIS``): its entry
+        # is None.
         if pending is None:
             log.debug(
                 f"[{self.device_id}] Ack: {body!r}"

@@ -51,6 +51,9 @@ SIM_PATH = REPO_ROOT / "projectors" / "panasonic_pt_sim.py"
 # ── Platform stand-ins ──────────────────────────────────────────────────────
 
 _CURRENT_SIM: object | None = None
+# When a list, replies are held here instead of delivered, until flush():
+# a projector that answers after later commands have already gone out.
+_HELD: list | None = None
 
 
 class _FakeTCPTransport:
@@ -85,8 +88,18 @@ class _FakeTCPTransport:
         if not self.connected:
             raise ConnectionError("transport closed")
         resp = self._sim.handle_command(bytes(data))
+        if _HELD is not None:
+            _HELD.append(resp)
+            return
         if resp:
             await self.on_data(resp)
+
+    async def flush(self) -> None:
+        global _HELD
+        held, _HELD = _HELD or [], None
+        for resp in held:
+            if resp:
+                await self.on_data(resp)
 
     async def close(self):
         self.connected = False
@@ -312,7 +325,8 @@ SIM = _load("panasonic_pt_sim_under_test", SIM_PATH)
 # ── Pairing harness ─────────────────────────────────────────────────────────
 
 async def _make_pair(driver_overrides=None, sim_password="", power="on"):
-    global _CURRENT_SIM
+    global _CURRENT_SIM, _HELD
+    _HELD = None
     sim = SIM.PanasonicPtSimulator("sim1", {"password": sim_password})
     sim.set_state("power", power)
     _CURRENT_SIM = sim
@@ -327,7 +341,7 @@ async def _make_pair(driver_overrides=None, sim_password="", power="on"):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.PanasonicPTDriver.DRIVER_INFO["version"] == "1.4.3"
+    assert DRV.PanasonicPTDriver.DRIVER_INFO["version"] == "1.4.4"
     assert DRV.PanasonicPTDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
 
 
@@ -678,5 +692,55 @@ def test_setup_wizard_non_protected():
         driver, result = await _run_wizard("admin1", "", "admin1", "", save=False)
         assert result["auth_enabled"] is False
         assert result["auth_ok"] is True
+
+    asyncio.run(go())
+
+
+# ── Responses: one per command, matched by order ────────────────────────────
+#
+# Protocol 2 answers a control command with its echo and a query with its
+# bare value, which "it is not known what the sent command was" (LAN Control
+# Protocol 4.3). The driver once queued only its queries, so a control's
+# echo arriving while queries waited popped a query's slot and every later
+# value landed on the wrong state.
+
+def test_a_control_echo_does_not_shift_the_values_after_it(monkeypatch):
+    monkeypatch.setattr(DRV, "_VERDICT_TIMEOUT_S", 0.01)
+
+    async def go():
+        global _HELD
+        driver, sim = await _make_pair()
+        sim.set_state("brightness", 40)
+        sim.set_state("contrast", 21)
+        await driver.connect()
+        try:
+            _HELD = []
+            await driver.send_command("mute_video")
+            await driver.poll()
+            await driver.transport.flush()
+            assert driver.get_state("mute_video") is True
+            assert driver.get_state("power") == "on"
+            assert driver.get_state("brightness") == 40
+            assert driver.get_state("contrast") == 21
+            assert driver._pending == []
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_a_send_that_fails_mid_poll_reaches_the_watchdog():
+    async def go():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            async def dead(data) -> None:
+                raise ConnectionError("transport closed")
+
+            driver.transport.send = dead
+            with pytest.raises(ConnectionError):
+                await driver.poll()
+        finally:
+            await driver.disconnect()
 
     asyncio.run(go())

@@ -60,7 +60,7 @@ id: lightware_lw3
 name: Lightware LW3
 manufacturer: Lightware
 category: switcher
-version: 1.6.2
+version: 1.6.3
 author: OpenAVC
 min_platform_version: "0.36.0"
 description: >
@@ -193,7 +193,7 @@ config_schema:
     default: 60
     min: 0
     label: Poll Interval (sec)
-    description: "Changes arrive as they happen; the poll reads everything again as a backstop. Set to 0 to disable polling."
+    description: "How often every value is read again. Changes show as they happen either way. Set to 0 to disable polling."
 
 state_variables:
   device_label:

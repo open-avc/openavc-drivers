@@ -220,7 +220,7 @@ async def _make_pair(sim_state=None, driver_overrides=None):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.PTZOpticsDriver.DRIVER_INFO["version"] == "1.3.3"
+    assert DRV.PTZOpticsDriver.DRIVER_INFO["version"] == "1.3.4"
 
 
 def test_device_settings_declared():
@@ -388,6 +388,81 @@ def test_unknown_device_setting_raises():
         try:
             with pytest.raises(ValueError):
                 await driver.set_device_setting("nonsense", 1)
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+
+# ── Power first; a camera in standby or not answering is asked nothing more ──
+#
+# PTZOptics documents CAM_PowerInq 81 09 04 00 FF answered y0 50 02 FF (On)
+# and y0 50 03 FF (Off/Standby). The poll never asked it, so it had no power
+# state, and a camera in standby met ten inquiries nobody documents an
+# answer to.
+
+POWER_INQ = b"\x81\x09\x04\x00\xff"
+
+
+def _recorded(sim):
+    seen: list[bytes] = []
+    inner = sim.handle_command
+
+    def recording(data):
+        seen.append(bytes(data))
+        return inner(data)
+
+    sim.handle_command = recording
+    return seen
+
+
+def test_the_poll_leads_with_the_power_inquiry():
+    async def go():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            seen = _recorded(sim)
+            await driver.poll()
+            assert seen[0] == POWER_INQ
+            assert driver.get_state("power") == "on"
+            assert len(seen) == 11
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_a_camera_in_standby_is_asked_only_its_power():
+    async def go():
+        driver, sim = await _make_pair(sim_state={"power": False})
+        await driver.connect()
+        try:
+            seen = _recorded(sim)
+            await driver.poll()
+            assert seen == [POWER_INQ]
+            assert driver.get_state("power") == "standby"
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_a_silent_camera_is_asked_once_per_poll():
+    async def go():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            seen = _recorded(sim)
+            sim.handle_command = lambda data: seen.append(bytes(data))
+            real = driver._inquire
+
+            async def quick(payload, timeout=1.5):
+                return await real(payload, timeout=0.05)
+
+            driver._inquire = quick
+            await driver.poll()
+            assert seen == [POWER_INQ]
         finally:
             await driver.disconnect()
 

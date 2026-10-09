@@ -489,16 +489,16 @@
       "name": "PTZOptics Camera",
       "manufacturer": "PTZOptics",
       "category": "camera",
-      "version": "1.3.3",
+      "version": "1.3.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls PTZOptics PTZ cameras over the VISCA-over-IP protocol on TCP port 5678. Pan, tilt, zoom, focus, preset recall / save / reset, tally light, image flip, auto-exposure mode, white balance mode, and backlight. Polled state covers pan / tilt / zoom / focus position, focus mode, AE mode, WB mode, backlight, and flip settings.",
-      "source_url": "https://ptzoptics.com/wp-content/uploads/2020/11/PTZOptics-VISCA-over-IP-Rev-1_2-8-20.pdf",
+      "source_url": "https://docs.ptzoptics.com/dev/visca-api",
       "file": "cameras/ptzoptics.py",
       "format": "python",
       "files": {
-        "cameras/ptzoptics.py": "f28c6248514db2a5b15268f721ef2b28461fcc5c5d55ed0bd7867d176dab9f14",
-        "cameras/ptzoptics_sim.py": "b5e34e295da3ba8412881ad1629264ff9dde4a28a5dee0529bfde43ad1adff03"
+        "cameras/ptzoptics.py": "3bd0ee013f8cd5db389abf2953c325a32ac2dd6649a36a7d887e439ba7b590c3",
+        "cameras/ptzoptics_sim.py": "a9e425a40faa55479fbab3499dd45318560ce505fde288e67dadf6640bb12577"
       },
       "ports": [
         5678

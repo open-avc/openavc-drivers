@@ -18,7 +18,10 @@ themselves are fire-and-forget — we don't wait for ACK / Completion
 because the camera processes movement in <100 ms and the driver should
 not block joystick-rate inputs.
 
-Source: https://ptzoptics.com/wp-content/uploads/2020/11/PTZOptics-VISCA-over-IP-Rev-1_2-8-20.pdf
+Source: https://docs.ptzoptics.com/dev/visca-api
+(PTZOptics' VISCA reference; the Rev 1.2 PDF this driver was first built
+from, ptzoptics.com/wp-content/uploads/2020/11/PTZOptics-VISCA-over-IP-Rev-1_2-8-20.pdf,
+is no longer served.)
 """
 
 from __future__ import annotations
@@ -101,6 +104,10 @@ def _decode_4nibble(data: bytes, signed: bool = False) -> int:
     return val
 
 
+class _NoReply(Exception):
+    """An inquiry the camera did not answer; ends the poll cycle."""
+
+
 class PTZOpticsDriver(BaseDriver):
     """PTZOptics camera driver via raw VISCA-over-IP (TCP 5678)."""
 
@@ -109,7 +116,7 @@ class PTZOpticsDriver(BaseDriver):
         "name": "PTZOptics Camera",
         "manufacturer": "PTZOptics",
         "category": "camera",
-        "version": "1.3.3",
+        "version": "1.3.4",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         # confirm on the commands that erase, delete or reset needs 0.36.0.
@@ -123,10 +130,7 @@ class PTZOpticsDriver(BaseDriver):
             "focus mode, AE mode, WB mode, backlight, and flip "
             "settings."
         ),
-        "source_url": (
-            "https://ptzoptics.com/wp-content/uploads/2020/11/"
-            "PTZOptics-VISCA-over-IP-Rev-1_2-8-20.pdf"
-        ),
+        "source_url": "https://docs.ptzoptics.com/dev/visca-api",
         "tags": ["ptz", "camera", "visca", "ndi", "sdi"],
         "verified": False,
         "simulated": True,
@@ -256,6 +260,11 @@ class PTZOpticsDriver(BaseDriver):
             },
         },
         "state_variables": {
+            "power": {
+                "type": "enum",
+                "values": ["on", "standby"],
+                "label": "Power",
+            },
             "pan_position": {
                 "type": "integer",
                 "label": "Pan Position",
@@ -1027,62 +1036,84 @@ class PTZOpticsDriver(BaseDriver):
         if not self.transport or not self.transport.connected:
             return
 
-        # Pan/Tilt position — `81 09 06 12 FF` → `90 50 0w 0w 0w 0w 0z 0z 0z 0z FF`
-        reply = await self._inquire(b"\x81\x09\x06\x12\xff")
-        if reply and len(reply) == 10:
-            self.set_state("pan_position", _decode_4nibble(reply[2:6], signed=True))
-            self.set_state("tilt_position", _decode_4nibble(reply[6:10], signed=True))
+        # Power first: PTZOptics documents it answered in standby too
+        # (CAM_PowerInq, y0 50 02 FF On / y0 50 03 FF Off(Standby)), which no
+        # other inquiry here is, so a camera in standby still answers a poll.
+        # The rest is asked only while it reads on, and a poll stops at the
+        # first inquiry nothing answers instead of waiting out each one.
+        reply = await self._inquire(b"\x81\x09\x04\x00\xff")
+        if reply is None:
+            return
+        if len(reply) == 3 and reply[2] in (0x02, 0x03):
+            self.set_state("power", "on" if reply[2] == 0x02 else "standby")
+        if self.get_state("power") == "standby":
+            return
 
-        # Zoom — `81 09 04 47 FF` → `90 50 0p 0q 0r 0s FF`
-        reply = await self._inquire(b"\x81\x09\x04\x47\xff")
-        if reply and len(reply) == 6:
-            self.set_state("zoom_position", _decode_4nibble(reply[2:6]))
+        async def ask(payload: bytes) -> bytes:
+            reply = await self._inquire(payload)
+            if reply is None:
+                raise _NoReply
+            return reply
 
-        # Focus position — `81 09 04 48 FF`
-        reply = await self._inquire(b"\x81\x09\x04\x48\xff")
-        if reply and len(reply) == 6:
-            self.set_state("focus_position", _decode_4nibble(reply[2:6]))
+        try:
+            # Pan/Tilt position — `81 09 06 12 FF` → `90 50 0w 0w 0w 0w 0z 0z 0z 0z FF`
+            reply = await ask(b"\x81\x09\x06\x12\xff")
+            if reply and len(reply) == 10:
+                self.set_state("pan_position", _decode_4nibble(reply[2:6], signed=True))
+                self.set_state("tilt_position", _decode_4nibble(reply[6:10], signed=True))
 
-        # Focus mode — `81 09 04 38 FF` → `90 50 02|03 FF`
-        reply = await self._inquire(b"\x81\x09\x04\x38\xff")
-        if reply and len(reply) == 3:
-            self.set_state("focus_mode", "auto" if reply[2] == 0x02 else "manual")
+            # Zoom — `81 09 04 47 FF` → `90 50 0p 0q 0r 0s FF`
+            reply = await ask(b"\x81\x09\x04\x47\xff")
+            if reply and len(reply) == 6:
+                self.set_state("zoom_position", _decode_4nibble(reply[2:6]))
 
-        # AE mode — `81 09 04 39 FF`
-        reply = await self._inquire(b"\x81\x09\x04\x39\xff")
-        if reply and len(reply) == 3:
-            mode = _BYTE_TO_AE_MODE.get(reply[2])
-            if mode:
-                self.set_state("ae_mode", mode)
+            # Focus position — `81 09 04 48 FF`
+            reply = await ask(b"\x81\x09\x04\x48\xff")
+            if reply and len(reply) == 6:
+                self.set_state("focus_position", _decode_4nibble(reply[2:6]))
 
-        # WB mode — `81 09 04 35 FF`
-        reply = await self._inquire(b"\x81\x09\x04\x35\xff")
-        if reply and len(reply) == 3:
-            mode = _BYTE_TO_WB_MODE.get(reply[2])
-            if mode:
-                self.set_state("wb_mode", mode)
+            # Focus mode — `81 09 04 38 FF` → `90 50 02|03 FF`
+            reply = await ask(b"\x81\x09\x04\x38\xff")
+            if reply and len(reply) == 3:
+                self.set_state("focus_mode", "auto" if reply[2] == 0x02 else "manual")
 
-        # Backlight — `81 09 04 33 FF`
-        reply = await self._inquire(b"\x81\x09\x04\x33\xff")
-        if reply and len(reply) == 3:
-            self.set_state("backlight", reply[2] == 0x02)
+            # AE mode — `81 09 04 39 FF`
+            reply = await ask(b"\x81\x09\x04\x39\xff")
+            if reply and len(reply) == 3:
+                mode = _BYTE_TO_AE_MODE.get(reply[2])
+                if mode:
+                    self.set_state("ae_mode", mode)
 
-        # Flip — `81 09 04 A4 FF`
-        reply = await self._inquire(b"\x81\x09\x04\xa4\xff")
-        if reply and len(reply) == 3:
-            mode = _BYTE_TO_FLIP.get(reply[2])
-            if mode:
-                self.set_state("flip", mode)
+            # WB mode — `81 09 04 35 FF`
+            reply = await ask(b"\x81\x09\x04\x35\xff")
+            if reply and len(reply) == 3:
+                mode = _BYTE_TO_WB_MODE.get(reply[2])
+                if mode:
+                    self.set_state("wb_mode", mode)
 
-        # L/R reverse — `81 09 04 61 FF`
-        reply = await self._inquire(b"\x81\x09\x04\x61\xff")
-        if reply and len(reply) == 3:
-            self.set_state("lr_reverse", reply[2] == 0x02)
+            # Backlight — `81 09 04 33 FF`
+            reply = await ask(b"\x81\x09\x04\x33\xff")
+            if reply and len(reply) == 3:
+                self.set_state("backlight", reply[2] == 0x02)
 
-        # Picture flip — `81 09 04 66 FF`
-        reply = await self._inquire(b"\x81\x09\x04\x66\xff")
-        if reply and len(reply) == 3:
-            self.set_state("picture_flip", reply[2] == 0x02)
+            # Flip — `81 09 04 A4 FF`
+            reply = await ask(b"\x81\x09\x04\xa4\xff")
+            if reply and len(reply) == 3:
+                mode = _BYTE_TO_FLIP.get(reply[2])
+                if mode:
+                    self.set_state("flip", mode)
+
+            # L/R reverse — `81 09 04 61 FF`
+            reply = await ask(b"\x81\x09\x04\x61\xff")
+            if reply and len(reply) == 3:
+                self.set_state("lr_reverse", reply[2] == 0x02)
+
+            # Picture flip — `81 09 04 66 FF`
+            reply = await ask(b"\x81\x09\x04\x66\xff")
+            if reply and len(reply) == 3:
+                self.set_state("picture_flip", reply[2] == 0x02)
+        except _NoReply:
+            return
 
     # ── Helpers ──
 

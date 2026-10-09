@@ -522,6 +522,8 @@ class PTZOpticsSimulator(TCPSimulator):
         return b"\x90\x60\x02\xff"
 
     def _inquiry_cam(self, op: int) -> bytes:
+        if op == 0x00:  # power: 02 on, 03 off (standby)
+            return b"\x90\x50" + (b"\x02" if self.get_state("power", True) else b"\x03") + b"\xff"
         if op == 0x47:  # zoom position
             return b"\x90\x50" + _encode_4nibble(
                 self.get_state("zoom_position", 0)

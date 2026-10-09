@@ -435,7 +435,7 @@
       "name": "Sharp PN Display (AQUOS BOARD)",
       "manufacturer": "Sharp",
       "category": "display",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls pre-merger Sharp PN-series commercial displays and AQUOS BOARD interactive displays (PN-L, PN-E, PN-R and related series) using Sharp's 4-character RS-232C/LAN command protocol on TCP port 10008 or direct RS-232. Power, input select, volume, mute, brightness and picture values, audio EQ, screen size, PIP/PbyP, touch enable, control locks, temperature monitoring, and standby-mode configuration. Polls for status. Post-merger Sharp/NEC displays are covered by the Sharp NEC Display driver instead.",
@@ -443,7 +443,7 @@
       "file": "displays/sharp_pn_display.py",
       "format": "python",
       "files": {
-        "displays/sharp_pn_display.py": "560d1288f16ab4313857cb1f8823f48e48be386f78c60d7178ce235182aff1f7",
+        "displays/sharp_pn_display.py": "e48ada50319b52c1e84ce00ad19862c88fdf9a0a6388d61b8f65a12aee833b48",
         "displays/sharp_pn_display_sim.py": "f4da32241081323c9041c846b260b6902d96eaa5995abc2e6309dff0201982e2"
       },
       "ports": [

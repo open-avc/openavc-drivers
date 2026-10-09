@@ -207,7 +207,7 @@ class SharpPnDisplayDriver(BaseDriver):
         "name": "Sharp PN Display (AQUOS BOARD)",
         "manufacturer": "Sharp",
         "category": "display",
-        "version": "1.0.2",
+        "version": "1.0.3",
         "author": "OpenAVC",
         "description": (
             "Controls pre-merger Sharp PN-series commercial displays and "
@@ -870,10 +870,15 @@ class SharpPnDisplayDriver(BaseDriver):
     # ── Lifecycle ──────────────────────────────────────────────────────────
 
     async def poll(self) -> None:
+        # A read this display does not support answers ERR, so no answer at
+        # all means it is not answering: the cycle stops there rather than
+        # waiting out every remaining read (27 of them), and the platform
+        # counts the poll as one that drew no reply.
         for cmd in _POLL_READS:
             line = await self._request(cmd, "????")
-            if line is not None:
-                self._apply_read(cmd, line)
+            if line is None:
+                return
+            self._apply_read(cmd, line)
 
     # ── Commands ───────────────────────────────────────────────────────────
 

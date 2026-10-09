@@ -131,7 +131,7 @@
       "name": "Allen & Heath Avantis Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "2.0.3",
+      "version": "2.0.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Allen & Heath Avantis digital mixing consoles via MIDI over TCP/IP on port 51325. Every input, group, aux, matrix, FX send/return, main, DCA, mute group and UFX send/return is a child entity with live mute / fader / name / colour state \u2014 the console's own channel names become the labels in OpenAVC. Send levels, main / DCA / mute-group assigns, Scene Recall (1-500), MMC transport and UFX global key / scale, with bidirectional state from console-side moves and a Get-probe watchdog that flips the device offline if the console vanishes.",
@@ -139,7 +139,7 @@
       "file": "audio/allenheath_avantis.py",
       "format": "python",
       "files": {
-        "audio/allenheath_avantis.py": "80006e7a73e7713952b75a2011df06d9bd3c5f70172be64fca72304bbd9cca8e",
+        "audio/allenheath_avantis.py": "839b8a4b55e00d23ba51ae4b5b922d00b9509e31ffe40b2f76fc438ed5a06634",
         "audio/allenheath_avantis_sim.py": "90bd9aa9e27a343c92b72438c7d16d371a316c88c44541ea083414fd30213650"
       },
       "ports": [

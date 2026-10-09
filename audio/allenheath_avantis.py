@@ -698,6 +698,15 @@ def _build_commands() -> dict[str, dict[str, Any]]:
 
 # ── Driver ───────────────────────────────────────────────────────────────────
 
+# Gap after each Get in a full re-read (on connect, Refresh, and the
+# periodic backstop). No Allen & Heath MIDI document gives a rate the
+# console's MIDI-over-TCP input can take; this caps the re-read at 100
+# requests a second, where the whole sweep once went out as one burst
+# (16 at a time, 10 ms apart: about 1,600 a second). The Avantis's ~840 Gets take about 8 s,
+# inside the default 60 s poll interval.
+SWEEP_GAP_S = 0.01
+
+
 class AllenHeathAvantisDriver(BaseDriver):
     """Allen & Heath Avantis MIDI-over-TCP driver."""
 
@@ -713,7 +722,7 @@ class AllenHeathAvantisDriver(BaseDriver):
         "name": "Allen & Heath Avantis Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "2.0.3",
+        "version": "2.0.4",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath Avantis digital mixing consoles via "
@@ -1213,9 +1222,8 @@ class AllenHeathAvantisDriver(BaseDriver):
 
     async def _refresh_all(self) -> None:
         """Issue SysEx Get queries for every parameter the protocol can
-        read back — name and colour per channel (~840 queries). Pipelined
-        with a yield every 16 messages to keep the socket flowing on a
-        fresh connect. Mute / fader have no Get on Avantis.
+        read back — name and colour per channel (~840 queries),
+        SWEEP_GAP_S apart. Mute / fader have no Get on Avantis.
         """
         if not self.connected:
             return
@@ -1232,8 +1240,7 @@ class AllenHeathAvantisDriver(BaseDriver):
                 await self._send(q)
             except Exception:  # noqa: BLE001
                 break
-            if i % 16 == 15:
-                await asyncio.sleep(0.01)
+            await asyncio.sleep(SWEEP_GAP_S)
 
     # ── Incoming MIDI parser ────────────────────────────────────────────
 

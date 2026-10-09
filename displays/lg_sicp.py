@@ -284,7 +284,7 @@ class LGSICPDriver(BaseDriver):
         "name": "LG SICP Display",
         "manufacturer": "LG",
         "category": "display",
-        "version": "2.0.6",
+        "version": "2.0.7",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
@@ -676,9 +676,17 @@ class LGSICPDriver(BaseDriver):
         "dn", "dl",
     )
 
+    # Commands one poll sends a display that reads on: power, the hot
+    # queries, the signal query and the full surface.
+    _POLL_COMMANDS_PER_DISPLAY = 1 + len(_HOT_QUERIES) + 1 + len(_FULL_QUERIES)
+    # Room beyond one full poll for commands sent while it is answered.
+    _PENDING_HEADROOM = 64
+
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         # In-flight (command, set_id) pairs awaiting an ack, oldest first.
+        # Bounded so a chain that answers nothing cannot grow it forever;
+        # poll() widens it to hold a whole poll of the configured roster.
         self._pending: deque[tuple[str, int]] = deque(maxlen=256)
 
     # ── Roster ──
@@ -1053,9 +1061,17 @@ class LGSICPDriver(BaseDriver):
         """
         if not self.transport or not self.transport.connected:
             return
+        displays = self.list_children("display")
+        # Every command of one poll goes out before the chain has answered
+        # the first, so the correlation queue must hold them all: when it
+        # was smaller it dropped the oldest, and those displays' acks then
+        # matched nothing (from 14 displays at the fixed 256).
+        need = len(displays) * self._POLL_COMMANDS_PER_DISPLAY + self._PENDING_HEADROOM
+        if self._pending.maxlen is not None and self._pending.maxlen < need:
+            self._pending = deque(self._pending, maxlen=need)
         # A send that fails mid-cycle raises out of here, so the platform's
         # missed-poll watchdog sees the dead link.
-        for set_id in self.list_children("display"):
+        for set_id in displays:
             await self._send_to("ka", set_id, "FF")
             if self.get_child_state("display", set_id).get("power") != "on":
                 continue

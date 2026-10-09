@@ -192,6 +192,9 @@ class _FakeTCPSimulator:
 _CURRENT_SIM: object | None = None
 # When True, the transport processes the request but DROPS the reply.
 _SWALLOW = False
+# When a list, acks are held here until flush(): a chain that answers after
+# the whole poll has gone out.
+_HELD: list | None = None
 # The driver's SICP frame parser, wired after the driver module loads so the
 # fake transport delivers complete ack frames exactly as the real TCPTransport
 # does.
@@ -215,6 +218,18 @@ class _FakeTCPTransport:
         resp = self._sim.handle_command(bytes(data))
         if _SWALLOW or not resp:
             return
+        if _HELD is not None:
+            _HELD.append(resp)
+            return
+        await self._deliver(resp)
+
+    async def flush(self) -> None:
+        global _HELD
+        held, _HELD = _HELD or [], None
+        for resp in held:
+            await self._deliver(resp)
+
+    async def _deliver(self, resp) -> None:
         # Mirror the real transport: apply the driver's frame parser,
         # delivering each complete ack frame to on_data.
         buf = bytes(resp)
@@ -275,8 +290,9 @@ _parse_sicp_frame = DRV._parse_sicp_frame
 # ── Pairing harness ─────────────────────────────────────────────────────────
 
 async def _make_pair(sim_config=None, driver_overrides=None):
-    global _CURRENT_SIM, _SWALLOW
+    global _CURRENT_SIM, _SWALLOW, _HELD
     _SWALLOW = False
+    _HELD = None
     sim = SIM.LgSicpSimulator("sim1", sim_config or {"set_ids": "1"})
     _CURRENT_SIM = sim
 
@@ -334,7 +350,7 @@ def test_parse_frame_multiple_and_garbage():
 
 def test_version_and_platform_floor():
     info = DRV.LGSICPDriver.DRIVER_INFO
-    assert info["version"] == "2.0.6"
+    assert info["version"] == "2.0.7"
     # Child entities + child-prop cloud tiers are the hard runtime need.
     # The 0.25.0 floor is the package move: this file imports openavc.*.
     assert info["min_platform_version"] == "0.25.0"
@@ -1036,6 +1052,32 @@ def test_status_reflects_ui_driven_change():
             assert child["volume"] == 15
             assert child["mute"] is True
             assert child["input"] == "DisplayPort"
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_a_whole_poll_of_a_large_wall_is_matched():
+    # Sixteen displays on: 304 commands go out before the chain has
+    # answered the first. The correlation queue once held 256, so the first
+    # displays' acks matched nothing and their state never filled.
+    async def go():
+        global _HELD
+        ids = ",".join(str(n) for n in range(1, 17))
+        driver, sim = await _make_pair(
+            sim_config={"set_ids": ids}, driver_overrides={"display_ids": ids})
+        await driver.connect()
+        try:
+            for set_id in range(1, 17):
+                sim._put(set_id, "power", "on")
+                driver.set_child_state_batch("display", set_id, {"power": "on", "input": None})
+            _HELD = []
+            await driver.poll()
+            await driver.transport.flush()
+            for set_id in range(1, 17):
+                assert driver.get_child_state("display", set_id).get("input"), set_id
+            assert len(driver._pending) == 0
         finally:
             await driver.disconnect()
 

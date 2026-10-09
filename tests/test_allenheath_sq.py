@@ -33,6 +33,8 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
     StubEvents as _FakeEvents,
@@ -341,7 +343,7 @@ def test_the_discovery_probe_asks_for_an_address_only_an_sq_has():
 
 def test_metadata_shape():
     info = sq.AllenHeathSQDriver.DRIVER_INFO
-    assert info["version"] == "2.1.0"
+    assert info["version"] == "2.1.1"
     assert info["min_platform_version"] == "0.25.0"
     assert info["commands"], "class-level command catalog must not be empty"
     for qa in info["quick_actions"]:
@@ -681,4 +683,76 @@ def test_incoming_scene_push_via_raw_bytes():
         driver.on_data_received(bytes([0xB0, 0x00, 0x01, 0xC0, 0x1B]))
         assert driver.get_state("current_scene") == 156
         await driver.disconnect()
+    _run(main())
+
+
+_REAL_SWEEP_GAP_S = sq.SWEEP_GAP_S
+
+
+@pytest.fixture(autouse=True)
+def _no_sweep_gap(monkeypatch):
+    # The paced re-read takes seconds on a full console; the other tests in
+    # this file are about the protocol, so they run it with no gap.
+    monkeypatch.setattr(sq, "SWEEP_GAP_S", 0.0)
+
+
+def test_a_full_re_read_spaces_every_get(monkeypatch):
+    # The re-read once went out 16 Gets at a time; every Get now waits
+    # SWEEP_GAP_S after it.
+    sleeps: list[float] = []
+
+    class _RecordingAsyncio:
+        # Stands in for the driver module's asyncio only, so the platform's
+        # own timers keep their real sleeps.
+        def __getattr__(self, name):
+            return getattr(asyncio, name)
+
+        @staticmethod
+        async def sleep(delay, *a, **k):
+            sleeps.append(delay)
+            await asyncio.sleep(0)
+
+    async def main():
+        driver, _sim = await _make_pair()
+        await driver.connect()
+        try:
+            sent: list[bytes] = []
+            real_send = driver.transport.send
+
+            async def counting(data):
+                sent.append(bytes(data))
+                await real_send(data)
+
+            driver.transport.send = counting
+            monkeypatch.setattr(sq, "SWEEP_GAP_S", _REAL_SWEEP_GAP_S)
+            monkeypatch.setattr(sq, "asyncio", _RecordingAsyncio())
+            await driver._refresh_all()
+            monkeypatch.setattr(sq, "asyncio", asyncio)
+            assert len(sent) > 16
+            assert sleeps.count(sq.SWEEP_GAP_S) == len(sent)
+            assert sq.SWEEP_GAP_S * len(sent) < 60
+        finally:
+            await driver.disconnect()
+    _run(main())
+
+
+def test_the_drivers_own_lr_write_does_not_answer_the_probe():
+    # The probe asks for the LR master level; the driver's optimistic
+    # mirror of its own LR write once resolved it, so a console that had
+    # gone could pass while a panel moved that fader.
+    async def main():
+        global _SWALLOW
+        driver, _sim = await _make_pair()
+        await driver.connect()
+        try:
+            _SWALLOW = True                 # the console has gone
+            probe = asyncio.ensure_future(driver._liveness_probe())
+            await asyncio.sleep(0.02)
+            await driver.cmd_set_lr_master_level(-10.0)
+            await asyncio.sleep(0.02)
+            assert not probe.done()
+            probe.cancel()
+        finally:
+            _SWALLOW = False
+            await driver.disconnect()
     _run(main())

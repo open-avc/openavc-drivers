@@ -434,7 +434,7 @@
       "name": "Allen & Heath SQ Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "2.1.0",
+      "version": "2.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Allen & Heath SQ-5, SQ-6 and SQ-7 digital mixing consoles via MIDI over TCP/IP on port 51325. Every input, group, aux, matrix, FX send/return, DCA and mute group is a child entity with live mute / level / pan state and a channel picker on its commands. Scene recall (1-300), 1 dB nudges, SoftKey triggers, master balances, and bidirectional state \u2014 console-side moves push back into OpenAVC, and a Get-probe watchdog flips the device offline if the console vanishes.",
@@ -442,7 +442,7 @@
       "file": "audio/allenheath_sq.py",
       "format": "python",
       "files": {
-        "audio/allenheath_sq.py": "d741f6fd68ae7c458833eb1cac8033e3b609d714061dd5274d1abab560e60570",
+        "audio/allenheath_sq.py": "c7f815a05749ddc7315aae88794df282a71f8c6a7b2bde40518c4757f35d7809",
         "audio/allenheath_sq_sim.py": "c0205512893a529ab9e1df86c1bdee0c9fda30e14d5274a3fecbe9a01edb7d22"
       },
       "ports": [

@@ -731,6 +731,14 @@ def _build_commands() -> dict[str, dict[str, Any]]:
 
 # ── Driver ───────────────────────────────────────────────────────────────────
 
+# Gap after each Get in a full re-read (on connect, Refresh, and the
+# periodic backstop). No Allen & Heath MIDI document gives a rate the
+# console's MIDI-over-TCP input can take; this caps the re-read at 100
+# requests a second, where the whole sweep once went out as one burst
+# (16 at a time, 10 ms apart: about 1,600 a second). The SQ's ~280 Gets take about 3 s.
+SWEEP_GAP_S = 0.01
+
+
 class AllenHeathSQDriver(BaseDriver):
     """Allen & Heath SQ-5 / SQ-6 / SQ-7 MIDI-over-TCP driver."""
 
@@ -746,7 +754,7 @@ class AllenHeathSQDriver(BaseDriver):
         "name": "Allen & Heath SQ Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "2.1.0",
+        "version": "2.1.1",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath SQ-5, SQ-6 and SQ-7 digital mixing "
@@ -1112,7 +1120,8 @@ class AllenHeathSQDriver(BaseDriver):
             on = action == "on"
             await self._send(self._build_mute(msb, lsb, on))
             # Optimistic: mirror the commanded value (no echo on hardware).
-            self._dispatch_absolute(msb, lsb, 0x00, 0x01 if on else 0x00)
+            self._dispatch_absolute(msb, lsb, 0x00, 0x01 if on else 0x00,
+                                    from_device=False)
 
     async def cmd_mute_input(self, input: Any, action: str = "on") -> None:
         await self._do_mute(*self._addr_of("input", input, mute_input), action)
@@ -1145,7 +1154,8 @@ class AllenHeathSQDriver(BaseDriver):
         for n in range(1, NUM_INPUTS + 1):
             msb, lsb = mute_input(n)
             await self._send(self._build_mute(msb, lsb, on))
-            self._dispatch_absolute(msb, lsb, 0x00, 0x01 if on else 0x00)
+            self._dispatch_absolute(msb, lsb, 0x00, 0x01 if on else 0x00,
+                                    from_device=False)
             if n % 16 == 0:
                 await asyncio.sleep(0.01)
 
@@ -1160,7 +1170,7 @@ class AllenHeathSQDriver(BaseDriver):
     async def _do_level(self, msb: int, lsb: int, level: float) -> None:
         vc, vf = level_to_vcvf(float(level))
         await self._send(self._build_nrpn(msb, lsb, vc, vf))
-        self._dispatch_absolute(msb, lsb, vc, vf)
+        self._dispatch_absolute(msb, lsb, vc, vf, from_device=False)
 
     async def cmd_set_input_to_lr_level(self, input: Any, level: float) -> None:
         await self._do_level(*self._addr_of("input", input, level_input_to_lr), level)
@@ -1241,7 +1251,7 @@ class AllenHeathSQDriver(BaseDriver):
     async def _do_pan(self, msb: int, lsb: int, pan: float) -> None:
         vc, vf = pan_to_vcvf(float(pan))
         await self._send(self._build_nrpn(msb, lsb, vc, vf))
-        self._dispatch_absolute(msb, lsb, vc, vf)
+        self._dispatch_absolute(msb, lsb, vc, vf, from_device=False)
 
     async def cmd_set_input_to_lr_pan(self, input: Any, pan: float) -> None:
         await self._do_pan(*self._addr_of("input", input, pan_input_to_lr), pan)
@@ -1292,10 +1302,8 @@ class AllenHeathSQDriver(BaseDriver):
         await self._refresh_all()
 
     async def _refresh_all(self) -> None:
-        """Issue NRPN get requests for every parameter we expose as state.
-
-        Sequenced with small sleeps to avoid overwhelming the console
-        socket buffer on a fresh connect.
+        """Issue NRPN get requests for every parameter we expose as state,
+        SWEEP_GAP_S apart.
         """
         if not self.connected:
             return
@@ -1306,9 +1314,7 @@ class AllenHeathSQDriver(BaseDriver):
                 await self._send(self._build_nrpn_get(msb, lsb))
             except Exception:  # noqa: BLE001
                 break
-            # Yield every 16 messages to keep the socket flowing.
-            if i % 16 == 15:
-                await asyncio.sleep(0.01)
+            await asyncio.sleep(SWEEP_GAP_S)
 
     # ── MIDI parser (incoming) ──────────────────────────────────────────
 
@@ -1472,17 +1478,20 @@ class AllenHeathSQDriver(BaseDriver):
 
     # ── State fan-out ───────────────────────────────────────────────────
 
-    def _dispatch_absolute(self, msb: int, lsb: int, vc: int, vf: int) -> None:
+    def _dispatch_absolute(self, msb: int, lsb: int, vc: int, vf: int,
+                           *, from_device: bool = True) -> None:
         """Map an absolute (MSB, LSB, VC, VF) tuple to a state update.
 
         Shared by the inbound parser AND the optimistic write path, so a
-        sent value and a received value land in state identically.
+        sent value and a received value land in state identically. Only
+        what the console sent (``from_device``) answers the liveness
+        probe: the driver's own write of the probed address proves nothing.
         """
         key = (msb, lsb)
 
         # Resolve the liveness probe on a reply for the probed address.
-        if (self._probe_fut is not None and not self._probe_fut.done()
-                and key == self._probe_addr):
+        if (from_device and self._probe_fut is not None
+                and not self._probe_fut.done() and key == self._probe_addr):
             self._probe_fut.set_result(None)
 
         route = self._route.get(key)

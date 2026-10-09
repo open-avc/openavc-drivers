@@ -33,8 +33,9 @@
 #   - Switching '0' to an output disconnects: CALL ...XP:switch(0:O1)
 #   - Input Count / Output Count size the child rosters (default 4/4, which
 #     covers UCX/Taurus/MMX2; set the frame size on MX2M routers). Every
-#     configured output/input is polled per port; routing commands accept
-#     any port number regardless.
+#     configured output/input is polled per port, as a backstop every 60 s
+#     (each port is subscribed, below); routing commands accept any port
+#     number regardless.
 #   - Authentication is not handled by this driver. If the unit has IPLogin
 #     or 6107 authentication enabled, disable it in LDC or switch the unit
 #     to its WSS interface (not supported here).
@@ -59,7 +60,7 @@ id: lightware_lw3
 name: Lightware LW3
 manufacturer: Lightware
 category: switcher
-version: 1.6.1
+version: 1.6.2
 author: OpenAVC
 min_platform_version: "0.36.0"
 description: >
@@ -155,7 +156,10 @@ default_config:
   port: 6107
   input_count: 4
   output_count: 4
-  poll_interval: 30
+  # A backstop: every configured port is subscribed (OPEN, on_connect), so
+  # changes arrive as CHG lines. 60 s keeps a full poll of the largest roster
+  # (128x128: 1,029 lines 50 ms apart, about 51 s) inside the interval.
+  poll_interval: 60
 
 config_schema:
   host:
@@ -186,10 +190,10 @@ config_schema:
       routed source, mute, lock, HDCP mode, 5V mode, and signal type.
   poll_interval:
     type: integer
-    default: 30
+    default: 60
     min: 0
     label: Poll Interval (sec)
-    description: "Set to 0 to disable polling."
+    description: "Changes arrive as they happen; the poll reads everything again as a backstop. Set to 0 to disable polling."
 
 state_variables:
   device_label:

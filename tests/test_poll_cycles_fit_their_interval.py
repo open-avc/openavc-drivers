@@ -45,10 +45,6 @@ POLL_OUTLASTS_INTERVAL: dict[str, str] = {
         "its rosters accept the 128 inputs and outputs the id format allows; "
         "from 20x20 a poll at its 100 ms gap outlasts the 10 s interval"
     ),
-    "lightware_lw3": (
-        "its rosters accept up to 128x128; from 75x75 a poll at the 50 ms "
-        "default gap outlasts the 30 s interval"
-    ),
 }
 
 

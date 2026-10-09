@@ -116,7 +116,7 @@ class WattBoxIPDriver(BaseDriver):
         "name": "WattBox IP-Controlled PDU",
         "manufacturer": "WattBox",
         "category": "power",
-        "version": "1.3.6",
+        "version": "1.3.7",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
@@ -531,12 +531,16 @@ class WattBoxIPDriver(BaseDriver):
         self._authenticated = True
 
     async def _initial_sync(self) -> None:
-        # Two-pass initial status sweep: the first pass learns
-        # outlet_count, the second pass uses that count to query
-        # per-outlet metering. Polling after that is single-pass.
+        # Learn the outlet count first (the poll's per-outlet metering
+        # needs it), then one full poll. Two full polls used to go out
+        # back to back here for the same reason.
         try:
-            await self.poll()
-            await asyncio.sleep(0.3)
+            fut = self._prime_response("OutletCount")
+            await self._send("?OutletCount")
+            try:
+                await self._await_response(fut, "OutletCount", KEEPALIVE_TIMEOUT_S)
+            except asyncio.TimeoutError:
+                log.debug(f"[{self.device_id}] No outlet count yet; polling without it")
             await self.poll()
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] Initial poll failed")
@@ -704,7 +708,10 @@ class WattBoxIPDriver(BaseDriver):
             if self.get_state("ups_connected"):
                 await self._send("?UPSStatus")
         except ConnectionError:
+            # Let it out: the platform counts a poll that fails toward
+            # taking the device offline.
             log.warning(f"[{self.device_id}] Poll failed — not connected")
+            raise
 
     # ── Parsing ──
 

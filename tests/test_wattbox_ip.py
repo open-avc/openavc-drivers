@@ -392,7 +392,7 @@ async def _settle(n: int = 4) -> None:
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.WattBoxIPDriver.DRIVER_INFO["version"] == "1.3.6"
+    assert DRV.WattBoxIPDriver.DRIVER_INFO["version"] == "1.3.7"
 
 
 def test_child_entity_types_declared():
@@ -669,5 +669,31 @@ def test_health_loop_forces_reconnect_on_silent_device():
         finally:
             _SWALLOW = False
             driver._stop_health_loop()
+
+    asyncio.run(go())
+
+
+
+def test_connect_reads_the_outlet_count_then_polls_once():
+    # Connect once sent two full polls back to back (the first to learn the
+    # outlet count); it now asks for the count, then polls once.
+    async def go():
+        driver, sim = await _make_pair()
+        lines: list[bytes] = []
+        inner = sim.handle_command
+
+        def recording(data):
+            lines.append(bytes(data).strip())
+            return inner(data)
+
+        sim.handle_command = recording
+        await driver.connect()
+        try:
+            assert lines.count(b"?Firmware") == 1, lines
+            assert lines.count(b"?OutletCount") == 2, lines   # the count, then the poll's
+            count = driver.get_state("outlet_count")
+            assert count and lines.count(b"?OutletPowerStatus=1") == 1
+        finally:
+            await driver.disconnect()
 
     asyncio.run(go())

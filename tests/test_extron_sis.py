@@ -29,7 +29,7 @@ BANNER = (
 
 
 def test_version_bumped():
-    assert str(INFO["version"]) == "1.8.1"
+    assert str(INFO["version"]) == "1.8.2"
 
 
 def test_the_probe_sends_nothing():

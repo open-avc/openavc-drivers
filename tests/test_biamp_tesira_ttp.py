@@ -325,6 +325,9 @@ _CURRENT_SIM: object | None = None
 # When True, the transport processes requests but DROPS every reply — a
 # silently-vanished device for the liveness tests.
 _SWALLOW = False
+# When a list, replies are held here until flush(): a device that answers
+# after later commands have already gone out.
+_HELD: list | None = None
 
 
 class _FakeTCPTransport:
@@ -372,6 +375,16 @@ class _FakeTCPTransport:
             # Pure-IAC payloads (the driver's WONT/DONT replies) decode to
             # an empty line inside the sim and are ignored there.
             resp = self._sim.handle_command(raw)
+            if _HELD is not None:
+                _HELD.append(resp)
+                continue
+            if resp:
+                await self._deliver(resp)
+
+    async def flush(self) -> None:
+        global _HELD
+        held, _HELD = _HELD or [], None
+        for resp in held:
             if resp:
                 await self._deliver(resp)
 
@@ -450,8 +463,9 @@ def _stub_platform_modules(monkeypatch):
 # ── Pairing harness ─────────────────────────────────────────────────────────
 
 async def _make_pair(driver_overrides=None):
-    global _CURRENT_SIM, _SWALLOW
+    global _CURRENT_SIM, _SWALLOW, _HELD
     _SWALLOW = False
+    _HELD = None
     sim = SIM.BiampTesiraTTPSimulator("sim1", {})
     _CURRENT_SIM = sim
 
@@ -575,7 +589,7 @@ def test_the_control_pickers_offer_what_each_command_takes():
 
 def test_metadata_and_actions_shape():
     info = DRV.BiampTesiraTTPDriver.DRIVER_INFO
-    assert info["version"] == "3.1.3"
+    assert info["version"] == "3.1.4"
     # The connection-lifecycle hooks the driver overrides landed in 0.24.0.
     # The 0.25.0 floor is the package move: this file imports openavc.*.
     assert info["min_platform_version"] == "0.25.0"
@@ -811,6 +825,82 @@ def test_reconnect_clears_stale_pending_gets():
     _run(scenario())
 
 
+# ── Reply forms and order ───────────────────────────────────────────────────
+#
+# TTP Responses: a verbose get answers '+OK "value":2'; after "SESSION set
+# verbose false" it answers "+OK 2", which no reply rule here reads. The
+# driver once turned verbose off and so read nothing on a real unit (the
+# simulator ignored the setting then). Every command answers one "+OK..." or
+# "-..." line in order, and a value names no attribute, so the driver queues
+# every command and each answer pops one.
+
+def test_the_session_asks_for_the_labelled_replies_it_reads():
+    async def scenario():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            assert sim._client_verbose["c1"] is True
+            assert driver.get_state("firmware_version") == "4.14.0"
+            assert driver._pending_gets == []
+        finally:
+            await driver.disconnect()
+    _run(scenario())
+
+
+def test_the_simulator_drops_the_label_with_verbose_off():
+    sim = SIM.BiampTesiraTTPSimulator("sim1", {})
+    sim._clients["c1"] = object()
+    sim._client_verbose["c1"] = True
+    assert sim.handle_command(b"DEVICE get version") == b'+OK "value":"4.14.0"\r\n'
+    assert sim.handle_command(b"SESSION set verbose false") == b"+OK\r\n"
+    assert sim.handle_command(b"DEVICE get version") == b'+OK "4.14.0"\r\n'
+
+
+def test_an_error_answering_a_set_does_not_shift_the_gets_after_it():
+    async def scenario():
+        global _HELD
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            sim._dsp[("Level1", "level", 1)] = -3.0
+            sim._dsp[("Level1", "level", 2)] = -7.0
+            sim._dsp[("Mute1", "mute", 1)] = True
+            _HELD = []
+            # Too few parameters for a crosspoint: the unit answers -ERR.
+            await driver.send_command("set_attribute", {
+                "tag": "Level1", "attribute": "crosspointLevel",
+                "index": "1", "value": 0,
+            })
+            await driver.poll()
+            await driver.transport.flush()
+            assert _child(driver, "Level1", "level_1") == -3.0
+            assert _child(driver, "Level1", "level_2") == -7.0
+            assert _child(driver, "Mute1", "mute_1") is True
+            assert driver._pending_gets == []
+        finally:
+            await driver.disconnect()
+    _run(scenario())
+
+
+def test_a_subscribe_ok_on_the_push_line_is_still_its_answer():
+    # Biamp's wiki prints a subscribe's "+OK" after its first push on one
+    # line; the TTP Responses page prints it on its own line.
+    async def scenario():
+        driver, _sim = await _make_pair()
+        await driver.connect()
+        try:
+            driver._pending_gets.append((None, "ack"))
+            driver._pending_gets.append(("Level1_level_1", "number"))
+            await driver.on_data_received(
+                b'! "publishToken":"Level1_level_1" "value":-4.000000 +OK')
+            await driver.on_data_received(b'+OK "value":-5.000000')
+            assert _child(driver, "Level1", "level_1") == -5.0
+            assert driver._pending_gets == []
+        finally:
+            await driver.disconnect()
+    _run(scenario())
+
+
 # ── Liveness ────────────────────────────────────────────────────────────────
 
 def test_liveness_probe_resolves_on_reply():
@@ -988,10 +1078,10 @@ def test_setup_wizard_flags_typoed_tag():
     tag; the stock sim deliberately auto-seeds any tag so arbitrary user
     block lists work against it — use a strict subclass for the typo path."""
     class _StrictSim(SIM.BiampTesiraTTPSimulator):
-        def _handle_get(self, tag, rest):
+        def _handle_get(self, tag, rest, verbose=True):
             if not any(t == tag for (t, _a, _i) in self._dsp):
                 return SIM._err(f"address not found: {tag}")
-            return super()._handle_get(tag, rest)
+            return super()._handle_get(tag, rest, verbose)
 
     async def scenario():
         global _CURRENT_SIM

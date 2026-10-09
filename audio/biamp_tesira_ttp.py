@@ -859,7 +859,15 @@ PUSH_LINE_RE = re.compile(
 # +OK response patterns
 OK_VALUE_RE = re.compile(r'^\+OK\s+"value":(.*)$')
 OK_LIST_RE = re.compile(r'^\+OK\s+"list":(.*)$')
-ERR_RE = re.compile(r'^-ERR\s+(.*)$')
+# A failed command: "-ERR <reason>", and the bare forms TTP Responses lists
+# beside it ("-CANNOT_DELIVER", "-GENERAL_FAILURE").
+ERR_RE = re.compile(r'^-(?:ERR\s+)?(.*)$')
+
+# Queue entries for commands that are not a value read: a set, toggle,
+# step, subscribe, preset or session command answers "+OK" or an error;
+# a raw passthrough may answer anything.
+_ACK = (None, "ack")
+_ANY = (None, "any")
 
 
 class BiampTesiraTTPDriver(BaseDriver):
@@ -870,7 +878,7 @@ class BiampTesiraTTPDriver(BaseDriver):
         "name": "Biamp Tesira TTP",
         "manufacturer": "Biamp",
         "category": "audio",
-        "version": "3.1.3",
+        "version": "3.1.4",
         # The connection lifecycle hooks this driver overrides landed in
         # 0.24.0 (supersedes the table-editor 0.23.0 requirement).
         "min_platform_version": "0.25.0",
@@ -1186,10 +1194,12 @@ class BiampTesiraTTPDriver(BaseDriver):
             type(self).DRIVER_INFO["state_variables"].keys()
         )
 
-        # Outstanding "get" queue: when send_command issues a get, we
-        # remember the (state_key, type_hint) so the next +OK "value":...
-        # response routes to that state var. FIFO.
-        self._pending_gets: list[tuple[str, str]] = []
+        # Every command sent and not yet answered, oldest first. TTP
+        # answers each command with one "+OK..." or "-..." line, in order
+        # ("!" pushes aside), and a value reply does not name its
+        # attribute, so each answer pops exactly one entry: a get's
+        # (state_key, type_hint), or _ACK / _ANY for everything else.
+        self._pending_gets: list[tuple[str | None, str]] = []
         # Lock around modifying _pending_gets and sending sequenced
         # request/response commands so concurrent get_attribute calls
         # don't interleave.
@@ -1249,11 +1259,14 @@ class BiampTesiraTTPDriver(BaseDriver):
                 await self.on_data_received(msg)
 
     async def _initial_sync(self) -> None:
-        # Settle the session: turn off verbose so we don't get echoes,
-        # then probe for serial / firmware (best-effort, ignore errors).
+        # Settle the session: verbose replies, the labelled form every
+        # reply rule here reads (TTP Responses: with verbose off a get
+        # answers "+OK 2", not '+OK "value":2'). Verbose is the default;
+        # it is set anyway so a session never depends on it. Then serial /
+        # firmware (best-effort, ignore errors).
         try:
-            await self._send_line("SESSION set verbose false")
-            await self._send_line("SESSION set aliasUsage true")
+            await self._send_ack("SESSION set verbose true")
+            await self._send_ack("SESSION set aliasUsage true")
             await self._send_get('DEVICE get serialNumber', "serial_number", "string")
             await self._send_get('DEVICE get version', "firmware_version", "string")
             await self._send_get('DEVICE get hostname', "device_id_str", "string")
@@ -1416,14 +1429,23 @@ class BiampTesiraTTPDriver(BaseDriver):
         await self.transport.send((line + "\n").encode("utf-8"))
 
     async def _send_get(self, line: str, state_key: str, type_hint: str) -> tuple[str, str]:
-        """Queue the pending-GET entry, then send the query.
+        """Queue the pending-GET entry, then send the query."""
+        return await self._send_tracked(line, (state_key, type_hint))
+
+    async def _send_ack(self, line: str) -> None:
+        """Send a command whose answer is "+OK" or an error."""
+        await self._send_tracked(line, _ACK)
+
+    async def _send_tracked(
+        self, line: str, entry: tuple[str | None, str],
+    ) -> tuple[str | None, str]:
+        """Queue the entry, then send the line.
 
         The entry must be queued BEFORE the send — the reply can arrive the
         moment the send awaits, and a reply that finds the queue one entry
         short routes every subsequent value into the wrong state var. On a
         send failure the entry is removed so the queue stays in sync.
         """
-        entry = (state_key, type_hint)
         self._pending_gets.append(entry)
         try:
             await self._send_line(line)
@@ -1485,7 +1507,7 @@ class BiampTesiraTTPDriver(BaseDriver):
         for sub in self._subscriptions:
             cmd = self._build_subscribe_command(sub, rate_default)
             try:
-                await self._send_line(cmd)
+                await self._send_ack(cmd)
             except (ConnectionError, OSError):
                 log.warning(f"[{self.device_id}] Subscribe send failed: {cmd}")
                 return
@@ -1569,17 +1591,23 @@ class BiampTesiraTTPDriver(BaseDriver):
         if m:
             token = m.group(1)
             value_str = m.group(2).strip()
+            # Biamp's wiki also prints a subscribe's "+OK" on the same line
+            # as its first push.
+            acked = value_str.endswith(" +OK")
+            if acked:
+                value_str = value_str[: -len(" +OK")].strip()
             self._handle_push(token, value_str)
+            if acked:
+                self._handle_response_line("+OK")
             return
 
-        # Error
+        # Error: it answers the oldest command still waiting, whatever its
+        # kind. A -ERR reply to the liveness probe still proves the device
+        # answered.
         m = ERR_RE.match(line)
         if m:
             self.set_state("last_error", m.group(1))
             log.debug(f"[{self.device_id}] DSP error: {m.group(1)}")
-            # Drop the oldest pending-get so we don't pin the head of the
-            # queue forever on an error response. A -ERR reply to the
-            # liveness probe still proves the device answered.
             if self._pending_gets:
                 self._resolve_probe(self._pending_gets.pop(0))
             return
@@ -1588,14 +1616,16 @@ class BiampTesiraTTPDriver(BaseDriver):
         m = OK_VALUE_RE.match(line)
         if m:
             value_str = m.group(1).strip()
-            if self._pending_gets:
-                entry = self._pending_gets.pop(0)
+            entry = self._pop_for_value()
+            if entry is not None:
                 state_key, type_hint = entry
-                coerced = self._coerce_response_value(value_str, type_hint)
-                if coerced is not None:
-                    # state_key is a child token for initial GETs, or a
-                    # device-level var for the metadata / get_attribute path.
-                    self._route_value(state_key, coerced)
+                if state_key is not None:
+                    coerced = self._coerce_response_value(value_str, type_hint)
+                    if coerced is not None:
+                        # state_key is a child token for initial GETs, or a
+                        # device-level var for the metadata / get_attribute
+                        # path.
+                        self._route_value(state_key, coerced)
                 # Also surface in last_query_result for visibility from macros
                 self.set_state("last_query_result", value_str)
                 self._resolve_probe(entry)
@@ -1612,17 +1642,33 @@ class BiampTesiraTTPDriver(BaseDriver):
         m = OK_LIST_RE.match(line)
         if m:
             value_str = m.group(1).strip()
-            if self._pending_gets:
-                self._resolve_probe(self._pending_gets.pop(0))
+            entry = self._pop_for_value()
+            if entry is not None:
+                self._resolve_probe(entry)
             self.set_state("last_query_result", value_str)
             return
 
-        # Plain +OK ack — no payload
+        # Plain +OK: the answer to a set, a subscribe, a preset or session
+        # command, or a raw line. It never answers a get, so it does not
+        # take a get's place.
         if line == "+OK" or line.startswith("+OK"):
+            if self._pending_gets and self._pending_gets[0][1] in ("ack", "any"):
+                self._pending_gets.pop(0)
             return
 
         # Anything else: stash for visibility, log debug.
         log.debug(f"[{self.device_id}] Unhandled line: {line!r}")
+
+    def _pop_for_value(self) -> tuple[str | None, str] | None:
+        """The entry a value reply answers. Only a get or a raw line reads
+        a value; acknowledgements at the head mean their "+OK" never came
+        (each command answers once, so this is a resync, not the normal
+        path) and are dropped."""
+        while self._pending_gets and self._pending_gets[0][1] == "ack":
+            dropped = self._pending_gets.pop(0)
+            log.debug(f"[{self.device_id}] No answer to a command; resyncing")
+            self._resolve_probe(dropped)
+        return self._pending_gets.pop(0) if self._pending_gets else None
 
     def _handle_push(self, token: str, value_str: str) -> None:
         sub = self._sub_by_token.get(token)
@@ -1734,19 +1780,19 @@ class BiampTesiraTTPDriver(BaseDriver):
                 params.get("index", ""), params["amount"],
             )
         if command == "recall_preset":
-            await self._send_line(f"DEVICE recallPreset {int(params['preset_id'])}")
+            await self._send_ack(f"DEVICE recallPreset {int(params['preset_id'])}")
             self.set_state("last_preset", str(params["preset_id"]))
             return True
         if command == "recall_preset_by_name":
             name = str(params["name"]).replace('"', '\\"')
-            await self._send_line(f'DEVICE recallPresetByName "{name}"')
+            await self._send_ack(f'DEVICE recallPresetByName "{name}"')
             self.set_state("last_preset", str(params["name"]))
             return True
         if command == "save_preset":
-            await self._send_line(f"DEVICE savePreset {int(params['preset_id'])}")
+            await self._send_ack(f"DEVICE savePreset {int(params['preset_id'])}")
             return True
         if command == "send_raw":
-            await self._send_line(str(params["command"]))
+            await self._send_tracked(str(params["command"]), _ANY)
             return True
         if command == "subscribe_attribute":
             return await self._cmd_subscribe(
@@ -1760,7 +1806,7 @@ class BiampTesiraTTPDriver(BaseDriver):
                 params.get("index", ""), params["token"],
             )
         if command == "session_quit":
-            await self._send_line("SESSION quit")
+            await self._send_ack("SESSION quit")
             return True
 
         # Child-scoped commands — pick a declared block + one of its controls.
@@ -1791,7 +1837,7 @@ class BiampTesiraTTPDriver(BaseDriver):
             parts.append(str(index))
         if amount is not None:
             parts.append(self._format_value(amount))
-        await self._send_line(" ".join(parts))
+        await self._send_ack(" ".join(parts))
         return True
 
     async def _cmd_set_attribute(
@@ -1801,7 +1847,7 @@ class BiampTesiraTTPDriver(BaseDriver):
         if index not in (None, ""):
             parts.append(str(index))
         parts.append(self._format_value(value))
-        await self._send_line(" ".join(parts))
+        await self._send_ack(" ".join(parts))
         return True
 
     async def _cmd_get_attribute(
@@ -1826,7 +1872,7 @@ class BiampTesiraTTPDriver(BaseDriver):
             "type_hint": "string",  # caller is on their own for typing
         }
         cmd = self._build_subscribe_command(sub, rate_ms)
-        await self._send_line(cmd)
+        await self._send_ack(cmd)
         # Track for reconnect re-subscribe and for token lookup
         # (replace any existing entry with the same token).
         self._subscriptions = [s for s in self._subscriptions if s["token"] != token]
@@ -1839,7 +1885,7 @@ class BiampTesiraTTPDriver(BaseDriver):
     ) -> bool:
         idx = index if index not in (None, "") else None
         cmd = self._build_unsubscribe_command(tag, attr, idx, token)
-        await self._send_line(cmd)
+        await self._send_ack(cmd)
         self._subscriptions = [s for s in self._subscriptions if s["token"] != token]
         self._sub_by_token.pop(token, None)
         return True
@@ -1892,7 +1938,7 @@ class BiampTesiraTTPDriver(BaseDriver):
         parts.extend(self._format_index(index))
         if value is not None:
             parts.append(self._format_value(value))
-        await self._send_line(" ".join(parts))
+        await self._send_ack(" ".join(parts))
         return True
 
     async def _cmd_child_set(self, block: Any, control: Any, value: Any) -> Any:
@@ -1932,7 +1978,7 @@ class BiampTesiraTTPDriver(BaseDriver):
         # Tesira level ramp: <TAG> set rampLevel <ch> <dB> <seconds>.
         parts = [tag, "set", "rampLevel", *self._format_index(index),
                  str(float(target_db)), str(float(duration_s))]
-        await self._send_line(" ".join(parts))
+        await self._send_ack(" ".join(parts))
         return True
 
     async def _cmd_dialer(self, command: str, params: dict[str, Any]) -> Any:
@@ -1943,14 +1989,14 @@ class BiampTesiraTTPDriver(BaseDriver):
         line = int(params.get("line", 1) or 1)
         if command == "dial":
             num = str(params["number"]).replace('"', '\\"')
-            await self._send_line(f'{tag} dial {line} "{num}"')
+            await self._send_ack(f'{tag} dial {line} "{num}"')
         elif command == "hangup":
-            await self._send_line(f"{tag} end {line}")
+            await self._send_ack(f"{tag} end {line}")
         elif command == "answer":
-            await self._send_line(f"{tag} answer {line}")
+            await self._send_ack(f"{tag} answer {line}")
         elif command == "dtmf":
             digits = str(params["digits"]).replace('"', '\\"')
-            await self._send_line(f'{tag} dtmf {line} "{digits}"')
+            await self._send_ack(f'{tag} dtmf {line} "{digits}"')
         return True
 
     # ── Liveness watchdog (BaseDriver health loop) ──
@@ -2130,7 +2176,8 @@ class BiampTesiraTTPDriver(BaseDriver):
             buf = bytearray()
             await self._setup_wait_banner(reader, writer, buf)
 
-            writer.write(b"SESSION set verbose false\n")
+            # Verbose: the labelled replies OK_VALUE_RE reads.
+            writer.write(b"SESSION set verbose true\n")
             await writer.drain()
             await self._setup_read_reply(reader, buf)
 

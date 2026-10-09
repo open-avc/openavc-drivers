@@ -83,7 +83,11 @@ def _format_value(v: Any) -> str:
     return f'"{v}"'
 
 
-def _ok_value(v: Any) -> bytes:
+def _ok_value(v: Any, verbose: bool = True) -> bytes:
+    # TTP Responses: verbose replies label the value ('+OK "value":2');
+    # with "SESSION set verbose false" the label goes ('+OK 2').
+    if not verbose:
+        return f'+OK {_format_value(v)}\r\n'.encode("utf-8")
     return f'+OK "value":{_format_value(v)}\r\n'.encode("utf-8")
 
 
@@ -142,7 +146,9 @@ class BiampTesiraTTPSimulator(TCPSimulator):
         # Per-client subscriptions:
         # {client_id: [{"tag", "attribute", "index", "token", "rate_ms"}]}
         self._client_subs: dict[str, list[dict[str, Any]]] = {}
-        # Per-client verbose mode (ignored — we never echo)
+        # Per-client verbose mode: it decides whether a get's value is
+        # labelled. (Pushes keep the documented labelled form either way:
+        # no non-verbose push example is published.)
         self._client_verbose: dict[str, bool] = {}
         # Last-recalled preset
         self._last_preset = ""
@@ -222,7 +228,7 @@ class BiampTesiraTTPSimulator(TCPSimulator):
         rest = parts[2:]
 
         if cmd == "get":
-            return self._handle_get(tag, rest)
+            return self._handle_get(tag, rest, self._client_verbose.get(client_id, True))
         if cmd == "set":
             return self._handle_set(client_id, tag, rest)
         if cmd == "toggle":
@@ -270,14 +276,15 @@ class BiampTesiraTTPSimulator(TCPSimulator):
         # DEVICE get serialNumber / version / hostname
         if body.lower().startswith("get "):
             attr = body[4:].strip()
+            verbose = self._client_verbose.get(client_id, True)
             if attr == "serialNumber":
-                return _ok_value(self.state.get("serial_number") or "SIM00001")
+                return _ok_value(self.state.get("serial_number") or "SIM00001", verbose)
             if attr == "version":
-                return _ok_value(self.state.get("firmware") or "4.14.0")
+                return _ok_value(self.state.get("firmware") or "4.14.0", verbose)
             if attr == "hostname":
-                return _ok_value(self.state.get("hostname") or "TesiraSim01")
+                return _ok_value(self.state.get("hostname") or "TesiraSim01", verbose)
             if attr == "model":
-                return _ok_value(self.state.get("model") or "TesiraFORTÉ X 800")
+                return _ok_value(self.state.get("model") or "TesiraFORTÉ X 800", verbose)
             return _err(f"address not found: DEVICE {attr}")
         if body.lower().startswith("recallpreset "):
             preset = body[13:].strip()
@@ -293,7 +300,7 @@ class BiampTesiraTTPSimulator(TCPSimulator):
 
     # ── get / set / toggle / inc/dec ──
 
-    def _handle_get(self, tag: str, rest: list[str]) -> bytes:
+    def _handle_get(self, tag: str, rest: list[str], verbose: bool = True) -> bytes:
         if not rest:
             return _err("Parse error: missing attribute")
         attr = rest[0]
@@ -318,7 +325,7 @@ class BiampTesiraTTPSimulator(TCPSimulator):
             if seeded is None:
                 return _err(f'address not found: {tag} {attr}')
             self._dsp[key] = seeded
-        return _ok_value(self._dsp[key])
+        return _ok_value(self._dsp[key], verbose)
 
     def _handle_set(self, client_id: str, tag: str, rest: list[str]) -> bytes:
         # Special case: crosspointLevelState / crosspointLevel take TWO

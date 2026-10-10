@@ -94,7 +94,7 @@ id: viewsonic_cde
 name: ViewSonic Commercial Display
 manufacturer: ViewSonic
 category: display
-version: 2.2.0
+version: 2.2.1
 author: OpenAVC
 description: >-
   Controls ViewSonic CDE-series commercial displays (and other ViewSonic
@@ -282,7 +282,7 @@ config_schema:
     default: ""
     label: MAC Address (for Wake-on-LAN)
     learned_from: mac_address
-    description: Filled in from the display when it connects, so Power On can still wake it after a restart while it is off. Fill it in yourself only for a display that has never connected.
+    description: Filled in from the display when it connects, so Wake (Wake-on-LAN) can still reach it after a restart while it is off. Fill it in yourself only for a display that has never connected.
   ambient_sensors:
     type: boolean
     default: false

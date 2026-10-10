@@ -8423,7 +8423,7 @@
       "name": "ViewSonic Commercial Display",
       "manufacturer": "ViewSonic",
       "category": "display",
-      "version": "2.2.0",
+      "version": "2.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls ViewSonic CDE-series commercial displays (and other ViewSonic large-format displays publishing the LFD RS-232 & LAN protocol) on TCP port 5000 or direct RS-232. Power, input select, volume, mute, brightness, backlight, picture values, freeze and screen blank, PIP, video-wall tiling, keypad navigation, control locks, the display's clock, ambient sensor readings, and a Wake-on-LAN wake for displays whose standby closes the network port. Listens for the display's own status pushes and polls for the rest.",
@@ -8431,7 +8431,7 @@
       "file": "displays/viewsonic_cde.avcdriver",
       "format": "avcdriver",
       "files": {
-        "displays/viewsonic_cde.avcdriver": "8da37114e3c4b45fedf1cbc9475bded5733586197983c14f7c9bca8bebbc7073"
+        "displays/viewsonic_cde.avcdriver": "eea01d59f608eacbf2b55dfccf6723e0a0aee1e86bf768898f9bef54920366da"
       },
       "ports": [
         5000

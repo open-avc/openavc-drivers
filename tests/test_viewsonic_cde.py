@@ -138,7 +138,7 @@ def _reply32(code: str, value: str, mid: int = 1, pad: bytes = b"\x00") -> bytes
 
 def test_metadata_shape():
     assert INFO["id"] == "viewsonic_cde"
-    assert INFO["version"] == "2.2.0"
+    assert INFO["version"] == "2.2.1"
     assert INFO["transport"] == "tcp"
     assert INFO["transports"] == ["tcp", "serial"]
     assert INFO["delimiter"] == "\r"

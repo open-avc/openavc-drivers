@@ -71,9 +71,10 @@ id: kramer_p3000
 name: Kramer Protocol 3000
 manufacturer: Kramer
 category: switcher
-version: 1.6.2
+version: 1.7.0
 author: OpenAVC
-min_platform_version: "0.27.0"
+# learned_from on the input and output counts.
+min_platform_version: "0.37.0"
 description: >
   Controls Kramer products via Protocol 3000 over TCP (port 5000) or
   RS-232. Covers matrix switchers (VS series), scalers and presentation
@@ -175,18 +176,24 @@ config_schema:
     default: 0
     min: 0
     label: Input Count
+    learned_from: matrix_inputs
     description: >
       Number of inputs on a matrix switcher — each becomes an Input child
-      with signal and HDCP detection. Leave 0 for single-output devices.
+      with signal and HDCP detection. A matrix that answers #INFO-IO?
+      reports its size when it connects, and it is saved here. Leave 0 for
+      single-output devices.
   output_count:
     type: integer
     default: 0
     min: 0
     label: Output Count
+    learned_from: matrix_outputs
     description: >
       Number of outputs on a matrix switcher. Each becomes an Output
-      child tracking its routed input, mutes, volume, and sink. Leave 0
-      for single-output devices (scalers, presentation switchers, DAs). On a large matrix, set Poll Interval longer than one read of the whole matrix: about 0.5 s per output and 0.1 s per input (a 32x32 matrix takes about 16 seconds).
+      child tracking its routed input, mutes, volume, and sink. A matrix
+      that answers #INFO-IO? reports its size when it connects, and it is
+      saved here. Leave 0 for single-output devices (scalers, presentation
+      switchers, DAs). On a large matrix, set Poll Interval longer than one read of the whole matrix: about 0.5 s per output and 0.1 s per input (a 32x32 matrix takes about 16 seconds).
   poll_interval:
     type: integer
     default: 10
@@ -205,6 +212,9 @@ on_connect:
   - "#\r"
   - "#MODEL?\r"
   - "#VERSION?\r"
+  # Matrix size (Protocol 3000 3.0 master, #INFO-IO?). A device that does
+  # not implement it answers an ERR line no rule matches.
+  - "#INFO-IO?\r"
 
 state_variables:
   input:
@@ -243,6 +253,14 @@ state_variables:
     type: string
     label: Model
     help: "Device model name reported by #MODEL?."
+  matrix_inputs:
+    type: integer
+    label: Matrix Inputs
+    help: "Inputs the matrix reports (#INFO-IO?). Blank on a single-output device or one without the command."
+  matrix_outputs:
+    type: integer
+    label: Matrix Outputs
+    help: "Outputs the matrix reports (#INFO-IO?). Blank on a single-output device or one without the command."
   firmware:
     type: string
     label: Firmware Version
@@ -295,6 +313,7 @@ child_entity_types:
         help: "True when a display/sink is detected on this output (#DISPLAY? HPD status; pushed by the device on change)."
     summary_fields: [input, video_mute]
     instances:
+      count_from_state: matrix_outputs
       count_from: output_count
       label: "Output {id}"
   input:
@@ -313,6 +332,7 @@ child_entity_types:
         help: "True when the source on this input is HDCP-encrypted (#HDCP-STAT? on the input stage)."
     summary_fields: [signal]
     instances:
+      count_from_state: matrix_inputs
       count_from: input_count
       label: "Input {id}"
 
@@ -623,6 +643,12 @@ responses:
     set: { model: "$1" }
   - match: '^~\d+@VERSION (\S+)$'
     set: { firmware: "$1" }
+  # "~01@INFO-IO IN 8,OUT 8". The master document writes the reply with
+  # the "?" (INFO-IO? IN ...), the VS-88H2 manual without it; both match.
+  # Two or more outputs only: a single-output device stays on the flat
+  # surface this driver uses for it.
+  - match: '^~\d+@INFO-IO\??\s+IN\s+(\d+),\s*OUT\s+([2-9]|[1-9]\d+)$'
+    set: { matrix_inputs: "$1", matrix_outputs: "$2" }
 
 polling:
   queries:
@@ -962,6 +988,16 @@ simulator:
                     continue
                 if part == "VERSION?":
                     emit("VERSION " + str(state["firmware"]))
+                    continue
+                if part == "INFO-IO?":
+                    # The matrix the project's counts describe; a
+                    # single-output device does not implement it.
+                    ins = int(config.get("input_count") or 0)
+                    outs = int(config.get("output_count") or 0)
+                    if outs > 0:
+                        emit("INFO-IO IN " + str(ins) + ",OUT " + str(outs))
+                    else:
+                        emit("INFO-IO ERR 002")
                     continue
                 if part == "SN?":
                     emit("SN 12345678901234")

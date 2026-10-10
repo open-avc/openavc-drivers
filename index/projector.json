@@ -12,7 +12,7 @@
       "name": "Barco Pulse Projector",
       "manufacturer": "Barco",
       "category": "projector",
-      "version": "1.0.3",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Barco Pulse-platform laser projectors (F70 / F80 / F90, UDX, UDM, HDX 4K, I600, G62 / G100, XDL and other Pulse models) over the Pulse JSON-RPC API on TCP 9090. Live push updates for power, source, shutter, laser power and picture settings; source picker built from the projector's own input list; lens shift / zoom / focus; test patterns; environment temperatures; and a raw property/method escape hatch for the full Pulse API.",
@@ -20,7 +20,7 @@
       "file": "projectors/barco_pulse.py",
       "format": "python",
       "files": {
-        "projectors/barco_pulse.py": "980d52560757d91064671df7fcd7adcd380b3a23da4ef59e55d115b1288faa9e",
+        "projectors/barco_pulse.py": "5a49587374dcd706fe9a3cd3bae77ca48b98c9f165c2b726bd92b06e31dac85b",
         "projectors/barco_pulse_sim.py": "4f87820c7c9d18294a059a3f25b163334ef66a126e8d52a52592908090c6d0fa"
       },
       "ports": [
@@ -30,7 +30,7 @@
         "barco_pulse"
       ],
       "simulated": true,
-      "min_platform_version": "0.34.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "projector",
         "barco",
@@ -41,7 +41,7 @@
       ],
       "help": {
         "overview": "Barco Pulse projectors speak JSON-RPC 2.0 on TCP 9090. The driver subscribes to the projector's change notifications, so power, source, shutter, laser power and picture values update live. The source picker offers the projector's own input list (read at connect). Lens shift / zoom / focus move by motor steps; models without a motorized lens answer those commands with an error, which is reported but harmless. The Get Property / Set Property / Invoke Method commands expose the full Pulse API for anything not surfaced as a named command.",
-        "setup": "1. Connect the projector's LAN port and give it a fixed IP (OSD: System Settings > Communication > LAN).\n2. In OpenAVC, enter the IP. Leave port at 9090.\n3. Leave the API pass code empty \u2014 it is only needed when the projector's API access has been restricted with a code.\n4. ECO standby powers the network interface down, so a projector in ECO cannot be reached over the API. For fully controllable rooms leave ECO disabled (the Eco Standby device setting), or pair a Wake-on-LAN device to wake it."
+        "setup": "1. Connect the projector's LAN port and give it a fixed IP (OSD: System Settings > Communication > LAN).\n2. In OpenAVC, enter the IP. Leave port at 9090.\n3. Leave the API pass code empty \u2014 it is only needed when the projector's API access has been restricted with a code.\n4. ECO standby powers the network interface down, so a projector in ECO cannot be reached over the API. Power On still wakes it, with Wake-on-LAN to the MAC address saved when the projector first connects. For a projector that has never connected, enter the MAC under Edit Device."
       },
       "compatible_models": [
         {

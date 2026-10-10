@@ -29,7 +29,8 @@ BANNER = (
 
 
 def test_version_bumped():
-    assert str(INFO["version"]) == "1.8.3"
+    assert str(INFO["version"]) == "1.9.0"
+    assert str(INFO["min_platform_version"]) == "0.37.0"
 
 
 def test_the_probe_sends_nothing():
@@ -42,3 +43,36 @@ def test_the_banner_identifies_the_device():
     assert model and model.group(1).startswith("DXP 84 HD 4K Plus")
     firmware = re.search(PROBE["extract"]["firmware"]["regex"], BANNER)
     assert firmware and firmware.group(1) == "1.06"
+
+
+def _size_rule():
+    rules = [r for r in INFO["responses"]
+             if r.get("set", {}).get("matrix_outputs") == "$2"]
+    assert len(rules) == 1
+    return re.compile(rules[0]["match"])
+
+
+def test_a_matrix_reports_its_size_and_the_counts_fill_in():
+    """The Information request I answers "V<in>X<out> A<in>X<audio outs>"
+    (DXP HD 4K PLUS guide, "General information"), tagged Info00* in
+    verbose mode 3. The video half sizes the rosters and is saved into the
+    count settings (learned_from)."""
+    rule = _size_rule()
+    for reply, size in (("V8X4 A8X2", ("8", "4")),
+                        ("Info00*V8X8 A8X2", ("8", "8")),
+                        ("V32X32 A32X2", ("32", "32"))):
+        m = rule.match(reply)
+        assert m and m.groups() == size, reply
+    schema = INFO["config_schema"]
+    assert schema["input_count"]["learned_from"] == "matrix_inputs"
+    assert schema["output_count"]["learned_from"] == "matrix_outputs"
+    types = INFO["child_entity_types"]
+    assert types["output"]["instances"]["count_from_state"] == "matrix_outputs"
+    assert types["input"]["instances"]["count_from_state"] == "matrix_inputs"
+
+
+def test_a_single_output_device_keeps_its_flat_surface():
+    rule = _size_rule()
+    # A one-output size, and a DSC scaler's signal information, never match.
+    assert not rule.match("V8X1 A8X1")
+    assert not rule.match("Vid1 Typ6 Std0 Blk0 Hrt031.5 Vrt060.0")

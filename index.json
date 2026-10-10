@@ -267,7 +267,7 @@
       "name": "Allen & Heath Qu Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.2.1",
+      "version": "1.3.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Allen & Heath Qu family (Qu-16, Qu-24, Qu-32, Qu-Pac, Qu-SB) via MIDI over TCP/IP on port 51325. Auto-identifies the model on connect and registers every input, stereo input, mix, group, matrix, DCA, mute group and FX send/return as a child entity with live mute / fader / pan state and its real channel name. Mute / fader / pan / send / assign / pre-post control, DCA and mute-group masters, PAFL, local preamp gain and 48V, scene recall (1-100), MMC transport, channel naming and remote shutdown, with bidirectional state from console-side moves.",
@@ -275,7 +275,7 @@
       "file": "audio/allenheath_qu.py",
       "format": "python",
       "files": {
-        "audio/allenheath_qu.py": "126b636cc7c23264d13094d17508e29e0bd2e3730165c2b8514ef81950177fc6",
+        "audio/allenheath_qu.py": "ba63166adb5a0a06bdb9fc0212413070655540bec255cb5a8970c16360fd3884",
         "audio/allenheath_qu_sim.py": "3b6f63570ac8795032c379b79c4c91eb48019cde79ef69816bc99c4388b9d004"
       },
       "ports": [
@@ -286,7 +286,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "mixer",
         "console",
@@ -1753,7 +1753,7 @@
       "name": "Barco Pulse Projector",
       "manufacturer": "Barco",
       "category": "projector",
-      "version": "1.0.3",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Barco Pulse-platform laser projectors (F70 / F80 / F90, UDX, UDM, HDX 4K, I600, G62 / G100, XDL and other Pulse models) over the Pulse JSON-RPC API on TCP 9090. Live push updates for power, source, shutter, laser power and picture settings; source picker built from the projector's own input list; lens shift / zoom / focus; test patterns; environment temperatures; and a raw property/method escape hatch for the full Pulse API.",
@@ -1761,7 +1761,7 @@
       "file": "projectors/barco_pulse.py",
       "format": "python",
       "files": {
-        "projectors/barco_pulse.py": "980d52560757d91064671df7fcd7adcd380b3a23da4ef59e55d115b1288faa9e",
+        "projectors/barco_pulse.py": "5a49587374dcd706fe9a3cd3bae77ca48b98c9f165c2b726bd92b06e31dac85b",
         "projectors/barco_pulse_sim.py": "4f87820c7c9d18294a059a3f25b163334ef66a126e8d52a52592908090c6d0fa"
       },
       "ports": [
@@ -1771,7 +1771,7 @@
         "barco_pulse"
       ],
       "simulated": true,
-      "min_platform_version": "0.34.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "projector",
         "barco",
@@ -1782,7 +1782,7 @@
       ],
       "help": {
         "overview": "Barco Pulse projectors speak JSON-RPC 2.0 on TCP 9090. The driver subscribes to the projector's change notifications, so power, source, shutter, laser power and picture values update live. The source picker offers the projector's own input list (read at connect). Lens shift / zoom / focus move by motor steps; models without a motorized lens answer those commands with an error, which is reported but harmless. The Get Property / Set Property / Invoke Method commands expose the full Pulse API for anything not surfaced as a named command.",
-        "setup": "1. Connect the projector's LAN port and give it a fixed IP (OSD: System Settings > Communication > LAN).\n2. In OpenAVC, enter the IP. Leave port at 9090.\n3. Leave the API pass code empty \u2014 it is only needed when the projector's API access has been restricted with a code.\n4. ECO standby powers the network interface down, so a projector in ECO cannot be reached over the API. For fully controllable rooms leave ECO disabled (the Eco Standby device setting), or pair a Wake-on-LAN device to wake it."
+        "setup": "1. Connect the projector's LAN port and give it a fixed IP (OSD: System Settings > Communication > LAN).\n2. In OpenAVC, enter the IP. Leave port at 9090.\n3. Leave the API pass code empty \u2014 it is only needed when the projector's API access has been restricted with a code.\n4. ECO standby powers the network interface down, so a projector in ECO cannot be reached over the API. Power On still wakes it, with Wake-on-LAN to the MAC address saved when the projector first connects. For a projector that has never connected, enter the MAC under Edit Device."
       },
       "compatible_models": [
         {
@@ -3242,7 +3242,7 @@
       "name": "Extron SIS Protocol",
       "manufacturer": "Extron",
       "category": "switcher",
-      "version": "1.8.3",
+      "version": "1.9.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Extron products via the SIS (Simple Instruction Set) protocol. Covers crosspoint matrix switchers (DXP, CrossPoint), presentation switchers (IN Series), scalers (DSC, DVS), distribution amplifiers, and DSP products. On matrix models each configured output and input is a child entity with per-output routing and mute state. Works over TCP (port 23) or RS-232 (9600 8N1).\n",
@@ -3250,7 +3250,7 @@
       "file": "switchers/extron_sis.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/extron_sis.avcdriver": "4c56f2036d0c4a3206d5587cfbcadd2fbbfc83d5faac6df7e2f24fa5ded8be98"
+        "switchers/extron_sis.avcdriver": "54acdbcc8ae8eb715e2ca7d662227053be89e2e1db1e4568156fdc0f38f31d8e"
       },
       "ports": [
         23
@@ -3259,7 +3259,7 @@
         "extron_sis"
       ],
       "simulated": true,
-      "min_platform_version": "0.27.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "matrix-switcher",
         "scaler",
@@ -3366,7 +3366,7 @@
       "name": "Gefen EXT-UHD600A Matrix",
       "manufacturer": "Gefen",
       "category": "switcher",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Gefen EXT-UHD600A-44 and EXT-UHD600A-88 4K HDMI matrix switchers via Telnet on port 23 or RS-232. Every output is a child entity tracking its routed input, analog audio volume/mute, masking, sink status, and HDCP; every input is a child tracking signal presence, HDCP, and EDID mode. Covers routing presets, input/output naming, HDCP modes, per-output video scaling (44), panel brightness, IR channel, and the RS-232 feedback setting.\n",
@@ -3374,7 +3374,7 @@
       "file": "switchers/gefen_uhd600a.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/gefen_uhd600a.avcdriver": "7418277fcfb22b18ed3cca569edc92b4539e0a1fcbf78181315f4b7d4526c1d7"
+        "switchers/gefen_uhd600a.avcdriver": "1a91e862d929036b0aa82c2ea81631c767abfd8a2c8c4dfcb7d154621861a726"
       },
       "ports": [
         23
@@ -3383,7 +3383,7 @@
         "gefen_cli"
       ],
       "simulated": true,
-      "min_platform_version": "0.27.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "matrix-switcher",
         "hdmi",
@@ -4403,7 +4403,7 @@
       "name": "Kramer Protocol 3000",
       "manufacturer": "Kramer",
       "category": "switcher",
-      "version": "1.6.2",
+      "version": "1.7.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Kramer products via Protocol 3000 over TCP (port 5000) or RS-232. Covers matrix switchers (VS series), scalers and presentation switchers (VP series), and distribution amplifiers. On matrix models each configured output and input is a child entity with per-output routing, mute, volume, and sink state. Routing commands speak both Protocol 3000 routing dialects (legacy VID/AUD/AV and layer-based ROUTE), so one driver covers the whole family.\n",
@@ -4411,7 +4411,7 @@
       "file": "switchers/kramer_p3000.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/kramer_p3000.avcdriver": "7deb3fa2fdd9e0e968b77e2e251d008191c5a48b2fd4f3345fd0ccfefaff63b9"
+        "switchers/kramer_p3000.avcdriver": "2c96e299566e91b22468d52a55025b18ce376d3c235b55cc59d70486b0c45bd7"
       },
       "ports": [
         5000,
@@ -4421,7 +4421,7 @@
         "kramer_p3000"
       ],
       "simulated": true,
-      "min_platform_version": "0.27.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "matrix-switcher",
         "scaler",
@@ -6778,7 +6778,7 @@
       "name": "Shure Axient Digital Receivers",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls and monitors Shure Axient Digital AD4D and AD4Q wireless receivers over Shure's command strings on TCP port 2202. Each receiver channel is a child entity with mute, gain, frequency and group/channel preset, interference and encryption warnings, the decoded transmitter's battery, RF power, lock and mute switch, and opt-in audio and RF meters. Each of a channel's eight transmitter slots is a child entity; a linked ADX transmitter's RF mute, power mode, gain offset, polarity, input pad and name are remote-controllable. State pushes live as it changes.",
@@ -6786,7 +6786,7 @@
       "file": "audio/shure_axient_digital.py",
       "format": "python",
       "files": {
-        "audio/shure_axient_digital.py": "dbaa411ccbd1b4df7b39e536095023d25bd745910b51e0b62a4742dc7f72e50c",
+        "audio/shure_axient_digital.py": "ecceacafc21a796cfc2714e65f5aac66675e6840195202621f7c079c2699e581",
         "audio/shure_axient_digital_sim.py": "a3327e803887ea6e79d7de68e79fcef1cf91f32ff280a7a944ec309d9b453d7e"
       },
       "ports": [
@@ -6796,7 +6796,7 @@
         "shure_command_strings"
       ],
       "simulated": true,
-      "min_platform_version": "0.33.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "wireless",
         "microphone",
@@ -7000,7 +7000,7 @@
       "name": "Shure Networked Devices",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "2.0.4",
+      "version": "2.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Shure networked audio devices over the Device Control Strings protocol on TCP port 2202 \u2014 MXA910 / MXA920 / MXA710 ceiling arrays, ANI interfaces, the P300 IntelliMix processor, and the SCM820 automixer. Each audio channel is a child entity with mute, gain, name, and live metering; device-level mute, presets, and status LED are controlled directly. Channel state pushes live as it changes on the device or another controller.",
@@ -7008,8 +7008,8 @@
       "file": "audio/shure_network.py",
       "format": "python",
       "files": {
-        "audio/shure_network.py": "c30277401571d08a1b8a7a010d14d23a87aa3a2fcf59e92c0eb4afb2a3169fd3",
-        "audio/shure_network_sim.py": "911f6177bbf6e066a7aa86ad80c26e5c12d29247f82eaf2c692a8060fd616b28"
+        "audio/shure_network.py": "8aab38f738c711fda7ea51da93dc770082ce5d6e44115fec83e28430e42c716c",
+        "audio/shure_network_sim.py": "94177f4d18e18e0f2cf3a66edb629f03fe831df6fcbaeb5d00e06ddc60651a69"
       },
       "ports": [
         2202
@@ -7018,7 +7018,7 @@
         "shure_dcs"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "ceiling-mic",
         "microphone",
@@ -7028,7 +7028,7 @@
       ],
       "help": {
         "overview": "Shure networked microphones, interfaces, and processors speak the Device Control Strings (DCS) protocol on TCP port 2202. This driver models each audio channel as a child entity carrying its mute, gain (in dB), name, and live level, and controls device-level mute, presets, and the status LED directly.\n\nState is push-driven: after connecting, the driver seeds every channel from the device, then mirrors the REP messages the device sends whenever anything changes \u2014 including changes made on the front panel or in Shure Designer.\n\nChannel names are read-only over third-party control \u2014 set them in Shure Designer, and they appear here as the channel labels.",
-        "setup": "1. In Shure Designer (or the device web UI), the third-party control interface on TCP 2202 is enabled by default.\n2. Give the device a static IP or a DHCP reservation.\n3. In OpenAVC, enter the IP. Port 2202 is fixed.\n4. Set Channel Count to match the device (e.g. 9 for an MXA array's 8 lobes plus the automixer output, 4 for an ANI4IN). Over-sizing is harmless \u2014 extra channels just answer REP ERR \u2014 but clutters the channel list.\n5. To see live level meters, set Meter Interval to a value like 500 ms (0 disables metering)."
+        "setup": "1. In Shure Designer (or the device web UI), the third-party control interface on TCP 2202 is enabled by default.\n2. Give the device a static IP or a DHCP reservation.\n3. In OpenAVC, enter the IP. Port 2202 is fixed.\n4. An MXA910, MXA920, ANI4IN or ANI4OUT sets Channel Count itself when it connects. For other models, set it to match the device (8 for an SCM820). Over-sizing is harmless \u2014 extra channels just answer REP ERR \u2014 but clutters the channel list.\n5. To see live level meters, set Meter Interval to a value like 500 ms (0 disables metering)."
       },
       "compatible_models": [
         {
@@ -7044,7 +7044,7 @@
             "SCM820"
           ],
           "confidence": "untested",
-          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model \u2014 set Channel Count to match: MXA arrays have 8 mic channels plus the automixer output (9), the ANI4IN/4OUT have 4, the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
+          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model. The MXA910, MXA920 (8 mic channels plus the automixer output, 9) and the ANI4IN/4OUT (4) report their model, which sets the count. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
         }
       ],
       "discovery": {

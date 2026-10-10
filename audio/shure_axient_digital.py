@@ -205,8 +205,8 @@ class ShureAxientDigitalDriver(BaseDriver):
         "name": "Shure Axient Digital Receivers",
         "manufacturer": "Shure",
         "category": "audio",
-        "version": "1.0.1",
-        "min_platform_version": "0.33.0",
+        "version": "1.1.0",
+        "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
             "Controls and monitors Shure Axient Digital AD4D and AD4Q wireless "
@@ -322,9 +322,11 @@ class ShureAxientDigitalDriver(BaseDriver):
                 "min": 1,
                 "max": 4,
                 "label": "Channel Count",
+                "learned_from": "channel_count_reported",
                 "description": (
-                    "4 for an AD4Q, 2 for an AD4D. Only used until the "
-                    "receiver reports its model, which sets the real count."
+                    "4 for an AD4Q, 2 for an AD4D. Once connected, the "
+                    "receiver's model sets the channel count, and it is "
+                    "saved here."
                 ),
             },
             "poll_interval": {

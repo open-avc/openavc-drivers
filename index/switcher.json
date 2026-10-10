@@ -769,7 +769,7 @@
       "name": "Extron SIS Protocol",
       "manufacturer": "Extron",
       "category": "switcher",
-      "version": "1.8.3",
+      "version": "1.9.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Extron products via the SIS (Simple Instruction Set) protocol. Covers crosspoint matrix switchers (DXP, CrossPoint), presentation switchers (IN Series), scalers (DSC, DVS), distribution amplifiers, and DSP products. On matrix models each configured output and input is a child entity with per-output routing and mute state. Works over TCP (port 23) or RS-232 (9600 8N1).\n",
@@ -777,7 +777,7 @@
       "file": "switchers/extron_sis.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/extron_sis.avcdriver": "4c56f2036d0c4a3206d5587cfbcadd2fbbfc83d5faac6df7e2f24fa5ded8be98"
+        "switchers/extron_sis.avcdriver": "54acdbcc8ae8eb715e2ca7d662227053be89e2e1db1e4568156fdc0f38f31d8e"
       },
       "ports": [
         23
@@ -786,7 +786,7 @@
         "extron_sis"
       ],
       "simulated": true,
-      "min_platform_version": "0.27.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "matrix-switcher",
         "scaler",
@@ -839,7 +839,7 @@
       "name": "Gefen EXT-UHD600A Matrix",
       "manufacturer": "Gefen",
       "category": "switcher",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Gefen EXT-UHD600A-44 and EXT-UHD600A-88 4K HDMI matrix switchers via Telnet on port 23 or RS-232. Every output is a child entity tracking its routed input, analog audio volume/mute, masking, sink status, and HDCP; every input is a child tracking signal presence, HDCP, and EDID mode. Covers routing presets, input/output naming, HDCP modes, per-output video scaling (44), panel brightness, IR channel, and the RS-232 feedback setting.\n",
@@ -847,7 +847,7 @@
       "file": "switchers/gefen_uhd600a.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/gefen_uhd600a.avcdriver": "7418277fcfb22b18ed3cca569edc92b4539e0a1fcbf78181315f4b7d4526c1d7"
+        "switchers/gefen_uhd600a.avcdriver": "1a91e862d929036b0aa82c2ea81631c767abfd8a2c8c4dfcb7d154621861a726"
       },
       "ports": [
         23
@@ -856,7 +856,7 @@
         "gefen_cli"
       ],
       "simulated": true,
-      "min_platform_version": "0.27.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "matrix-switcher",
         "hdmi",
@@ -902,7 +902,7 @@
       "name": "Kramer Protocol 3000",
       "manufacturer": "Kramer",
       "category": "switcher",
-      "version": "1.6.2",
+      "version": "1.7.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Kramer products via Protocol 3000 over TCP (port 5000) or RS-232. Covers matrix switchers (VS series), scalers and presentation switchers (VP series), and distribution amplifiers. On matrix models each configured output and input is a child entity with per-output routing, mute, volume, and sink state. Routing commands speak both Protocol 3000 routing dialects (legacy VID/AUD/AV and layer-based ROUTE), so one driver covers the whole family.\n",
@@ -910,7 +910,7 @@
       "file": "switchers/kramer_p3000.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/kramer_p3000.avcdriver": "7deb3fa2fdd9e0e968b77e2e251d008191c5a48b2fd4f3345fd0ccfefaff63b9"
+        "switchers/kramer_p3000.avcdriver": "2c96e299566e91b22468d52a55025b18ce376d3c235b55cc59d70486b0c45bd7"
       },
       "ports": [
         5000,
@@ -920,7 +920,7 @@
         "kramer_p3000"
       ],
       "simulated": true,
-      "min_platform_version": "0.27.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "matrix-switcher",
         "scaler",

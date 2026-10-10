@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_CHANNEL_COUNT = 8
+_MODEL_FOR_COUNT = {9: "MXA920", 4: "ANI4IN"}
 
 # Wire gain 0-1400 = -110..+30 dB; 1100 = 0 dB (unity).
 _GAIN_WIRE_DEFAULT = 1100
@@ -62,7 +63,12 @@ class ShureNetworkSimulator(TCPSimulator):
         self._count = int(cfg.get("channel_count", DEFAULT_CHANNEL_COUNT))
         self._device_name = str(
             self.state.get("device_name", "MXA920-SIM"))
-        self._model = str(self.state.get("model", "MXA920"))
+        # Play the device the project's Channel Count describes: an MXA920
+        # for 9, an ANI4IN for 4 (the models whose MODEL sets the driver's
+        # roster), else a P300, whose model leaves the configured count alone.
+        self._model = str(
+            cfg.get("model") or _MODEL_FOR_COUNT.get(self._count, "P300"))
+        self.set_state("model", self._model)
         self._firmware = str(self.state.get("firmware", "4.6.11"))
         self._mute = bool(self.state.get("mute", False))
         self._brightness = int(self.state.get("led_brightness", 2))

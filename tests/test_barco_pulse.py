@@ -401,13 +401,15 @@ async def _settle(n: int = 4) -> None:
 
 def test_version_and_platform_gate():
     info = DRV.BarcoPulseDriver.DRIVER_INFO
-    assert info["version"] == "1.0.3"
-    # The BaseDriver connection lifecycle hooks this driver overrides
-    # (_pre_connect / _post_connect / _initial_sync / _close_session)
-    # ship in 0.24.0.
-    # The 0.25.0 floor is the package move: this file imports openavc.*.
-    assert info["min_platform_version"] == "0.34.0"
+    assert info["version"] == "1.1.0"
+    # learned_from on the MAC address setting ships in 0.37.0.
+    assert info["min_platform_version"] == "0.37.0"
     assert info["ports"] == [9090]
+    # The MAC the projector reports is saved, so Power On can wake it from
+    # ECO standby after a restart; Power On runs while the projector is
+    # off the network.
+    assert info["config_schema"]["mac_address"]["learned_from"] == "mac_address"
+    assert info["commands"]["power_on"]["available_offline"] is True
 
 
 def test_probe_answer_coherence():
@@ -743,6 +745,81 @@ def test_power_on_from_eco_sends_wol():
             assert driver.udp_sent[0][0] == b"\xff" * 6 + mac * 16
         finally:
             await driver.disconnect()
+
+    asyncio.run(go())
+
+
+
+def test_offline_power_on_wakes_with_the_saved_mac_and_powers_on_once_back():
+    """The projector is in ECO, so its network is asleep and the driver is
+    offline. Power On sends the magic packet to the MAC in the setting (no
+    state after a restart), then the power-on once the projector is back."""
+    async def go():
+        driver, sim = await _make_pair(
+            driver_overrides={"mac_address": "00:0D:0A:01:64:39"},
+        )
+        assert await driver.send_command("power_on") is True
+        mac = bytes.fromhex("000d0a016439")
+        assert [p for p, _, _ in driver.udp_sent] == [b"\xff" * 6 + mac * 16] * 2
+
+        await driver.connect()          # the woken projector, in standby
+        try:
+            await _settle(12)
+            assert sim.state["system_state"] == "on"
+            assert driver.get_state("power_state") == "on"
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_a_held_power_on_waits_out_boot():
+    async def go():
+        driver, sim = await _make_pair(
+            driver_overrides={"mac_address": "00:0D:0A:01:64:39"},
+        )
+        sim.set_state("system_state", "boot")
+        await driver.send_command("power_on")
+        await driver.connect()
+        try:
+            await _settle(12)
+            assert sim.state["system_state"] == "boot"   # not sent mid-boot
+            sim.set_state("system_state", "standby")
+            await _settle(12)
+            assert sim.state["system_state"] == "on"
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_a_held_power_on_expires():
+    async def go():
+        driver, sim = await _make_pair(
+            driver_overrides={"mac_address": "00:0D:0A:01:64:39"},
+        )
+        await driver.send_command("power_on")
+        driver._power_on_after_wake = asyncio.get_running_loop().time() - 1
+        await driver.connect()
+        try:
+            await _settle(12)
+            assert sim.state["system_state"] == "standby"
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_offline_power_on_with_no_mac_says_where_to_enter_it():
+    async def go():
+        driver, _ = await _make_pair()
+        try:
+            await driver.send_command("power_on")
+        except ValueError as exc:
+            assert "Edit Device" in str(exc)
+        else:
+            raise AssertionError("Power On with no MAC should be refused")
+        assert driver.udp_sent == []
 
     asyncio.run(go())
 

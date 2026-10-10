@@ -29,7 +29,12 @@ meanings are model-dependent and the protocol has no channel-enumeration
 query — a ``GET 0`` fan-out returns a count that varies with the device's
 operating mode — so the roster is sized from a ``channel_count`` config field
 (the samsung_mdc / atlasied config-sized-roster pattern), and the child
-labels are seeded from the device's own ``CHAN_NAME`` reports.
+labels are seeded from the device's own ``CHAN_NAME`` reports. Where the model
+fixes the count (MXA910 / MXA920: lobes 1-8 plus the automixer output 9;
+ANI4IN / ANI4OUT: 1-4, per their command-strings pages), the ``MODEL`` the
+device reports at connect sizes the roster instead, and the platform saves
+that count into ``channel_count`` (``learned_from``). The P300 (gapped
+channel map) and the SCM820 (no MODEL) stay on the configured count.
 
 Python (not YAML) because two things the YAML runtime can't express carry
 their weight here: the gain child prop is a real dB value translated to and
@@ -57,6 +62,26 @@ log = get_logger(__name__)
 
 
 DEFAULT_CHANNEL_COUNT = 8
+
+# Models whose channel count the model itself fixes (their command-strings
+# pages): MXA910 / MXA920 number lobes 1-8 and the automixer output 9 (10, the
+# AEC reference, is not a modelled channel); the ANI4IN / ANI4OUT number 1-4.
+_MODEL_CHANNEL_COUNTS = (
+    ("MXA910", 9),
+    ("MXA920", 9),
+    ("ANI4IN", 4),
+    ("ANI4OUT", 4),
+)
+
+
+def _channel_count_for_model(model: str) -> int | None:
+    """The channel count the reported MODEL implies, or None to keep the
+    configured one."""
+    upper = model.strip().upper()
+    for prefix, count in _MODEL_CHANNEL_COUNTS:
+        if upper.startswith(prefix):
+            return count
+    return None
 
 # Digital gain (AUDIO_GAIN_HI_RES) is carried on the wire as an integer 0-1400
 # that maps linearly to -110.0 .. +30.0 dB in 0.1 dB steps (1100 = 0 dB).
@@ -178,9 +203,9 @@ class ShureNetworkDriver(BaseDriver):
         "name": "Shure Networked Devices",
         "manufacturer": "Shure",
         "category": "audio",
-        "version": "2.0.4",
-        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        "version": "2.1.0",
+        # learned_from on Channel Count landed in 0.37.0.
+        "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
             "Controls Shure networked audio devices over the Device Control "
@@ -245,11 +270,12 @@ class ShureNetworkDriver(BaseDriver):
                 "confidence": "untested",
                 "notes": (
                     "All speak the same Device Control Strings grammar. "
-                    "Channel counts differ by model — set Channel Count to "
-                    "match: MXA arrays have 8 mic channels plus the automixer "
-                    "output (9), the ANI4IN/4OUT have 4, the SCM820 has 8 "
-                    "inputs plus mixes, and the P300 has a large input/output "
-                    "matrix. Device mute and presets are MXA / P300 / ANI; "
+                    "Channel counts differ by model. The MXA910, MXA920 "
+                    "(8 mic channels plus the automixer output, 9) and the "
+                    "ANI4IN/4OUT (4) report their model, which sets the "
+                    "count. Set Channel Count yourself for the others: the "
+                    "SCM820 has 8 inputs plus mixes, and the P300 has a "
+                    "large input/output matrix. Device mute and presets are MXA / P300 / ANI; "
                     "the SCM820 mutes per channel and has no presets — "
                     "unsupported properties answer a benign REP ERR."
                 ),
@@ -276,10 +302,11 @@ class ShureNetworkDriver(BaseDriver):
                 "control interface on TCP 2202 is enabled by default.\n"
                 "2. Give the device a static IP or a DHCP reservation.\n"
                 "3. In OpenAVC, enter the IP. Port 2202 is fixed.\n"
-                "4. Set Channel Count to match the device (e.g. 9 for an MXA "
-                "array's 8 lobes plus the automixer output, 4 for an ANI4IN). "
-                "Over-sizing is harmless — extra channels just answer REP "
-                "ERR — but clutters the channel list.\n"
+                "4. An MXA910, MXA920, ANI4IN or ANI4OUT sets Channel Count "
+                "itself when it connects. For other models, set it to match "
+                "the device (8 for an SCM820). Over-sizing is harmless — "
+                "extra channels just answer REP ERR — but clutters the "
+                "channel list.\n"
                 "5. To see live level meters, set Meter Interval to a value "
                 "like 500 ms (0 disables metering)."
             ),
@@ -308,11 +335,13 @@ class ShureNetworkDriver(BaseDriver):
                 "default": DEFAULT_CHANNEL_COUNT,
                 "min": 0,
                 "label": "Channel Count",
+                "learned_from": "channel_count_reported",
                 "description": (
-                    "Number of audio channels to model as children. Set to "
-                    "match the device: MXA arrays 9 (8 lobes + automixer), "
-                    "ANI4IN/4OUT 4, SCM820 8. There is no enumeration query, "
-                    "so this is configured, not discovered."
+                    "Number of audio channels to model as children. An MXA "
+                    "array (9: 8 lobes + automixer) or an ANI4IN/4OUT (4) "
+                    "reports its model when it connects, which sets the "
+                    "count and saves it here. Set it yourself for other "
+                    "models (SCM820: 8)."
                 ),
             },
             "poll_interval": {
@@ -370,6 +399,16 @@ class ShureNetworkDriver(BaseDriver):
                 "type": "string",
                 "label": "Firmware Version",
                 "help": "Firmware version reported by the device (FW_VER).",
+            },
+            "model": {
+                "type": "string",
+                "label": "Model",
+                "help": "Model reported by the device (MODEL). The SCM820 does not report one.",
+            },
+            "channel_count_reported": {
+                "type": "integer",
+                "label": "Channels",
+                "help": "Channel count the reported model implies; blank for a model that does not fix one.",
             },
         },
         "child_entity_types": CHILD_ENTITY_TYPES,
@@ -533,6 +572,7 @@ class ShureNetworkDriver(BaseDriver):
     _RE_DEVICE_ID = re.compile(r"^REP\s+DEVICE_ID\s+(.+?)\s*$")
     _RE_DEVICE_MUTE = re.compile(r"^REP\s+DEVICE_AUDIO_MUTE\s+(ON|OFF)\b", re.I)
     _RE_FW = re.compile(r"^REP\s+FW_VER\s+(.+?)\s*$")
+    _RE_MODEL = re.compile(r"^REP\s+MODEL\s+(.+?)\s*$")
     _RE_LED_BRIGHT = re.compile(r"^REP\s+LED_BRIGHTNESS\s+(\d)")
     _RE_CH_MUTE = re.compile(r"^REP\s+(\d+)\s+AUDIO_MUTE\s+(ON|OFF)\b", re.I)
     _RE_CH_NAME = re.compile(r"^REP\s+(\d+)\s+CHAN_NAME\s+(.+?)\s*$")
@@ -594,6 +634,31 @@ class ShureNetworkDriver(BaseDriver):
             if not (1 <= int(existing) <= self._channel_count):
                 self.deregister_child("channel", existing)
 
+    async def _resize_roster(self, count: int) -> None:
+        """The device's MODEL said how many channels it has."""
+        self.set_state("channel_count_reported", count)
+        if count == self._channel_count:
+            return
+        old = self._channel_count
+        self._channel_count = count
+        self._register_topology()
+        try:
+            if count > old:
+                await self._send("< GET 0 CHAN_NAME >")
+                await self._send("< GET 0 AUDIO_MUTE >")
+                for n in range(old + 1, count + 1):
+                    await self._send(f"< GET {n} AUDIO_GAIN_HI_RES >")
+        except (ConnectionError, OSError):
+            log.warning(f"[{self.device_id}] Roster resync failed")
+
+    def _spawn(self, coro) -> None:
+        task = asyncio.ensure_future(coro)
+        tasks = getattr(self, "_bg_tasks", None)
+        if tasks is None:
+            tasks = self._bg_tasks = set()
+        tasks.add(task)
+        task.add_done_callback(tasks.discard)
+
     async def refresh_children(self) -> dict[str, Any]:
         """IDE 'Refresh from Device': re-register and re-read everything."""
         if not (self.transport and self.transport.connected):
@@ -606,7 +671,7 @@ class ShureNetworkDriver(BaseDriver):
         """Seed device + channel state from the device on connect / refresh."""
         try:
             # Device-level values.
-            for prop in ("DEVICE_ID", "DEVICE_AUDIO_MUTE", "FW_VER",
+            for prop in ("MODEL", "DEVICE_ID", "DEVICE_AUDIO_MUTE", "FW_VER",
                          "LED_BRIGHTNESS"):
                 await self._send(f"< GET {prop} >")
             # Channel names + mutes fan out from the index-0 broadcast query;
@@ -748,6 +813,15 @@ class ShureNetworkDriver(BaseDriver):
         m = self._RE_FW.match(text)
         if m:
             self.set_state("firmware", _strip_string_value(m.group(1)))
+            return
+
+        m = self._RE_MODEL.match(text)
+        if m:
+            model = _strip_string_value(m.group(1))
+            self.set_state("model", model)
+            count = _channel_count_for_model(model)
+            if count is not None:
+                self._spawn(self._resize_roster(count))
             return
 
         m = self._RE_LED_BRIGHT.match(text)

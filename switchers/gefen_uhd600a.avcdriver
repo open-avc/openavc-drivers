@@ -73,9 +73,10 @@ id: gefen_uhd600a
 name: Gefen EXT-UHD600A Matrix
 manufacturer: Gefen
 category: switcher
-version: 1.1.0
+version: 1.2.0
 author: OpenAVC
-min_platform_version: "0.27.0"
+# learned_from on Output IDs and Input Count.
+min_platform_version: "0.37.0"
 description: >
   Controls Gefen EXT-UHD600A-44 and EXT-UHD600A-88 4K HDMI matrix
   switchers via Telnet on port 23 or RS-232. Every output is a child
@@ -175,18 +176,22 @@ config_schema:
     type: string
     default: "A,B,C,D"
     label: Output IDs
+    learned_from: matrix_output_ids
     description: >
       Comma-separated output letters, uppercase — each becomes an Output
-      child. "A,B,C,D" for the 44, "A,B,C,D,E,F,G,H" for the 88.
+      child. "A,B,C,D" for the 44, "A,B,C,D,E,F,G,H" for the 88. The
+      matrix's routing report says which it is when it connects, and it
+      is saved here.
   input_count:
     type: integer
     default: 4
     min: 0
     max: 8
     label: Input Count
+    learned_from: matrix_inputs
     description: >
       Number of HDMI inputs — each becomes an Input child. 4 for the
-      44, 8 for the 88.
+      44, 8 for the 88. Filled in from the matrix when it connects.
   poll_interval:
     type: integer
     default: 20
@@ -212,6 +217,14 @@ state_variables:
     type: string
     label: Device Description
     help: "The matrix's device-description string (also shown by the Syner-G discovery tool)."
+  matrix_output_ids:
+    type: string
+    label: Matrix Outputs
+    help: "Output letters in the matrix's routing report: A-D on the 44, A-H on the 88."
+  matrix_inputs:
+    type: integer
+    label: Matrix Inputs
+    help: "Inputs the matrix has, from its routing report (both models are square)."
   rs232_feedback:
     type: boolean
     label: RS-232 Feedback
@@ -298,6 +311,7 @@ child_entity_types:
         help: "Input name stored in the matrix (up to 30 characters); labels this child."
     summary_fields: [signal, hdcp_status]
     instances:
+      count_from_state: matrix_inputs
       count_from: input_count
       label: "Input {id}"
   output:
@@ -865,6 +879,29 @@ responses:
   - match: 'LCD_BRIGHTNESS\s+(\d{1,3})\s*$'
     set: { lcd_brightness: "$1" }
 
+  # Full routing dump, which also says which matrix this is: one pair per
+  # output, "S A 1 B 2 C 3 D X" on the 44 and eight pairs on the 88
+  # (manuals, "s"). Both models are square, so the inputs follow. Same
+  # routing as the rule below, plus the size; R echoes never match.
+  - match: '\bS\s+A\s+(\d+|X)\s+B\s+(\d+|X)\s+C\s+(\d+|X)\s+D\s+(\d+|X)\s+E\s+(\d+|X)\s+F\s+(\d+|X)\s+G\s+(\d+|X)\s+H\s+(\d+|X)\s*$'
+    set: { matrix_output_ids: "A,B,C,D,E,F,G,H", matrix_inputs: "8" }
+    child_set:
+      - { type: output, id: "A", state: { input: { group: 1, map: { X: 0 } } } }
+      - { type: output, id: "B", state: { input: { group: 2, map: { X: 0 } } } }
+      - { type: output, id: "C", state: { input: { group: 3, map: { X: 0 } } } }
+      - { type: output, id: "D", state: { input: { group: 4, map: { X: 0 } } } }
+      - { type: output, id: "E", state: { input: { group: 5, map: { X: 0 } } } }
+      - { type: output, id: "F", state: { input: { group: 6, map: { X: 0 } } } }
+      - { type: output, id: "G", state: { input: { group: 7, map: { X: 0 } } } }
+      - { type: output, id: "H", state: { input: { group: 8, map: { X: 0 } } } }
+  - match: '\bS\s+A\s+(\d+|X)\s+B\s+(\d+|X)\s+C\s+(\d+|X)\s+D\s+(\d+|X)\s*$'
+    set: { matrix_output_ids: "A,B,C,D", matrix_inputs: "4" }
+    child_set:
+      - { type: output, id: "A", state: { input: { group: 1, map: { X: 0 } } } }
+      - { type: output, id: "B", state: { input: { group: 2, map: { X: 0 } } } }
+      - { type: output, id: "C", state: { input: { group: 3, map: { X: 0 } } } }
+      - { type: output, id: "D", state: { input: { group: 4, map: { X: 0 } } } }
+
   # Routing — one rule covers every width: "R A 1" (single tie),
   # "R A X" (off), "R A 1 B 1 C 1" (multi-output route echo), and the
   # full dump "S A 1 B 2 C 3 D X" / 8-pair 88 form. Optional pairs that
@@ -1050,8 +1087,12 @@ simulator:
       handler: |
         line = match.group(0).strip()
         low = line.lower()
-        outs = str(state.get("outputs", "ABCD"))
-        n_in = int(state.get("inputs", 4))
+        # The matrix the project's settings describe (a 44 or an 88).
+        _cfg_outs = "".join(
+            t.strip() for t in str(config.get("output_ids") or "").split(",")
+            if t.strip())
+        outs = _cfg_outs.upper() or str(state.get("outputs", "ABCD"))
+        n_in = int(config.get("input_count") or state.get("inputs", 4))
 
         def _idx(letter):
             pos = outs.upper().find(letter.upper())

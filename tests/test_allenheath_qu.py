@@ -383,6 +383,30 @@ def test_identify_reply_learns_model_and_channel():
     assert d.count_children("matrix") == 2
 
 
+
+def test_the_model_setting_learns_only_what_the_console_reported():
+    """Model is filled in from model_reported (learned_from, platform 0.37.0),
+    which only the console's own identify answer sets: the fallback used when
+    it does not answer must never be saved as if the console had said it."""
+    info = qu.AllenHeathQuDriver.DRIVER_INFO
+    assert info["config_schema"]["model"]["learned_from"] == "model_reported"
+    assert info["min_platform_version"] == "0.37.0"
+
+    d = _make(midi_n=0)
+    d._apply_identity("Qu-16", identified=False)      # no answer: a guess
+    assert d.get_state("model") == "Qu-16"
+    assert d.get_state("model_reported") is None
+
+    reply = bytes([0xF0, 0x00, 0x00, 0x1A, 0x50, 0x11, 0x01, 0x00, 0x02,
+                   0x11, 0x03, 0x01, 0x09, 0xF7])    # BoxID 3 = Qu-32
+    _run(_feed(d, reply))
+    assert d.get_state("model_reported") == "Qu-32"
+    # The reported value is one the setting accepts.
+    values = [v["value"] if isinstance(v, dict) else v
+              for v in info["config_schema"]["model"]["values"]]
+    assert "Qu-32" in values
+
+
 # ── Incoming push fan-out ──
 
 def test_incoming_mute_updates_child():

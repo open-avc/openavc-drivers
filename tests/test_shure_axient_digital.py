@@ -828,3 +828,12 @@ class TestCommandSurface:
         ids = Driver.DRIVER_INFO["child_entity_types"]["slot"]["instances"]["ids"]
         assert ids == [f"{c}-{s}" for c in range(1, 5) for s in range(1, 9)]
         assert Driver.DRIVER_INFO["child_entity_types"]["slot"]["instances"]["presence"] == "reported"
+
+    def test_the_channel_count_setting_is_filled_in_from_the_model(self):
+        """The count the receiver's model implies is saved into Channel Count
+        (``learned_from``, platform 0.37.0)."""
+        info = Driver.DRIVER_INFO
+        field = info["config_schema"]["channel_count"]
+        assert field["learned_from"] == "channel_count_reported"
+        assert "channel_count_reported" in info["state_variables"]
+        assert info["min_platform_version"] == "0.37.0"

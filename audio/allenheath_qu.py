@@ -644,9 +644,9 @@ class AllenHeathQuDriver(BaseDriver):
         "name": "Allen & Heath Qu Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.2.1",
-        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        "version": "1.3.0",
+        # learned_from on the Model setting landed in 0.37.0.
+        "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
             "Controls the Allen & Heath Qu family (Qu-16, Qu-24, Qu-32, Qu-Pac, "
@@ -743,11 +743,17 @@ class AllenHeathQuDriver(BaseDriver):
                      "description": "MIDI over TCP/IP port. Always 51325 on Qu."},
             "model": {
                 "type": "enum",
-                "values": ["auto", "Qu-16", "Qu-24", "Qu-32", "Qu-Pac", "Qu-SB"],
+                "values": [
+                    {"value": "auto", "label": "Detect automatically"},
+                    "Qu-16", "Qu-24", "Qu-32", "Qu-Pac", "Qu-SB",
+                ],
                 "default": "auto", "label": "Model",
-                "description": "Leave on 'auto' to detect the model from the "
-                               "console. Set a model only as a fallback if "
-                               "auto-identify does not complete.",
+                "learned_from": "model_reported",
+                "description": "The console reports its model when it "
+                               "connects, and it is saved here. Pick one to "
+                               "build or simulate a project before the "
+                               "console is reachable; the pick is also used "
+                               "if the console does not answer.",
             },
             "midi_channel": {
                 "type": "integer", "default": 0, "min": 0, "max": 16,
@@ -805,6 +811,11 @@ class AllenHeathQuDriver(BaseDriver):
         },
         "state_variables": {
             "model": {"type": "string", "label": "Model"},
+            "model_reported": {
+                "type": "string", "label": "Model Reported",
+                "help": "The model the console itself reported. Blank until "
+                        "it answers; Model falls back to the configured one.",
+            },
             "firmware": {"type": "string", "label": "Firmware"},
             "midi_channel": {"type": "integer", "label": "MIDI Channel"},
             "identified": {"type": "boolean", "label": "Identified"},
@@ -985,6 +996,10 @@ class AllenHeathQuDriver(BaseDriver):
     def _apply_identity(self, model: str, identified: bool) -> None:
         self._model = model
         self.set_state("model", model)
+        if identified:
+            # Only the console's own answer: the Model setting learns from
+            # this, and a fallback must never be saved as if it were reported.
+            self.set_state("model_reported", model)
         self.set_state("midi_channel", self._midi_n + 1)
         self.set_state("identified", identified)
         self._register_topology(model)

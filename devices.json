@@ -9416,7 +9416,7 @@
         {
           "id": "shure_network",
           "confidence": "untested",
-          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model \u2014 set Channel Count to match: MXA arrays have 8 mic channels plus the automixer output (9), the ANI4IN/4OUT have 4, the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
+          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model. The MXA910, MXA920 (8 mic channels plus the automixer output, 9) and the ANI4IN/4OUT (4) report their model, which sets the count. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
         }
       ]
     },
@@ -9428,7 +9428,7 @@
         {
           "id": "shure_network",
           "confidence": "untested",
-          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model \u2014 set Channel Count to match: MXA arrays have 8 mic channels plus the automixer output (9), the ANI4IN/4OUT have 4, the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
+          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model. The MXA910, MXA920 (8 mic channels plus the automixer output, 9) and the ANI4IN/4OUT (4) report their model, which sets the count. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
         }
       ]
     },
@@ -9440,7 +9440,7 @@
         {
           "id": "shure_network",
           "confidence": "untested",
-          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model \u2014 set Channel Count to match: MXA arrays have 8 mic channels plus the automixer output (9), the ANI4IN/4OUT have 4, the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
+          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model. The MXA910, MXA920 (8 mic channels plus the automixer output, 9) and the ANI4IN/4OUT (4) report their model, which sets the count. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
         }
       ]
     },
@@ -9452,7 +9452,7 @@
         {
           "id": "shure_network",
           "confidence": "untested",
-          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model \u2014 set Channel Count to match: MXA arrays have 8 mic channels plus the automixer output (9), the ANI4IN/4OUT have 4, the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
+          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model. The MXA910, MXA920 (8 mic channels plus the automixer output, 9) and the ANI4IN/4OUT (4) report their model, which sets the count. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
         }
       ]
     },
@@ -9464,7 +9464,7 @@
         {
           "id": "shure_network",
           "confidence": "untested",
-          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model \u2014 set Channel Count to match: MXA arrays have 8 mic channels plus the automixer output (9), the ANI4IN/4OUT have 4, the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
+          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model. The MXA910, MXA920 (8 mic channels plus the automixer output, 9) and the ANI4IN/4OUT (4) report their model, which sets the count. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
         }
       ]
     },
@@ -9476,7 +9476,7 @@
         {
           "id": "shure_network",
           "confidence": "untested",
-          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model \u2014 set Channel Count to match: MXA arrays have 8 mic channels plus the automixer output (9), the ANI4IN/4OUT have 4, the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
+          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model. The MXA910, MXA920 (8 mic channels plus the automixer output, 9) and the ANI4IN/4OUT (4) report their model, which sets the count. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
         }
       ]
     },
@@ -9584,7 +9584,7 @@
         {
           "id": "shure_network",
           "confidence": "untested",
-          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model \u2014 set Channel Count to match: MXA arrays have 8 mic channels plus the automixer output (9), the ANI4IN/4OUT have 4, the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
+          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model. The MXA910, MXA920 (8 mic channels plus the automixer output, 9) and the ANI4IN/4OUT (4) report their model, which sets the count. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
         }
       ]
     },
@@ -9608,7 +9608,7 @@
         {
           "id": "shure_network",
           "confidence": "untested",
-          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model \u2014 set Channel Count to match: MXA arrays have 8 mic channels plus the automixer output (9), the ANI4IN/4OUT have 4, the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
+          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model. The MXA910, MXA920 (8 mic channels plus the automixer output, 9) and the ANI4IN/4OUT (4) report their model, which sets the count. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
         }
       ]
     },

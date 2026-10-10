@@ -39,15 +39,18 @@ Auth:
     reasons above, so a YAML auth extension alone would not convert
     it.)
 
-ECO mode caveat:
+ECO mode:
     In ECO state the network interface sleeps and the API session
-    drops — Barco documents wake-up via Wake-on-LAN, the keypad, the
-    IR remote, or an RS232 string. While the session is still up and
-    the projector reports ``eco``, ``power_on`` sends a WoL magic
-    packet (using the MAC read from the projector at connect) before
-    ``system.poweron`` as a best effort. If the projector has already
-    gone unreachable, pair it with the ``wake_on_lan`` utility driver
-    or disable ECO (``system.eco.enable``).
+    drops; Barco documents wake-up via Wake-on-LAN to the projector's
+    MAC address, the keypad, the IR remote, or an RS232 string.
+    ``power_on`` is ``available_offline``: with the projector
+    unreachable it sends the WoL magic packet and holds the power-on:
+    once the woken projector reports standby or ready (within
+    WAKE_POWER_ON_WINDOW_S), ``system.poweron`` goes out, so one press
+    turns it on whichever state the wake leaves it in. The MAC is read from the
+    projector at connect (``network.device.lan.hwaddress``) and the
+    platform saves it into the mac_address setting (``learned_from``),
+    so the wake still works after a server restart.
 
 Dynamic API:
     Parts of the Pulse API depend on model, mounted lens, and
@@ -87,6 +90,10 @@ log = get_logger(__name__)
 DEFAULT_PORT = 9090
 INITIAL_REQUEST_ID = 1000
 REQUEST_TIMEOUT_S = 5.0
+# How long after an offline Power On (a Wake-on-LAN out of ECO) the next
+# connection still sends system.poweron. Bounded so a press that never
+# reached the projector cannot turn it on much later.
+WAKE_POWER_ON_WINDOW_S = 180.0
 
 # system.state values (F80/UDX catalogs; the F90 manual predates
 # "service"/"error"). Shown verbatim so macros match protocol truth.
@@ -244,9 +251,9 @@ class BarcoPulseDriver(BaseDriver):
         "name": "Barco Pulse Projector",
         "manufacturer": "Barco",
         "category": "projector",
-        "version": "1.0.3",
-        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.34.0",
+        "version": "1.1.0",
+        # learned_from on the MAC address setting landed in 0.37.0.
+        "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
             "Controls Barco Pulse-platform laser projectors (F70 / F80 "
@@ -363,9 +370,10 @@ class BarcoPulseDriver(BaseDriver):
                 "with a code.\n"
                 "4. ECO standby powers the network interface down, so "
                 "a projector in ECO cannot be reached over the API. "
-                "For fully controllable rooms leave ECO disabled (the "
-                "Eco Standby device setting), or pair a Wake-on-LAN "
-                "device to wake it."
+                "Power On still wakes it, with Wake-on-LAN to the MAC "
+                "address saved when the projector first connects. For "
+                "a projector that has never connected, enter the MAC "
+                "under Edit Device."
             ),
         },
         "default_config": {
@@ -373,6 +381,7 @@ class BarcoPulseDriver(BaseDriver):
             "port": DEFAULT_PORT,
             "auth_code": "",
             "poll_interval": 30,
+            "mac_address": "",
         },
         "config_schema": {
             "host": {
@@ -408,6 +417,18 @@ class BarcoPulseDriver(BaseDriver):
                     "drift backstop and refreshes the environment "
                     "temperatures and source list. Set to 0 to "
                     "disable."
+                ),
+            },
+            "mac_address": {
+                "type": "string",
+                "default": "",
+                "label": "MAC Address (for Wake-on-LAN)",
+                "learned_from": "mac_address",
+                "description": (
+                    "Filled in from the projector when it connects, so "
+                    "Power On can still wake it from ECO standby after "
+                    "a restart. Fill it in yourself only for a "
+                    "projector that has never connected."
                 ),
             },
         },
@@ -533,10 +554,13 @@ class BarcoPulseDriver(BaseDriver):
             "power_on": {
                 "label": "Power On",
                 "params": {},
+                "available_offline": True,
                 "help": (
-                    "system.poweron. If the projector reports ECO "
-                    "state, a Wake-on-LAN packet is sent first (best "
-                    "effort — see the driver help about ECO)."
+                    "Turn the projector on. From ECO standby, where "
+                    "its network is asleep, it sends a Wake-on-LAN "
+                    "packet to the projector's MAC address and turns "
+                    "the projector on once it is back on the network. "
+                    "Runs while the device is offline."
                 ),
             },
             "power_off": {"label": "Power Off", "params": {}},
@@ -554,7 +578,7 @@ class BarcoPulseDriver(BaseDriver):
                 "help": (
                     "Deepest standby. The network interface sleeps in "
                     "ECO, so API control is lost until the projector "
-                    "is woken (WoL, keypad, remote)."
+                    "is woken: Power On wakes it with Wake-on-LAN."
                 ),
             },
             "select_source": {
@@ -948,6 +972,10 @@ class BarcoPulseDriver(BaseDriver):
         # Operational properties this projector actually answered at
         # prime time — the poll batch and subscriptions use this set.
         self._available: set[str] = set()
+        # Loop time until which a projector reporting standby or ready gets
+        # system.poweron (an offline Power On woke it from ECO); None = none.
+        self._power_on_after_wake: float | None = None
+        self._wake_tasks: set[asyncio.Task] = set()
 
     # ── Lifecycle ──
 
@@ -1076,6 +1104,37 @@ class BarcoPulseDriver(BaseDriver):
             # Flat primitives only in the state store.
             value = json.dumps(value)
         self.set_state(state_key, value)
+        if prop == "system.state":
+            self._finish_wake_power_on(value)
+
+    def _finish_wake_power_on(self, power_state: Any) -> None:
+        """Send the power-on an offline Power On held, once the woken
+        projector reports a state it can be turned on from. The state comes
+        from the read at connect or a push, whichever is first; boot is
+        waited out. Called from the receive path, so the request runs as a
+        task rather than awaiting its own reply here."""
+        deadline = self._power_on_after_wake
+        if deadline is None:
+            return
+        if asyncio.get_running_loop().time() > deadline or power_state in (
+            "on", "conditioning",
+        ):
+            self._power_on_after_wake = None
+            return
+        if power_state not in ("standby", "ready"):
+            return
+        self._power_on_after_wake = None
+        task = asyncio.get_running_loop().create_task(self._send_held_power_on())
+        self._wake_tasks.add(task)
+        task.add_done_callback(self._wake_tasks.discard)
+
+    async def _send_held_power_on(self) -> None:
+        try:
+            await self._send_jsonrpc("system.poweron")
+        except (PulseError, TimeoutError, ConnectionError) as exc:
+            log.warning(f"[{self.device_id}] Power on after wake failed: {exc}")
+            return
+        log.info(f"[{self.device_id}] Projector back from ECO, powered on")
 
     # ── Connection-time setup ──
 
@@ -1213,9 +1272,7 @@ class BarcoPulseDriver(BaseDriver):
         params = params or {}
 
         if command == "power_on":
-            if self.get_state("power_state") == "eco":
-                await self._send_wol()
-            return await self._send_jsonrpc("system.poweron")
+            return await self._power_on()
         if command == "power_off":
             return await self._send_jsonrpc("system.poweroff")
         if command == "go_ready":
@@ -1315,15 +1372,40 @@ class BarcoPulseDriver(BaseDriver):
             self._apply_property(prop, current)
         return result
 
-    async def _send_wol(self) -> None:
-        """Best-effort Wake-on-LAN using the MAC read at connect.
+    async def _power_on(self) -> Any:
+        """Turn the projector on, waking it from ECO standby first.
 
-        The platform's ``wake_on_lan`` sends the magic packet to the broadcast
-        address and to the projector's host; a MAC the projector never
-        reported is a warning, not a failed power-on, because
-        ``system.poweron`` still follows.
+        Declared ``available_offline``. On a live session that is not in ECO
+        this is ``system.poweron``. In ECO, or with the projector off the
+        network, the Wake-on-LAN packet goes first; with no session the
+        power-on is held for the next connection (see _initial_sync).
         """
-        mac = str(self.get_state("mac_address") or "")
+        connected = bool(self.transport and self.transport.connected)
+        if connected and self.get_state("power_state") != "eco":
+            return await self._send_jsonrpc("system.poweron")
+        woke = await self._send_wol()
+        if connected:
+            return await self._send_jsonrpc("system.poweron")
+        if not woke:
+            raise ValueError(
+                "The projector is offline and no MAC address is known, so "
+                "it cannot be woken. The MAC is filled in automatically on "
+                "the first connection; until then, enter it under Edit "
+                "Device, or turn the projector on at its keypad."
+            )
+        loop = asyncio.get_running_loop()
+        self._power_on_after_wake = loop.time() + WAKE_POWER_ON_WINDOW_S
+        return True
+
+    async def _send_wol(self) -> bool:
+        """Wake-on-LAN to the projector's MAC: the one read on the last
+        connection, else the mac_address setting. The platform's
+        ``wake_on_lan`` sends the magic packet to the broadcast address and
+        to the projector's host. True when a packet went out."""
+        mac = (
+            str(self.get_state("mac_address") or "").strip()
+            or str(self.config.get("mac_address") or "").strip()
+        )
         try:
             await self.wake_on_lan(mac)
         except ValueError:
@@ -1331,11 +1413,12 @@ class BarcoPulseDriver(BaseDriver):
                 f"[{self.device_id}] No MAC address known — cannot send "
                 "Wake-on-LAN for ECO wake-up"
             )
-            return
+            return False
         except OSError as exc:
             log.warning(f"[{self.device_id}] Wake-on-LAN send failed: {exc}")
-            return
+            return False
         log.info(f"[{self.device_id}] Sent Wake-on-LAN packet to {mac}")
+        return True
 
     # ── Device settings ──
 

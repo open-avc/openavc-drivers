@@ -44,9 +44,10 @@ id: extron_sis
 name: Extron SIS Protocol
 manufacturer: Extron
 category: switcher
-version: 1.8.3
+version: 1.9.0
 author: OpenAVC
-min_platform_version: "0.27.0"
+# learned_from on the input and output counts.
+min_platform_version: "0.37.0"
 description: >
   Controls Extron products via the SIS (Simple Instruction Set) protocol.
   Covers crosspoint matrix switchers (DXP, CrossPoint), presentation
@@ -141,17 +142,21 @@ config_schema:
     default: 0
     min: 0
     label: Input Count
+    learned_from: matrix_inputs
     description: >
       Number of inputs on a matrix switcher — each becomes an Input child
-      with source-detect state. Leave 0 for single-output devices.
+      with source-detect state. A matrix reports its size when it connects,
+      and it is saved here. Leave 0 for single-output devices.
   output_count:
     type: integer
     default: 0
     min: 0
     label: Output Count
+    learned_from: matrix_outputs
     description: >
       Number of outputs on a matrix switcher. Each becomes an Output child
-      tracking its routed input and mute state. Leave 0 for single-output
+      tracking its routed input and mute state. A matrix reports its size
+      when it connects, and it is saved here. Leave 0 for single-output
       devices (scalers, presentation switchers, DAs). On a large matrix, set Poll Interval longer than one read of the whole matrix: about 0.5 s per output and 0.1 s per input (a 32x32 matrix takes about 16 seconds).
   poll_interval:
     type: integer
@@ -172,6 +177,14 @@ state_variables:
     type: integer
     label: Current Input
     help: "Single-output devices: the selected input. On a matrix, the last input routed to all outputs."
+  matrix_inputs:
+    type: integer
+    label: Matrix Inputs
+    help: "Video inputs the matrix reports (Information request). Blank on a single-output device."
+  matrix_outputs:
+    type: integer
+    label: Matrix Outputs
+    help: "Video outputs the matrix reports (Information request). Blank on a single-output device."
   volume:
     type: integer
     label: Volume Level
@@ -232,6 +245,7 @@ child_entity_types:
         help: "True when any of this output's audio paths is muted (models report HDMI/analog/S-PDIF mute combinations; any non-zero state reads as muted)."
     summary_fields: [input, video_mute]
     instances:
+      count_from_state: matrix_outputs
       count_from: output_count
       label: "Output {id}"
   input:
@@ -251,6 +265,7 @@ child_entity_types:
         help: "HDCP state of the detected source: none = no source, hdcp = HDCP-compliant source, non_hdcp = source without HDCP."
     summary_fields: [signal]
     instances:
+      count_from_state: matrix_inputs
       count_from: input_count
       label: "Input {id}"
 
@@ -532,6 +547,16 @@ responses:
   - match: 'Sig0'
     set: { signal_active: false }
 
+  # Matrix size, the reply to the polled Information request "I"
+  # (DXP HD 4K PLUS guide, "General information"): "V8X4 A8X2", prefixed
+  # "Info00*" in verbose mode 2/3. The V half is the video matrix
+  # (inputs X outputs); the A half counts analog/S-PDIF audio outputs, not
+  # the matrix, so it is ignored. Matched only for two or more outputs: a
+  # single-output device stays on the flat surface this driver uses for it
+  # (a scaler's I is signal information, "Vid1 Typ6 ...", and never matches).
+  - match: '^(?:Info\d*\*)?V(\d+)X([2-9]|[1-9]\d+) A\d+X\d+$'
+    set: { matrix_inputs: "$1", matrix_outputs: "$2" }
+
 polling:
   queries:
     # Single-output dialect (matrices answer these with info strings or
@@ -745,10 +770,18 @@ simulator:
         val = "1" if state["mute"] else "0"
         respond(f"Amt{val}\r\n")
 
-    # Information query — matrices answer with the frame size string
+    # Information query. A matrix answers with its size, the one the
+    # project's counts describe (verbose mode 3 adds the Info00* tag; the A
+    # half is the DXP's two analog/S-PDIF audio outputs). A single-output
+    # device answers with signal information, as a DSC scaler does.
     - match: 'I'
       handler: |
-        respond("V8X4 A8X4\r\n")
+        ins = int(config.get("input_count") or 0)
+        outs = int(config.get("output_count") or 0)
+        if outs > 0:
+            respond(f"Info00*V{ins}X{outs} A{ins}X2\r\n")
+        else:
+            respond(f"Vid{state['input']} Typ6 Std0 Blk0 Hrt031.5 Vrt060.0\r\n")
 
     # Model name
     - receive: "N"

@@ -376,16 +376,18 @@ def _run(coro):
 
 def test_metadata_and_actions_shape():
     info = DRV.ShureNetworkDriver.DRIVER_INFO
-    assert info["version"] == "2.0.4"
-    # The connection lifecycle hooks this driver overrides ship in 0.24.0.
-    # The 0.25.0 floor is the package move: this file imports openavc.*.
-    assert info["min_platform_version"] == "0.25.0"
+    assert info["version"] == "2.1.0"
+    # learned_from on Channel Count ships in 0.37.0.
+    assert info["min_platform_version"] == "0.37.0"
+    assert (info["config_schema"]["channel_count"]["learned_from"]
+            == "channel_count_reported")
     for cid in info["quick_actions"]:
         assert cid in info["commands"], cid
     assert {a["id"] for a in info["actions"]} == set(info["quick_actions"])
     # Device-level flat state; per-channel values live on children.
     assert set(info["state_variables"]) == {
-        "device_name", "mute", "audio_mute", "led_brightness", "firmware"}
+        "device_name", "mute", "audio_mute", "led_brightness", "firmware",
+        "model", "channel_count_reported"}
 
 
 def test_discovery_probe_claims_only_this_drivers_devices():
@@ -440,15 +442,63 @@ def test_gain_param_bounds_match_wire_range():
 # ── Topology registration ───────────────────────────────────────────────────
 
 def test_roster_follows_channel_count():
+    """A model whose count the model does not fix (a P300 here) keeps the
+    configured count."""
     async def scenario():
-        driver, _sim = await _make_pair({"channel_count": 4})
+        driver, _sim = await _make_pair({"channel_count": 4},
+                                        {"channel_count": 6})
         await driver.connect()
         try:
+            await asyncio.sleep(0.05)
+            assert driver.get_state("model") == "P300"
+            assert driver.get_state("channel_count_reported") is None
             assert driver.count_children("channel") == 4
             assert driver.list_children("channel") == [1, 2, 3, 4]
         finally:
             await driver.disconnect()
     _run(scenario())
+
+
+def test_an_mxa_sizes_the_roster_from_its_model():
+    """Configured for 4, an MXA920 answers: the roster grows to its 9
+    channels, the new ones are read, and the count is reported so the
+    platform saves it into Channel Count."""
+    async def scenario():
+        driver, _sim = await _make_pair({"channel_count": 4},
+                                        {"channel_count": 9})
+        await driver.connect()
+        try:
+            await asyncio.sleep(0.1)
+            assert driver.get_state("model") == "MXA920"
+            assert driver.get_state("channel_count_reported") == 9
+            assert driver.list_children("channel") == list(range(1, 10))
+            assert driver.get_child_state("channel", 9).get("gain_db") is not None
+        finally:
+            await driver.disconnect()
+    _run(scenario())
+
+
+def test_an_ani4in_shrinks_an_oversized_roster():
+    async def scenario():
+        driver, _sim = await _make_pair({"channel_count": 8},
+                                        {"channel_count": 4})
+        await driver.connect()
+        try:
+            await asyncio.sleep(0.05)
+            assert driver.get_state("model") == "ANI4IN"
+            assert driver.get_state("channel_count_reported") == 4
+            assert driver.list_children("channel") == [1, 2, 3, 4]
+        finally:
+            await driver.disconnect()
+    _run(scenario())
+
+
+def test_model_prefixes():
+    assert DRV._channel_count_for_model("MXA910W-US") == 9
+    assert DRV._channel_count_for_model("  mxa920  ") == 9
+    assert DRV._channel_count_for_model("ANI4OUT") == 4
+    assert DRV._channel_count_for_model("P300") is None
+    assert DRV._channel_count_for_model("ANI22") is None
 
 
 def test_topology_reconciles_shrunk_roster():

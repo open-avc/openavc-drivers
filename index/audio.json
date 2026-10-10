@@ -268,7 +268,7 @@
       "name": "Allen & Heath Qu Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.2.1",
+      "version": "1.3.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Allen & Heath Qu family (Qu-16, Qu-24, Qu-32, Qu-Pac, Qu-SB) via MIDI over TCP/IP on port 51325. Auto-identifies the model on connect and registers every input, stereo input, mix, group, matrix, DCA, mute group and FX send/return as a child entity with live mute / fader / pan state and its real channel name. Mute / fader / pan / send / assign / pre-post control, DCA and mute-group masters, PAFL, local preamp gain and 48V, scene recall (1-100), MMC transport, channel naming and remote shutdown, with bidirectional state from console-side moves.",
@@ -276,7 +276,7 @@
       "file": "audio/allenheath_qu.py",
       "format": "python",
       "files": {
-        "audio/allenheath_qu.py": "126b636cc7c23264d13094d17508e29e0bd2e3730165c2b8514ef81950177fc6",
+        "audio/allenheath_qu.py": "ba63166adb5a0a06bdb9fc0212413070655540bec255cb5a8970c16360fd3884",
         "audio/allenheath_qu_sim.py": "3b6f63570ac8795032c379b79c4c91eb48019cde79ef69816bc99c4388b9d004"
       },
       "ports": [
@@ -287,7 +287,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "mixer",
         "console",
@@ -1874,7 +1874,7 @@
       "name": "Shure Axient Digital Receivers",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls and monitors Shure Axient Digital AD4D and AD4Q wireless receivers over Shure's command strings on TCP port 2202. Each receiver channel is a child entity with mute, gain, frequency and group/channel preset, interference and encryption warnings, the decoded transmitter's battery, RF power, lock and mute switch, and opt-in audio and RF meters. Each of a channel's eight transmitter slots is a child entity; a linked ADX transmitter's RF mute, power mode, gain offset, polarity, input pad and name are remote-controllable. State pushes live as it changes.",
@@ -1882,7 +1882,7 @@
       "file": "audio/shure_axient_digital.py",
       "format": "python",
       "files": {
-        "audio/shure_axient_digital.py": "dbaa411ccbd1b4df7b39e536095023d25bd745910b51e0b62a4742dc7f72e50c",
+        "audio/shure_axient_digital.py": "ecceacafc21a796cfc2714e65f5aac66675e6840195202621f7c079c2699e581",
         "audio/shure_axient_digital_sim.py": "a3327e803887ea6e79d7de68e79fcef1cf91f32ff280a7a944ec309d9b453d7e"
       },
       "ports": [
@@ -1892,7 +1892,7 @@
         "shure_command_strings"
       ],
       "simulated": true,
-      "min_platform_version": "0.33.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "wireless",
         "microphone",
@@ -2096,7 +2096,7 @@
       "name": "Shure Networked Devices",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "2.0.4",
+      "version": "2.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Shure networked audio devices over the Device Control Strings protocol on TCP port 2202 \u2014 MXA910 / MXA920 / MXA710 ceiling arrays, ANI interfaces, the P300 IntelliMix processor, and the SCM820 automixer. Each audio channel is a child entity with mute, gain, name, and live metering; device-level mute, presets, and status LED are controlled directly. Channel state pushes live as it changes on the device or another controller.",
@@ -2104,8 +2104,8 @@
       "file": "audio/shure_network.py",
       "format": "python",
       "files": {
-        "audio/shure_network.py": "c30277401571d08a1b8a7a010d14d23a87aa3a2fcf59e92c0eb4afb2a3169fd3",
-        "audio/shure_network_sim.py": "911f6177bbf6e066a7aa86ad80c26e5c12d29247f82eaf2c692a8060fd616b28"
+        "audio/shure_network.py": "8aab38f738c711fda7ea51da93dc770082ce5d6e44115fec83e28430e42c716c",
+        "audio/shure_network_sim.py": "94177f4d18e18e0f2cf3a66edb629f03fe831df6fcbaeb5d00e06ddc60651a69"
       },
       "ports": [
         2202
@@ -2114,7 +2114,7 @@
         "shure_dcs"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "ceiling-mic",
         "microphone",
@@ -2124,7 +2124,7 @@
       ],
       "help": {
         "overview": "Shure networked microphones, interfaces, and processors speak the Device Control Strings (DCS) protocol on TCP port 2202. This driver models each audio channel as a child entity carrying its mute, gain (in dB), name, and live level, and controls device-level mute, presets, and the status LED directly.\n\nState is push-driven: after connecting, the driver seeds every channel from the device, then mirrors the REP messages the device sends whenever anything changes \u2014 including changes made on the front panel or in Shure Designer.\n\nChannel names are read-only over third-party control \u2014 set them in Shure Designer, and they appear here as the channel labels.",
-        "setup": "1. In Shure Designer (or the device web UI), the third-party control interface on TCP 2202 is enabled by default.\n2. Give the device a static IP or a DHCP reservation.\n3. In OpenAVC, enter the IP. Port 2202 is fixed.\n4. Set Channel Count to match the device (e.g. 9 for an MXA array's 8 lobes plus the automixer output, 4 for an ANI4IN). Over-sizing is harmless \u2014 extra channels just answer REP ERR \u2014 but clutters the channel list.\n5. To see live level meters, set Meter Interval to a value like 500 ms (0 disables metering)."
+        "setup": "1. In Shure Designer (or the device web UI), the third-party control interface on TCP 2202 is enabled by default.\n2. Give the device a static IP or a DHCP reservation.\n3. In OpenAVC, enter the IP. Port 2202 is fixed.\n4. An MXA910, MXA920, ANI4IN or ANI4OUT sets Channel Count itself when it connects. For other models, set it to match the device (8 for an SCM820). Over-sizing is harmless \u2014 extra channels just answer REP ERR \u2014 but clutters the channel list.\n5. To see live level meters, set Meter Interval to a value like 500 ms (0 disables metering)."
       },
       "compatible_models": [
         {
@@ -2140,7 +2140,7 @@
             "SCM820"
           ],
           "confidence": "untested",
-          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model \u2014 set Channel Count to match: MXA arrays have 8 mic channels plus the automixer output (9), the ANI4IN/4OUT have 4, the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
+          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model. The MXA910, MXA920 (8 mic channels plus the automixer output, 9) and the ANI4IN/4OUT (4) report their model, which sets the count. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
         }
       ],
       "discovery": {

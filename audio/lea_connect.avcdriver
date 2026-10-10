@@ -66,11 +66,11 @@ id: lea_connect
 name: LEA Connect Series Amplifier
 manufacturer: LEA Professional
 category: audio
-version: "1.0.5"
+version: "1.1.0"
 author: OpenAVC
 transport: tcp
 delimiter: "\n"
-min_platform_version: "0.24.0"
+min_platform_version: "0.37.0"
 
 description: >
   Controls LEA Professional Connect Series smart amplifiers (Network Connect and
@@ -153,11 +153,11 @@ help:
        or the LEA Cloud app both do this.
     2. Enter the IP here. The control port is 4321 and needs no username or
        password; the amp accepts control commands on it directly.
-    3. That's it for channels — the amp reports its own channel count, so the
+    3. That's it for channels: the amp reports its own channel count, so the
        roster fills in automatically once it connects (a 352 shows 2 channels, a
-       704 shows 4). The "Channels" setting is only a fallback for building a
-       project offline before the amp is reachable; set it to your model's count
-       (the last digit of the model number) if you're working without the amp.
+       704 shows 4), and the count is saved in the "Channels" setting. Set that
+       setting yourself only to build a project before the amp is reachable
+       (the last digit of the model number).
     4. Leave Enable Level Meters off unless you want live audio metering on a
        panel. Those per-channel level meters push while enabled; with meters off
        they refresh on the poll instead. (Power readings — AC voltage, current,
@@ -193,8 +193,9 @@ config_schema:
     type: enum
     required: false
     default: "4"
-    label: "Channels (offline fallback)"
-    description: "Fallback channel count for building the roster before the amp connects — once connected, the amp reports its real count and the roster auto-corrects. Set to your model's channel count for offline editing (the last digit of the model number: 704D = 4, 352 = 2, 168 = 8)."
+    label: "Channels"
+    learned_from: num_outputs
+    description: "The amplifier's channel count, the last digit of the model number (704D = 4, 352 = 2, 168 = 8). Set it to build a project before the amp is reachable. Once the amp connects, the count it reports is saved here."
     values:
       - { value: "2", label: "2 channels (352, 702)" }
       - { value: "4", label: "4 channels (124, 164, 354, 704, 1504, 3004, 84)" }
@@ -2281,14 +2282,25 @@ simulator:
             if not line:
                 return
 
+            # The amp the project says this is: its Channels setting (2, 4 or
+            # 8), so a project built for a 352 simulates as one. A 704D when
+            # the setting is missing or something else.
+            try:
+                _count = int(str(config.get("channel_count", 4)).strip())
+            except ValueError:
+                _count = 4
+            if _count not in (2, 4, 8):
+                _count = 4
+            _model = {2: "352D", 4: "704D", 8: "168D"}[_count]
+
             # Element map: suffix -> (kind, default). kind drives value parsing
             # and the reply's quoting, exactly as the amp does it.
             #   b = boolean (bare true/false), n = number, i = integer,
             #   s = string/enum (double-quoted)
             AMP = {
-                "/amp/deviceInfo/deviceName": ("s", "Connect 704D"),
+                "/amp/deviceInfo/deviceName": ("s", "Connect " + _model),
                 "/amp/deviceInfo/venueName": ("s", "LEA Office"),
-                "/amp/deviceInfo/modelID": ("s", "Connect Series Model 704D"),
+                "/amp/deviceInfo/modelID": ("s", "Connect Series Model " + _model),
                 "/amp/deviceInfo/assetTagNumber": ("s", "BJD-704D-0001"),
                 "/amp/deviceInfo/installerName": ("s", "Acme AV"),
                 "/amp/deviceInfo/installerContactInfo": ("s", "1-800-123-4567"),
@@ -2303,8 +2315,8 @@ simulator:
                 "/amp/deviceInfo/amp12firmwareVersion": ("s", "1.0.3.1"),
                 "/amp/deviceInfo/amp34firmwareVersion": ("s", "1.0.3.1"),
                 "/amp/deviceInfo/upTime": ("s", "N/A"),
-                "/amp/deviceInfo/numInputs": ("f", 4.0),
-                "/amp/deviceInfo/numOutputs": ("f", 4.0),
+                "/amp/deviceInfo/numInputs": ("f", float(_count)),
+                "/amp/deviceInfo/numOutputs": ("f", float(_count)),
                 "/amp/powerSupply/acLineVoltage": ("n", 118.0),
                 "/amp/powerSupply/acLineCurrent": ("n", 0.5),
                 "/amp/powerSupply/acLineWatts": ("n", 58.0),
@@ -2439,8 +2451,8 @@ simulator:
             ENUMS["/crossover/lowPassFilter/type"] = FILTERS
             ENUMS["/crossover/highPassFilter/type"] = FILTERS
 
-            CHANNELS = 4
-            INPUTS = 4
+            CHANNELS = _count
+            INPUTS = _count
             EQ_BANDS = 8
 
             def spec(url):

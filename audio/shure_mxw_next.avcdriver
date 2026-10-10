@@ -70,7 +70,7 @@ id: shure_mxw_next
 name: Shure MXW neXt Access Point
 manufacturer: Shure
 category: audio
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 # scale / offset / unknown on state variables and command parameters, and
 # map on a device setting.
@@ -181,9 +181,10 @@ config_schema:
     values: [2, 4, 8]
     default: 4
     label: Access Point Channels
+    learned_from: channel_count_reported
     help: >
       2 for an MXWAPXD2, 4 for an MXWAPX4, 8 for an MXWAPX8. Once connected,
-      the access point sets the channel count.
+      the access point sets the channel count, and it is saved here.
   meter_interval_ms:
     type: integer
     default: 0

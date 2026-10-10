@@ -24,8 +24,10 @@ NO_STATE = {"set_eq_enable", "set_eq_type", "set_eq_gain", "set_eq_frequency", "
 
 
 def test_version_bumped():
-    assert str(INFO["version"]) == "1.0.5"
-    assert str(INFO["min_platform_version"]) == "0.24.0"
+    assert str(INFO["version"]) == "1.1.0"
+    assert str(INFO["min_platform_version"]) == "0.37.0"
+    # The channel count the amp reports is saved into the Channels setting.
+    assert INFO["config_schema"]["channel_count"]["learned_from"] == "num_outputs"
 
 
 def test_every_command_says_what_it_sets():

@@ -77,10 +77,10 @@ id: sennheiser_ewdx
 name: Sennheiser EW-DX Receiver
 manufacturer: Sennheiser
 category: audio
-version: 1.0.1
+version: 1.1.0
 # The push block's session handshake, its register list and the json
 # `contains` mapping all arrived in 0.34.0.
-min_platform_version: "0.36.0"
+min_platform_version: "0.37.0"
 author: OpenAVC
 description: >
   Evolution Wireless Digital rack receivers (EW-DX EM 2, EM 2 Dante,
@@ -209,9 +209,10 @@ config_schema:
     min: 2
     max: 4
     label: Receiver Channels
+    learned_from: channel_count_reported
     help: >
-      2 for an EM 2, 4 for an EM 4. Only the starting point: once connected
-      the receiver reports its own channel count and the roster follows it.
+      2 for an EM 2, 4 for an EM 4. Once connected, the receiver reports its
+      own channel count, the roster follows it, and it is saved here.
   enable_meters:
     type: boolean
     default: false

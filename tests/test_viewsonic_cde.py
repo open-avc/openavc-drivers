@@ -138,7 +138,7 @@ def _reply32(code: str, value: str, mid: int = 1, pad: bytes = b"\x00") -> bytes
 
 def test_metadata_shape():
     assert INFO["id"] == "viewsonic_cde"
-    assert INFO["version"] == "2.1.0"
+    assert INFO["version"] == "2.2.0"
     assert INFO["transport"] == "tcp"
     assert INFO["transports"] == ["tcp", "serial"]
     assert INFO["delimiter"] == "\r"
@@ -178,6 +178,9 @@ def test_power_on_is_the_protocol_command_and_wake_on_lan_is_its_own():
     # The MAC can come from the display (state) or be typed in (config).
     assert "mac_address" in STATE_VARS
     assert "mac_address" in INFO["config_schema"]
+    # The MAC the display reports is saved into the setting, so a power-on
+    # after a restart (display off, nothing reported yet) still has it.
+    assert INFO["config_schema"]["mac_address"]["learned_from"] == "mac_address"
     # The device-page buttons are the ones that work on the verified model.
     assert INFO["quick_actions"][:2] == ["power_on", "power_off"]
     assert "wake_on_lan" not in INFO["quick_actions"]

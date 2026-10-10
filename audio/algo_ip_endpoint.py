@@ -34,9 +34,11 @@ One driver for the whole line:
   the products it applies to. After connecting, the driver reads the model
   from the device's About page (firmware 5.4 or newer) and offers only the
   commands and device settings that model has, with that model's own strobe
-  patterns. A model it cannot identify (older firmware) keeps the full set,
-  and a call the device does not have is refused by the device with its
-  reason in ``last_error``.
+  patterns. The Model setting says the same before the device has been
+  reached (building a project, simulating it) and is filled in from the
+  device's report once it connects. With neither (Detect automatically on
+  firmware older than 5.4) the full set is offered, and a call the device
+  does not have is refused by the device with its reason in ``last_error``.
 
 Polling:
   The API has no notification channel, so everything is polled: the Status
@@ -353,7 +355,7 @@ class AlgoIpEndpointDriver(BaseDriver):
         "name": "Algo IP Endpoint",
         "manufacturer": "Algo",
         "category": "audio",
-        "version": "1.0.2",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls Algo IP speakers, paging adapters, visual alerters, "
@@ -376,7 +378,7 @@ class AlgoIpEndpointDriver(BaseDriver):
         "simulated": True,
         "protocols": ["algo-rest-api"],
         "ports": [443],
-        "min_platform_version": "0.36.0",
+        "min_platform_version": "0.37.0",
         "compatible_models": [
             {
                 "manufacturer": "Algo",
@@ -470,6 +472,7 @@ class AlgoIpEndpointDriver(BaseDriver):
             "verify_ssl": False,
             "auth_method": "standard",
             "password": "",
+            "model": "",
             "poll_interval": 5,
             "timeout": 5.0,
         },
@@ -487,6 +490,39 @@ class AlgoIpEndpointDriver(BaseDriver):
                 "type": "boolean", "default": True, "label": "Use HTTPS",
                 "advanced": True,
                 "help": "HTTPS is always on at the device. Leave this on.",
+            },
+            "model": {
+                "type": "enum", "default": "", "label": "Model",
+                "learned_from": "model",
+                "values": [
+                    {"value": "", "label": "Detect automatically"},
+                    {"value": "8180", "label": "8180 IP Audio Alerter"},
+                    {"value": "8186", "label": "8186 IP Horn Speaker"},
+                    {"value": "8188", "label": "8188 IP Ceiling Speaker"},
+                    {"value": "8189", "label": "8189 IP Surface Mount Speaker"},
+                    {"value": "8190", "label": "8190 IP Speaker Clock"},
+                    {"value": "8190S", "label": "8190S IP Speaker Clock and Visual Alerter"},
+                    {"value": "8196", "label": "8196 IP PoE+ Horn Speaker"},
+                    {"value": "8197", "label": "8197 IP PoE+ Weather-Hardened Horn Speaker"},
+                    {"value": "8198", "label": "8198 IP PoE+ Ceiling Speaker"},
+                    {"value": "8199", "label": "8199 IP PoE+ Surface Mount Speaker"},
+                    {"value": "8507", "label": "8507 IP Horn Array Speaker"},
+                    {"value": "8301", "label": "8301 IP Paging Adapter and Scheduler"},
+                    {"value": "8305", "label": "8305 Multi-Interface IP Paging Adapter"},
+                    {"value": "8312", "label": "8312 Expanded IP Paging Adapter"},
+                    {"value": "8373", "label": "8373 IP Zone Paging Adapter"},
+                    {"value": "8128", "label": "8128 IP Visual Alerter"},
+                    {"value": "8138", "label": "8138 IP Color Visual Alerter"},
+                    {"value": "8410", "label": "8410 IP Display Speaker"},
+                    {"value": "8420", "label": "8420 IP Dual-Sided Display Speaker"},
+                    {"value": "8028", "label": "8028 IP Doorphone"},
+                    {"value": "8039", "label": "8039 IP Video Mullion Intercom"},
+                    {"value": "8201", "label": "8201 IP PoE Intercom"},
+                    {"value": "8203", "label": "8203 Vandal-Proof IP Intercom"},
+                    {"value": "8063", "label": "8063 IP Door Controller"},
+                    {"value": "8450", "label": "8450 IP Console"},
+                ],
+                "help": "Pick the model to build a project or simulate before the device is reachable. Leave it on Detect automatically otherwise.",
             },
             "auth_method": {
                 "type": "enum", "default": "standard", "label": "Authentication Method",
@@ -1290,6 +1326,13 @@ class AlgoIpEndpointDriver(BaseDriver):
         # The tone played last from this driver, for Stop Tone on firmware
         # 5.4 and older (which must name it).
         self._last_tone = ""
+        # The model picked in the device's settings, for a project built or
+        # simulated before the device is reachable: offer that model's
+        # commands now. The device's own report replaces it on connect.
+        picked = self._picked_model()
+        if picked:
+            self._model = picked
+            self._narrow()
 
     # ── Connection lifecycle ──
 
@@ -1301,6 +1344,10 @@ class AlgoIpEndpointDriver(BaseDriver):
         default = 443 if self._scheme() == "https" else 80
         port = int(self.config.get("port", default) or default)
         return f"{self._scheme()}://{host}:{port}"
+
+    def _picked_model(self) -> str:
+        model = str(self.config.get("model", "") or "").strip().upper()
+        return model if model in _KNOWN_MODELS else ""
 
     def _auth_method(self) -> str:
         method = str(self.config.get("auth_method", "standard") or "standard").strip().lower()
@@ -1361,6 +1408,10 @@ class AlgoIpEndpointDriver(BaseDriver):
         except httpx.TransportError as exc:
             raise ConnectionError(f"Could not reach the device at {host}: {exc}") from exc
         self._apply_about(about or {})
+        if not self._model:
+            # Firmware older than 5.4 does not say what it is: use the model
+            # picked in the device's settings, if any.
+            self._model = self._picked_model()
         self._narrow()
         self.set_state("last_error", None)
         what = f"Algo {self._model}" if self._model else "Algo device (model not reported)"
@@ -1752,6 +1803,8 @@ class AlgoIpEndpointDriver(BaseDriver):
             if about is not None:
                 previous = self._model
                 self._apply_about(about)
+                if not self._model:
+                    self._model = self._picked_model()
                 if self._model != previous:
                     self._narrow()
             await self._read_tones()

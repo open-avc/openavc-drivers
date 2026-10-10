@@ -402,6 +402,52 @@ async def test_firmware_without_the_about_page_keeps_everything(mocked_client):
     assert json.loads(link.requests[-1][3]) == {"path": "gong.wav"}
 
 
+# ── The Model setting (filled in from the device) ────────────────────────────
+
+
+def test_the_model_setting_is_filled_in_from_the_reported_model():
+    field = INFO["config_schema"]["model"]
+    assert field["learned_from"] == "model"
+    assert field["default"] == "" and INFO["default_config"]["model"] == ""
+    values = [v["value"] for v in field["values"]]
+    assert values[0] == ""
+    assert set(values[1:]) <= DRV._KNOWN_MODELS
+    # Every model the catalog lists can be picked.
+    listed = {m for entry in INFO["compatible_models"] for m in entry["models"]}
+    assert listed <= set(values)
+
+
+@pytest.mark.asyncio
+async def test_a_picked_model_narrows_before_the_device_is_reached():
+    driver, sim, link = _make(driver_config={"model": "8138"})
+    commands = _commands(driver)
+    assert "strobe_start" in commands and "play_tone" not in commands
+    pattern = driver.DRIVER_INFO["commands"]["strobe_start"]["params"]["pattern"]
+    assert {"value": "9", "label": "Steady Two-color"} in pattern["values"]
+    # Nothing claims the device reported a model.
+    assert driver.get_state("model") in (None, "")
+
+
+@pytest.mark.asyncio
+async def test_the_device_report_replaces_the_picked_model(mocked_client):
+    driver, sim, link = _make({"model": "8410"}, {"model": "8186"})
+    assert "show_text" not in _commands(driver)
+    await _connect(driver, link, mocked_client)
+    assert driver.get_state("model") == "8410"
+    assert "show_text" in _commands(driver)
+
+
+@pytest.mark.asyncio
+async def test_firmware_without_the_about_page_uses_the_picked_model(mocked_client):
+    driver, sim, link = _make({"firmware_version": "5.3", "model": "8301"}, {"model": "8301"})
+    await _connect(driver, link, mocked_client)
+    # The device said nothing about itself; the pick narrows instead.
+    assert driver.get_state("model") in (None, "")
+    commands = _commands(driver)
+    assert "skip_scheduled_events" in commands
+    assert "strobe_start" not in commands
+
+
 # ── Commands ─────────────────────────────────────────────────────────────────
 
 

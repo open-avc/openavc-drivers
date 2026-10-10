@@ -48,7 +48,7 @@ id: shure_slxd
 name: Shure SLX-D Receiver
 manufacturer: Shure
 category: audio
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 # scale / offset / unknown on state variables and command parameters.
 min_platform_version: "0.37.0"
@@ -153,9 +153,11 @@ config_schema:
     values: [1, 2, 4]
     default: 2
     label: Receiver Channels
+    learned_from: channel_count_reported
     help: >
       1 for an SLXD4 or SLXD4+, 2 for an SLXD4D or SLXD4D+, 4 for an SLXD4Q+.
-      Once connected, the receiver's model sets the channel count.
+      Once connected, the receiver's model sets the channel count, and it is
+      saved here.
   meter_interval_ms:
     type: integer
     default: 0

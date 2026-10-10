@@ -43,7 +43,7 @@ id: shure_ulxd
 name: Shure ULX-D Receiver
 manufacturer: Shure
 category: audio
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 # scale / offset / unknown on state variables and command parameters, and
 # map on device settings.
@@ -148,9 +148,10 @@ config_schema:
     values: [1, 2, 4]
     default: 2
     label: Receiver Channels
+    learned_from: channel_count_reported
     help: >
       1 for a ULXD4, 2 for a ULXD4D, 4 for a ULXD4Q. Once connected, the
-      receiver's model sets the channel count.
+      receiver's model sets the channel count, and it is saved here.
   meter_interval_ms:
     type: integer
     default: 0

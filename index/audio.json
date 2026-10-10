@@ -12,7 +12,7 @@
       "name": "Algo IP Endpoint",
       "manufacturer": "Algo",
       "category": "audio",
-      "version": "1.0.2",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Algo IP speakers, paging adapters, visual alerters, display speakers, intercoms, the 8063 door controller and the 8450 console over their RESTful API. Plays tones and test tones, starts and stops emergency alerts, calls and pages extensions, runs strobe patterns, shows images, slides, clocks and text on the 8410 and 8420, locks and unlocks doors, skips a day's scheduled bells on the 8301, and sets page, ring and speaker volume. Reports call, multicast, SIP and relay input status, ambient noise and the console's active events. Each device is offered only the commands its model has.",
@@ -20,7 +20,7 @@
       "file": "audio/algo_ip_endpoint.py",
       "format": "python",
       "files": {
-        "audio/algo_ip_endpoint.py": "90bb2b71856e40915896dfc845f945200acb591d8412f77ab35295b0f26b7b60",
+        "audio/algo_ip_endpoint.py": "b9d5f73d9747a5ae6fe622f79682600d7a7b5a783ce37508a8ede154989a445a",
         "audio/algo_ip_endpoint_sim.py": "74a511a63f69f33f5a0432c3bf72067aa55f9f1c34f57b410a7b1d46cd87f0b7"
       },
       "ports": [
@@ -30,7 +30,7 @@
         "algo-rest-api"
       ],
       "simulated": true,
-      "min_platform_version": "0.36.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "paging",
         "speaker",
@@ -1269,7 +1269,7 @@
       "name": "LEA Connect Series Amplifier",
       "manufacturer": "LEA Professional",
       "category": "audio",
-      "version": "1.0.5",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LEA Professional Connect Series smart amplifiers (Network Connect and Dante Connect) over the LEA Open API on TCP 4321. Each amplifier channel is a child entity with output mute, gain, Hi-Z/Lo-Z mode, input source selection with backup/override, crossover, RMS and peak limiters, load monitoring, and live meters. Amp-wide auto-standby, signal generator, power-supply monitoring, and fault reporting. State is push-driven: the driver subscribes to every element and the amp reports changes as they happen, including changes made from its own web UI.\n",
@@ -1277,7 +1277,7 @@
       "file": "audio/lea_connect.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/lea_connect.avcdriver": "ea0066ce0ba4490fd69296a4639b08295ace8b734ebcbd0b5281d84492328f66"
+        "audio/lea_connect.avcdriver": "ab4ab759e843a3306f4ab0c4df9da89c87dcf6306cb676861e92564c9fd84dd2"
       },
       "ports": [
         4321
@@ -1287,7 +1287,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "amplifier",
         "dsp",
@@ -1300,7 +1300,7 @@
       ],
       "help": {
         "overview": "LEA Connect Series amplifiers combine amplification with a full channel DSP: input selection with automatic backup/override, crossover, 8-band output EQ, RMS and peak limiters, and load monitoring on every channel. This driver exposes each amplifier channel as its own entity, so a panel can bind directly to \"channel 3 mute\" or \"channel 1 output level\" and macros can act on one channel without touching the others.\nThe amp pushes changes as they happen, so the panel stays right even when someone changes something from the amplifier's own web UI or its front panel. Faults (channel fault, thermal, power supply, load short/open) arrive the moment they occur rather than on the next poll.\n",
-        "setup": "1. Give the amplifier a static IP (or a DHCP reservation) \u2014 the amp's web UI\n   or the LEA Cloud app both do this.\n2. Enter the IP here. The control port is 4321 and needs no username or\n   password; the amp accepts control commands on it directly.\n3. That's it for channels \u2014 the amp reports its own channel count, so the\n   roster fills in automatically once it connects (a 352 shows 2 channels, a\n   704 shows 4). The \"Channels\" setting is only a fallback for building a\n   project offline before the amp is reachable; set it to your model's count\n   (the last digit of the model number) if you're working without the amp.\n4. Leave Enable Level Meters off unless you want live audio metering on a\n   panel. Those per-channel level meters push while enabled; with meters off\n   they refresh on the poll instead. (Power readings \u2014 AC voltage, current,\n   watts \u2014 always push live regardless of this setting.)\n5. Firmware must be 1.1.0.x or newer. Older firmware only speaks the\n   WebSocket API, which this driver does not use.\n"
+        "setup": "1. Give the amplifier a static IP (or a DHCP reservation) \u2014 the amp's web UI\n   or the LEA Cloud app both do this.\n2. Enter the IP here. The control port is 4321 and needs no username or\n   password; the amp accepts control commands on it directly.\n3. That's it for channels: the amp reports its own channel count, so the\n   roster fills in automatically once it connects (a 352 shows 2 channels, a\n   704 shows 4), and the count is saved in the \"Channels\" setting. Set that\n   setting yourself only to build a project before the amp is reachable\n   (the last digit of the model number).\n4. Leave Enable Level Meters off unless you want live audio metering on a\n   panel. Those per-channel level meters push while enabled; with meters off\n   they refresh on the poll instead. (Power readings \u2014 AC voltage, current,\n   watts \u2014 always push live regardless of this setting.)\n5. Firmware must be 1.1.0.x or newer. Older firmware only speaks the\n   WebSocket API, which this driver does not use.\n"
       },
       "compatible_models": [
         {
@@ -1660,7 +1660,7 @@
       "name": "Sennheiser EW-DX Receiver",
       "manufacturer": "Sennheiser",
       "category": "audio",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Evolution Wireless Digital rack receivers (EW-DX EM 2, EM 2 Dante, EM 4 Dante) over SSCv2, the HTTPS REST API with Server-Sent Events. Per-channel mute, gain and output level, RF frequency and presets, warnings (no link, low signal, RF and AF peak, encryption), the linked transmitter's mute, battery and warnings, sync settings, opt-in RF and audio meters. Every change streams in as it happens.\n",
@@ -1668,7 +1668,7 @@
       "file": "audio/sennheiser_ewdx.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/sennheiser_ewdx.avcdriver": "aa722699665721c81be09108fecacc01b8cb5ac700ab801b1ebb6400310c6de0"
+        "audio/sennheiser_ewdx.avcdriver": "c90469c2f52cffcf6777b16b9788b1782d3440f95396b3cdce28e955affd41d9"
       },
       "ports": [
         443
@@ -1677,7 +1677,7 @@
         "sscv2"
       ],
       "simulated": true,
-      "min_platform_version": "0.36.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "sennheiser",
         "ew-dx",
@@ -1948,7 +1948,7 @@
       "name": "Shure MXW neXt Access Point",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Microflex Wireless neXt access points (MXWAPX4, MXWAPX8, MXWAPXD2) over Shure command strings. Per-channel gain, mute and name, each microphone's model, status, name, battery, button and LEDs, opt-in RF and audio meters, gain and mute on every Dante, analog and USB input and output, the automixer mute and the operation mode. Every change on the access point shows up as it happens.\n",
@@ -1956,7 +1956,7 @@
       "file": "audio/shure_mxw_next.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/shure_mxw_next.avcdriver": "4dc1b7158a28c40f7af04caeae9633fe5d35b07b6af1d879ba68c3225040bf7d"
+        "audio/shure_mxw_next.avcdriver": "b603bb23a14ed520786bed9d20a47823ed6d5634f676207b929e36e8b6d0c1c9"
       },
       "ports": [
         2202
@@ -2021,7 +2021,7 @@
       "name": "Shure MXW neXt Networked Docking Station",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Microflex Wireless neXt networked docking stations (MXWNDX2, MXWNDX4, MXWNDX8, MXWNDX4G, MXWNDX8G) over Shure command strings. Shows which bays hold a microphone, each docked microphone's name, battery charge, battery health and time to a full charge, and links a docked microphone to an access point channel.\n",
@@ -2029,7 +2029,7 @@
       "file": "audio/shure_mxwndx.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/shure_mxwndx.avcdriver": "3193d738d72077b4680382cb16dc6d871fe505b4afa2353e8c77a319f045cf39"
+        "audio/shure_mxwndx.avcdriver": "7b46ab9f9d64c8baf21e129f78bf436412b824896e3ee65f0ed507af79d7370e"
       },
       "ports": [
         2202
@@ -2244,7 +2244,7 @@
       "name": "Shure SLX-D Receiver",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "SLX-D and SLX-D+ digital wireless receivers over Shure command strings. Per-channel gain, name, frequency and group/channel presets, the transmitter's model, battery bars and runtime, opt-in audio and RF meters, and on SLX-D+ the link status, interference and encryption warnings and remote pairing. Every change on the receiver shows up as it happens.\n",
@@ -2252,7 +2252,7 @@
       "file": "audio/shure_slxd.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/shure_slxd.avcdriver": "09797c16a05abd218ff009010b3d38fb4ca4974e0087e139aaafdd59401b551a"
+        "audio/shure_slxd.avcdriver": "133c643891239518f20466f0ffa76b00780a999ee90bfd197f3045c0b10a15e1"
       },
       "ports": [
         2202
@@ -2320,7 +2320,7 @@
       "name": "Shure ULX-D Receiver",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "ULX-D digital wireless receivers over Shure command strings. Per-channel mute, gain, name, frequency and group/channel presets, the transmitter's model, battery, locks and mute switch, interference and encryption warnings, and opt-in RF and audio meters. Receiver settings for encryption, audio summing, frequency diversity, high density and the scan and sync locks. Every change on the receiver shows up as it happens.\n",
@@ -2328,7 +2328,7 @@
       "file": "audio/shure_ulxd.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/shure_ulxd.avcdriver": "0d38b9a3a7536d740cb7a09bfd991a067a100fdcf71d9b16a00ff10b4af291bc"
+        "audio/shure_ulxd.avcdriver": "3fe0d9ef23fbdfa5a10ee1ca3bb84f835ff405e7983632f6535bdff0e00e7401"
       },
       "ports": [
         2202

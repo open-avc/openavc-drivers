@@ -708,6 +708,15 @@ Inside `handle_command` or `handle_request`, you have access to:
 | `self.config` | Device-specific config passed at startup |
 | `self.child_entities` | The **project's** child entities, `{child_type: {padded_id: {label, config}}}` — see below. Empty for most simulators, including every controller's. |
 
+**Play what the integrator picked.** `self.config` is the device's own settings
+(everything but its address and port), so a simulator for a driver whose
+settings describe the equipment (a model, a channel count) can read them and
+answer as that equipment: a project built for an 8-channel unit simulates as one.
+When such a setting declares `learned_from`, the platform fills it in from what
+the real device reports, and never from a simulator, so whatever the simulator
+answers there changes nothing in the project. `audio/algo_ip_endpoint_sim.py`
+reads `model` this way.
+
 ### Children in a Python simulator
 
 If your driver declares `child_entity_types`, start here — the obvious move is

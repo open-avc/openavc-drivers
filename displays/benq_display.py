@@ -50,8 +50,9 @@ Power model (matters for automation):
     screen-off. A display put into standby is unreachable over LAN, so
     ``power_on`` is ``available_offline``: it sends a Wake-on-LAN magic
     packet (the display's WOL setting must be on) using the MAC learned
-    on the last connection (or the mac_address config field), and the
-    protocol's own power-on as well whenever the display is reachable.
+    on the last connection, which the platform also saves into the
+    mac_address setting (``learned_from``) so it survives a restart, and
+    the protocol's own power-on as well whenever the display is reachable.
 
 Protocol reference: BenQ "RM6503/RM7503/RM8603/RM8603T RS232 & LAN
 Protocol Installation Guide" (2022); the signage-wide "Generic
@@ -238,7 +239,7 @@ class BenqDisplayDriver(BaseDriver):
         "name": "BenQ Display",
         "manufacturer": "BenQ",
         "category": "display",
-        "version": "1.1.1",
+        "version": "1.2.0",
         "author": "OpenAVC",
         "description": (
             "Controls BenQ interactive flat panels (BenQ Boards: RM, RP, RE, "
@@ -255,7 +256,7 @@ class BenqDisplayDriver(BaseDriver):
         "simulated": True,
         "ports": [4660],
         # confirm on the commands that erase, delete or reset needs 0.36.0.
-        "min_platform_version": "0.36.0",
+        "min_platform_version": "0.37.0",
         "transport": "tcp",
         "transports": ["tcp", "serial"],
         "delimiter": "\r",
@@ -371,7 +372,8 @@ class BenqDisplayDriver(BaseDriver):
             },
             "mac_address": {
                 "type": "string", "default": "", "label": "MAC Address (for Wake-on-LAN)",
-                "description": "Optional. Learned automatically on the first connection; fill in manually to wake a display that has never connected.",
+                "learned_from": "mac_address",
+                "description": "Filled in from the display when it connects, so Power On can still wake it after a restart while it is off. Fill it in yourself only for a display that has never connected.",
             },
         },
         "state_variables": {

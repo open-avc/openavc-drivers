@@ -58,7 +58,7 @@ id: shure_mxwndx
 name: Shure MXW neXt Networked Docking Station
 manufacturer: Shure
 category: audio
-version: 1.0.1
+version: 1.1.0
 author: OpenAVC
 # unknown on state variables.
 min_platform_version: "0.37.0"
@@ -163,10 +163,11 @@ config_schema:
     values: [2, 4, 8]
     default: 4
     label: Docking Bays
+    learned_from: bay_count_reported
     help: >
       2 for an MXWNDX2, 4 for an MXWNDX4 or MXWNDX4G, 8 for an MXWNDX8 or
       MXWNDX8G. Once connected, the docking station's model sets the bay
-      count.
+      count, and it is saved here.
   poll_interval:
     type: integer
     default: 30

@@ -361,15 +361,18 @@ async def test_connect_logs_in_and_reads_identity():
 async def test_bad_credentials_surface_as_a_connection_error():
     """The simulator rejects the credential 'invalid' the way the switch
     rejects a wrong password: it re-prompts. A driver that reads a re-prompt as
-    success hangs on its first query instead of reporting an auth failure."""
+    success hangs on its first query instead of reporting an auth failure, and
+    one that raises an untyped error is retried with the same password forever,
+    which is what locks an account out."""
     state, events = StubState(), StubEvents()
     driver = Driver("sw2", {"host": "10.0.0.5", "username": "admin",
                             "password": "invalid"}, state, events)
     sim = Simulator("sim2")
     driver.transport = _PipeTransport(sim, driver)
     await driver.on_data_received(await sim.on_client_connected("c1"))
-    with pytest.raises(ConnectionError, match="Login failed"):
+    with pytest.raises(ConnectionError, match="refused the username and password") as err:
         await driver._post_connect()
+    assert getattr(err.value, "fault_code", None) == "auth_failed"
 
 
 @pytest.mark.asyncio

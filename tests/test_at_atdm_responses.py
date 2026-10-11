@@ -548,3 +548,15 @@ def test_at_atdm_0604a_commands_say_what_they_set():
             assert key in names, (name, key)
             if isinstance(value, str) and value.startswith("{"):
                 assert value[1:-1] in params, (name, value)
+
+
+# Input mute is on the device page's quick actions beside output mute: the
+# commands exist on both models whose input mute can be set, and without the
+# action an integrator had to find them in Send Command.
+@pytest.mark.parametrize("name", ["at_atdm_0604a.avcdriver", "at_atdm_1012.avcdriver"])
+def test_input_mute_is_a_quick_action_beside_output_mute(name):
+    driver = load_driver(name)
+    action_ids = [a["id"] for a in driver.get("actions", [])]
+    for cmd in ("input_mute_on", "input_mute_off", "output_mute_on", "output_mute_off"):
+        assert cmd in driver["commands"], (name, cmd)
+        assert cmd in action_ids, (name, cmd)

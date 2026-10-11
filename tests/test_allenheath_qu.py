@@ -479,6 +479,42 @@ def test_liveness_probe_fails_once_the_console_has_gone_quiet():
     _run(go())
 
 
+# A reconnect to a console that accepts the connection and then sends nothing
+# must fail its first probe: the platform keeps the device offline until a
+# probe passes, so a probe that passes on silence shows a hung console online.
+# Neither the start-up sync nor bytes heard on the previous connection count.
+
+def test_a_fresh_connection_that_has_heard_nothing_fails_the_probe(monkeypatch):
+    monkeypatch.setattr(qu, "SYSTEM_STATE_TIMEOUT", 0.01)
+
+    async def go():
+        d = _make()
+        d._last_rx = d._now()          # the previous connection heard bytes
+        await d._pre_connect()
+        await d._initial_sync()        # the console accepts and says nothing
+        try:
+            await d._liveness_probe()
+        except ConnectionError:
+            pass
+        else:
+            raise AssertionError("a console that sent nothing passed the probe")
+
+    _run(go())
+
+
+def test_the_first_byte_from_the_console_answers_the_probe(monkeypatch):
+    monkeypatch.setattr(qu, "SYSTEM_STATE_TIMEOUT", 0.01)
+
+    async def go():
+        d = _make()
+        await d._pre_connect()
+        await d._initial_sync()
+        await _feed(d, [0xFE])
+        await d._liveness_probe()
+
+    _run(go())
+
+
 def test_the_probe_keeps_the_console_inside_its_12_second_window():
     # The Qu drops a client that sends nothing for 12 s; the probe is the
     # keep-alive, so it must run well inside that, and one failure (10 s of

@@ -311,7 +311,7 @@
       "name": "PJLink Class 1 Projector",
       "manufacturer": "Generic",
       "category": "projector",
-      "version": "2.6.3",
+      "version": "2.6.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls any PJLink Class 1 compatible projector.",
@@ -319,7 +319,7 @@
       "file": "projectors/pjlink_class1.py",
       "format": "python",
       "files": {
-        "projectors/pjlink_class1.py": "dce64c0b02c617910119814462fd6a31ea9b7cc3035d2aaeb0ddb1ee138ae524",
+        "projectors/pjlink_class1.py": "3ae5b6c3e5ac71a2b52d11cb5c2dfb8f39977c13acff4d12bdad2b16986dacbf",
         "projectors/pjlink_class1_discovery.py": "a8e65922160cfd5e615bd0cf43344df54ad69d2b6b1df82581854cbfa2be11a5",
         "projectors/pjlink_class1_sim.py": "6adb58362f8a4d72f9301784697598d81a0b73d4922314ea30f7945ef83dcc5e"
       },
@@ -571,7 +571,7 @@
       "name": "Panasonic PT-MZ / PT-RZ Projector",
       "manufacturer": "Panasonic",
       "category": "projector",
-      "version": "1.4.4",
+      "version": "1.4.5",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Panasonic PT-MZ (LCD) and PT-RZ (DLP) professional installation projectors via the NTCONTROL TCP protocol (Protocol 2). Power, input, shutter / AV mute, freeze, and operating-hours readout. Supports Panasonic's MD5 session-challenge authentication so the projector keeps its default Web Control admin password.",
@@ -579,7 +579,7 @@
       "file": "projectors/panasonic_pt.py",
       "format": "python",
       "files": {
-        "projectors/panasonic_pt.py": "e683ce71e6035007b8e2ed1dec9a8442d4b8d20fb86643caddefe288c8fc18a1",
+        "projectors/panasonic_pt.py": "6e06b52ba747ea9acd2fcd259bf4b6b727337ea9784c86826598b94bdbabdcb3",
         "projectors/panasonic_pt_sim.py": "91817756d9ad3333358e18df07cb0fa7b58a2d7c8742349e9ce1d6d0c4177cff"
       },
       "ports": [

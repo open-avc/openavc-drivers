@@ -341,7 +341,7 @@ async def _make_pair(driver_overrides=None, sim_password="", power="on"):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.PanasonicPTDriver.DRIVER_INFO["version"] == "1.4.4"
+    assert DRV.PanasonicPTDriver.DRIVER_INFO["version"] == "1.4.5"
     assert DRV.PanasonicPTDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
 
 

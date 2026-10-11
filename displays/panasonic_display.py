@@ -189,13 +189,11 @@ class _AuthRejected(Exception):
         if not self.reply:
             return (
                 "The display has a Web Control admin password set and none "
-                "is entered. Enter the display's admin username and "
-                "password in this device's settings."
+                "is entered."
             )
         return (
             f"The display refused the Web Control admin username and "
-            f"password ({self.reply}). Enter the display's admin username "
-            "and password in this device's settings."
+            f"password ({self.reply})."
         )
 
 
@@ -252,7 +250,7 @@ class PanasonicDisplayDriver(BaseDriver):
         "name": "Panasonic Professional Display",
         "manufacturer": "Panasonic",
         "category": "display",
-        "version": "1.0.3",
+        "version": "1.0.4",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",

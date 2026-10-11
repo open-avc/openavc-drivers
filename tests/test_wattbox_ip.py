@@ -392,7 +392,7 @@ async def _settle(n: int = 4) -> None:
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.WattBoxIPDriver.DRIVER_INFO["version"] == "1.3.8"
+    assert DRV.WattBoxIPDriver.DRIVER_INFO["version"] == "1.3.9"
 
 
 def test_child_entity_types_declared():
@@ -606,7 +606,7 @@ def test_rejected_login_raises_auth_error():
             await driver.connect()
         # The typed fault code maps straight to offline_reason=auth_failed.
         assert ei.value.fault_code == "auth_failed"
-        assert "authentication failed" in str(ei.value).lower()
+        assert "refused the username and password" in str(ei.value)
 
     asyncio.run(go())
 

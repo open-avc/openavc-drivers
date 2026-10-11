@@ -337,7 +337,7 @@ def test_no_login_entered_says_so_instead_of_blaming_the_password():
             await _connect(driver, handler)
         assert exc_info.value.fault_code == "auth_failed"
         assert "none is entered" in str(exc_info.value)
-        assert "create an ONVIF user" in str(exc_info.value)
+        assert "ONVIF users are created in its web interface" in str(exc_info.value)
 
     _run(scenario())
 

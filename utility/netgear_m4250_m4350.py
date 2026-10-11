@@ -41,7 +41,7 @@ import asyncio
 import re
 from typing import Any
 
-from openavc.drivers.base import BaseDriver
+from openavc.drivers.base import BaseDriver, ConnectionFaultError
 from openavc.transport.tcp import TCPTransport  # the Enable SSH wizard opens its own telnet session
 from openavc.utils.logger import get_logger
 
@@ -539,7 +539,7 @@ class NetgearM4250M4350Driver(BaseDriver):
         "name": "NETGEAR M4250 / M4350 AV Line Switch",
         "manufacturer": "NETGEAR",
         "category": "utility",
-        "version": "1.4.7",
+        "version": "1.4.8",
         "author": "OpenAVC",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
@@ -980,12 +980,13 @@ class NetgearM4250M4350Driver(BaseDriver):
         if kind == "password":
             kind = await self._login_reply(self.config.get("password", ""))
         if kind in ("login", "password"):
-            # The switch re-prompted instead of dropping to the CLI — the
-            # credentials were rejected. Surface a clear auth error rather than
-            # hanging in enter_privileged.
-            raise ConnectionError(
-                f"[{self.device_id}] Login failed — the switch re-prompted for "
-                f"credentials. Check the username and password."
+            # The switch re-prompted instead of dropping to the CLI: the
+            # credentials were rejected. Surface it as auth_failed rather than
+            # hanging in enter_privileged, so the platform stops retrying the
+            # same password.
+            raise ConnectionFaultError(
+                "The switch refused the username and password.",
+                code="auth_failed",
             )
 
         await self._enter_privileged()

@@ -17,6 +17,8 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
+from _platform_stubs import ConnectionFaultError
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "utility" / "netgear_m4250_m4350.py"
 FIXTURES_PATH = REPO_ROOT / "tests" / "fixtures" / "netgear_m4250_m4350_outputs.py"
@@ -38,6 +40,7 @@ def _install_server_stubs() -> None:
         DRIVER_INFO: dict = {}
 
     base.BaseDriver = _BaseDriver
+    base.ConnectionFaultError = ConnectionFaultError
     sys.modules["openavc.drivers.base"] = base
 
     transport = ModuleType("openavc.transport")

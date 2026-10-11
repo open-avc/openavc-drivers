@@ -17,6 +17,9 @@
 # from a macro/script, and it fails silently rather than surfacing in last_error.
 # (The 2020 protocol doc shows an "error: unsupported value: ..." reply here; that
 # behavior is gone on current firmware — a bad enum value is now dropped silently.)
+# The power supply's lineWarning is a warning flag: a Connect 352D on firmware
+# 3.1.7.0 reports false at a healthy 121 V. The 2020 doc titles it "AC Line Voltage
+# Ok" (true = OK), so psu_line_warning is labelled as the warning it is.
 #
 # Protocol reference: LEA Open API - TCP Protocol, Rev 2 (2020-10-02).
 # Archived: driver-roadmap/reference-docs/lea-open-api-tcp-protocol.pdf
@@ -66,7 +69,7 @@ id: lea_connect
 name: LEA Connect Series Amplifier
 manufacturer: LEA Professional
 category: audio
-version: "1.1.0"
+version: "1.1.1"
 author: OpenAVC
 transport: tcp
 delimiter: "\n"
@@ -228,6 +231,10 @@ discovery:
     send_ascii: "get /amp/deviceInfo/modelID\n"
     expect_regex: '/amp/deviceInfo/modelID "Connect Series'
     extract_manufacturer: "LEA Professional"
+    extract:
+      model:
+        regex: '/amp/deviceInfo/modelID "([^"]+)"'
+        group: 1
     timeout_ms: 2000
   # No oui hint. The Connect 352D's MAC (64:8c:bb:f2:12:f1) is in a block the
   # IEEE registry lists under Texas Instruments, the network module's maker, so
@@ -709,7 +716,8 @@ state_variables:
     cloud_priority: high
   psu_line_warning:
     type: boolean
-    label: "AC Line Voltage OK"
+    label: "AC Line Voltage Warning"
+    help: "On when the amplifier reports its AC supply voltage is out of range. Off in normal operation."
     cloud_priority: high
 
   # ── Auto standby / signal generator ──
@@ -2254,6 +2262,44 @@ liveness:
   max_failures: 2
 
 simulator:
+  # A change made in the Simulator UI is pushed to the driver, the way the amp
+  # sends a change notice to a subscriber (the driver subscribes to everything).
+  push_state: true
+  # What the amp reports, under the driver's state keys, so the card is right
+  # before a driver connects. A 704D, the default Channels setting; the handler
+  # rewrites the identity and seeds the channels for the setting it is given.
+  initial_state:
+    device_name: "Connect 704D"
+    venue_name: "LEA Office"
+    model_id: "Connect Series Model 704D"
+    asset_tag: "BJD-704D-0001"
+    installer_name: "Acme AV"
+    installer_contact: "1-800-123-4567"
+    date_of_installation: "2020-02-16T20:47:00.000Z"
+    rack_name: "Rack 1"
+    rack_position: "RU 1"
+    serial_number: "31890067"
+    date_of_mfg: "191115041907"
+    hardware_id: "2"
+    firmware_version: "2.0.1.11"
+    psu_firmware_version: "1.0.3.3"
+    amp12_firmware_version: "1.0.3.1"
+    amp34_firmware_version: "1.0.3.1"
+    uptime: "N/A"
+    num_inputs: 4
+    num_outputs: 4
+    ac_line_voltage: 118.0
+    ac_line_current: 0.5
+    ac_line_watts: 58.0
+    psu_fault: false
+    psu_thermal: false
+    psu_power_ok: true
+    psu_line_warning: false
+    auto_standby_enable: false
+    auto_standby_threshold: -60.0
+    auto_standby_wait: 15
+    signal_gen_type: "Pink Noise"
+    signal_gen_frequency: 1000
   # The LEA grammar is get/set/subscribe/unsubscribe over a flat element tree,
   # which the auto-generated per-command handlers can't model (they only match
   # exact command strings). One dispatcher handler owns the whole protocol
@@ -2293,104 +2339,108 @@ simulator:
                 _count = 4
             _model = {2: "352D", 4: "704D", 8: "168D"}[_count]
 
-            # Element map: suffix -> (kind, default). kind drives value parsing
-            # and the reply's quoting, exactly as the amp does it.
+            # Element map: suffix -> (kind, default, state key). kind drives
+            # value parsing and the reply's quoting, exactly as the amp does it.
             #   b = boolean (bare true/false), n = number, i = integer,
             #   s = string/enum (double-quoted)
+            # The state key is the one the driver's response rule fills (a
+            # channel's is its property, under channel.<n>.), so the
+            # Simulator UI's card and controls show and change the value the
+            # amp answers with.
             AMP = {
-                "/amp/deviceInfo/deviceName": ("s", "Connect " + _model),
-                "/amp/deviceInfo/venueName": ("s", "LEA Office"),
-                "/amp/deviceInfo/modelID": ("s", "Connect Series Model " + _model),
-                "/amp/deviceInfo/assetTagNumber": ("s", "BJD-704D-0001"),
-                "/amp/deviceInfo/installerName": ("s", "Acme AV"),
-                "/amp/deviceInfo/installerContactInfo": ("s", "1-800-123-4567"),
-                "/amp/deviceInfo/dateOfInstallation": ("s", "2020-02-16T20:47:00.000Z"),
-                "/amp/deviceInfo/rackName": ("s", "Rack 1"),
-                "/amp/deviceInfo/rackPosition": ("s", "RU 1"),
-                "/amp/deviceInfo/serialNumber": ("s", "31890067"),
-                "/amp/deviceInfo/dateOfMfg": ("s", "191115041907"),
-                "/amp/deviceInfo/hardwareID": ("s", "2"),
-                "/amp/deviceInfo/firmwareVersion": ("s", "2.0.1.11"),
-                "/amp/deviceInfo/powerSupplyfirmwareVersion": ("s", "1.0.3.3"),
-                "/amp/deviceInfo/amp12firmwareVersion": ("s", "1.0.3.1"),
-                "/amp/deviceInfo/amp34firmwareVersion": ("s", "1.0.3.1"),
-                "/amp/deviceInfo/upTime": ("s", "N/A"),
-                "/amp/deviceInfo/numInputs": ("f", float(_count)),
-                "/amp/deviceInfo/numOutputs": ("f", float(_count)),
-                "/amp/powerSupply/acLineVoltage": ("n", 118.0),
-                "/amp/powerSupply/acLineCurrent": ("n", 0.5),
-                "/amp/powerSupply/acLineWatts": ("n", 58.0),
-                "/amp/powerSupply/fault": ("b", False),
-                "/amp/powerSupply/thermal": ("b", False),
-                "/amp/powerSupply/powerOk": ("b", True),
-                "/amp/powerSupply/lineWarning": ("b", True),
-                "/amp/autoStandby/enable": ("b", False),
-                "/amp/autoStandby/threshold": ("n", -60.0),
-                "/amp/autoStandby/timeToWait": ("i", 15),
-                "/amp/signalGenerator/type": ("s", "Pink Noise"),
-                "/amp/signalGenerator/frequency": ("i", 1000),
+                "/amp/deviceInfo/deviceName": ("s", "Connect " + _model, "device_name"),
+                "/amp/deviceInfo/venueName": ("s", "LEA Office", "venue_name"),
+                "/amp/deviceInfo/modelID": ("s", "Connect Series Model " + _model, "model_id"),
+                "/amp/deviceInfo/assetTagNumber": ("s", "BJD-704D-0001", "asset_tag"),
+                "/amp/deviceInfo/installerName": ("s", "Acme AV", "installer_name"),
+                "/amp/deviceInfo/installerContactInfo": ("s", "1-800-123-4567", "installer_contact"),
+                "/amp/deviceInfo/dateOfInstallation": ("s", "2020-02-16T20:47:00.000Z", "date_of_installation"),
+                "/amp/deviceInfo/rackName": ("s", "Rack 1", "rack_name"),
+                "/amp/deviceInfo/rackPosition": ("s", "RU 1", "rack_position"),
+                "/amp/deviceInfo/serialNumber": ("s", "31890067", "serial_number"),
+                "/amp/deviceInfo/dateOfMfg": ("s", "191115041907", "date_of_mfg"),
+                "/amp/deviceInfo/hardwareID": ("s", "2", "hardware_id"),
+                "/amp/deviceInfo/firmwareVersion": ("s", "2.0.1.11", "firmware_version"),
+                "/amp/deviceInfo/powerSupplyfirmwareVersion": ("s", "1.0.3.3", "psu_firmware_version"),
+                "/amp/deviceInfo/amp12firmwareVersion": ("s", "1.0.3.1", "amp12_firmware_version"),
+                "/amp/deviceInfo/amp34firmwareVersion": ("s", "1.0.3.1", "amp34_firmware_version"),
+                "/amp/deviceInfo/upTime": ("s", "N/A", "uptime"),
+                "/amp/deviceInfo/numInputs": ("f", float(_count), "num_inputs"),
+                "/amp/deviceInfo/numOutputs": ("f", float(_count), "num_outputs"),
+                "/amp/powerSupply/acLineVoltage": ("n", 118.0, "ac_line_voltage"),
+                "/amp/powerSupply/acLineCurrent": ("n", 0.5, "ac_line_current"),
+                "/amp/powerSupply/acLineWatts": ("n", 58.0, "ac_line_watts"),
+                "/amp/powerSupply/fault": ("b", False, "psu_fault"),
+                "/amp/powerSupply/thermal": ("b", False, "psu_thermal"),
+                "/amp/powerSupply/powerOk": ("b", True, "psu_power_ok"),
+                "/amp/powerSupply/lineWarning": ("b", False, "psu_line_warning"),
+                "/amp/autoStandby/enable": ("b", False, "auto_standby_enable"),
+                "/amp/autoStandby/threshold": ("n", -60.0, "auto_standby_threshold"),
+                "/amp/autoStandby/timeToWait": ("i", 15, "auto_standby_wait"),
+                "/amp/signalGenerator/type": ("s", "Pink Noise", "signal_gen_type"),
+                "/amp/signalGenerator/frequency": ("i", 1000, "signal_gen_frequency"),
             }
             # Per-channel elements (suffix after /amp/channels/<n>).
             CH = {
-                "/output/name": ("s", "Channel"),
-                "/output/enable": ("b", True),
-                "/output/mute": ("b", False),
-                "/output/fader": ("n", 0.0),
-                "/output/hiZLoZ": ("s", "LoZ"),
-                "/output/hiZHpfFrequency": ("i", 70),
-                "/output/fault": ("b", False),
-                "/output/thermal": ("b", False),
-                "/output/limiting": ("b", False),
-                "/output/clip": ("b", False),
-                "/output/signalDetect": ("b", False),
-                "/output/ready": ("b", True),
-                "/levels/level_db": ("n", -52.78131103515625),
-                "/levels/level_volts": ("n", 24.5),
-                "/levels/level_watts": ("n", 85.5),
-                "/inputSelector/primary": ("s", "Analog 1"),
-                "/inputSelector/primaryFader": ("n", 0.0),
-                "/inputSelector/primaryLevel": ("n", -52.2),
-                "/inputSelector/primarySignalDetect": ("b", True),
-                "/inputSelector/primaryClip": ("b", False),
-                "/inputSelector/primaryThreshold": ("n", -60.0),
-                "/inputSelector/secondary": ("s", "None"),
-                "/inputSelector/secondaryFader": ("n", 0.0),
-                "/inputSelector/secondaryLevel": ("n", -80.0),
-                "/inputSelector/secondarySignalDetect": ("b", False),
-                "/inputSelector/secondaryClip": ("b", False),
-                "/inputSelector/secondaryThreshold": ("n", -55.0),
-                "/inputSelector/signalDetect": ("b", True),
-                "/inputSelector/clip": ("b", False),
-                "/inputSelector/mode": ("s", "Backup"),
-                "/inputSelector/signalGeneratorEnable": ("b", False),
-                "/inputSelector/signalGeneratorFader": ("n", -20.0),
-                "/inputSelector/danteOnRamp": ("s", "Analog Input"),
-                "/crossover/bandGainAndDelay/gain": ("n", 0.0),
-                "/crossover/bandGainAndDelay/delay": ("n", 0.0),
-                "/crossover/bandGainAndDelay/invert": ("b", False),
-                "/crossover/lowPassFilter/enable": ("b", False),
-                "/crossover/lowPassFilter/type": ("s", "Butterworth 12dB/oct"),
-                "/crossover/lowPassFilter/frequency": ("i", 20000),
-                "/crossover/highPassFilter/enable": ("b", True),
-                "/crossover/highPassFilter/type": ("s", "Butterworth 12dB/oct"),
-                "/crossover/highPassFilter/frequency": ("i", 70),
-                "/rmsLimiter/enable": ("b", True),
-                "/rmsLimiter/threshold": ("n", 70.0),
-                "/rmsLimiter/attackTime": ("n", 1000.0),
-                "/rmsLimiter/releaseTime": ("n", 10000.0),
-                "/rmsLimiter/gainReduction": ("n", 0.0),
-                "/rmsLimiter/totalGainReduction": ("n", 0.0),
-                "/peakLimiter/enable": ("b", True),
-                "/peakLimiter/threshold": ("n", 141.0),
-                "/peakLimiter/attackTime": ("n", 10.0),
-                "/peakLimiter/releaseTime": ("n", 128.0),
-                "/peakLimiter/gainReduction": ("n", 0.0),
-                "/peakLimiter/totalGainReduction": ("n", 0.0),
-                "/loadMonitor/enable": ("b", True),
-                "/loadMonitor/measuredImpedance": ("n", 8.2),
-                "/loadMonitor/highLimit": ("n", 48.0),
-                "/loadMonitor/lowLimit": ("n", 2.5),
-                "/loadMonitor/status": ("s", "Ok"),
+                "/output/name": ("s", "Channel", "name"),
+                "/output/enable": ("b", True, "enable"),
+                "/output/mute": ("b", False, "mute"),
+                "/output/fader": ("n", 0.0, "fader"),
+                "/output/hiZLoZ": ("s", "LoZ", "hiz_loz"),
+                "/output/hiZHpfFrequency": ("i", 70, "hiz_hpf_frequency"),
+                "/output/fault": ("b", False, "fault"),
+                "/output/thermal": ("b", False, "thermal"),
+                "/output/limiting": ("b", False, "limiting"),
+                "/output/clip": ("b", False, "output_clip"),
+                "/output/signalDetect": ("b", False, "output_signal_detect"),
+                "/output/ready": ("b", True, "ready"),
+                "/levels/level_db": ("n", -52.78131103515625, "level_db"),
+                "/levels/level_volts": ("n", 24.5, "level_volts"),
+                "/levels/level_watts": ("n", 85.5, "level_watts"),
+                "/inputSelector/primary": ("s", "Analog 1", "primary_source"),
+                "/inputSelector/primaryFader": ("n", 0.0, "primary_fader"),
+                "/inputSelector/primaryLevel": ("n", -52.2, "primary_level"),
+                "/inputSelector/primarySignalDetect": ("b", True, "primary_signal_detect"),
+                "/inputSelector/primaryClip": ("b", False, "primary_clip"),
+                "/inputSelector/primaryThreshold": ("n", -60.0, "primary_threshold"),
+                "/inputSelector/secondary": ("s", "None", "secondary_source"),
+                "/inputSelector/secondaryFader": ("n", 0.0, "secondary_fader"),
+                "/inputSelector/secondaryLevel": ("n", -80.0, "secondary_level"),
+                "/inputSelector/secondarySignalDetect": ("b", False, "secondary_signal_detect"),
+                "/inputSelector/secondaryClip": ("b", False, "secondary_clip"),
+                "/inputSelector/secondaryThreshold": ("n", -55.0, "secondary_threshold"),
+                "/inputSelector/signalDetect": ("b", True, "input_signal_detect"),
+                "/inputSelector/clip": ("b", False, "input_clip"),
+                "/inputSelector/mode": ("s", "Backup", "input_mode"),
+                "/inputSelector/signalGeneratorEnable": ("b", False, "signal_gen_enable"),
+                "/inputSelector/signalGeneratorFader": ("n", -20.0, "signal_gen_fader"),
+                "/inputSelector/danteOnRamp": ("s", "Analog Input", "dante_on_ramp"),
+                "/crossover/bandGainAndDelay/gain": ("n", 0.0, "xover_gain"),
+                "/crossover/bandGainAndDelay/delay": ("n", 0.0, "xover_delay"),
+                "/crossover/bandGainAndDelay/invert": ("b", False, "xover_invert"),
+                "/crossover/lowPassFilter/enable": ("b", False, "lpf_enable"),
+                "/crossover/lowPassFilter/type": ("s", "Butterworth 12dB/oct", "lpf_type"),
+                "/crossover/lowPassFilter/frequency": ("i", 20000, "lpf_frequency"),
+                "/crossover/highPassFilter/enable": ("b", True, "hpf_enable"),
+                "/crossover/highPassFilter/type": ("s", "Butterworth 12dB/oct", "hpf_type"),
+                "/crossover/highPassFilter/frequency": ("i", 70, "hpf_frequency"),
+                "/rmsLimiter/enable": ("b", True, "rms_enable"),
+                "/rmsLimiter/threshold": ("n", 70.0, "rms_threshold"),
+                "/rmsLimiter/attackTime": ("n", 1000.0, "rms_attack"),
+                "/rmsLimiter/releaseTime": ("n", 10000.0, "rms_release"),
+                "/rmsLimiter/gainReduction": ("n", 0.0, "rms_gain_reduction"),
+                "/rmsLimiter/totalGainReduction": ("n", 0.0, "rms_total_gain_reduction"),
+                "/peakLimiter/enable": ("b", True, "peak_enable"),
+                "/peakLimiter/threshold": ("n", 141.0, "peak_threshold"),
+                "/peakLimiter/attackTime": ("n", 10.0, "peak_attack"),
+                "/peakLimiter/releaseTime": ("n", 128.0, "peak_release"),
+                "/peakLimiter/gainReduction": ("n", 0.0, "peak_gain_reduction"),
+                "/peakLimiter/totalGainReduction": ("n", 0.0, "peak_total_gain_reduction"),
+                "/loadMonitor/enable": ("b", True, "load_monitor_enable"),
+                "/loadMonitor/measuredImpedance": ("n", 8.2, "impedance"),
+                "/loadMonitor/highLimit": ("n", 48.0, "load_high_limit"),
+                "/loadMonitor/lowLimit": ("n", 2.5, "load_low_limit"),
+                "/loadMonitor/status": ("s", "Ok", "load_status"),
             }
             EQ = {
                 "/enable": ("b", False),
@@ -2459,8 +2509,8 @@ simulator:
                 """(kind, default, limit_key) for a URL, or None if the amp has
                 no such element."""
                 if url in AMP:
-                    k, d = AMP[url]
-                    return k, d, url
+                    k, d, key = AMP[url]
+                    return k, d, url, key
                 m = re.match(r"^/amp/channels/(\d+)(/.+)$", url)
                 if m:
                     ch = int(m.group(1))
@@ -2468,23 +2518,50 @@ simulator:
                         return None
                     rest = m.group(2)
                     if rest in CH:
-                        k, d = CH[rest]
+                        k, d, prop = CH[rest]
                         if rest == "/output/name":
                             d = "Channel " + str(ch)
-                        return k, d, rest
+                        return k, d, rest, "channel." + str(ch) + "." + prop
                     eq = re.match(r"^/outputEqFilters/(\d+)(/.+)$", rest)
                     if eq and 1 <= int(eq.group(1)) <= EQ_BANDS and eq.group(2) in EQ:
+                        # The driver keeps no EQ state, so EQ is held by URL.
                         k, d = EQ[eq.group(2)]
-                        return k, d, eq.group(2)
+                        return k, d, eq.group(2), url
                     return None
                 m = re.match(r"^/amp/inputs/analog/(\d+)/sensitivity$", url)
                 if m and 1 <= int(m.group(1)) <= INPUTS:
-                    return "s", "26dB", "/sensitivity"
+                    return ("s", "26dB", "/sensitivity",
+                            "analog_input." + str(int(m.group(1))) + ".sensitivity")
                 return None
 
-            def current(url, kind, default):
-                val = state.get(url)
+            def current(key, default):
+                val = state.get(key)
                 return default if val is None else val
+
+            def stored(kind, value):
+                # The type the driver's state holds: every numeric the amp
+                # calls an integer is stored as one.
+                return int(value) if kind in ("i", "f") else value
+
+            # Until the amp is first asked anything, its channels hold empty
+            # type defaults: seed what it reports, once per Channels setting.
+            # The amplifier-level values are in initial_state (so the card is
+            # right before a driver connects); the model's identity and the
+            # channel roster depend on the Channels setting, which only this
+            # handler sees.
+            if state.get("_seeded_for") != CHANNELS:
+                for _url in ("/amp/deviceInfo/deviceName", "/amp/deviceInfo/modelID",
+                             "/amp/deviceInfo/numInputs", "/amp/deviceInfo/numOutputs"):
+                    _k, _d, _key = AMP[_url]
+                    state[_key] = stored(_k, _d)
+                for _ch in range(1, CHANNELS + 1):
+                    for _url in CH:
+                        _k, _d, _l, _key = spec("/amp/channels/" + str(_ch) + _url)
+                        state[_key] = stored(_k, _d)
+                for _n in range(1, INPUTS + 1):
+                    _k, _d, _l, _key = spec("/amp/inputs/analog/" + str(_n) + "/sensitivity")
+                    state[_key] = _d
+                state["_seeded_for"] = CHANNELS
 
             def render(url, kind, value):
                 """Format an element's value the way the amp reports it. Every
@@ -2515,17 +2592,17 @@ simulator:
                 else:
                     reply("error:  cannot parse - '" + line + "'")
                 return
-            kind, default, lkey = found
+            kind, default, lkey, key = found
 
             if verb == "get":
-                reply(render(url, kind, current(url, kind, default)))
+                reply(render(url, kind, current(key, default)))
                 return
 
             if verb == "subscribe":
                 subs = state.get("_subs") or ""
                 if url not in subs.split("|"):
                     state["_subs"] = (subs + "|" + url) if subs else url
-                reply(render(url, kind, current(url, kind, default)))
+                reply(render(url, kind, current(key, default)))
                 return
 
             if verb == "unsubscribe":
@@ -2571,8 +2648,11 @@ simulator:
             # A successful set is SILENT on current firmware — no OK. The only
             # reply is the change notice, and only to a subscriber, and only when
             # the value actually changed (setting a value to itself is silent).
-            old = current(url, kind, default)
-            state[url] = value
+            old = current(key, default)
+            state[key] = value
+            # What the state holds now: the simulator clamps to the range the
+            # driver declares, which can be narrower than the amp's.
+            value = current(key, default)
             subs = (state.get("_subs") or "").split("|")
             if url in subs and value != old:
                 reply(render(url, kind, value))

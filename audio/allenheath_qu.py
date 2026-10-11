@@ -644,7 +644,7 @@ class AllenHeathQuDriver(BaseDriver):
         "name": "Allen & Heath Qu Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.3.0",
+        "version": "1.3.1",
         # learned_from on the Model setting landed in 0.37.0.
         "min_platform_version": "0.37.0",
         "author": "OpenAVC",
@@ -869,8 +869,9 @@ class AllenHeathQuDriver(BaseDriver):
         self._route_by_ch: dict[int, tuple[str, str]] = {}
         self._registered: set[tuple[str, str]] = set()
 
-        # Liveness: when the console last sent anything.
-        self._last_rx = 0.0
+        # Liveness: when the console last sent anything on this connection
+        # (None until it has sent something).
+        self._last_rx: float | None = None
 
     # ── Small helpers ───────────────────────────────────────────────────────
 
@@ -932,8 +933,10 @@ class AllenHeathQuDriver(BaseDriver):
 
     async def _initial_sync(self) -> None:
         # Send Active Sense at once: the Qu drops a silent client after 12 s,
-        # and the liveness probe's first keep-alive is an interval away.
-        self._last_rx = self._now()
+        # and the liveness probe's first keep-alive is an interval away. Only
+        # bytes from the console count as hearing it, so a console that
+        # accepts the connection and sends nothing fails the first probe.
+        self._last_rx = None
         await self._send(bytes([ACTIVE_SENSE]))
 
         # Identify + full-state sync.
@@ -947,6 +950,8 @@ class AllenHeathQuDriver(BaseDriver):
         300 ms whatever else it is doing, so a gap that long means it has
         gone; the platform then drops the connection and reconnects."""
         await self._send(bytes([ACTIVE_SENSE]))
+        if self._last_rx is None:
+            raise ConnectionError("nothing from the console on this connection")
         silent_for = self._now() - self._last_rx
         if silent_for > RX_SILENCE_TIMEOUT:
             raise ConnectionError(

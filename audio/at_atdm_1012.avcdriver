@@ -108,7 +108,7 @@ id: at_atdm_1012
 name: Audio-Technica ATDM-1012
 manufacturer: Audio-Technica
 category: audio
-version: 2.2.1
+version: 2.2.2
 author: OpenAVC
 min_platform_version: "0.27.0"
 description: >
@@ -2065,6 +2065,10 @@ device_settings:
 actions:
   - id: recall_preset
     icon: bookmark
+  - id: input_mute_on
+    icon: mic-off
+  - id: input_mute_off
+    icon: mic
   - id: output_mute_on
     icon: volume-x
   - id: output_mute_off

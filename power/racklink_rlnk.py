@@ -244,7 +244,7 @@ class RackLinkRLNKDriver(BaseDriver):
         "name": "Middle Atlantic RackLink PDU",
         "manufacturer": "Middle Atlantic",
         "category": "power",
-        "version": "1.3.9",
+        "version": "1.3.10",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -602,9 +602,7 @@ class RackLinkRLNKDriver(BaseDriver):
         """The device card's sentence for a rejected login (Login Response
         0x00, or NACK 0x08 Invalid Credentials in reply to the login)."""
         return (
-            f"The PDU rejected the login for user '{self._username()}'. "
-            "Enter the control protocol username and password in this "
-            "device's settings."
+            f"The PDU rejected the login for user '{self._username()}'."
         )
 
     async def _login(self) -> bytes:
@@ -1107,9 +1105,8 @@ class RackLinkRLNKDriver(BaseDriver):
         self._force_disconnect(
             "auth_failed",
             f"The PDU accepted the login for user '{self._username()}' "
-            "but refuses its commands (invalid credentials). Check that "
-            "the account has admin rights and the control protocol "
-            "enabled.",
+            "but refuses its commands (invalid credentials). The account "
+            "needs admin rights and the control protocol enabled.",
         )
 
     async def _relogin(self) -> None:

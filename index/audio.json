@@ -268,7 +268,7 @@
       "name": "Allen & Heath Qu Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Allen & Heath Qu family (Qu-16, Qu-24, Qu-32, Qu-Pac, Qu-SB) via MIDI over TCP/IP on port 51325. Auto-identifies the model on connect and registers every input, stereo input, mix, group, matrix, DCA, mute group and FX send/return as a child entity with live mute / fader / pan state and its real channel name. Mute / fader / pan / send / assign / pre-post control, DCA and mute-group masters, PAFL, local preamp gain and 48V, scene recall (1-100), MMC transport, channel naming and remote shutdown, with bidirectional state from console-side moves.",
@@ -276,7 +276,7 @@
       "file": "audio/allenheath_qu.py",
       "format": "python",
       "files": {
-        "audio/allenheath_qu.py": "ba63166adb5a0a06bdb9fc0212413070655540bec255cb5a8970c16360fd3884",
+        "audio/allenheath_qu.py": "765620788ba1529a1e0503d15eca5e29937fc067050567b5be7490d9fd5cbce5",
         "audio/allenheath_qu_sim.py": "3b6f63570ac8795032c379b79c4c91eb48019cde79ef69816bc99c4388b9d004"
       },
       "ports": [
@@ -564,7 +564,7 @@
       "name": "Dante DDM / Director",
       "manufacturer": "Audinate",
       "category": "audio",
-      "version": "1.7.3",
+      "version": "1.7.4",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Dante audio routing via the Audinate Managed API. Requires Dante Domain Manager or Dante Director Professional. Each Dante device is a child entity; route/unroute any Rx channel to a Tx channel and monitor live subscription status.",
@@ -572,7 +572,7 @@
       "file": "audio/dante_ddm.py",
       "format": "python",
       "files": {
-        "audio/dante_ddm.py": "d87c0378c58fd89dcad6770b49fb2c855b1e24cfa1cbc7e9cff450581160dae3",
+        "audio/dante_ddm.py": "1833e8fba3660518af56577c394bb90e81746b68cc0b543159fc2b7a29b85a17",
         "audio/dante_ddm_sim.py": "d52b311a7df94f2e54373320477d9b30e9dfc1895ea7b09b9e82d3b8044e14dd"
       },
       "ports": [
@@ -671,7 +671,7 @@
       "name": "Audio-Technica ATDM-0604a",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "2.4.0",
+      "version": "2.4.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATDM-0604a Digital SmartMixer via TCP with real-time multicast push updates. Inputs and outputs are child entities with fader, mute, preamp gain, source select, phantom power, and live meters, labelled by the mixer's own channel names. Preset recall, SmartMix and AEC configuration, USB output routing, test oscillator, and front-panel lockout. When mixers are chained over Audio-Technica LINK, the unit's role and what is connected on the chain are both reported.\n",
@@ -679,7 +679,7 @@
       "file": "audio/at_atdm_0604a.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atdm_0604a.avcdriver": "a17fc7f5da299e1553476ec6d2acb06f27538eedbc23237e7e5009457abeeacb"
+        "audio/at_atdm_0604a.avcdriver": "8ff215a039a85a6489d680c7e96808eef4b561fd2d0cf2fc1fe804d09df7a392"
       },
       "ports": [
         17300
@@ -733,7 +733,7 @@
       "name": "Audio-Technica ATDM-1012",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "2.2.1",
+      "version": "2.2.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers via TCP with real-time multicast push updates. Inputs, sub-inputs, outputs, and SmartMix groups are child entities with fader, mute, gain, source select, bus routing, and live meters, labelled by the mixer's own channel names. Preset recall, operator faders, USB output routing, test oscillator, and front-panel lockout. When mixers are chained over Audio-Technica LINK, the unit's role and what is connected on the chain are both reported.\n",
@@ -741,7 +741,7 @@
       "file": "audio/at_atdm_1012.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atdm_1012.avcdriver": "2c242bbd72e713ebaff2a7ee0720a0ba15d77008a1d01466153892c7aaba73f7"
+        "audio/at_atdm_1012.avcdriver": "fae576c708cecfa3c871a0f0105eea6dd044c5679e5208648e3aac4bb3c0befe"
       },
       "ports": [
         17300
@@ -1269,7 +1269,7 @@
       "name": "LEA Connect Series Amplifier",
       "manufacturer": "LEA Professional",
       "category": "audio",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LEA Professional Connect Series smart amplifiers (Network Connect and Dante Connect) over the LEA Open API on TCP 4321. Each amplifier channel is a child entity with output mute, gain, Hi-Z/Lo-Z mode, input source selection with backup/override, crossover, RMS and peak limiters, load monitoring, and live meters. Amp-wide auto-standby, signal generator, power-supply monitoring, and fault reporting. State is push-driven: the driver subscribes to every element and the amp reports changes as they happen, including changes made from its own web UI.\n",
@@ -1277,7 +1277,7 @@
       "file": "audio/lea_connect.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/lea_connect.avcdriver": "ab4ab759e843a3306f4ab0c4df9da89c87dcf6306cb676861e92564c9fd84dd2"
+        "audio/lea_connect.avcdriver": "38526a3bb16ea5abea277e97432ba8b3cf9ddffb45d01394381b599a6b930713"
       },
       "ports": [
         4321
@@ -1353,6 +1353,12 @@
           "send_ascii": "get /amp/deviceInfo/modelID\n",
           "expect_regex": "/amp/deviceInfo/modelID \"Connect Series",
           "extract_manufacturer": "LEA Professional",
+          "extract": {
+            "model": {
+              "regex": "/amp/deviceInfo/modelID \"([^\"]+)\"",
+              "group": 1
+            }
+          },
           "timeout_ms": 2000
         },
         "port_open": [
@@ -1801,7 +1807,7 @@
       "name": "Sennheiser TeamConnect Ceiling Medium",
       "manufacturer": "Sennheiser",
       "category": "audio",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls the Sennheiser TeamConnect Ceiling Medium beamforming ceiling microphone over its SSCv2 REST API (HTTPS, port 443). Mute, identify, output gains and delays, the reference input, the shared equalizer and noise gate, Voice Lift, the denoiser, exclusion and priority zones, installation type, the LED ring, room-in-use, PoE pass-through and firmware status. The microphone reports where the active talker is (beam azimuth and elevation) and live level meters; both feeds are opt-in and can be switched from a macro or panel. State is push-driven: the driver subscribes and the microphone reports every change as it happens, including changes made from Sennheiser Control Cockpit.",
@@ -1809,7 +1815,7 @@
       "file": "audio/sennheiser_tccm.py",
       "format": "python",
       "files": {
-        "audio/sennheiser_tccm.py": "9a3529412c8107e033644c4ce56ff4a177a8209a12b1a08cd876fa0931a0f51b",
+        "audio/sennheiser_tccm.py": "e71a20509ec07cd4749d26ec5aa50970b7de920c072e1f1c4fe236b0e2d19a4b",
         "audio/sennheiser_tccm_sim.py": "720bd5820b4804170a9f16a9e2c3994c96758555b220c67ca7bab80c24815391"
       },
       "ports": [

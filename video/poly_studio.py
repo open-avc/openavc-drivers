@@ -83,12 +83,11 @@ _DIRECTION_TO_API = {
 _SESSION_REFUSED = (401, 403)
 
 _LOGIN_REFUSED = (
-    "The Poly bar refused the admin username and password. Check them in the "
-    "device settings, or try them with Test Admin Login."
+    "The Poly bar refused the admin username and password. Test Admin Login "
+    "tries another pair and saves the one the bar accepts."
 )
 _SESSION_REFUSED_AFTER_LOGIN = (
-    "The Poly bar accepted the admin login and then refused the session. "
-    "Check the admin username and password, then press Reconnect."
+    "The Poly bar accepted the admin login and then refused the session."
 )
 
 
@@ -100,7 +99,7 @@ class PolyStudioDriver(BaseDriver):
         "name": "Poly Studio (VideoOS)",
         "manufacturer": "Poly",
         "category": "video",
-        "version": "1.4.2",
+        "version": "1.4.3",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",

@@ -315,7 +315,7 @@ class BrightSignPlayerDriver(BaseDriver):
         "name": "BrightSign Player (Local DWS)",
         "manufacturer": "BrightSign",
         "category": "streaming",
-        "version": "1.0.7",
+        "version": "1.0.8",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
@@ -896,9 +896,8 @@ class BrightSignPlayerDriver(BaseDriver):
     def _auth_fault(self) -> ConnectionFaultError:
         if not self._password:
             message = (
-                "The player wants a password and none is entered. The default is the "
-                "player's serial number; a setup file may have set another one. "
-                "Enter it under Edit Device and press Reconnect."
+                "The player requires a password and none is entered. The default is "
+                "the player's serial number; a setup file may have set another one."
             )
         else:
             message = (
@@ -945,8 +944,8 @@ class BrightSignPlayerDriver(BaseDriver):
                 # reconnecting like one.
                 raise ConnectionFaultError(
                     f"The player accepted the login but refused the request for "
-                    f"its information (\"{exc}\"). Check the player's Local DWS "
-                    f"settings, then press Reconnect.",
+                    f"its information (\"{exc}\"). Its Local DWS settings control "
+                    f"this.",
                     code="auth_failed",
                 ) from exc
             raise ConnectionError(f"The player answered with an error: {exc}") from exc

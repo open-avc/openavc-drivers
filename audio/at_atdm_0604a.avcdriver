@@ -103,7 +103,7 @@ id: at_atdm_0604a
 name: Audio-Technica ATDM-0604a
 manufacturer: Audio-Technica
 category: audio
-version: 2.4.0
+version: 2.4.1
 author: OpenAVC
 min_platform_version: "0.33.0"
 description: >
@@ -1535,6 +1535,10 @@ device_settings:
 actions:
   - id: recall_preset
     icon: bookmark
+  - id: input_mute_on
+    icon: mic-off
+  - id: input_mute_off
+    icon: mic
   - id: output_mute_on
     icon: volume-x
   - id: output_mute_off

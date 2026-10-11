@@ -73,7 +73,7 @@ import asyncio
 import re
 from typing import Any
 
-from openavc.drivers.base import BaseDriver, CommandParamError
+from openavc.drivers.base import BaseDriver, CommandParamError, ConnectionFaultError
 from openavc.utils.logger import get_logger
 
 try:  # platform 0.32.0+
@@ -611,7 +611,7 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
         "name": "AVPro Edge MXnet Network Switch",
         "manufacturer": "AVPro Edge",
         "category": "utility",
-        "version": "1.2.2",
+        "version": "1.2.3",
         "author": "OpenAVC",
         # Computed by build_index.py, not chosen: the `web_ui` field below
         # carries a 0.24.0 floor. Well behind the current release, so this
@@ -1112,11 +1112,12 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
             kind = await self._login_reply(self.config.get("password", ""))
         if kind in ("login", "password"):
             # Re-prompted instead of dropping to the CLI: the credentials were
-            # rejected. Say so rather than hanging on the first query.
-            raise ConnectionError(
-                f"[{self.device_id}] Login failed — the switch re-prompted for "
-                f"credentials. Check the username and password (the factory "
-                f"default is admin / admin)."
+            # rejected. Say so rather than hanging on the first query, and as
+            # auth_failed, so the platform stops retrying the same password.
+            raise ConnectionFaultError(
+                "The switch refused the username and password (its factory "
+                "default is admin / admin).",
+                code="auth_failed",
             )
 
         # Non-stop output for this session (0 = no pager).

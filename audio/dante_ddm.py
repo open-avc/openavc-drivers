@@ -44,15 +44,14 @@ log = get_logger(__name__)
 # poll that stays in last_error with the device connected; at connect, where
 # the domain query is the whole point, it is auth_failed with its own remedy.
 _KEY_REFUSED_MESSAGE = (
-    "The server refused the API key. Check it, or create a new one in Dante "
-    "Domain Manager (Settings > Personalization & API Keys) or Dante Director "
-    "(Settings > API Keys)."
+    "The server refused the API key. Keys are created in Dante Domain Manager "
+    "(Settings > Personalization & API Keys) or Dante Director (Settings > "
+    "API Keys)."
 )
 
 _KEY_MAY_NOT_READ_DOMAINS_MESSAGE = (
     "The server accepted the API key, but its user may not read the domains. "
-    "Give that user access in Dante Domain Manager or Dante Director, then "
-    "press Reconnect."
+    "That access is given in Dante Domain Manager or Dante Director."
 )
 
 
@@ -130,7 +129,7 @@ class DanteDDMDriver(BaseDriver):
         "name": "Dante DDM / Director",
         "manufacturer": "Audinate",
         "category": "audio",
-        "version": "1.7.3",
+        "version": "1.7.4",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",

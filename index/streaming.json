@@ -81,7 +81,7 @@
       "name": "BrightSign Player (Local DWS)",
       "manufacturer": "BrightSign",
       "category": "streaming",
-      "version": "1.0.7",
+      "version": "1.0.8",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Monitors and controls BrightSign signage players through the player's Local Diagnostic Web Server API: identity, health, clock, every HDMI output with its display and video mode, HDMI power-save, reboot, snapshot, CEC, registry and log level, plus the Moka display's own panel controls. Drives the presentation with UDP messages and sets its User Variables.",
@@ -89,7 +89,7 @@
       "file": "streaming/brightsign_player.py",
       "format": "python",
       "files": {
-        "streaming/brightsign_player.py": "b577664337721d45b1c0c4233a7d4082a66cd8459f256c7d3bb3d186f0bea864",
+        "streaming/brightsign_player.py": "d1bbed7a55861c22624641defe3f52bad40e463cac08401d1e0f3c1bfdc93bd0",
         "streaming/brightsign_player_sim.py": "03ba64afb47bfaa070da10b1e9247ea3ed1871f40c6e98feae30be7a0bf00c2a"
       },
       "ports": [
@@ -187,7 +187,7 @@
       "name": "Epiphan Pearl",
       "manufacturer": "Epiphan",
       "category": "streaming",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Epiphan Pearl Nano, Mini, Nexus and Pearl-2 lecture-capture and live production systems over the Pearl REST API: start and stop recording and streaming for the whole unit, a channel or one stream, switch layouts, add bookmarks, set input gain, mute and phantom power, pick the HDMI output source, run CMS events (Kaltura, Panopto, Opencast), apply configuration presets, and watch storage, uploads, CPU and temperature.",
@@ -195,7 +195,7 @@
       "file": "streaming/epiphan_pearl.py",
       "format": "python",
       "files": {
-        "streaming/epiphan_pearl.py": "1228361cc47a2a5c825881c3c5124d645260b0ab2d8a4feb3506e58fcd34863e",
+        "streaming/epiphan_pearl.py": "c8335d479bd9418c8a5a5d6e1cc8ea4c88d617265cb4892aacf61651b74ca9c1",
         "streaming/epiphan_pearl_sim.py": "b59fd578c11c73105e8a3082a355aff9583130e94e650d6c114935f2b54aa684"
       },
       "ports": [

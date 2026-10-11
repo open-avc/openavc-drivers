@@ -170,7 +170,7 @@ class AVerPTZDriver(BaseDriver):
         "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
         "manufacturer": "AVer",
         "category": "camera",
-        "version": "1.3.6",
+        "version": "1.3.7",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # confirm on factory_reset needs 0.36.0.
         "min_platform_version": "0.36.0",
@@ -1146,22 +1146,18 @@ class AVerPTZDriver(BaseDriver):
         """
         if status_code == 401:
             if self.config.get("username"):
-                message = (
-                    "The camera refused the username and password. Check "
-                    "them in this device's settings."
-                )
+                message = "The camera refused the username and password."
             else:
                 message = (
-                    "The camera needs a username and password. Enter them "
-                    "in this device's settings."
+                    "The camera needs a username and password and none is "
+                    "entered."
                 )
             raise ConnectionFaultError(message, code="auth_failed")
         if status_code == 403:
             raise ConnectionError(
                 f"AVer camera at {self._base_url} rejected '{cmd}': HTTP "
-                f"{status_code} - authentication failed. This command needs "
-                f"Basic auth (PTZ-S310/S330); check the username and password "
-                f"in the device config."
+                f"{status_code}: the camera refused the username and password. "
+                f"This command needs Basic auth (PTZ-S310/S330)."
             )
 
     async def _http_get_sys_stat(self) -> bool:

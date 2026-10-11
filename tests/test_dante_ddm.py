@@ -315,7 +315,7 @@ async def _close(driver):
 
 def test_version_and_min_platform():
     info = DRV.DanteDDMDriver.DRIVER_INFO
-    assert info["version"] == "1.7.3"
+    assert info["version"] == "1.7.4"
     assert info["min_platform_version"] == "0.25.0"
 
 
@@ -558,7 +558,8 @@ def test_a_403_at_connect_is_auth_failed_with_its_own_sentence(monkeypatch):
             await driver.connect()
         assert ei.value.fault_code == "auth_failed"
         assert "may not read the domains" in str(ei.value)
-        assert "Reconnect" in str(ei.value)
+        # The device page says to press Reconnect; the sentence does not.
+        assert "Reconnect" not in str(ei.value)
 
     asyncio.run(go())
 

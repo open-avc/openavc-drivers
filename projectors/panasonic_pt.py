@@ -80,13 +80,10 @@ log = get_logger(__name__)
 # Control Protocol, Protocol 2 protected mode, Table 3-4).
 _REFUSED_MESSAGE = (
     "The projector refused the Web Control admin username and password "
-    "(ERRA). Enter the projector's admin username and password in this "
-    "device's settings."
+    "(ERRA)."
 )
 _NO_PASSWORD_MESSAGE = (
-    "The projector has a Web Control admin password set and none is entered. "
-    "Enter the projector's admin username and password in this device's "
-    "settings."
+    "The projector has a Web Control admin password set and none is entered."
 )
 
 # How long a poll waits for the power query's answer before the rest of its
@@ -140,7 +137,7 @@ class PanasonicPTDriver(BaseDriver):
         "name": "Panasonic PT-MZ / PT-RZ Projector",
         "manufacturer": "Panasonic",
         "category": "projector",
-        "version": "1.4.4",
+        "version": "1.4.5",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",

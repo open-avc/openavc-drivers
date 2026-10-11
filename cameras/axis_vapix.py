@@ -382,7 +382,7 @@ class AxisVapixDriver(BaseDriver):
         "name": "Axis Camera (VAPIX)",
         "manufacturer": "Axis",
         "category": "camera",
-        "version": "1.1.5",
+        "version": "1.1.6",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
@@ -1337,16 +1337,14 @@ class AxisVapixDriver(BaseDriver):
     def _auth_fault(self) -> ConnectionFaultError:
         if not self._username:
             message = (
-                "This camera needs a login and none is entered. Create an "
-                "account with operator or administrator rights under System > "
-                "Accounts in the camera's web interface (or use root), enter it "
-                "under Edit Device and press Reconnect."
+                "This camera needs a login and none is entered. It takes an "
+                "account with operator or administrator rights from System > "
+                "Accounts in the camera's web interface, or root."
             )
         else:
             message = (
-                "The camera refused the login. Check the username and password. "
-                "An ONVIF account does not work here; use a camera account from "
-                "System > Accounts, or root."
+                "The camera refused the login. An ONVIF account does not work "
+                "here; it takes a camera account from System > Accounts, or root."
             )
         return ConnectionFaultError(message, code="auth_failed")
 
@@ -1359,7 +1357,7 @@ class AxisVapixDriver(BaseDriver):
             f"The camera accepted the login but does not let the account "
             f"\"{self._username}\" read its device information (\"{exc}\"). Use "
             f"an account with operator or administrator rights from System > "
-            f"Accounts, or root, then press Reconnect.",
+            f"Accounts, or root.",
             code="auth_failed",
         )
 

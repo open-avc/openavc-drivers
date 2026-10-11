@@ -295,7 +295,7 @@ class VaddioConferenceShotAVDriver(BaseDriver):
         "name": "Vaddio ConferenceSHOT AV",
         "manufacturer": "Vaddio",
         "category": "camera",
-        "version": "1.1.1",
+        "version": "1.1.2",
         "author": "OpenAVC",
         "min_platform_version": "0.34.0",
         "description": (
@@ -1237,9 +1237,9 @@ class VaddioConferenceShotAVDriver(BaseDriver):
             self.config.get("password", "") or ""
         ):
             raise ConnectionFaultError(
-                "Enter the camera's admin username and password. Its Telnet "
-                "session needs both, and they are the same credentials the "
-                "camera's web interface uses.",
+                "No admin username or password is entered. The camera's Telnet "
+                "session needs both, the same credentials its web interface "
+                "uses.",
                 code="auth_failed",
             )
 

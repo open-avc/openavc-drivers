@@ -440,15 +440,17 @@ def test_post_connect_rejects_bad_credentials():
     async def run():
         d, _state = _new_driver()
         # The switch re-prompts "User:" instead of dropping to the CLI -> auth
-        # failure, surfaced as ConnectionError (not a 15s hang).
+        # failure, surfaced as a typed auth_failed (not a 15s hang, and not a
+        # network fault the platform would retry with the same password).
         fake = _ScriptedSwitch(d.on_data_received, [
             b"\r\nPassword: ",
             b"\r\nLogin incorrect\r\nUser: ",
         ])
         d.transport = fake
         await d.on_data_received(b"\r\r\nUser: ")
-        with pytest.raises(ConnectionError):
+        with pytest.raises(ConnectionError) as err:
             await asyncio.wait_for(d._post_connect(), timeout=5.0)
+        assert getattr(err.value, "fault_code", None) == "auth_failed"
     asyncio.run(run())
 
 

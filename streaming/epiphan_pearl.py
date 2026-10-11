@@ -364,7 +364,7 @@ class EpiphanPearlDriver(BaseDriver):
         "name": "Epiphan Pearl",
         "manufacturer": "Epiphan",
         "category": "streaming",
-        "version": "1.0.5",
+        "version": "1.0.6",
         # The connection lifecycle hooks this driver overrides landed in
         # 0.24.0 (the sibling HTTP drivers declare the same floor); the
         # channel_rtsp_ports table field alone would need 0.23.0.
@@ -1081,15 +1081,11 @@ class EpiphanPearlDriver(BaseDriver):
     def _auth_fault(self) -> ConnectionFaultError:
         if not self._password:
             message = (
-                "The Pearl refused the login and no password is entered. Enter the "
-                "admin account's password under Edit Device and press Reconnect "
-                "(Pearl firmware 4.14.2 and later require one)."
+                "The Pearl refused the login and no password is entered (Pearl "
+                "firmware 4.14.2 and later require one)."
             )
         else:
-            message = (
-                "The Pearl refused the login. Check the username and password under "
-                "Edit Device and press Reconnect."
-            )
+            message = "The Pearl refused the username and password."
         return ConnectionFaultError(message, code="auth_failed")
 
     def _access_fault(self, exc: PearlError) -> ConnectionFaultError:
@@ -1100,7 +1096,7 @@ class EpiphanPearlDriver(BaseDriver):
         return ConnectionFaultError(
             f"The Pearl accepted the login but does not let the account "
             f"\"{self._username}\" read its firmware information (\"{exc}\"). "
-            f"Use the Pearl's admin account under Edit Device and press Reconnect.",
+            f"The Pearl's admin account can read it.",
             code="auth_failed",
         )
 
@@ -1121,7 +1117,7 @@ class EpiphanPearlDriver(BaseDriver):
             raise ConnectionFaultError("No IP address configured", code="invalid_config")
         if not self._username:
             raise ConnectionFaultError(
-                "No username is entered. Enter a Pearl account (admin) under Edit Device.",
+                "The Pearl requires an account name (admin) and none is entered.",
                 code="auth_failed",
             )
         if not await self._verify_reachable(host, port):

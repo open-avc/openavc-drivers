@@ -324,7 +324,7 @@ def test_metadata_shape():
     info = DRV.PanasonicDisplayDriver.DRIVER_INFO
     assert info["id"] == "panasonic_display"
     assert info["category"] == "display"
-    assert info["version"] == "1.0.3"
+    assert info["version"] == "1.0.4"
 
     ds = info["device_settings"]
     assert set(ds) == {

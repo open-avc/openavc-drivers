@@ -12,7 +12,7 @@
       "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
       "manufacturer": "AVer",
       "category": "camera",
-      "version": "1.3.6",
+      "version": "1.3.7",
       "author": "OpenAVC",
       "transport": "http",
       "description": "AVer Pro-AV PTZ310 / PTZ330 family. Combines VISCA-over-IP (UDP 52381) for power, PTZ motion, and position inquiries with AVer's HTTP CGI (port 80, /storks) for image quality (shutter, iris, gain, white balance, color temperature, saturation, contrast, sharpness), AI features (SmartShoot, SmartFraming), bulk status query, RTMP streaming, mirror/flip, and reboot. For other AVer models without a documented HTTP CGI guide, prefer the generic 'visca_ip' driver.",
@@ -20,7 +20,7 @@
       "file": "cameras/aver_ptz.py",
       "format": "python",
       "files": {
-        "cameras/aver_ptz.py": "cbd6e7aca0e3a0415d47ceeb459aaaf778543edd2c835e9e35a1b13fa8a0433f",
+        "cameras/aver_ptz.py": "edd860b0148ba9507115fc151db40644f4e73182a23722ae14e4eb174cfb1af4",
         "cameras/aver_ptz_sim.py": "af9ade272070341ee27eb402b44d536907f458733ba5ffd8c1bfebf7cc3b9205"
       },
       "ports": [
@@ -71,7 +71,7 @@
       "name": "Axis Camera (VAPIX)",
       "manufacturer": "Axis",
       "category": "camera",
-      "version": "1.1.5",
+      "version": "1.1.6",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Axis network cameras through VAPIX, Axis's own API: remote zoom and focus on fixed cameras, the IR cut filter and day/night switching, image settings, rotation, text and image overlays, the I/O ports, IR illuminators, audio, and the stream and snapshot addresses for the Video Panel. PTZ models add pan, tilt, zoom, presets and guard tours. Port changes, day/night mode, motion, tampering and hardware faults arrive as events.",
@@ -79,7 +79,7 @@
       "file": "cameras/axis_vapix.py",
       "format": "python",
       "files": {
-        "cameras/axis_vapix.py": "d3f9929f34bcd442bacec82e59ce9438fd17f7bf82148b03149c3196f05aa95a",
+        "cameras/axis_vapix.py": "45c9cef30fbef7c4735280601b48f05f5c692e1e71474a780ae1fa40e41e4c43",
         "cameras/axis_vapix_sim.py": "f42ab97d40d6c76ceab31f9ae97d6d366087440acd97e32f782d8ffeef68113f"
       },
       "ports": [
@@ -421,7 +421,7 @@
       "name": "ONVIF Camera",
       "manufacturer": "ONVIF",
       "category": "camera",
-      "version": "2.0.9",
+      "version": "2.0.10",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls any ONVIF Profile S or Profile T camera or video encoder: pan, tilt, zoom and focus, presets and home, image settings, relay outputs and digital inputs, plus the camera's RTSP stream and snapshot addresses for the Video Panel. Motion, tamper, signal-loss and input changes arrive as events. Use a brand's own driver when the catalog has one; this one covers everything else.",
@@ -429,7 +429,7 @@
       "file": "cameras/onvif_camera.py",
       "format": "python",
       "files": {
-        "cameras/onvif_camera.py": "f2ec44a6cc4fa32b46a2d668ac191366d10f5894a8e92a8ae10f19cc50a8e985",
+        "cameras/onvif_camera.py": "b0e6aa847ebfc6c3d2c05166524b8d89452a5544deaca324018810e444b60871",
         "cameras/onvif_camera_discovery.py": "603d479e24b1a6a140e8a697d687c56e832f7f80186cfdc5676cd59cfa6dcc76",
         "cameras/onvif_camera_sim.py": "22e12b865e65f575b8d0bbbf4553aeb33a5cea0a2d03d6d6697a7862f7eca39c"
       },
@@ -703,7 +703,7 @@
       "name": "Vaddio ConferenceSHOT AV",
       "manufacturer": "Vaddio",
       "category": "camera",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Vaddio (Legrand AV) ConferenceSHOT AV conferencing system over its Telnet Serial Command API. Pan/tilt/zoom with absolute positioning and readable position, 16 presets, the full CCU colour and lighting surface, the seven-channel audio mixer as child entities, video mute, indicator LED, IR cut filter, software triggers, IP/USB streaming control with a previewable RTSP stream, and device health.",
@@ -711,7 +711,7 @@
       "file": "cameras/vaddio_conferenceshot_av.py",
       "format": "python",
       "files": {
-        "cameras/vaddio_conferenceshot_av.py": "ff920577f47ca5e0fad4c4c46a2bd7427683e2b774c613cb196bfbb4d4dec656",
+        "cameras/vaddio_conferenceshot_av.py": "6a47ff45111b087c7c826fb42dbe04290023ed61b8140246c7430c838852b06d",
         "cameras/vaddio_conferenceshot_av_sim.py": "e7b79afb83066191c810b51f3cf6a926316592eed4c445fd34ed1eafd9e40407"
       },
       "ports": [

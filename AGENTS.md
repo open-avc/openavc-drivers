@@ -986,6 +986,7 @@ These are common errors that produce drivers that fail validation or don't work 
 | Missing `send_command` override | Required method. The base class raises `NotImplementedError`. |
 | A factory reset or a delete with no `confirm` | Same rule as YAML. A command table built in code is read with the class loaded, in CI's platform job, so building it at runtime does not hide it. |
 | A no-response sentence opening "Connected, but" | `HEALTH_FAULT_MESSAGE` and a `no_response` fault's message are shown under the device card's **Offline** heading. Say what the device stopped doing: "The projector stopped answering status queries." `tests/test_offline_sentences.py` fails a string in a driver that opens "Connected, but". |
+| A refused-login sentence that says where to fix it | Under an `auth_failed` fault the device page already says what to do next (fix the credentials with Edit, then Reconnect). The sentence says what the device refused or which credential is missing: "The projector refused the PJLink password (PJLINK ERRA)." Never "in this device's settings", "under Edit Device", "check the username and password" or "press Reconnect". A fact about the device itself stays ("set in the Nureva App"). A refused login is a typed `ConnectionFaultError(code="auth_failed")`: an untyped `ConnectionError` is retried with the same password. `tests/test_offline_sentences.py` reads every function that raises `auth_failed`. |
 
 ### index.json
 

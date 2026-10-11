@@ -489,7 +489,7 @@ class OnvifCameraDriver(BaseDriver):
         "name": "ONVIF Camera",
         "manufacturer": "ONVIF",
         "category": "camera",
-        "version": "2.0.9",
+        "version": "2.0.10",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
@@ -1138,19 +1138,18 @@ class OnvifCameraDriver(BaseDriver):
 
     def _auth_fault(self, exc: OnvifFault) -> ConnectionFaultError:
         """The typed auth_failed fault, worded for what actually happened: a
-        camera that wants a login when none is entered is told what to do,
-        a rejected one is told what to check."""
+        camera that wants a login when none is entered, or one that refused
+        the login it was given."""
         if not self._username:
             message = (
-                "This camera needs an ONVIF login and none is entered. Open its "
-                "web interface, create an ONVIF user with administrator or "
-                "operator rights, then enter it under Edit Device and press "
-                "Reconnect."
+                "This camera needs an ONVIF login and none is entered. ONVIF "
+                "users are created in its web interface, with administrator or "
+                "operator rights."
             )
         else:
             message = (
-                "The camera refused the ONVIF login. Check the username and "
-                "password, and the camera's clock."
+                "The camera refused the ONVIF login (a wrong username or "
+                "password, or a camera clock far from this server's)."
             )
         return ConnectionFaultError(message, code="auth_failed")
 

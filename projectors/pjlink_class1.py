@@ -33,13 +33,9 @@ log = get_logger(__name__)
 
 # What the device card says when the projector refuses the password. PJLink's
 # refusal is "PJLINK ERRA" (spec 1.04, 5.1 (1-4)).
-_REFUSED_MESSAGE = (
-    "The projector refused the PJLink password (PJLINK ERRA). Enter the "
-    "projector's PJLink password in this device's settings."
-)
+_REFUSED_MESSAGE = "The projector refused the PJLink password (PJLINK ERRA)."
 _NO_PASSWORD_MESSAGE = (
-    "The projector asks for a PJLink password and none is set. Enter the "
-    "projector's PJLink password in this device's settings."
+    "The projector requires a PJLink password and none is entered."
 )
 
 
@@ -51,7 +47,7 @@ class PJLinkDriver(BaseDriver):
         "name": "PJLink Class 1 Projector",
         "manufacturer": "Generic",
         "category": "projector",
-        "version": "2.6.3",
+        "version": "2.6.4",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",

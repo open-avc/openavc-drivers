@@ -79,10 +79,7 @@ _DECODER_ONLY_STATES = frozenset({
 # the same way.
 _REFUSED = (401, 403)
 
-_SIGN_IN_REFUSED = (
-    "The NVX refused the username and password. Check them in the device "
-    "settings."
-)
+_SIGN_IN_REFUSED = "The NVX refused the username and password."
 
 
 class CrestronNVXDriver(BaseDriver):
@@ -94,7 +91,7 @@ class CrestronNVXDriver(BaseDriver):
         "name": "Crestron DM NVX",
         "manufacturer": "Crestron",
         "category": "switcher",
-        "version": "2.1.2",
+        "version": "2.1.3",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # the routing: block below needs 0.27.0.
@@ -466,7 +463,7 @@ class CrestronNVXDriver(BaseDriver):
             info = await self._api_get("/Device/DeviceInfo")
             if not info or "DeviceInfo" not in info.get("Device", {}):
                 raise ConnectionFaultError(
-                    "Login rejected — check the NVX username and password.",
+                    _SIGN_IN_REFUSED,
                     code="auth_failed",
                 )
             self._parse_device_info(info)
@@ -539,9 +536,9 @@ class CrestronNVXDriver(BaseDriver):
         # above are unauthenticated and don't count against the lockout.)
         if not password:
             raise ConnectionFaultError(
-                "No password configured. Enter the NVX admin credentials in "
-                "the device settings (or run 'Set Up NVX' on a factory-fresh "
-                "unit).",
+                "The NVX requires an admin password and none is entered. A "
+                "factory-fresh NVX has no admin account until Set Up NVX "
+                "creates one.",
                 code="auth_failed",
             )
 
@@ -574,9 +571,7 @@ class CrestronNVXDriver(BaseDriver):
             line = " ".join(line.split()).rstrip(".")
             if "blocked" in line.lower() and len(line) <= 200:
                 return (
-                    f"The NVX refused the sign-in: {line}. Check the username "
-                    "and password, then press Reconnect once the NVX accepts "
-                    "this address again."
+                    f"The NVX refused the sign-in: {line}."
                 )
         return _SIGN_IN_REFUSED
 

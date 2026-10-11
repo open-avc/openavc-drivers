@@ -413,7 +413,7 @@ class SennheiserTccmDriver(BaseDriver):
         "name": "Sennheiser TeamConnect Ceiling Medium",
         "manufacturer": "Sennheiser",
         "category": "audio",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "author": "OpenAVC",
         "description": (
             "Controls the Sennheiser TeamConnect Ceiling Medium beamforming "
@@ -1325,9 +1325,9 @@ class SennheiserTccmDriver(BaseDriver):
             # failed logins). auth_failed pauses reconnects until the
             # credentials change.
             raise ConnectionFaultError(
-                "No third-party password is set. Enable third-party access on "
-                "the microphone's device page in Sennheiser Control Cockpit, "
-                "set a password there, and enter it here.",
+                "No third-party password is entered. The microphone needs "
+                "third-party access turned on and a password set on its device "
+                "page in Sennheiser Control Cockpit.",
                 code="auth_failed",
             )
         try:
@@ -1351,9 +1351,9 @@ class SennheiserTccmDriver(BaseDriver):
             detail = f" (\"{exc.reason}\")" if exc.reason else ""
             raise ConnectionFaultError(
                 f"The microphone accepted the password but will not let the "
-                f"third-party account read its status{detail}. Check that "
-                f"third-party access is on for this microphone in Sennheiser "
-                f"Control Cockpit, then press Reconnect.",
+                f"third-party account read its status{detail}. Third-party "
+                f"access is turned on for this microphone in Sennheiser Control "
+                f"Cockpit.",
                 code="auth_failed",
             ) from exc
         except httpx.ConnectError as exc:

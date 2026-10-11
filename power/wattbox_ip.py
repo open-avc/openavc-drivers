@@ -116,7 +116,7 @@ class WattBoxIPDriver(BaseDriver):
         "name": "WattBox IP-Controlled PDU",
         "manufacturer": "WattBox",
         "category": "power",
-        "version": "1.3.8",
+        "version": "1.3.9",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
@@ -524,8 +524,8 @@ class WattBoxIPDriver(BaseDriver):
 
         if not ok:
             raise ConnectionFaultError(
-                f"WattBox authentication failed for {host}:{port} — check "
-                f"the username and password.",
+                f"The WattBox at {host}:{port} refused the username and "
+                f"password.",
                 code="auth_failed",
             )
         self._authenticated = True

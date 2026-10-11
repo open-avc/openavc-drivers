@@ -962,8 +962,7 @@ class AllenHeathDLiveDriver(BaseDriver):
     # Liveness: a SysEx Get for the Main 1 fader, awaited by parameter
     # address. Two missed replies force a typed no_response reconnect.
     HEALTH_FAULT_MESSAGE = (
-        "Connected, but the dLive stopped answering Get requests — "
-        "connection lost."
+        "The dLive stopped answering Get requests."
     )
 
     DRIVER_INFO = {
@@ -971,7 +970,7 @@ class AllenHeathDLiveDriver(BaseDriver):
         "name": "Allen & Heath dLive Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "2.1.1",
+        "version": "2.1.2",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath dLive digital mixing systems "

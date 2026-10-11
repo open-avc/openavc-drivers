@@ -251,7 +251,7 @@ class BarcoPulseDriver(BaseDriver):
         "name": "Barco Pulse Projector",
         "manufacturer": "Barco",
         "category": "projector",
-        "version": "1.1.0",
+        "version": "1.1.1",
         # learned_from on the MAC address setting landed in 0.37.0.
         "min_platform_version": "0.37.0",
         "author": "OpenAVC",
@@ -960,7 +960,7 @@ class BarcoPulseDriver(BaseDriver):
     # that vanished without a FIN stops answering and the BaseDriver
     # watchdog tears the transport down with a typed no_response fault.
     HEALTH_FAULT_MESSAGE = (
-        "Connected, but the projector stopped answering status probes."
+        "The projector stopped answering status probes."
     )
 
     def __init__(

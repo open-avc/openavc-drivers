@@ -85,7 +85,7 @@ def _install_server_stubs() -> None:
         HEALTH_TIMEOUT_S = 5.0
         HEALTH_MAX_FAILURES = 2
         HEALTH_FAULT_MESSAGE = (
-            "Connected, but the device stopped answering keep-alive probes."
+            "The device stopped answering keep-alive probes."
         )
 
         def __init__(self, device_id, config, state, events):

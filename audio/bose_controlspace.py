@@ -1749,7 +1749,7 @@ class BoseControlSpaceDriver(BaseDriver):
         "name": "Bose Professional ControlSpace (ESP / EX / CSP)",
         "manufacturer": "Bose Professional",
         "category": "audio",
-        "version": "1.0.4",
+        "version": "1.0.5",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
@@ -2006,7 +2006,7 @@ class BoseControlSpaceDriver(BaseDriver):
     HEALTH_TIMEOUT_S = 5.0
     HEALTH_MAX_FAILURES = 2
     HEALTH_FAULT_MESSAGE = (
-        "Connected, but the processor stopped answering (no reply to GS)."
+        "The processor stopped answering (no reply to GS)."
     )
     PROBE_TIMEOUT_S = 3.0
     ACK_TIMEOUT_S = ACK_TIMEOUT_S

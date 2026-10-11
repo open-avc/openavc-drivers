@@ -332,7 +332,7 @@ async def _make_pair(config=None, sim_config=None):
 
 def test_metadata_shape():
     info = dl.AllenHeathDLiveDriver.DRIVER_INFO
-    assert info["version"] == "2.1.1"
+    assert info["version"] == "2.1.2"
     assert info["min_platform_version"] == "0.25.0"
     assert info["commands"], "class-level command catalog must not be empty"
     for qa in info["quick_actions"]:

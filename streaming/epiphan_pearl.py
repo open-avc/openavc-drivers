@@ -364,7 +364,7 @@ class EpiphanPearlDriver(BaseDriver):
         "name": "Epiphan Pearl",
         "manufacturer": "Epiphan",
         "category": "streaming",
-        "version": "1.0.4",
+        "version": "1.0.5",
         # The connection lifecycle hooks this driver overrides landed in
         # 0.24.0 (the sibling HTTP drivers declare the same floor); the
         # channel_rtsp_ports table field alone would need 0.23.0.
@@ -985,7 +985,7 @@ class EpiphanPearlDriver(BaseDriver):
     HEALTH_INTERVAL_S = 30.0
     HEALTH_TIMEOUT_S = 10.0
     HEALTH_MAX_FAILURES = 2
-    HEALTH_FAULT_MESSAGE = "Connected, but the Pearl stopped answering the REST API."
+    HEALTH_FAULT_MESSAGE = "The Pearl stopped answering the REST API."
 
     def __init__(self, device_id: str, config: dict[str, Any], state, events):
         super().__init__(device_id, config, state, events)

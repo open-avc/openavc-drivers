@@ -315,7 +315,7 @@ class BrightSignPlayerDriver(BaseDriver):
         "name": "BrightSign Player (Local DWS)",
         "manufacturer": "BrightSign",
         "category": "streaming",
-        "version": "1.0.6",
+        "version": "1.0.7",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
@@ -1003,7 +1003,7 @@ class BrightSignPlayerDriver(BaseDriver):
                 # poll reports what it refuses.
                 return
             raise ConnectionFaultError(
-                f"Connected, but the player answered the health check with an error: {exc}",
+                f"The player answered the health check with an error: {exc}",
                 code="no_response",
             ) from exc
         except httpx.TransportError as exc:

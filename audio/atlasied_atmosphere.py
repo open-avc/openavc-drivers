@@ -263,7 +263,7 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
         "name": "AtlasIED Atmosphere",
         "manufacturer": "AtlasIED",
         "category": "audio",
-        "version": "2.0.3",
+        "version": "2.0.4",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -662,8 +662,7 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
     }
 
     HEALTH_FAULT_MESSAGE = (
-        "Connected, but the device stopped answering keep-alive probes "
-        "(get KeepAlive)."
+        "The device stopped answering keep-alive probes (get KeepAlive)."
     )
 
     # ── Lifecycle ──

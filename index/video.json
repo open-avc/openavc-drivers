@@ -157,7 +157,7 @@
       "name": "QLab Show Control",
       "manufacturer": "Figure 53",
       "category": "video",
-      "version": "2.0.2",
+      "version": "2.0.3",
       "author": "OpenAVC",
       "transport": "osc",
       "description": "Controls Figure 53's QLab show-control / playback software (macOS) over OSC. GO, STOP, PANIC, pause/resume/reset, and per-cue start/stop/load/preview by number or unique ID, plus select, playhead, level, arm, color, and load-at. Live feedback: current cue id/number/name, running state, and QLab version. OSC remote control is free in QLab 5. UDP or reliable TCP+SLIP transport.",
@@ -165,7 +165,7 @@
       "file": "video/qlab.py",
       "format": "python",
       "files": {
-        "video/qlab.py": "a9ce27f7c330e042cf59117e58bd7cd7d7f9ddf9232b29c8ae38b6b6bf472348",
+        "video/qlab.py": "d467fa34581c7f94cc644b05434f906322ad3d420058aa8933a7417d016283de",
         "video/qlab_sim.py": "4bdfdfae05c5405a7115959182e93a93c88c9cfb07748008f1761766af35cf29"
       },
       "ports": [
@@ -265,7 +265,7 @@
       "name": "OBS Studio",
       "manufacturer": "OBS Project",
       "category": "video",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls OBS Studio through its built-in WebSocket server: switch program and preview scenes, run the studio-mode transition, start and stop streaming, recording, the virtual camera and the replay buffer, mute and set the level of any audio input, play media sources, change text sources, show and hide scene items, switch filters, scene collections and profiles, and watch OBS's CPU, frame rate and dropped frames.",
@@ -273,7 +273,7 @@
       "file": "video/obs_studio.py",
       "format": "python",
       "files": {
-        "video/obs_studio.py": "8191627524b89f89801062d67dea6de3ae5d6f3685a4d2c696c0006410506b95",
+        "video/obs_studio.py": "b7d3214dcbaf1e807da36b035c6fcc99a82d80d192a0e47cb3f4fce99316c282",
         "video/obs_studio_sim.py": "c3ec95511908dc98f0980cf50e48b6097e9954ba33bf343e78af759555cbf551"
       },
       "ports": [
@@ -482,7 +482,7 @@
       "name": "vMix",
       "manufacturer": "StudioCoast",
       "category": "video",
-      "version": "2.3.5",
+      "version": "2.3.6",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls vMix video production software via the TCP API. Supports transitions, input switching, audio, overlays, recording, streaming, titles, replay, PTZ, and the numbered outputs including their SRT streams.",
@@ -490,7 +490,7 @@
       "file": "video/vmix.py",
       "format": "python",
       "files": {
-        "video/vmix.py": "e496ed841996303bbbc90b262beecfdaef8712780f015b660df40fa2240a406c",
+        "video/vmix.py": "67fed70fa2b47abddc61e8390cc9b773349869a9b8a5d3c1dfed87a182916ae8",
         "video/vmix_sim.py": "825c876a8ef02d87b5ffc3d19251b4e9a9f4505c58d1b8f33ab45414d00e2035"
       },
       "ports": [

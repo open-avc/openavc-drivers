@@ -339,7 +339,7 @@ class CrestronOneBeyondCameraDriver(BaseDriver):
 
     HEALTH_INTERVAL_S = 20.0
     HEALTH_FAULT_MESSAGE = (
-        "Connected, but the camera stopped answering the power query."
+        "The camera stopped answering the power query."
     )
 
     DRIVER_INFO = {
@@ -347,7 +347,7 @@ class CrestronOneBeyondCameraDriver(BaseDriver):
         "name": "Crestron 1 Beyond Camera",
         "manufacturer": "Crestron",
         "category": "camera",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "author": "OpenAVC",
         "min_platform_version": "0.36.0",
         "description": (

@@ -80,7 +80,7 @@ class SymetrixComposerDriver(BaseDriver):
         "name": "Symetrix Composer DSP",
         "manufacturer": "Symetrix",
         "category": "audio",
-        "version": "1.3.5",
+        "version": "1.3.6",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -352,7 +352,7 @@ class SymetrixComposerDriver(BaseDriver):
     }
 
     HEALTH_FAULT_MESSAGE = (
-        "Connected, but the DSP stopped answering version probes."
+        "The DSP stopped answering version probes."
     )
 
     # ── Lifecycle ──

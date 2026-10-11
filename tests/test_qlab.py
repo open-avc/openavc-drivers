@@ -262,7 +262,7 @@ async def _settle(drv):
 def test_version_and_platform_gate():
     info = DRV.QLabDriver.DRIVER_INFO
     assert info["id"] == "qlab"
-    assert info["version"] == "2.0.2"
+    assert info["version"] == "2.0.3"
     assert info["transport"] == "osc"
     # confirm on Reset Workspace is the newest platform field it declares.
     assert info["min_platform_version"] == "0.36.0"

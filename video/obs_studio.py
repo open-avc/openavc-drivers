@@ -327,7 +327,7 @@ class ObsStudioDriver(BaseDriver):
         "name": "OBS Studio",
         "manufacturer": "OBS Project",
         "category": "video",
-        "version": "1.0.1",
+        "version": "1.0.2",
         # The connection lifecycle hooks this driver overrides landed in
         # 0.24.0; the sibling drivers that own their session declare 0.25.0.
         "min_platform_version": "0.25.0",
@@ -877,7 +877,7 @@ class ObsStudioDriver(BaseDriver):
     HEALTH_INTERVAL_S = 30.0
     HEALTH_TIMEOUT_S = 8.0
     HEALTH_MAX_FAILURES = 2
-    HEALTH_FAULT_MESSAGE = "Connected, but OBS stopped answering requests."
+    HEALTH_FAULT_MESSAGE = "OBS stopped answering requests."
 
     def __init__(self, device_id: str, config: dict[str, Any], state, events):
         super().__init__(device_id, config, state, events)

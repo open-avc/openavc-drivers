@@ -713,8 +713,7 @@ class AllenHeathAvantisDriver(BaseDriver):
     # Liveness: a SysEx name Get for Input 1, awaited by channel address.
     # Two missed replies force a typed no_response reconnect.
     HEALTH_FAULT_MESSAGE = (
-        "Connected, but the Avantis stopped answering Get requests — "
-        "connection lost."
+        "The Avantis stopped answering Get requests."
     )
 
     DRIVER_INFO = {
@@ -722,7 +721,7 @@ class AllenHeathAvantisDriver(BaseDriver):
         "name": "Allen & Heath Avantis Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "2.0.4",
+        "version": "2.0.5",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath Avantis digital mixing consoles via "

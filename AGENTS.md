@@ -985,6 +985,7 @@ These are common errors that produce drivers that fail validation or don't work 
 | Missing DRIVER_INFO | Required class attribute. Without it, the driver won't load. |
 | Missing `send_command` override | Required method. The base class raises `NotImplementedError`. |
 | A factory reset or a delete with no `confirm` | Same rule as YAML. A command table built in code is read with the class loaded, in CI's platform job, so building it at runtime does not hide it. |
+| A no-response sentence opening "Connected, but" | `HEALTH_FAULT_MESSAGE` and a `no_response` fault's message are shown under the device card's **Offline** heading. Say what the device stopped doing: "The projector stopped answering status queries." `tests/test_offline_sentences.py` fails a string in a driver that opens "Connected, but". |
 
 ### index.json
 

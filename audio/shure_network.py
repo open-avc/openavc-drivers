@@ -203,7 +203,7 @@ class ShureNetworkDriver(BaseDriver):
         "name": "Shure Networked Devices",
         "manufacturer": "Shure",
         "category": "audio",
-        "version": "2.1.0",
+        "version": "2.1.1",
         # learned_from on Channel Count landed in 0.37.0.
         "min_platform_version": "0.37.0",
         "author": "OpenAVC",
@@ -565,7 +565,7 @@ class ShureNetworkDriver(BaseDriver):
     # on every covered model) as a heartbeat — a mute push or a meter sample
     # can't satisfy a DEVICE_ID probe, so it truly proves the link.
     HEALTH_FAULT_MESSAGE = (
-        "Connected, but the device stopped answering DEVICE_ID probes."
+        "The device stopped answering DEVICE_ID probes."
     )
 
     # ── Response patterns ──

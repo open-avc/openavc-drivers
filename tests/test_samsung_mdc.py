@@ -426,7 +426,7 @@ def test_parse_frame_multiple():
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.SamsungMDCDriver.DRIVER_INFO["version"] == "1.7.4"
+    assert DRV.SamsungMDCDriver.DRIVER_INFO["version"] == "1.7.5"
     assert DRV.SamsungMDCDriver.DRIVER_INFO["min_platform_version"] == "0.34.0"
 
 

@@ -116,14 +116,14 @@ class LgWebosDriver(BaseDriver):
     HEALTH_INTERVAL_S = 30.0
     HEALTH_TIMEOUT_S = 6.0
     HEALTH_MAX_FAILURES = 2
-    HEALTH_FAULT_MESSAGE = "Connected, but the TV stopped answering."
+    HEALTH_FAULT_MESSAGE = "The TV stopped answering."
 
     DRIVER_INFO = {
         "id": "lg_webos",
         "name": "LG webOS TV",
         "manufacturer": "LG",
         "category": "display",
-        "version": "4.2.4",
+        "version": "4.2.5",
         "author": "OpenAVC",
         "description": "Controls LG webOS TVs over the SSAP WebSocket protocol "
                        "with live power/volume/input feedback.",

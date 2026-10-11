@@ -244,7 +244,7 @@ class RackLinkRLNKDriver(BaseDriver):
         "name": "Middle Atlantic RackLink PDU",
         "manufacturer": "Middle Atlantic",
         "category": "power",
-        "version": "1.3.8",
+        "version": "1.3.9",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -554,7 +554,7 @@ class RackLinkRLNKDriver(BaseDriver):
 
     # BaseDriver liveness watchdog fault wording (the device is a PDU).
     HEALTH_FAULT_MESSAGE = (
-        "Connected, but the PDU stopped answering keep-alive probes."
+        "The PDU stopped answering keep-alive probes."
     )
 
     # ── Lifecycle ──

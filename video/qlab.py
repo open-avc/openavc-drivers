@@ -162,8 +162,7 @@ class QLabDriver(BaseDriver):
     HEALTH_TIMEOUT_S = 5.0
     HEALTH_MAX_FAILURES = 2
     HEALTH_FAULT_MESSAGE = (
-        "Connected, but QLab stopped answering. Check that QLab is still open "
-        "on the Mac."
+        "QLab stopped answering. Check that QLab is still open on the Mac."
     )
 
     DRIVER_INFO = {
@@ -171,7 +170,7 @@ class QLabDriver(BaseDriver):
         "name": "QLab Show Control",
         "manufacturer": "Figure 53",
         "category": "video",
-        "version": "2.0.2",
+        "version": "2.0.3",
         "author": "OpenAVC",
         "description": "Controls Figure 53's QLab show-control / playback "
                        "software (macOS) over OSC. GO, STOP, PANIC, "

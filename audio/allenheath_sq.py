@@ -745,8 +745,7 @@ class AllenHeathSQDriver(BaseDriver):
     # Liveness: an NRPN Get for the LR master level, awaited by parameter
     # address. Two missed replies force a typed no_response reconnect.
     HEALTH_FAULT_MESSAGE = (
-        "Connected, but the SQ stopped answering Get requests — "
-        "connection lost."
+        "The SQ stopped answering Get requests."
     )
 
     DRIVER_INFO = {
@@ -754,7 +753,7 @@ class AllenHeathSQDriver(BaseDriver):
         "name": "Allen & Heath SQ Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "2.1.1",
+        "version": "2.1.2",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath SQ-5, SQ-6 and SQ-7 digital mixing "

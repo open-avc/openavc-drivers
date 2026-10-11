@@ -809,8 +809,7 @@ class AllenHeathQu567Driver(BaseDriver):
     """Allen & Heath Qu-5 / Qu-6 / Qu-7 MIDI-over-TCP driver."""
 
     HEALTH_FAULT_MESSAGE = (
-        "Connected, but the Qu stopped answering Get requests -- "
-        "connection lost."
+        "The Qu stopped answering Get requests."
     )
 
     DRIVER_INFO = {
@@ -818,7 +817,7 @@ class AllenHeathQu567Driver(BaseDriver):
         "name": "Allen & Heath Qu-5/6/7 Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.1.0",
+        "version": "1.1.1",
         "author": "OpenAVC",
         "description": (
             "Controls the current Allen & Heath Qu generation (Qu-5, Qu-6, "

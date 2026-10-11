@@ -56,7 +56,7 @@ class _FakeBaseDriver(LifecycleFake):
 
     DRIVER_INFO: dict = {}
 
-    HEALTH_FAULT_MESSAGE = "Connected, but the device stopped answering probes."
+    HEALTH_FAULT_MESSAGE = "The device stopped answering probes."
 
     def __init__(self, device_id, config, state, events) -> None:
         self.device_id = device_id
@@ -376,7 +376,7 @@ def _run(coro):
 
 def test_metadata_and_actions_shape():
     info = DRV.ShureNetworkDriver.DRIVER_INFO
-    assert info["version"] == "2.1.0"
+    assert info["version"] == "2.1.1"
     # learned_from on Channel Count ships in 0.37.0.
     assert info["min_platform_version"] == "0.37.0"
     assert (info["config_schema"]["channel_count"]["learned_from"]

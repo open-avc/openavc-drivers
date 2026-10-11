@@ -376,7 +376,7 @@ class SamsungMDCDriver(BaseDriver):
     #: How long after a volume change this display refuses a mute command.
     VOLUME_MUTE_GUARD_S = VOLUME_MUTE_GUARD_S
     HEALTH_FAULT_MESSAGE = (
-        "Connected, but the display stopped answering. A Samsung display "
+        "The display stopped answering. A Samsung display "
         "serves only the connection that opened most recently. Another "
         "controller, a discovery scan, or a vendor tool has taken it over. "
         "The connection is being rebuilt."
@@ -387,7 +387,7 @@ class SamsungMDCDriver(BaseDriver):
         "name": "Samsung MDC Display",
         "manufacturer": "Samsung",
         "category": "display",
-        "version": "1.7.4",
+        "version": "1.7.5",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # `restarts_device_for` on power_on and all_on needs 0.34.0.

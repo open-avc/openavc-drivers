@@ -245,7 +245,7 @@ def test_the_object_accounting_says_what_it_counts():
     connect, before the unit answers; their help says they describe the
     Objects table and this connection, not something the unit reported."""
     info = DRV.BSSSoundwebLondonDriver.DRIVER_INFO
-    assert info["version"] == "1.1.6"
+    assert info["version"] == "1.1.7"
     sv = info["state_variables"]
     for key in ("objects_declared", "objects_responding", "config_problems"):
         assert sv[key].get("help"), key
@@ -660,7 +660,7 @@ async def test_a_unit_that_answers_nothing_keeps_its_link_and_says_why():
     drv._stop_health_loop()
     assert not hasattr(drv, "stashed_fault")
     assert drv.transport.connected and drv.state.data["device.blu.connected"] is True
-    assert "none of the 8 declared object(s) has answered" in drv.state.data["device.blu.last_error"]
+    assert "None of the 8 declared object(s) has answered" in drv.state.data["device.blu.last_error"]
     assert "Node Address" in drv.state.data["device.blu.last_error"]
     # The probe kept sending, so a unit that went away would still fail the send.
     assert len(drv.transport.frames_sent()) > before

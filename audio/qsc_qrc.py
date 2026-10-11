@@ -333,7 +333,7 @@ class QSCQRCDriver(BaseDriver):
         "name": "QSC Q-SYS QRC",
         "manufacturer": "QSC",
         "category": "audio",
-        "version": "4.3.2",
+        "version": "4.3.3",
         # The connection lifecycle hooks this driver overrides landed in
         # 0.24.0 (supersedes the table-editor 0.23.0 requirement).
         "min_platform_version": "0.25.0",
@@ -654,7 +654,7 @@ class QSCQRCDriver(BaseDriver):
     # liveness probe (see _liveness_probe).
     HEALTH_INTERVAL_S = 20.0
     HEALTH_FAULT_MESSAGE = (
-        "Connected, but the Core stopped answering keep-alive probes."
+        "The Core stopped answering keep-alive probes."
     )
 
     def __init__(

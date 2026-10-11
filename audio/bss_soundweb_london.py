@@ -1147,7 +1147,7 @@ class BSSSoundwebLondonDriver(BaseDriver):
         "name": "BSS Soundweb London (BLU)",
         "manufacturer": "BSS Audio",
         "category": "audio",
-        "version": "1.1.6",
+        "version": "1.1.7",
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
@@ -1371,7 +1371,7 @@ class BSSSoundwebLondonDriver(BaseDriver):
     HEALTH_TIMEOUT_S = 5.0
     HEALTH_MAX_FAILURES = 2
     HEALTH_FAULT_MESSAGE = (
-        "Connected, but the unit stopped answering (no reply to a subscribe)."
+        "The unit stopped answering (no reply to a subscribe)."
     )
     PROBE_TIMEOUT_S = 3.0
     # The liveness probe's two waits, inside HEALTH_TIMEOUT_S: the control
@@ -1715,7 +1715,7 @@ class BSSSoundwebLondonDriver(BaseDriver):
 
     def _silence_message(self) -> str:
         return (
-            f"Connected, but none of the {len(self._objects)} declared object(s) "
+            f"None of the {len(self._objects)} declared object(s) "
             f"has answered. Check the Node Address and each object's HiQnet "
             f"address against Audio Architect, and that the design is loaded "
             f"on the unit."

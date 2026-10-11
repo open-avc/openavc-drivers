@@ -80,7 +80,7 @@ import asyncio
 import re
 from typing import Any
 
-from openavc.drivers.base import BaseDriver
+from openavc.drivers.base import BaseDriver, ConnectionFaultError
 from openavc.transport.frame_parsers import DelimiterFrameParser
 from openavc.utils.logger import get_logger
 
@@ -878,7 +878,7 @@ class BiampTesiraTTPDriver(BaseDriver):
         "name": "Biamp Tesira TTP",
         "manufacturer": "Biamp",
         "category": "audio",
-        "version": "3.1.4",
+        "version": "3.1.5",
         # The connection lifecycle hooks this driver overrides landed in
         # 0.24.0 (supersedes the table-editor 0.23.0 requirement).
         "min_platform_version": "0.25.0",
@@ -1112,8 +1112,7 @@ class BiampTesiraTTPDriver(BaseDriver):
     }
 
     HEALTH_FAULT_MESSAGE = (
-        "Connected, but the DSP stopped answering (no reply to "
-        "DEVICE get version)."
+        "The DSP stopped answering (no reply to DEVICE get version)."
     )
 
     # ── Lifecycle ──
@@ -1353,8 +1352,13 @@ class BiampTesiraTTPDriver(BaseDriver):
                         f"({len(self._auth_buffer)} bytes)"
                     )
                     return
-                raise ConnectionError(
-                    f"[{self.device_id}] Timeout waiting for Tesira welcome banner"
+                # Typed: the socket is open, so the classifier's reading of a
+                # bare "timeout" (can't reach the device) would be wrong.
+                raise ConnectionFaultError(
+                    f"No Tesira welcome banner arrived within {timeout:g} "
+                    f"seconds of connecting. Check the address and port, and "
+                    f"that the device is a Tesira.",
+                    code="no_response",
                 )
 
             try:
@@ -2090,8 +2094,8 @@ class BiampTesiraTTPDriver(BaseDriver):
             remaining = deadline - asyncio.get_event_loop().time()
             if remaining <= 0:
                 raise ConnectionError(
-                    "Connected, but never saw the Tesira welcome banner — "
-                    "is this host really a Tesira?"
+                    "No Tesira welcome banner arrived. Check the address and "
+                    "port, and that the device is a Tesira."
                 )
             try:
                 chunk = await asyncio.wait_for(

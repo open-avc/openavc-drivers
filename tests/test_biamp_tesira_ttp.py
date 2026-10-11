@@ -36,6 +36,7 @@ import pytest
 
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
+    ConnectionFaultError as _ConnectionFaultError,
     DelimiterFrameParser as _DelimiterFrameParser,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
@@ -407,6 +408,7 @@ def _build_stub_modules() -> dict[str, ModuleType]:
         stubs[f"openavc.{sub}"] = m
     base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
+    base.ConnectionFaultError = _ConnectionFaultError
     stubs["openavc.drivers.base"] = base
     tcp = ModuleType("openavc.transport.tcp")
     tcp.TCPTransport = _FakeTCPTransport
@@ -589,7 +591,7 @@ def test_the_control_pickers_offer_what_each_command_takes():
 
 def test_metadata_and_actions_shape():
     info = DRV.BiampTesiraTTPDriver.DRIVER_INFO
-    assert info["version"] == "3.1.4"
+    assert info["version"] == "3.1.5"
     # The connection-lifecycle hooks the driver overrides landed in 0.24.0.
     # The 0.25.0 floor is the package move: this file imports openavc.*.
     assert info["min_platform_version"] == "0.25.0"
@@ -680,6 +682,23 @@ def test_connect_handshake_and_initial_state():
             assert _child(driver, "Mute1", "mute_2") is False
         finally:
             await driver.disconnect()
+    _run(scenario())
+
+
+def test_no_welcome_banner_is_no_response_not_unreachable():
+    """The socket opened and nothing a Tesira sends arrived: a typed
+    no_response, so the card does not read a bare timeout as a network
+    fault ("can't reach the device")."""
+    async def scenario():
+        driver, _sim = await _make_pair()
+        with pytest.raises(_ConnectionFaultError) as caught:
+            await driver._run_iac_handshake(timeout=0.05)
+        assert caught.value.fault_code == "no_response"
+        assert str(caught.value) == (
+            "No Tesira welcome banner arrived within 0.05 seconds of "
+            "connecting. Check the address and port, and that the device is "
+            "a Tesira."
+        )
     _run(scenario())
 
 

@@ -758,7 +758,7 @@ class APCRackPDUDriver(BaseDriver):
         "name": "APC Switched Rack PDU",
         "manufacturer": "APC",
         "category": "power",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "author": "OpenAVC",
         # transport: snmp is the floor the contract computes. An older
         # platform answers "Unsupported transport type" and never connects.
@@ -1322,7 +1322,7 @@ class APCRackPDUDriver(BaseDriver):
     HEALTH_TIMEOUT_S = 10.0
     HEALTH_MAX_FAILURES = 2
     HEALTH_FAULT_MESSAGE = (
-        "Connected, but the Rack PDU stopped answering SNMP requests."
+        "The Rack PDU stopped answering SNMP requests."
     )
 
     def __init__(self, device_id: str, config: dict[str, Any], state, events):

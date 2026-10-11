@@ -401,7 +401,7 @@ async def _settle(n: int = 4) -> None:
 
 def test_version_and_platform_gate():
     info = DRV.BarcoPulseDriver.DRIVER_INFO
-    assert info["version"] == "1.1.0"
+    assert info["version"] == "1.1.1"
     # learned_from on the MAC address setting ships in 0.37.0.
     assert info["min_platform_version"] == "0.37.0"
     assert info["ports"] == [9090]

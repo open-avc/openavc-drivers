@@ -244,7 +244,7 @@
       "name": "Crestron 1 Beyond Camera",
       "manufacturer": "Crestron",
       "category": "camera",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Crestron 1 Beyond IV-CAM cameras (I12, I20, P12, P20 and I12D-B) over VISCA on TCP 5500 or RS-232 / RS-485. Power and Privacy Mode, pan / tilt / zoom / focus, presets, exposure and white balance, tracking and the intelligent modes through the camera's reserved presets, the lightbar, mount mode, and the Intelligent Switching host commands. Publishes each camera's RTSP feeds for the Video Panel.",
@@ -252,7 +252,7 @@
       "file": "cameras/crestron_1beyond_camera.py",
       "format": "python",
       "files": {
-        "cameras/crestron_1beyond_camera.py": "e78354f8f21704b0b744f2248423b12fb7a6044b45f03fc1d8eb4e6f61b979e0",
+        "cameras/crestron_1beyond_camera.py": "530930cd0945dbb7c39f882b2f9df9a879f09cf1cf37d8eab0091f0ae50cae14",
         "cameras/crestron_1beyond_camera_sim.py": "aec48243d3da925ed83318c908f5acacc9826c4ca6e45a9a6f5615a931cdb325"
       },
       "ports": [

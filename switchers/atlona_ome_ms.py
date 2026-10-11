@@ -153,7 +153,7 @@ class AtlonaOmeMsDriver(BaseDriver):
         "name": "Atlona AT-OME-MS Series Matrix Switcher",
         "manufacturer": "Atlona",
         "category": "switcher",
-        "version": "1.4.2",
+        "version": "1.4.3",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # confirm on factory_reset needs 0.36.0.
         "min_platform_version": "0.36.0",
@@ -576,7 +576,7 @@ class AtlonaOmeMsDriver(BaseDriver):
 
     # BaseDriver liveness watchdog fault wording (typed no_response).
     HEALTH_FAULT_MESSAGE = (
-        "Connected, but the matrix stopped answering status queries."
+        "The matrix stopped answering status queries."
     )
     # The 500 ms inter-command lock means a probe that fires while a full
     # poll cycle (15 queries ~= 7.5 s) holds the lock can legitimately

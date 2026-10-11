@@ -205,7 +205,7 @@ class ShureAxientDigitalDriver(BaseDriver):
         "name": "Shure Axient Digital Receivers",
         "manufacturer": "Shure",
         "category": "audio",
-        "version": "1.1.0",
+        "version": "1.1.1",
         "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
@@ -1041,7 +1041,7 @@ class ShureAxientDigitalDriver(BaseDriver):
     }
 
     HEALTH_FAULT_MESSAGE = (
-        "Connected, but the receiver stopped answering MODEL probes."
+        "The receiver stopped answering MODEL probes."
     )
 
     # `< REP x PROP value... >` after the frame's "<" and ">" are stripped.

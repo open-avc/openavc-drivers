@@ -97,7 +97,7 @@ class BlackmagicVideohubDriver(BaseDriver):
         "name": "Blackmagic Videohub",
         "manufacturer": "Blackmagic Design",
         "category": "switcher",
-        "version": "1.3.4",
+        "version": "1.3.5",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
@@ -395,7 +395,7 @@ class BlackmagicVideohubDriver(BaseDriver):
     # BaseDriver liveness watchdog fault wording (cadence/misses use the
     # HEALTH_* defaults: 30 s interval, 5 s deadline, 2 misses).
     HEALTH_FAULT_MESSAGE = (
-        "Connected, but the Videohub stopped answering PING keep-alive probes."
+        "The Videohub stopped answering PING keep-alive probes."
     )
 
     # ── Lifecycle ──

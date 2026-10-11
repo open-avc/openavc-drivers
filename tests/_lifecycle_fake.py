@@ -44,7 +44,7 @@ class LifecycleFake:
     HEALTH_TIMEOUT_S = 5.0
     HEALTH_MAX_FAILURES = 2
     HEALTH_FAULT_MESSAGE = (
-        "Connected, but the device stopped answering keep-alive probes."
+        "The device stopped answering keep-alive probes."
     )
 
     # -- transport construction hooks --

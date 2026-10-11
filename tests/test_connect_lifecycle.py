@@ -56,6 +56,9 @@ _CONFIG: dict[str, dict] = {
     "tvone_coriomatrix": {"password": "adminpw"},
     "tvone_coriomaster": {"password": "adminpw"},
     "crestron_nvx": {"password": "smokepw"},
+    # Same sign-in as the NVX: a blank password is refused before it is sent;
+    # the sim accepts any password but "invalid" when its config sets none.
+    "crestron_airmedia3": {"password": "smokepw"},
     # VAPIX refuses a blank login before touching the camera; the sim accepts
     # any password while its auth check is off.
     "axis_vapix": {"username": "root", "password": "smokepw"},

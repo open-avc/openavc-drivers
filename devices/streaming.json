@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 69,
+    "total_devices": 77,
     "shards": null,
     "category": "streaming"
   },
@@ -604,6 +604,102 @@
           "id": "brightsign_player",
           "confidence": "untested",
           "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "AM-3000-WF",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "crestron_airmedia3",
+          "confidence": "untested",
+          "notes": "Built from the API for AirMedia Series 3 Receivers (firmware 3.0800.0157) and tested against the simulator. The commands and readings a model lacks are left off: no wireless conferencing on the AM-3000-WF, no HDMI input on the AM-3000-WF and AM-3100-WF, no AirMedia Connect adaptors on the AM-3200 and AM-3200-GV."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "AM-3000-WF-I",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "crestron_airmedia3",
+          "confidence": "untested",
+          "notes": "Built from the API for AirMedia Series 3 Receivers (firmware 3.0800.0157) and tested against the simulator. The commands and readings a model lacks are left off: no wireless conferencing on the AM-3000-WF, no HDMI input on the AM-3000-WF and AM-3100-WF, no AirMedia Connect adaptors on the AM-3200 and AM-3200-GV."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "AM-3100-WF",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "crestron_airmedia3",
+          "confidence": "untested",
+          "notes": "Built from the API for AirMedia Series 3 Receivers (firmware 3.0800.0157) and tested against the simulator. The commands and readings a model lacks are left off: no wireless conferencing on the AM-3000-WF, no HDMI input on the AM-3000-WF and AM-3100-WF, no AirMedia Connect adaptors on the AM-3200 and AM-3200-GV."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "AM-3100-WF-I",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "crestron_airmedia3",
+          "confidence": "untested",
+          "notes": "Built from the API for AirMedia Series 3 Receivers (firmware 3.0800.0157) and tested against the simulator. The commands and readings a model lacks are left off: no wireless conferencing on the AM-3000-WF, no HDMI input on the AM-3000-WF and AM-3100-WF, no AirMedia Connect adaptors on the AM-3200 and AM-3200-GV."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "AM-3200",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "crestron_airmedia3",
+          "confidence": "untested",
+          "notes": "Built from the API for AirMedia Series 3 Receivers (firmware 3.0800.0157) and tested against the simulator. The commands and readings a model lacks are left off: no wireless conferencing on the AM-3000-WF, no HDMI input on the AM-3000-WF and AM-3100-WF, no AirMedia Connect adaptors on the AM-3200 and AM-3200-GV."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "AM-3200-GV",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "crestron_airmedia3",
+          "confidence": "untested",
+          "notes": "Built from the API for AirMedia Series 3 Receivers (firmware 3.0800.0157) and tested against the simulator. The commands and readings a model lacks are left off: no wireless conferencing on the AM-3000-WF, no HDMI input on the AM-3000-WF and AM-3100-WF, no AirMedia Connect adaptors on the AM-3200 and AM-3200-GV."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "AM-3200-WF",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "crestron_airmedia3",
+          "confidence": "untested",
+          "notes": "Built from the API for AirMedia Series 3 Receivers (firmware 3.0800.0157) and tested against the simulator. The commands and readings a model lacks are left off: no wireless conferencing on the AM-3000-WF, no HDMI input on the AM-3000-WF and AM-3100-WF, no AirMedia Connect adaptors on the AM-3200 and AM-3200-GV."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "AM-3200-WF-I",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "crestron_airmedia3",
+          "confidence": "untested",
+          "notes": "Built from the API for AirMedia Series 3 Receivers (firmware 3.0800.0157) and tested against the simulator. The commands and readings a model lacks are left off: no wireless conferencing on the AM-3000-WF, no HDMI input on the AM-3000-WF and AM-3100-WF, no AirMedia Connect adaptors on the AM-3200 and AM-3200-GV."
         }
       ]
     },

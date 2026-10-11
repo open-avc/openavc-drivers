@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 120,
+    "total_drivers": 121,
     "shards": null
   },
   "drivers": [
@@ -2894,6 +2894,71 @@
           "expect_regex": "^\\x90\\x50[\\x02\\x03]\\xff",
           "timeout_ms": 1500
         }
+      }
+    },
+    {
+      "id": "crestron_airmedia3",
+      "name": "Crestron AirMedia Series 3",
+      "manufacturer": "Crestron",
+      "category": "streaming",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Crestron AirMedia Series 3 wireless presentation receivers over the receiver's API: who is connected and presenting, the login code, the source on the display, the HDMI output, the USB conferencing peripherals and their volume, the paired AirMedia Connect adaptors, and the presentation settings. Changes arrive as the receiver reports them.",
+      "source_url": "https://sdkcon78221.crestron.com/sdk/AM3K-API/index.htm",
+      "file": "streaming/crestron_airmedia3.py",
+      "format": "python",
+      "files": {
+        "streaming/crestron_airmedia3.py": "d86c55efb70fee3bc47e0f6d3f65101b404134224834301b5e380436c40e3e4b",
+        "streaming/crestron_airmedia3_sim.py": "9bad5c032806ff694be0fbcb86813784123c3d5029d6d6da1723bfad6e66adfc"
+      },
+      "ports": [
+        443
+      ],
+      "protocols": [
+        "cresnext"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "crestron",
+        "airmedia",
+        "wireless-presentation",
+        "byod",
+        "wireless-conferencing",
+        "rest-api"
+      ],
+      "help": {
+        "overview": "Controls a Crestron AirMedia Series 3 receiver: see who is connected and presenting, show the login code on a panel, disconnect everyone at the end of a meeting, turn the HDMI output off and on, set and mute the USB speaker used for wireless conferencing, and follow the paired AirMedia Connect adaptors. The receiver chooses what is on the display by its Routing Mode.",
+        "setup": "1. Sign in to the receiver's web page once (https:// and its IP address, shown on the display). A new receiver asks for a new administrator username and password there.\n2. Enter that username and password here.\n3. Leave Verify TLS Certificate off unless a trusted certificate is installed on the receiver.",
+        "connection": "Check the receiver's IP address on its welcome screen, and that the username and password are an administrator account on the receiver."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Crestron",
+          "models": [
+            "AM-3000-WF",
+            "AM-3000-WF-I",
+            "AM-3100-WF",
+            "AM-3100-WF-I",
+            "AM-3200",
+            "AM-3200-WF",
+            "AM-3200-WF-I",
+            "AM-3200-GV"
+          ],
+          "confidence": "untested",
+          "notes": "Built from the API for AirMedia Series 3 Receivers (firmware 3.0800.0157) and tested against the simulator. The commands and readings a model lacks are left off: no wireless conferencing on the AM-3000-WF, no HDMI input on the AM-3000-WF and AM-3100-WF, no AirMedia Connect adaptors on the AM-3200 and AM-3200-GV."
+        }
+      ],
+      "discovery": {
+        "oui": [
+          "c4:42:68",
+          "00:10:7f"
+        ],
+        "manufacturer_alias": [
+          "crestron",
+          "crestron electronics"
+        ]
       }
     },
     {

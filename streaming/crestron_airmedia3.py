@@ -72,6 +72,9 @@ _LONGPOLL = "/Device/Longpoll"
 
 # A sign-in or a request refused. The Authentication topic answers invalid
 # credentials and a timed-out session with 403 Forbidden; 401 is read the same.
+# A DM-NVX-D30 on the same web server (firmware 7.0.5057) answered a request
+# without a live session with a redirect to the sign-in page instead (301,
+# Location /userlogin.html), which _session_refused reads as the same refusal.
 _REFUSED = (401, 403)
 
 # The Results object's StatusId: below 0 is an error; 3 is "the property is
@@ -115,6 +118,13 @@ _ADAPTOR_STATES = frozenset({"adaptor_pairing_status", "paired_adaptors"})
 _SIGN_IN_REFUSED = "The AirMedia refused the username and password."
 
 
+def _session_refused(resp: httpx.Response) -> bool:
+    """A refused session: 401 or 403, or a redirect to the sign-in page."""
+    if resp.status_code in _REFUSED:
+        return True
+    return resp.is_redirect and "userlogin" in resp.headers.get("location", "").lower()
+
+
 def _model_family(reported: Any) -> str:
     """The model family a reported DeviceInfo.Model belongs to, or ""."""
     model = str(reported or "").strip().upper()
@@ -155,7 +165,7 @@ class CrestronAirMedia3Driver(BaseDriver):
         "name": "Crestron AirMedia Series 3",
         "manufacturer": "Crestron",
         "category": "streaming",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         "min_platform_version": "0.37.0",
         "description": (
@@ -705,12 +715,14 @@ class CrestronAirMedia3Driver(BaseDriver):
     async def _create_transport(self, transport_type: str) -> None:
         """Driver-owned session: one httpx client for requests and the long
         poll. ``self.transport`` stays None; _link_alive()/_close_session()
-        report and retire the client instead."""
+        report and retire the client instead. Redirects are not followed: a
+        redirect to the sign-in page is how a CresNext unit can refuse a
+        session, and followed, it arrives as a 200 page with no JSON."""
         self._client = httpx.AsyncClient(
             base_url=self._base_url,
             verify=bool(self.config.get("verify_ssl", False)),
             timeout=10.0,
-            follow_redirects=True,
+            follow_redirects=False,
             headers={"Referer": self._base_url},
         )
         self._xsrf = ""
@@ -828,7 +840,9 @@ class CrestronAirMedia3Driver(BaseDriver):
             },
             follow_redirects=False,
         )
-        if resp.status_code in _REFUSED:
+        # A redirect back to the sign-in page is a refusal too, so a refused
+        # password is never counted as accepted and sent again.
+        if _session_refused(resp):
             raise ConnectionFaultError(self._sign_in_refusal(resp.text), code="auth_failed")
         # 200 OK per the topic; its sample client expects a redirect to "/".
         if resp.status_code not in (200, 302, 303):
@@ -883,10 +897,10 @@ class CrestronAirMedia3Driver(BaseDriver):
         client = self._require_client()
         sign_ins = self._sign_ins
         resp = await client.get(path)
-        if resp.status_code in _REFUSED:
+        if _session_refused(resp):
             await self._sign_in_again(sign_ins)
             resp = await client.get(path)
-            if resp.status_code in _REFUSED:
+            if _session_refused(resp):
                 if core:
                     message = "The AirMedia refused the account after signing in again."
                     self._stash_fault("auth_failed", message)
@@ -917,7 +931,7 @@ class CrestronAirMedia3Driver(BaseDriver):
             if self._xsrf:
                 headers["X-CREST-XSRF-TOKEN"] = self._xsrf
             resp = await client.post("/Device", json=body, headers=headers)
-            if resp.status_code in _REFUSED:
+            if _session_refused(resp):
                 if attempt == 1:
                     await self._sign_in_again(sign_ins)
                     continue
@@ -1004,7 +1018,7 @@ class CrestronAirMedia3Driver(BaseDriver):
                     warned = True
                 await asyncio.sleep(min(2.0 * failures, 30.0))
                 continue
-            if resp.status_code in _REFUSED:
+            if _session_refused(resp):
                 try:
                     await self._sign_in_again(sign_ins)
                 except ConnectionFaultError as exc:
@@ -1012,6 +1026,11 @@ class CrestronAirMedia3Driver(BaseDriver):
                     return
                 except Exception:
                     await asyncio.sleep(min(2.0 * (failures + 1), 30.0))
+                    continue
+                # A change made while no session was live may never be
+                # reported on the new one: read everything once.
+                for path in (_AIRMEDIA, *self._reads()):
+                    self._reread(path)
                 continue
             if not resp.is_success:
                 failures += 1

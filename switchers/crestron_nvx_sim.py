@@ -16,20 +16,70 @@ the driver has an https:// base URL and leaves verification off. The simulator
 serves TLS to match (``"tls": True``), which lets the driver connect here the
 same way it connects to hardware.
 
-Sign-in follows the API's Authentication topic: a POST of the credentials to
-/userlogin.html opens the session, and a wrong password or a request without a
-session is answered 403 Forbidden. The form is read as the URL-encoded body
-the API asks for. A password of ``invalid`` is the wrong one, and so is any
-other when the simulator's config gives a ``password``.
-Two error modes refuse it on demand: ``wrong_password`` (the password was
-changed on the unit, which also ends the open session) and ``ip_blocked`` (the
-unit has blocked this address after failed sign-ins and says so).
+The session follows what a DM-NVX-D30 on firmware 7.0.5057 did: GET
+/userlogin.html sets TRACKID; a POST of the URL-encoded credentials answers
+200 with an empty body and sets userstr, userid, iv, tag and AuthByPasswd,
+none of which change afterwards, and no anti-forgery token. A request without
+a live session is redirected to the sign-in page (301, Location
+/userlogin.html, empty body), where the API document says 403; set
+``ended_session_status`` to 403 to serve the document's form instead. A wrong
+password is answered 403. A password of ``invalid`` is the wrong one, and so
+is any other when the simulator's config gives a ``password``. Two error modes
+refuse it on demand: ``wrong_password`` (the password was changed on the unit,
+which also ends the open session) and ``ip_blocked`` (the unit has blocked
+this address after failed sign-ins and says so).
+
+GET /Device/Longpoll is held until something changes (a command, a setting,
+or a change in the Simulator UI) and answers with only the changed
+properties, or answers ``{"Device":"Response Timeout"}`` after 30 s, as the
+D30 did. A change made while no long poll is open is kept for the next one. A
+change inside the stream list or a port arrives the way the D30 sent it: a
+one-element array holding only the changed properties, with no index.
+Every JSON answer is text/plain ending in CRLF, as the D30's are.
 """
 
+import asyncio
 import json
+import secrets
 from urllib.parse import parse_qsl
 
 from openavc.simulator.http_simulator import HTTPSimulator
+
+_UNSUPPORTED = "UNSUPPORTED PROPERTY, CHECK REST API!!"
+_TIMEOUT_ANSWER = {"Device": "Response Timeout"}
+_SESSION_COOKIES = ("userstr", "userid", "iv", "tag", "AuthByPasswd")
+
+# State keys the DeviceSpecific object reports, and their property names.
+_DEVICE_SPECIFIC = {
+    "device_mode": "DeviceMode",
+    "video_source": "VideoSource",
+    "audio_source": "AudioSource",
+    "active_video_source": "ActiveVideoSource",
+    "active_audio_source": "ActiveAudioSource",
+    "leds_enabled": "LedsEnabled",
+    "front_panel_locked": "IsFrontPanelLockoutEnabled",
+}
+_STREAM = {
+    "stream_status": "Status",
+    "stream_multicast": "MulticastAddress",
+    "stream_location": "StreamLocation",
+}
+_TX_STREAM = {"bitrate": "Bitrate", "active_bitrate": "ActiveBitrate", "bitrate_mode": "BitrateMode"}
+_PORT = {"h_res": "HorizontalResolution", "v_res": "VerticalResolution", "fps": "FramesPerSecond"}
+
+
+def _merge(into: dict, change: dict) -> None:
+    """Fold one change into the changes a long poll has not reported yet. A
+    one-element array is merged into the element already waiting."""
+    for key, value in change.items():
+        old = into.get(key)
+        if isinstance(value, dict) and isinstance(old, dict):
+            _merge(old, value)
+        elif (isinstance(value, list) and isinstance(old, list) and len(value) == len(old) == 1
+              and isinstance(value[0], dict) and isinstance(old[0], dict)):
+            _merge(old[0], value[0])
+        else:
+            into[key] = value
 
 
 class CrestronNvxSimulator(HTTPSimulator):
@@ -95,6 +145,13 @@ class CrestronNvxSimulator(HTTPSimulator):
                 ),
                 "behavior": "custom",
             },
+            "session_timeout": {
+                "description": (
+                    "The session times out once (the next request is sent to "
+                    "the sign-in page)"
+                ),
+                "behavior": "custom",
+            },
         },
         "controls": [
             {"type": "indicator", "key": "device_mode", "label": "Mode"},
@@ -109,23 +166,69 @@ class CrestronNvxSimulator(HTTPSimulator):
             {"type": "slider", "key": "bitrate", "label": "Bitrate", "min": 100, "max": 950, "step": 10},
             {"type": "toggle", "key": "input_sync", "label": "Input Sync",
              "color_map": {"true": "#22c55e", "false": "#6b7280"}},
+            {"type": "toggle", "key": "output_connected", "label": "Display Connected"},
         ],
     }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._signed_in = False
+        self._session: dict | None = None
+        self._trackid = ""
+        self._pending: dict = {}
+        self._waiters: set[asyncio.Event] = set()
+        # How long a long poll is held before its timeout answer (30 s on the
+        # D30), and what a request without a live session is answered: 301
+        # to the sign-in page (the D30) or 403 (the API document).
+        self.longpoll_hold_s = 30.0
+        self.ended_session_status = 301
 
     def _is_tx(self) -> bool:
         return self.get_state("device_mode", "Receiver") == "Transmitter"
 
+    # ── Session ──
+
+    @staticmethod
+    def _cookies(headers: dict) -> dict:
+        raw = ""
+        for name, value in headers.items():
+            if name.lower() == "cookie":
+                raw = value
+                break
+        jar = {}
+        for part in raw.split(";"):
+            name, _, value = part.strip().partition("=")
+            if name:
+                jar[name] = value
+        return jar
+
     def _refusing(self) -> bool:
         return bool({"wrong_password", "ip_blocked"} & set(self.active_errors))
 
+    def end_session(self) -> None:
+        """The session times out: the next request has none."""
+        self._session = None
+
+    def _session_ok(self, headers: dict) -> bool:
+        if self._refusing():
+            self._session = None
+        if "session_timeout" in self.active_errors and self._session is not None:
+            self._session = None
+            self.clear_error("session_timeout")
+            return False
+        if self._session is None:
+            return False
+        jar = self._cookies(headers)
+        return all(jar.get(name) == self._session[name] for name in _SESSION_COOKIES)
+
+    def _refused_session(self):
+        if self.ended_session_status == 403:
+            return 403, "Forbidden", {}, []
+        return self.ended_session_status, "", {"Location": "/userlogin.html"}, []
+
     def _sign_in(self, body: str):
         if "ip_blocked" in self.active_errors:
-            self._signed_in = False
-            return 403, "Your IP address is blocked"
+            self._session = None
+            return 403, "Your IP address is blocked", {}, []
         fields = dict(parse_qsl(body, keep_blank_values=True))
         password = fields.get("passwd", "")
         expected = str(self.config.get("password", "") or "")
@@ -134,51 +237,153 @@ class CrestronNvxSimulator(HTTPSimulator):
             or password == "invalid"
             or (expected and password != expected)
         ):
-            self._signed_in = False
-            return 403, "Forbidden"
-        self._signed_in = True
-        return 200, "<html><body>OK</body></html>"
+            self._session = None
+            return 403, "Forbidden", {}, []
+        self._session = {name: secrets.token_hex(16) for name in _SESSION_COOKIES}
+        # A new session starts with nothing to report (this simulator's choice).
+        self._pending = {}
+        return 200, "", {}, [(name, self._session[name]) for name in _SESSION_COOKIES]
 
-    def handle_request(self, method, path, headers, body):
-        # ── Auth ──
+    # ── Requests ──
+
+    def dispatch(self, method: str, path: str, headers: dict, body: str):
+        """One request: (status, body, response headers, cookies to set)."""
+        path = path.split("?", 1)[0]
         if path == "/userlogin.html":
             if method == "POST":
                 return self._sign_in(body)
-            return 200, "<html><body>OK</body></html>"
+            self._trackid = secrets.token_hex(16)
+            return 200, "<html><body>Sign in</body></html>", {}, [("TRACKID", self._trackid)]
         if path == "/logout":
-            self._signed_in = False
-            return 200, "<html><body>bye</body></html>"
+            self._session = None
+            return 301, "", {"Location": "/"}, []
         if path == "/Device/Authentication" and method == "POST":
-            # First-boot create-admin (wizard). Accept any well-formed request.
-            try:
-                data = json.loads(body)
-                auth = data["Device"]["Authentication"]["AuthenticationState"]
-                if auth.get("AdminUsername") and auth.get("AdminPassword"):
-                    return 200, {"Actions": [{"Operation": "SetPartial", "Results": [
-                        {"Path": "Device.Authentication", "Property": "AuthenticationState",
-                         "StatusId": 0, "StatusInfo": "OK"}]}]}
-            except Exception:
-                pass
-            return 200, {"Actions": [{"Operation": "SetPartial", "Results": [
-                {"StatusId": -4, "StatusInfo": "Invalid createuser"}]}]}
+            return 200, self._create_admin(body), {}, []
 
         # ── Session gate: every API request needs a session ──
-        if path.startswith("/Device"):
-            if self._refusing():
-                self._signed_in = False
-            if not self._signed_in:
-                return 403, "Forbidden"
-
-        # ── GET object tree ──
+        if not path.startswith("/Device"):
+            return 404, {"error": "Not Found"}, {}, []
+        if not self._session_ok(headers):
+            return self._refused_session()
         if method == "GET" and path.startswith("/Device/"):
-            obj = path[len("/Device/"):]
-            return 200, self._get_object(obj)
+            return 200, self._get_object(path[len("/Device/"):]), {}, []
+        if method == "POST" and path == "/Device":
+            status, payload = self._handle_post(body)
+            return status, payload, {}, []
+        return 404, {"error": "Not Found"}, {}, []
 
-        # ── POST (writes) ──
-        if path == "/Device" and method == "POST":
-            return self._handle_post(body)
+    def handle_request(self, method, path, headers, body):
+        """The platform's sync entry point. respond_http below is what runs:
+        it sets cookies and holds the long poll."""
+        status, payload, response_headers, _cookies = self.dispatch(method, path, headers, body)
+        return status, payload, response_headers
 
-        return 404, {"error": "Not Found"}
+    async def longpoll(self, headers: dict):
+        """GET /Device/Longpoll: the properties changed since the last one, as
+        soon as there are any, or the timeout answer after the hold."""
+        if not self._session_ok(headers):
+            return self._refused_session()
+        if not self._pending:
+            event = asyncio.Event()
+            self._waiters.add(event)
+            try:
+                await asyncio.wait_for(event.wait(), self.longpoll_hold_s)
+            except asyncio.TimeoutError:
+                pass
+            finally:
+                self._waiters.discard(event)
+        # A long poll held when its session ended still answers (the D30's
+        # did, with its timeout).
+        changes, self._pending = self._pending, {}
+        return 200, ({"Device": changes} if changes else _TIMEOUT_ANSWER), {}, []
+
+    async def respond_http(self, request, method, path, headers, body):
+        from aiohttp import web
+
+        try:
+            if method == "GET" and path.split("?", 1)[0] == "/Device/Longpoll":
+                status, payload, response_headers, cookies = await self.longpoll(headers)
+                if self._silenced:
+                    await asyncio.sleep(30)
+                    return web.Response(status=504, text="Gateway Timeout")
+            else:
+                status, payload, response_headers, cookies = self.dispatch(
+                    method, path, headers, body,
+                )
+        except Exception:  # noqa: BLE001 - a simulator bug answers 500, never hangs the driver
+            status, payload, response_headers, cookies = 500, "Internal simulator error", {}, []
+        if isinstance(payload, dict):
+            # The D30 answers JSON as text/plain, compact, ending in CRLF.
+            text, content_type = json.dumps(payload, separators=(",", ":")) + "\r\n", "text/plain"
+        else:
+            text, content_type = str(payload), "text/html"
+        self.log_protocol("out", f"{status} | {text[:200]}")
+        response = web.Response(
+            status=status, text=text, content_type=content_type,
+            headers=response_headers or None,
+        )
+        for name, value in cookies:
+            response.set_cookie(name, value, path="/", secure=True, httponly=True)
+        return response
+
+    # ── Change reporting ──
+
+    def _report(self, change: dict) -> None:
+        _merge(self._pending, change)
+        for event in list(self._waiters):
+            event.set()
+
+    def set_state(self, key, value):
+        previous = self.get_state(key)
+        super().set_state(key, value)
+        if previous == value:
+            return
+        change = self._change_for(key)
+        if change:
+            self._report(change)
+
+    def _change_for(self, key: str) -> dict | None:
+        """The partial Device tree a long poll answers for a changed key."""
+        value = self.get_state(key)
+        if key in _DEVICE_SPECIFIC:
+            prop = _DEVICE_SPECIFIC[key]
+            if prop in ("LedsEnabled", "IsFrontPanelLockoutEnabled"):
+                value = bool(value)
+            return {"DeviceSpecific": {prop: value}}
+        if key == "device_ready":
+            return {"DeviceSpecific": {"DeviceReady": 1 if value else 0}}
+        if key == "video_wall_mode":
+            if self._is_tx():
+                return None
+            return {"DeviceSpecific": {"VideoWallMode": 1 if value else 0}}
+        if key == "device_name":
+            return {"DeviceInfo": {"Name": value}}
+        obj = "StreamTransmit" if self._is_tx() else "StreamReceive"
+        if key in _STREAM:
+            fields = {_STREAM[key]: value}
+            if key == "stream_status":
+                fields["Start"] = value == "Stream started"
+                fields["Stop"] = value != "Stream started"
+            return {obj: {"Streams": [fields]}}
+        if key in _TX_STREAM:
+            if self._is_tx():
+                return {obj: {"Streams": [{_TX_STREAM[key]: value}]}}
+            if key == "active_bitrate":
+                return {obj: {"Streams": [{"Bitrate": value}]}}
+            return None
+        port: dict | None = None
+        if key in _PORT:
+            port = {_PORT[key]: value}
+        elif key == "input_sync" and self._is_tx():
+            port = {"IsSyncDetected": bool(value), "IsSourceDetected": bool(value)}
+        elif key == "output_connected" and not self._is_tx():
+            port = {"IsSinkConnected": bool(value)}
+        elif key == "scaler_resolution" and not self._is_tx():
+            port = {"Resolution": value}
+        if port is None:
+            return None
+        side = "Inputs" if self._is_tx() else "Outputs"
+        return {"AudioVideoInputOutput": {side: [{"Ports": [port]}]}}
 
     # ── GET builders ──
 
@@ -212,15 +417,15 @@ class CrestronNvxSimulator(HTTPSimulator):
             return self._build_av_io()
         if obj == "StreamTransmit":
             if not self._is_tx():
-                return {"Device": {"StreamTransmit": "UNSUPPORTED PROPERTY, CHECK REST API!!"}}
+                return {"Device": {"StreamTransmit": _UNSUPPORTED}}
             return {"Device": {"StreamTransmit": {"Streams": [self._build_stream(tx=True)], "Version": "2.1.7"}}}
         if obj == "StreamReceive":
             if self._is_tx():
-                return {"Device": {"StreamReceive": "UNSUPPORTED PROPERTY, CHECK REST API!!"}}
+                return {"Device": {"StreamReceive": _UNSUPPORTED}}
             return {"Device": {"StreamReceive": {"Streams": [self._build_stream(tx=False)], "Version": "2.0.1"}}}
         if obj == "DeviceOperations":
             return {"Device": {"DeviceOperations": {"UpgradeStatus": "Puf Upgrade Not Initiated", "Version": "2.3.0"}}}
-        return {"Device": {obj: "UNSUPPORTED PROPERTY, CHECK REST API!!"}}
+        return {"Device": {obj: _UNSUPPORTED}}
 
     def _build_av_io(self) -> dict:
         h, v, fps = self.get_state("h_res", 0), self.get_state("v_res", 0), self.get_state("fps", 0)
@@ -260,6 +465,21 @@ class CrestronNvxSimulator(HTTPSimulator):
         return s
 
     # ── POST handling ──
+
+    @staticmethod
+    def _create_admin(body: str) -> dict:
+        """First-boot create-admin (the wizard). Accepts any well-formed request."""
+        try:
+            data = json.loads(body)
+            auth = data["Device"]["Authentication"]["AuthenticationState"]
+            if auth.get("AdminUsername") and auth.get("AdminPassword"):
+                return {"Actions": [{"Operation": "SetPartial", "Results": [
+                    {"Path": "Device.Authentication", "Property": "AuthenticationState",
+                     "StatusId": 0, "StatusInfo": "OK"}]}]}
+        except Exception:
+            pass
+        return {"Actions": [{"Operation": "SetPartial", "Results": [
+            {"StatusId": -4, "StatusInfo": "Invalid createuser"}]}]}
 
     def _handle_post(self, body: str):
         try:
@@ -341,3 +561,8 @@ class CrestronNvxSimulator(HTTPSimulator):
                 ok(base, prop)
             else:
                 ok(base, prop)
+
+    async def stop(self) -> None:
+        for event in list(self._waiters):
+            event.set()
+        await super().stop()

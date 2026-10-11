@@ -1,0 +1,1 @@
+{"Device":{"DeviceSpecific":{"ActiveAudioSource":"PrimaryStreamAudio","ActiveVideoSource":"Stream"}}}

@@ -1,0 +1,1 @@
+{"Device":{"AudioVideoInputOutput":{"Outputs":[{"Ports":[{"Resolution":"1920x1080@60"}]}]}}}

@@ -9,14 +9,25 @@ capture, transmit stream + bitrate, RTSP preview) or the decoder surface
 units (DM-NVX-350/360/384) that flip role via ``DeviceMode`` are covered by
 the same card.
 
+Push: the endpoint reports changes on a long poll. ``GET /Device/Longpoll``
+answers as soon as something changes, with a partial ``Device`` tree holding
+only the changed properties, or after 30 s with ``{"Device":"Response
+Timeout"}``, and is asked again at once. The driver holds one open for the
+whole session and polls every object on ``poll_interval`` as well: the poll
+reads everything at connect, catches anything a long poll could not carry,
+and is how an endpoint that stopped answering is noticed. A change inside an
+array (the stream list, the input and output ports) re-reads that object,
+because a partial array element names neither its index nor an id.
+
 Why Python (not YAML): the driver is Python for several reasons no single
 `.avcdriver` feature covers —
   * Role-adaptive surface: the command/state set is chosen at runtime from the
     device's reported ``DeviceMode`` (a transmitter has no StreamReceive; a
     receiver has no StreamTransmit).
   * Cookie-session auth: GET /userlogin.html for a TRACKID, then a
-    form-urlencoded ``login=&passwd=`` POST; the session rides six HTTPOnly
-    cookies (no `auth.type` fits — this is the `post_login_cookie` shape).
+    form-urlencoded ``login=&passwd=`` POST; the session rides six cookies
+    (no `auth.type` fits — this is the `post_login_cookie` shape).
+  * The long poll: none of the declarative ``push:`` shapes covers it.
   * Nested-JSON fan-out: one GET of AudioVideoInputOutput / StreamTransmit /
     StreamReceive populates ~10 state keys out of nested arrays.
   * First-boot provisioning: modern firmware ships with NO login and forces a
@@ -25,7 +36,8 @@ Why Python (not YAML): the driver is Python for several reasons no single
 
 Verified end-to-end on the bench 2026-07-15 against a live DM-NVX-E20
 (encoder) + DM-NVX-D200 (decoder) on firmware 7.1.5259, including a real
-E20 -> D200 multicast route.
+E20 -> D200 multicast route. The long poll and the session's behaviour were
+measured on a DM-NVX-D30 on firmware 7.0.5057.00023 (2026-10-11).
 
 Protocol doc (source of truth): https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/
 Product manual: DM-NVX-E20/D20/D200 series.
@@ -37,6 +49,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import time
 from typing import Any
 from urllib.parse import urlencode
 
@@ -76,10 +89,30 @@ _DECODER_ONLY_STATES = frozenset({
 
 # A sign-in or an API request refused. The API's Authentication topic answers
 # invalid credentials and a timed-out session with 403 Forbidden; 401 is read
-# the same way.
+# the same way. A D30 on firmware 7.0.5057 answers a request without a live
+# session with a redirect to the sign-in page instead (301, Location
+# /userlogin.html), which _session_refused reads as the same refusal.
 _REFUSED = (401, 403)
 
 _SIGN_IN_REFUSED = "The NVX refused the username and password."
+
+_AVIO = "/Device/AudioVideoInputOutput"
+_LONGPOLL = "/Device/Longpoll"
+
+# How long one long poll may stay open before the driver asks again: twice the
+# 30 s a D30 holds one before answering its timeout.
+_LONGPOLL_HOLD_S = 60.0
+
+# An object whose changes arrive in bursts (a stream connecting) is read again
+# at most this often.
+_REREAD_GAP_S = 1.0
+
+
+def _session_refused(resp: httpx.Response) -> bool:
+    """A refused session: 401 or 403, or a redirect to the sign-in page."""
+    if resp.status_code in _REFUSED:
+        return True
+    return resp.is_redirect and "userlogin" in resp.headers.get("location", "").lower()
 
 
 class CrestronNVXDriver(BaseDriver):
@@ -91,7 +124,7 @@ class CrestronNVXDriver(BaseDriver):
         "name": "Crestron DM NVX",
         "manufacturer": "Crestron",
         "category": "switcher",
-        "version": "2.1.3",
+        "version": "2.2.0",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # the routing: block below needs 0.27.0.
@@ -177,7 +210,9 @@ class CrestronNVXDriver(BaseDriver):
                     "DeviceMode, and presents the matching role surface. The "
                     "E20/E30 are transmit-only and the D200/D30 receive-only; "
                     "combo 35x/36x units flip via DeviceMode and expose "
-                    "whichever surface is active. Current firmware requires an "
+                    "whichever surface is active. Changes on the endpoint arrive "
+                    "on its long poll, verified on the D30 (firmware "
+                    "7.0.5057.00023) 2026-10-11. Current firmware requires an "
                     "admin account (use the Set Up NVX wizard on a factory-fresh "
                     "unit)."
                 ),
@@ -190,7 +225,8 @@ class CrestronNVXDriver(BaseDriver):
             "verify_ssl": False,
             "username": "admin",
             "password": "",
-            "poll_interval": 10,
+            # Changes arrive on the long poll; the poll is the backstop.
+            "poll_interval": 30,
         },
         "config_schema": {
             "host": {"type": "string", "required": True, "label": "IP Address"},
@@ -215,9 +251,10 @@ class CrestronNVXDriver(BaseDriver):
             },
             "poll_interval": {
                 "type": "integer",
-                "default": 10,
+                "default": 30,
                 "min": 0,
                 "label": "Poll Interval (sec)",
+                "description": "Seconds between full reads of the NVX. Changes on the NVX show as they happen; this read catches anything else.",
             },
         },
         "state_variables": {
@@ -387,6 +424,10 @@ class CrestronNVXDriver(BaseDriver):
         # sends the refused password again (the NVX blocks an address after a
         # few failed sign-ins).
         self._refused = ""
+        self._longpoll_task: asyncio.Task | None = None
+        self._reread_tasks: dict[str, asyncio.Task] = {}
+        self._reread_wanted: set[str] = set()
+        self._reread_at: dict[str, float] = {}
 
     # ── Role adaptation ─────────────────────────────────────────────────────
 
@@ -444,13 +485,17 @@ class CrestronNVXDriver(BaseDriver):
         No platform transport — the httpx client is the connection, so
         ``self.transport`` stays None and _link_alive()/_close_session()
         report and retire the client instead.
+
+        Redirects are not followed: the NVX answers a request without a live
+        session by redirecting it to the sign-in page, and followed, that
+        arrives as a 200 page with no JSON in it.
         """
         verify_ssl = self.config.get("verify_ssl", False)
         self._client = httpx.AsyncClient(
             base_url=self._base_url,
             verify=verify_ssl,
             timeout=10.0,
-            follow_redirects=True,
+            follow_redirects=False,
             headers={"Referer": self._base_url},
         )
 
@@ -482,11 +527,14 @@ class CrestronNVXDriver(BaseDriver):
             raise ConnectionError(f"Failed to connect: {e}") from e
 
     async def _initial_sync(self) -> None:
-        # Prime the role-specific state before the first poll interval.
+        # Read everything once (the platform's poll loop then waits a full
+        # interval instead of reading it all again), then hold the long poll
+        # for the rest of the session.
         try:
-            await self._refresh_role_state()
+            await self.poll()
         except (httpx.RequestError, ConnectionError) as e:
             raise ConnectionError(f"Failed to connect: {e}") from e
+        self._longpoll_task = asyncio.create_task(self._longpoll_loop())
 
     def _link_alive(self) -> bool:
         return self._client is not None
@@ -502,12 +550,22 @@ class CrestronNVXDriver(BaseDriver):
         await super().disconnect()
 
     async def _close_session(self) -> None:
-        self._refused = ""
-        if self._client:
+        tasks = [self._longpoll_task, *self._reread_tasks.values()]
+        self._longpoll_task = None
+        self._reread_tasks = {}
+        self._reread_wanted = set()
+        for task in tasks:
+            if task is None or task is asyncio.current_task():
+                continue
+            task.cancel()
             try:
-                await self._client.aclose()
-            finally:
-                self._client = None
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass
+        self._refused = ""
+        client, self._client = self._client, None
+        if client is not None:
+            await client.aclose()
 
     async def _authenticate(self) -> None:
         """Cookie-session login. Detects the factory 'create admin' state."""
@@ -557,7 +615,11 @@ class CrestronNVXDriver(BaseDriver):
         )
         # Invalid credentials answer 403 Forbidden (Authentication topic). So
         # does a unit that has blocked this address, which says so in the body.
-        if resp.status_code in _REFUSED:
+        # A redirect back to the sign-in page is read the same way, so a
+        # refused password is never counted as accepted and sent again. A
+        # D30 answers an accepted sign-in 200 (the topic's sample client
+        # expects a redirect to "/", which counts as accepted too).
+        if _session_refused(resp):
             raise ConnectionFaultError(
                 self._sign_in_refusal(resp.text), code="auth_failed"
             )
@@ -589,6 +651,142 @@ class CrestronNVXDriver(BaseDriver):
             except ConnectionFaultError as exc:
                 self._refused = str(exc)
                 raise
+
+    def _lose_auth(self, message: str) -> None:
+        """A refusal met by a background task: drop the connection typed."""
+        if getattr(self, "_connected", False):
+            self._force_disconnect("auth_failed", message)
+
+    # ── Push: the long poll ─────────────────────────────────────────────────
+
+    async def _longpoll_loop(self) -> None:
+        """Hold one long poll open at a time and apply each answer. Failures
+        back off and never take the device down; polling notices an endpoint
+        that stopped answering."""
+        failures = 0
+        warned = False
+        while self._client is not None:
+            client = self._client
+            sign_ins = self._sign_ins
+            started = time.monotonic()
+            try:
+                resp = await client.get(
+                    _LONGPOLL, timeout=httpx.Timeout(10.0, read=_LONGPOLL_HOLD_S),
+                )
+            except asyncio.CancelledError:
+                raise
+            except httpx.ReadTimeout:
+                continue
+            except Exception as exc:
+                if self._client is None:
+                    return
+                failures += 1
+                msg = (f"[{self.device_id}] Long poll failed "
+                       f"({str(exc) or type(exc).__name__}); retrying")
+                if warned:
+                    log.debug(msg)
+                else:
+                    log.warning(msg)
+                    warned = True
+                await asyncio.sleep(min(2.0 * failures, 30.0))
+                continue
+            if _session_refused(resp):
+                try:
+                    await self._sign_in_again(sign_ins)
+                except ConnectionFaultError as exc:
+                    self._lose_auth(str(exc))
+                    return
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    await asyncio.sleep(min(2.0 * (failures + 1), 30.0))
+                    continue
+                # A change made while no session was live may never be
+                # reported on the new one: read everything once.
+                for path in ("/Device/DeviceSpecific", _AVIO,
+                             f"/Device/{self._stream_object()}"):
+                    self._reread(path)
+                continue
+            if not resp.is_success:
+                failures += 1
+                await asyncio.sleep(min(2.0 * failures, 30.0))
+                continue
+            failures = 0
+            warned = False
+            try:
+                body = resp.json()
+            except ValueError:
+                body = None
+            # A timeout answers {"Device":"Response Timeout"}: no changes.
+            dev = body.get("Device") if isinstance(body, dict) else None
+            if isinstance(dev, dict) and dev:
+                self._apply_change(dev)
+            elif time.monotonic() - started < 1.0:
+                # An answer with no changes at once: do not ask in a tight loop.
+                await asyncio.sleep(1.0)
+
+    def _apply_change(self, dev: dict[str, Any]) -> None:
+        """Apply a long poll's partial Device tree: only the properties
+        present are written. A change inside an array (AudioVideoInputOutput,
+        the stream object) re-reads that object, because a partial array
+        element carries neither its index nor an id; the other role's stream
+        object is ignored."""
+        info = dev.get("DeviceInfo")
+        if isinstance(info, dict):
+            self._parse_device_info({"Device": {"DeviceInfo": info}})
+        spec = dev.get("DeviceSpecific")
+        if isinstance(spec, dict):
+            mode = self._mode
+            self._parse_device_specific({"Device": {"DeviceSpecific": spec}})
+            if self._mode != mode:
+                # A combo unit changed role: read its new role's objects.
+                self._reread(_AVIO)
+                self._reread(f"/Device/{self._stream_object()}")
+        if "AudioVideoInputOutput" in dev:
+            self._reread(_AVIO)
+        stream_obj = self._stream_object()
+        if stream_obj in dev:
+            self._reread(f"/Device/{stream_obj}")
+
+    def _reread(self, path: str) -> None:
+        """Read an object again in the background: once for a burst of
+        changes, at most once every _REREAD_GAP_S, and once more when a change
+        arrives while a read is under way."""
+        self._reread_wanted.add(path)
+        task = self._reread_tasks.get(path)
+        if task is None or task.done():
+            self._reread_tasks[path] = asyncio.create_task(self._reread_loop(path))
+
+    async def _reread_loop(self, path: str) -> None:
+        while path in self._reread_wanted and self._client is not None:
+            wait = self._reread_at.get(path, 0.0) + _REREAD_GAP_S - time.monotonic()
+            if wait > 0:
+                await asyncio.sleep(wait)
+            self._reread_wanted.discard(path)
+            self._reread_at[path] = time.monotonic()
+            try:
+                await self._read(path)
+            except asyncio.CancelledError:
+                raise
+            except ConnectionFaultError as exc:
+                self._lose_auth(str(exc))
+                return
+            except Exception as exc:
+                log.debug("[%s] Reading %s again failed: %s", self.device_id, path, exc)
+
+    async def _read(self, path: str) -> None:
+        """GET one object and apply it whole."""
+        data = await self._api_get(path)
+        if not data:
+            return
+        if path == "/Device/DeviceSpecific":
+            self._parse_device_specific(data)
+        elif path == _AVIO:
+            self._parse_av_io(data)
+        elif path == "/Device/StreamTransmit" and self._mode == "Transmitter":
+            self._parse_stream_transmit(data)
+        elif path == "/Device/StreamReceive" and self._mode != "Transmitter":
+            self._parse_stream_receive(data)
 
     # ── Commands ────────────────────────────────────────────────────────────
 
@@ -761,31 +959,27 @@ class CrestronNVXDriver(BaseDriver):
 
     async def _refresh_role_state(self) -> None:
         """Query the role-specific objects (encoder vs decoder)."""
-        avio = await self._api_get("/Device/AudioVideoInputOutput")
-        if avio:
-            self._parse_av_io(avio)
+        await self._read(_AVIO)
         await asyncio.sleep(0.15)
-        if self._mode == "Transmitter":
-            tx = await self._api_get("/Device/StreamTransmit")
-            if tx:
-                self._parse_stream_transmit(tx)
-        else:
-            rx = await self._api_get("/Device/StreamReceive")
-            if rx:
-                self._parse_stream_receive(rx)
+        await self._read(f"/Device/{self._stream_object()}")
 
     # ── Response parsing ────────────────────────────────────────────────────
 
     def _parse_device_info(self, data: dict) -> None:
+        """Identity. Only the properties present are written, so a long
+        poll's change to one of them leaves the others alone."""
         di = data.get("Device", {}).get("DeviceInfo", {})
         if not di:
             return
-        self.set_states({
-            "model": di.get("Model", ""),
-            "serial_number": di.get("SerialNumber", ""),
-            "firmware": di.get("PufVersion", di.get("DeviceVersion", "")),
-            "device_name": di.get("Name", ""),
-        })
+        updates: dict[str, Any] = {}
+        for key, prop in (("Model", "model"), ("SerialNumber", "serial_number"),
+                          ("Name", "device_name")):
+            if key in di:
+                updates[prop] = di[key]
+        if "PufVersion" in di or "DeviceVersion" in di:
+            updates["firmware"] = di.get("PufVersion", di.get("DeviceVersion"))
+        if updates:
+            self.set_states(updates)
 
     def _parse_device_specific(self, data: dict) -> None:
         ds = data.get("Device", {}).get("DeviceSpecific", {})
@@ -901,50 +1095,40 @@ class CrestronNVXDriver(BaseDriver):
         """GET + parse JSON. Transport failures raise ConnectionError (poll
         propagates them to the watchdog); HTTP errors return None — except a
         hard credential rejection, which raises a typed auth fault."""
+        client = self._client
+        if client is None:
+            raise ConnectionError(f"[{self.device_id}] Not connected")
         sign_ins = self._sign_ins
         try:
-            resp = await self._client.get(path)
-            resp.raise_for_status()
-            return resp.json()
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code in _REFUSED:
-                # Session refused (a timed-out one answers 403): sign in again
-                # once and retry. A refused sign-in raises auth_failed from
-                # _sign_in_again. If the retry is STILL refused, the
-                # credentials themselves went bad (changed on the device
-                # mid-run): take the device offline with a typed fault instead
-                # of re-attempting a login on every poll cycle, which would
-                # trip the NVX's per-IP brute-force lockout within a minute.
-                try:
-                    await self._sign_in_again(sign_ins)
-                    resp = await self._client.get(path)
-                    resp.raise_for_status()
-                    return resp.json()
-                except ConnectionFaultError:
-                    raise
-                except httpx.HTTPStatusError as retry_err:
-                    if retry_err.response.status_code in _REFUSED:
-                        msg = "The NVX rejected the configured credentials."
-                        # Stash the fault too: when this surfaces through the
-                        # poll watchdog the exception itself isn't classified.
-                        self._stash_fault("auth_failed", msg)
-                        raise ConnectionFaultError(msg, code="auth_failed") \
-                            from retry_err
-                    log.warning("[%s] Re-auth GET %s -> HTTP %s", self.device_id,
-                                path, retry_err.response.status_code)
-                except httpx.TransportError as te:
-                    raise ConnectionError(
-                        f"NVX at {self._base_url} not responding: {te}"
-                    ) from te
-                except Exception:
-                    log.warning("[%s] Re-auth failed on GET %s", self.device_id, path)
-            else:
-                log.warning("[%s] GET %s -> HTTP %s", self.device_id, path, e.response.status_code)
-            return None
+            resp = await client.get(path)
+            if _session_refused(resp):
+                # Session refused (a timed-out one answers 403, or a redirect
+                # to the sign-in page): sign in again once and retry. A refused
+                # sign-in raises auth_failed from _sign_in_again. If the retry
+                # is STILL refused, the credentials themselves went bad
+                # (changed on the device mid-run): take the device offline
+                # with a typed fault instead of re-attempting a login on every
+                # poll cycle, which would trip the NVX's per-IP brute-force
+                # lockout within a minute.
+                await self._sign_in_again(sign_ins)
+                resp = await client.get(path)
+                if _session_refused(resp):
+                    msg = "The NVX rejected the configured credentials."
+                    # Stash the fault too: when this surfaces through the
+                    # poll watchdog the exception itself isn't classified.
+                    self._stash_fault("auth_failed", msg)
+                    raise ConnectionFaultError(msg, code="auth_failed")
+        except ConnectionFaultError:
+            raise
         except httpx.TransportError as e:
             raise ConnectionError(f"NVX at {self._base_url} not responding: {e}") from e
-        except Exception as e:
-            log.warning("[%s] GET %s error: %s", self.device_id, path, e)
+        if not resp.is_success:
+            log.warning("[%s] GET %s -> HTTP %s", self.device_id, path, resp.status_code)
+            return None
+        try:
+            return resp.json()
+        except ValueError:
+            log.warning("[%s] GET %s answered something other than JSON", self.device_id, path)
             return None
 
     async def _post_device(self, obj: dict) -> list[dict]:
@@ -960,27 +1144,32 @@ class CrestronNVXDriver(BaseDriver):
         return results
 
     async def _post_device_results(self, obj: dict) -> list[dict]:
-        """POST to /Device; return the per-property Results list (no raise).
-        Signs in again once on a refused session. Every write goes to /Device."""
+        """POST to /Device; return the per-property Results list. Signs in
+        again once on a refused session; any other answer that is not a
+        success raises, so a write the NVX never took is not reported as
+        sent. Every write goes to /Device."""
+        client = self._client
+        if client is None:
+            raise ConnectionError(f"[{self.device_id}] Not connected")
         body = {"Device": obj}
         headers = {"Content-Type": "application/json"}
         sign_ins = self._sign_ins
         try:
-            resp = await self._client.post("/Device", json=body, headers=headers)
-            resp.raise_for_status()
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code in _REFUSED:
+            resp = await client.post("/Device", json=body, headers=headers)
+            if _session_refused(resp):
                 await self._sign_in_again(sign_ins)
-                resp = await self._client.post("/Device", json=body, headers=headers)
-                if resp.status_code in _REFUSED:
+                resp = await client.post("/Device", json=body, headers=headers)
+                if _session_refused(resp):
                     raise ConnectionFaultError(
                         "The NVX rejected the configured credentials.",
                         code="auth_failed",
                     )
-                resp.raise_for_status()
-            else:
-                log.warning("[%s] POST /Device -> HTTP %s", self.device_id, e.response.status_code)
-                return []
+        except ConnectionFaultError:
+            raise
+        except httpx.TransportError as e:
+            raise ConnectionError(f"NVX at {self._base_url} not responding: {e}") from e
+        if not resp.is_success:
+            raise RuntimeError(f"The NVX answered the write with HTTP {resp.status_code}.")
         try:
             actions = resp.json().get("Actions", [])
         except Exception:

@@ -621,6 +621,123 @@ def test_a_timed_out_session_signs_in_again(mocked_client):
     _run(go())
 
 
+def _redirect_refused_sessions(sim):
+    """Refuse a session the way a DM-NVX-D30 on the same web server did: a
+    301 to the sign-in page with an empty body, where the API document says
+    403."""
+    dispatch, longpoll = sim.dispatch, sim.longpoll
+
+    def redirect(answer, path):
+        status, payload, extra, cookies = answer
+        if status == 403 and path.startswith("/Device"):
+            return 301, "", {"Location": "/userlogin.html"}, []
+        return answer
+
+    def dispatch_redirecting(method, path, headers, body):
+        return redirect(dispatch(method, path, headers, body), path)
+
+    async def longpoll_redirecting(headers):
+        return redirect(await longpoll(headers), "/Device/Longpoll")
+
+    sim.dispatch = dispatch_redirecting
+    sim.longpoll = longpoll_redirecting
+
+
+def test_a_session_redirected_to_the_sign_in_page_signs_in_again(mocked_client):
+    """Followed, the redirect is a 200 page with no JSON: the values froze
+    and nothing signed in again."""
+    async def go():
+        driver, sim, link = _make()
+        _redirect_refused_sessions(sim)
+        await _connect(driver, link, mocked_client)
+        try:
+            sim.inject_error("session_timeout")
+            sim._state["peripheral_volume"] = 61  # changed without a report
+            await driver.poll()
+            assert driver.get_state("peripheral_volume") == 61
+            assert len(link.posts("/userlogin.html")) == 2
+            assert driver.forced == []
+        finally:
+            await _close(driver, sim)
+
+    _run(go())
+
+
+def test_a_write_on_a_redirected_session_signs_in_again_and_applies(mocked_client):
+    """Followed, the redirect made the write look sent with nothing applied."""
+    async def go():
+        driver, sim, link = _make()
+        _redirect_refused_sessions(sim)
+        await _connect(driver, link, mocked_client)
+        try:
+            sim.inject_error("session_timeout")
+            await driver.send_command("set_peripheral_volume", {"level": 22})
+            assert sim.get_state("peripheral_volume") == 22
+            assert len(link.posts("/userlogin.html")) == 2
+        finally:
+            await _close(driver, sim)
+
+    _run(go())
+
+
+def test_a_long_poll_redirected_to_the_sign_in_page_signs_in_again(mocked_client, monkeypatch):
+    async def go():
+        monkeypatch.setattr(SIM, "_HOLD_S", 0.05)
+        driver, sim, link = _make()
+        _redirect_refused_sessions(sim)
+        await _connect(driver, link, mocked_client)
+        try:
+            sim.inject_error("session_timeout")
+            assert await _until(lambda: len(link.posts("/userlogin.html")) == 2, timeout=3.0)
+            sim.set_state("peripheral_mute", True)
+            assert await _until(lambda: driver.get_state("peripheral_mute") is True, timeout=3.0)
+            assert driver.forced == []
+        finally:
+            await _close(driver, sim)
+
+    _run(go())
+
+
+def test_a_change_made_while_the_session_was_down_is_read_after_signing_in(
+        mocked_client, monkeypatch):
+    """A new session starts with nothing to report, so a change made while no
+    session was live is read once the long poll has signed in again, with
+    polling off."""
+    async def go():
+        monkeypatch.setattr(SIM, "_HOLD_S", 0.05)
+        driver, sim, link = _make()
+        await _connect(driver, link, mocked_client)
+        try:
+            sim.inject_error("session_timeout")
+            sim._state["peripheral_volume"] = 37  # changed, never reported
+            assert await _until(lambda: driver.get_state("peripheral_volume") == 37,
+                                timeout=3.0)
+        finally:
+            await _close(driver, sim)
+
+    _run(go())
+
+
+def test_a_sign_in_redirected_back_to_the_sign_in_page_is_refused(mocked_client):
+    async def go():
+        driver, sim, link = _make()
+        original = sim.dispatch
+
+        def redirect_sign_in(method, path, headers, body):
+            if method == "POST" and path == "/userlogin.html":
+                return 302, "", {"Location": "/userlogin.html"}, []
+            return original(method, path, headers, body)
+
+        sim.dispatch = redirect_sign_in
+        mocked_client(link)
+        with pytest.raises(ConnectionFaultError) as err:
+            await driver.connect()
+        assert err.value.fault_code == "auth_failed"
+        assert len(link.posts("/userlogin.html")) == 1
+
+    _run(go())
+
+
 def test_a_post_with_a_stale_token_signs_in_again_and_resends(mocked_client):
     async def go():
         driver, sim, link = _make()

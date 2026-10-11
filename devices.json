@@ -4837,7 +4837,7 @@
         {
           "id": "crestron_nvx",
           "confidence": "full",
-          "notes": "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), firmware 7.1.5259, 2026-07-15. Re-verified on the newer DM-NVX-E30 (encoder, firmware 7.1.5259.00059) + DM-NVX-D30 (decoder) pair 2026-07-22: each connects, reports its DeviceMode, and presents the matching role surface. The E20/E30 are transmit-only and the D200/D30 receive-only; combo 35x/36x units flip via DeviceMode and expose whichever surface is active. Current firmware requires an admin account (use the Set Up NVX wizard on a factory-fresh unit)."
+          "notes": "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), firmware 7.1.5259, 2026-07-15. Re-verified on the newer DM-NVX-E30 (encoder, firmware 7.1.5259.00059) + DM-NVX-D30 (decoder) pair 2026-07-22: each connects, reports its DeviceMode, and presents the matching role surface. The E20/E30 are transmit-only and the D200/D30 receive-only; combo 35x/36x units flip via DeviceMode and expose whichever surface is active. Changes on the endpoint arrive on its long poll, verified on the D30 (firmware 7.0.5057.00023) 2026-10-11. Current firmware requires an admin account (use the Set Up NVX wizard on a factory-fresh unit)."
         }
       ]
     },
@@ -4849,7 +4849,7 @@
         {
           "id": "crestron_nvx",
           "confidence": "full",
-          "notes": "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), firmware 7.1.5259, 2026-07-15. Re-verified on the newer DM-NVX-E30 (encoder, firmware 7.1.5259.00059) + DM-NVX-D30 (decoder) pair 2026-07-22: each connects, reports its DeviceMode, and presents the matching role surface. The E20/E30 are transmit-only and the D200/D30 receive-only; combo 35x/36x units flip via DeviceMode and expose whichever surface is active. Current firmware requires an admin account (use the Set Up NVX wizard on a factory-fresh unit)."
+          "notes": "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), firmware 7.1.5259, 2026-07-15. Re-verified on the newer DM-NVX-E30 (encoder, firmware 7.1.5259.00059) + DM-NVX-D30 (decoder) pair 2026-07-22: each connects, reports its DeviceMode, and presents the matching role surface. The E20/E30 are transmit-only and the D200/D30 receive-only; combo 35x/36x units flip via DeviceMode and expose whichever surface is active. Changes on the endpoint arrive on its long poll, verified on the D30 (firmware 7.0.5057.00023) 2026-10-11. Current firmware requires an admin account (use the Set Up NVX wizard on a factory-fresh unit)."
         }
       ]
     },
@@ -4861,7 +4861,7 @@
         {
           "id": "crestron_nvx",
           "confidence": "full",
-          "notes": "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), firmware 7.1.5259, 2026-07-15. Re-verified on the newer DM-NVX-E30 (encoder, firmware 7.1.5259.00059) + DM-NVX-D30 (decoder) pair 2026-07-22: each connects, reports its DeviceMode, and presents the matching role surface. The E20/E30 are transmit-only and the D200/D30 receive-only; combo 35x/36x units flip via DeviceMode and expose whichever surface is active. Current firmware requires an admin account (use the Set Up NVX wizard on a factory-fresh unit)."
+          "notes": "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), firmware 7.1.5259, 2026-07-15. Re-verified on the newer DM-NVX-E30 (encoder, firmware 7.1.5259.00059) + DM-NVX-D30 (decoder) pair 2026-07-22: each connects, reports its DeviceMode, and presents the matching role surface. The E20/E30 are transmit-only and the D200/D30 receive-only; combo 35x/36x units flip via DeviceMode and expose whichever surface is active. Changes on the endpoint arrive on its long poll, verified on the D30 (firmware 7.0.5057.00023) 2026-10-11. Current firmware requires an admin account (use the Set Up NVX wizard on a factory-fresh unit)."
         }
       ]
     },
@@ -4873,7 +4873,7 @@
         {
           "id": "crestron_nvx",
           "confidence": "full",
-          "notes": "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), firmware 7.1.5259, 2026-07-15. Re-verified on the newer DM-NVX-E30 (encoder, firmware 7.1.5259.00059) + DM-NVX-D30 (decoder) pair 2026-07-22: each connects, reports its DeviceMode, and presents the matching role surface. The E20/E30 are transmit-only and the D200/D30 receive-only; combo 35x/36x units flip via DeviceMode and expose whichever surface is active. Current firmware requires an admin account (use the Set Up NVX wizard on a factory-fresh unit)."
+          "notes": "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), firmware 7.1.5259, 2026-07-15. Re-verified on the newer DM-NVX-E30 (encoder, firmware 7.1.5259.00059) + DM-NVX-D30 (decoder) pair 2026-07-22: each connects, reports its DeviceMode, and presents the matching role surface. The E20/E30 are transmit-only and the D200/D30 receive-only; combo 35x/36x units flip via DeviceMode and expose whichever surface is active. Changes on the endpoint arrive on its long poll, verified on the D30 (firmware 7.0.5057.00023) 2026-10-11. Current firmware requires an admin account (use the Set Up NVX wizard on a factory-fresh unit)."
         }
       ]
     },
@@ -4885,7 +4885,7 @@
         {
           "id": "crestron_nvx",
           "confidence": "full",
-          "notes": "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), firmware 7.1.5259, 2026-07-15. Re-verified on the newer DM-NVX-E30 (encoder, firmware 7.1.5259.00059) + DM-NVX-D30 (decoder) pair 2026-07-22: each connects, reports its DeviceMode, and presents the matching role surface. The E20/E30 are transmit-only and the D200/D30 receive-only; combo 35x/36x units flip via DeviceMode and expose whichever surface is active. Current firmware requires an admin account (use the Set Up NVX wizard on a factory-fresh unit)."
+          "notes": "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), firmware 7.1.5259, 2026-07-15. Re-verified on the newer DM-NVX-E30 (encoder, firmware 7.1.5259.00059) + DM-NVX-D30 (decoder) pair 2026-07-22: each connects, reports its DeviceMode, and presents the matching role surface. The E20/E30 are transmit-only and the D200/D30 receive-only; combo 35x/36x units flip via DeviceMode and expose whichever surface is active. Changes on the endpoint arrive on its long poll, verified on the D30 (firmware 7.0.5057.00023) 2026-10-11. Current firmware requires an admin account (use the Set Up NVX wizard on a factory-fresh unit)."
         }
       ]
     },
@@ -4897,7 +4897,7 @@
         {
           "id": "crestron_nvx",
           "confidence": "full",
-          "notes": "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), firmware 7.1.5259, 2026-07-15. Re-verified on the newer DM-NVX-E30 (encoder, firmware 7.1.5259.00059) + DM-NVX-D30 (decoder) pair 2026-07-22: each connects, reports its DeviceMode, and presents the matching role surface. The E20/E30 are transmit-only and the D200/D30 receive-only; combo 35x/36x units flip via DeviceMode and expose whichever surface is active. Current firmware requires an admin account (use the Set Up NVX wizard on a factory-fresh unit)."
+          "notes": "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), firmware 7.1.5259, 2026-07-15. Re-verified on the newer DM-NVX-E30 (encoder, firmware 7.1.5259.00059) + DM-NVX-D30 (decoder) pair 2026-07-22: each connects, reports its DeviceMode, and presents the matching role surface. The E20/E30 are transmit-only and the D200/D30 receive-only; combo 35x/36x units flip via DeviceMode and expose whichever surface is active. Changes on the endpoint arrive on its long poll, verified on the D30 (firmware 7.0.5057.00023) 2026-10-11. Current firmware requires an admin account (use the Set Up NVX wizard on a factory-fresh unit)."
         }
       ]
     },
@@ -4909,7 +4909,7 @@
         {
           "id": "crestron_nvx",
           "confidence": "full",
-          "notes": "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), firmware 7.1.5259, 2026-07-15. Re-verified on the newer DM-NVX-E30 (encoder, firmware 7.1.5259.00059) + DM-NVX-D30 (decoder) pair 2026-07-22: each connects, reports its DeviceMode, and presents the matching role surface. The E20/E30 are transmit-only and the D200/D30 receive-only; combo 35x/36x units flip via DeviceMode and expose whichever surface is active. Current firmware requires an admin account (use the Set Up NVX wizard on a factory-fresh unit)."
+          "notes": "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), firmware 7.1.5259, 2026-07-15. Re-verified on the newer DM-NVX-E30 (encoder, firmware 7.1.5259.00059) + DM-NVX-D30 (decoder) pair 2026-07-22: each connects, reports its DeviceMode, and presents the matching role surface. The E20/E30 are transmit-only and the D200/D30 receive-only; combo 35x/36x units flip via DeviceMode and expose whichever surface is active. Changes on the endpoint arrive on its long poll, verified on the D30 (firmware 7.0.5057.00023) 2026-10-11. Current firmware requires an admin account (use the Set Up NVX wizard on a factory-fresh unit)."
         }
       ]
     },
@@ -4921,7 +4921,7 @@
         {
           "id": "crestron_nvx",
           "confidence": "full",
-          "notes": "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), firmware 7.1.5259, 2026-07-15. Re-verified on the newer DM-NVX-E30 (encoder, firmware 7.1.5259.00059) + DM-NVX-D30 (decoder) pair 2026-07-22: each connects, reports its DeviceMode, and presents the matching role surface. The E20/E30 are transmit-only and the D200/D30 receive-only; combo 35x/36x units flip via DeviceMode and expose whichever surface is active. Current firmware requires an admin account (use the Set Up NVX wizard on a factory-fresh unit)."
+          "notes": "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), firmware 7.1.5259, 2026-07-15. Re-verified on the newer DM-NVX-E30 (encoder, firmware 7.1.5259.00059) + DM-NVX-D30 (decoder) pair 2026-07-22: each connects, reports its DeviceMode, and presents the matching role surface. The E20/E30 are transmit-only and the D200/D30 receive-only; combo 35x/36x units flip via DeviceMode and expose whichever surface is active. Changes on the endpoint arrive on its long poll, verified on the D30 (firmware 7.0.5057.00023) 2026-10-11. Current firmware requires an admin account (use the Set Up NVX wizard on a factory-fresh unit)."
         }
       ]
     },
@@ -4933,7 +4933,7 @@
         {
           "id": "crestron_nvx",
           "confidence": "full",
-          "notes": "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), firmware 7.1.5259, 2026-07-15. Re-verified on the newer DM-NVX-E30 (encoder, firmware 7.1.5259.00059) + DM-NVX-D30 (decoder) pair 2026-07-22: each connects, reports its DeviceMode, and presents the matching role surface. The E20/E30 are transmit-only and the D200/D30 receive-only; combo 35x/36x units flip via DeviceMode and expose whichever surface is active. Current firmware requires an admin account (use the Set Up NVX wizard on a factory-fresh unit)."
+          "notes": "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), firmware 7.1.5259, 2026-07-15. Re-verified on the newer DM-NVX-E30 (encoder, firmware 7.1.5259.00059) + DM-NVX-D30 (decoder) pair 2026-07-22: each connects, reports its DeviceMode, and presents the matching role surface. The E20/E30 are transmit-only and the D200/D30 receive-only; combo 35x/36x units flip via DeviceMode and expose whichever surface is active. Changes on the endpoint arrive on its long poll, verified on the D30 (firmware 7.0.5057.00023) 2026-10-11. Current firmware requires an admin account (use the Set Up NVX wizard on a factory-fresh unit)."
         }
       ]
     },
@@ -4945,7 +4945,7 @@
         {
           "id": "crestron_nvx",
           "confidence": "full",
-          "notes": "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), firmware 7.1.5259, 2026-07-15. Re-verified on the newer DM-NVX-E30 (encoder, firmware 7.1.5259.00059) + DM-NVX-D30 (decoder) pair 2026-07-22: each connects, reports its DeviceMode, and presents the matching role surface. The E20/E30 are transmit-only and the D200/D30 receive-only; combo 35x/36x units flip via DeviceMode and expose whichever surface is active. Current firmware requires an admin account (use the Set Up NVX wizard on a factory-fresh unit)."
+          "notes": "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), firmware 7.1.5259, 2026-07-15. Re-verified on the newer DM-NVX-E30 (encoder, firmware 7.1.5259.00059) + DM-NVX-D30 (decoder) pair 2026-07-22: each connects, reports its DeviceMode, and presents the matching role surface. The E20/E30 are transmit-only and the D200/D30 receive-only; combo 35x/36x units flip via DeviceMode and expose whichever surface is active. Changes on the endpoint arrive on its long poll, verified on the D30 (firmware 7.0.5057.00023) 2026-10-11. Current firmware requires an admin account (use the Set Up NVX wizard on a factory-fresh unit)."
         }
       ]
     },

@@ -99,7 +99,9 @@ def _import_platform() -> tuple[dict, str]:
                 DEFAULT_MAX_BUFFER, CallableFrameParser, DelimiterFrameParser,
                 FrameParser,
             )
-            from openavc.simulator.base import BaseSimulator      # noqa: PLC0415
+            from openavc.simulator.base import (           # noqa: PLC0415
+                BUILTIN_ERROR_MODES, BaseSimulator,
+            )
             from openavc.simulator.http_simulator import HTTPSimulator  # noqa: PLC0415
             from openavc.simulator.tcp_simulator import TCPSimulator  # noqa: PLC0415
             from openavc.simulator.udp_simulator import UDPSimulator  # noqa: PLC0415
@@ -121,6 +123,7 @@ def _import_platform() -> tuple[dict, str]:
         "DelimiterFrameParser": DelimiterFrameParser,
         "DEFAULT_MAX_BUFFER": DEFAULT_MAX_BUFFER,
         "BaseSimulator": BaseSimulator,
+        "BUILTIN_ERROR_MODES": BUILTIN_ERROR_MODES,
         "TCPSimulator": TCPSimulator,
         "HTTPSimulator": HTTPSimulator,
         "UDPSimulator": UDPSimulator,
@@ -385,6 +388,7 @@ def test_fault_codes_match_the_platform():
 
 def test_shared_constants_match():
     assert stubs.DEFAULT_MAX_BUFFER == PLATFORM["DEFAULT_MAX_BUFFER"]
+    assert stubs.BUILTIN_ERROR_MODES == PLATFORM["BUILTIN_ERROR_MODES"]
     assert stubs.STRICT_DRIVER_STATE_ENV == "OPENAVC_STRICT_DRIVER_STATE"
 
 
@@ -900,3 +904,53 @@ def test_simulator_unknown_error_mode_is_ignored_not_raised():
         assert sim.has_error_behavior("no_response") is True
         sim.clear_error("no_reply")
         assert sim.has_error_behavior("no_response") is False
+
+
+@pytest.mark.parametrize("declared", [
+    {},
+    {"lamp_warning": {"description": "Lamp warning", "set_state": {"lamp": 1}}},
+    {"communication_timeout": {"behavior": "no_response",
+                               "description": "Widget stops responding"}},
+    {"hung": {"behavior": "no_response", "description": "Widget hangs"}},
+], ids=["none", "state_only", "same_name", "other_no_response"])
+def test_simulator_offers_the_same_error_modes(declared):
+    """Every simulator offers a stops-responding mode its driver need not
+    declare; a driver that declares one keeps its own. A stub that offered
+    only the declared modes would fail a driver test that injects the one
+    the platform always has."""
+    info = {"driver_id": "acme_widget", "initial_state": {},
+            "error_modes": declared}
+    stub_sim = type("StubSim", (stubs.StubBaseSimulator,),
+                    {"SIMULATOR_INFO": info})("sim1")
+    real_sim = type("RealSim", (PLATFORM["TCPSimulator"],), {
+        "SIMULATOR_INFO": info,
+        "handle_command": lambda self, data: None,
+    })("sim1")
+
+    assert stub_sim.available_errors == real_sim.available_errors
+    for sim in (stub_sim, real_sim):
+        sim.inject_error("communication_timeout")
+    assert stub_sim.active_errors == real_sim.active_errors
+    assert (stub_sim.has_error_behavior("no_response")
+            == real_sim.has_error_behavior("no_response"))
+
+
+def test_a_simulator_that_stops_responding_pushes_nothing():
+    import asyncio
+
+    class _Target:
+        def __init__(self):
+            self.got: list[bytes] = []
+
+        def deliver(self, data):
+            self.got.append(data)
+
+    sim = stubs.StubTCPSimulator("sim1")
+    target = _Target()
+    sim.push_targets.append(target)
+    sim.inject_error("communication_timeout")
+    asyncio.run(sim.push(b"NOTIFY\r"))
+    assert target.got == []
+    sim.clear_error("communication_timeout")
+    asyncio.run(sim.push(b"NOTIFY\r"))
+    assert target.got == [b"NOTIFY\r"]

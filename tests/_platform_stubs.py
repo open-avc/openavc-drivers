@@ -1060,6 +1060,16 @@ class StubBaseDriver:
 
 # ── Simulators ──────────────────────────────────────────────────────────────
 
+#: Mirrors ``openavc.simulator.base.BUILTIN_ERROR_MODES``: the mode every
+#: simulator offers without its driver declaring it.
+BUILTIN_ERROR_MODES: dict[str, dict] = {
+    "communication_timeout": {
+        "behavior": "no_response",
+        "description": "Device stops responding",
+    },
+}
+
+
 class StubBaseSimulator:
     """Stand-in for ``openavc.simulator.base.BaseSimulator``.
 
@@ -1102,16 +1112,30 @@ class StubBaseSimulator:
 
     @property
     def available_errors(self) -> dict[str, dict]:
-        return dict(self._error_modes)
+        return self._offered_error_modes()
+
+    def _offered_error_modes(self) -> dict[str, dict]:
+        # The built-in modes join unless a declared mode already stops the
+        # device responding.
+        modes = dict(self._error_modes)
+        if any(
+            isinstance(m, dict) and m.get("behavior") == "no_response"
+            for m in modes.values()
+        ):
+            return modes
+        for name, mode in BUILTIN_ERROR_MODES.items():
+            modes.setdefault(name, {**mode, "builtin": True})
+        return modes
 
     def inject_error(self, mode: str) -> None:
         # Unknown mode warns and returns; the real base does not raise, and a
         # stub that did would fail a test the platform would let through.
-        if mode not in self._error_modes:
+        modes = self._offered_error_modes()
+        if mode not in modes:
             log.warning("Unknown error mode '%s' on %s", mode, self.device_id)
             return
         self._active_errors.add(mode)
-        for key, value in self._error_modes[mode].get("set_state", {}).items():
+        for key, value in modes[mode].get("set_state", {}).items():
             self.set_state(key, value)
 
     def clear_error(self, mode: str) -> None:
@@ -1121,10 +1145,15 @@ class StubBaseSimulator:
         self._active_errors.clear()
 
     def has_error_behavior(self, behavior: str) -> bool:
+        modes = self._offered_error_modes()
         return any(
-            self._error_modes.get(mode, {}).get("behavior") == behavior
+            modes.get(mode, {}).get("behavior") == behavior
             for mode in self._active_errors
         )
+
+    @property
+    def _silenced(self) -> bool:
+        return self.has_error_behavior("no_response")
 
     def log_protocol(self, direction: str, data: bytes | str,
                      client_id: str = "") -> None:
@@ -1161,6 +1190,10 @@ class StubTCPSimulator(StubBaseSimulator):
         return None
 
     async def push(self, data: bytes) -> None:
+        # Nothing goes out while the device is not responding, as on the
+        # platform.
+        if self._silenced:
+            return
         for target in list(self.push_targets):
             result = target.deliver(data)
             if hasattr(result, "__await__"):

@@ -247,15 +247,11 @@ The state machine's current state is stored as a state variable with the machine
 
 ### Error Modes
 
-Define error conditions that can be toggled on/off from the Simulator UI:
+Every simulator offers `communication_timeout` ("Device stops responding", behavior `no_response`) without declaring it. Define the error conditions particular to your device, to toggle on and off from the Simulator UI:
 
 ```yaml
 simulator:
   error_modes:
-    communication_timeout:
-      description: "Device stops responding to commands"
-      behavior: no_response
-
     garbled_response:
       description: "Corrupted data on the wire"
       behavior: corrupt_response
@@ -273,10 +269,10 @@ simulator:
 
 | Behavior | Effect |
 |----------|--------|
-| `no_response` | Simulator stops replying (tests timeout handling) |
+| `no_response` | Simulator sends nothing: no replies, no greeting or login prompt, no unsolicited updates (tests timeout and offline handling) |
 | `corrupt_response` | Random byte corruption in responses |
 
-Only the two values above are wired into the simulator transports. Error modes without a `behavior` field — or with an unrecognized value — only apply `set_state` changes. That's useful for simulating device-reported conditions (lamp warnings, temperature alerts) that change the device's status responses without affecting the wire-level transport.
+Declaring a mode with `no_response` (to give it the device's own wording, say) replaces the built-in `communication_timeout`, so the device never lists the same failure twice. Only the two values above are wired into the simulator transports. Error modes without a `behavior` field — or with an unrecognized value — only apply `set_state` changes. That's useful for simulating device-reported conditions (lamp warnings, temperature alerts) that change the device's status responses without affecting the wire-level transport.
 
 If you want to test TCP connection drops, use the **Network Conditions** controls in the Simulator UI (instability presets) rather than an error mode — connection-drop behavior lives in the network-conditions layer, not in `error_modes`.
 
@@ -316,9 +312,6 @@ simulator:
       respond: "Spr{1}\r\n"
 
   error_modes:
-    communication_timeout:
-      description: "Device stops responding to commands"
-      behavior: no_response
     garbled_response:
       description: "Corrupted serial data on the wire"
       behavior: corrupt_response
@@ -1185,7 +1178,7 @@ FAIL: biamp_tesira_ttp [yaml] (../openavc-drivers/audio/biamp_tesira_ttp.avcdriv
 
 2. **Match real device behavior.** Study the device's protocol manual. If the device takes 3 seconds to warm up, your simulator should too. If the device rejects input changes when powered off, your simulator should too.
 
-3. **Include error modes.** Every real device can fail. Add at least a `communication_timeout` error mode so users can test their timeout handling.
+3. **Include error modes.** Every real device can fail. `communication_timeout` is already there; add the failures particular to the device (a lamp warning, an overtemperature, a corrupted reply).
 
 4. **Use realistic initial state.** Don't start with everything at zero. A real projector has lamp hours, a real display has a default volume, a real switcher has input 1 selected.
 

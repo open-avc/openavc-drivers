@@ -2819,7 +2819,7 @@
       "name": "Crestron 1 Beyond Camera",
       "manufacturer": "Crestron",
       "category": "camera",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Crestron 1 Beyond IV-CAM cameras (I12, I20, P12, P20 and I12D-B) over VISCA on TCP 5500 or RS-232 / RS-485. Power and Privacy Mode, pan / tilt / zoom / focus, presets, exposure and white balance, tracking and the intelligent modes through the camera's reserved presets, the lightbar, mount mode, and the Intelligent Switching host commands. Publishes each camera's RTSP feeds for the Video Panel.",
@@ -2827,7 +2827,7 @@
       "file": "cameras/crestron_1beyond_camera.py",
       "format": "python",
       "files": {
-        "cameras/crestron_1beyond_camera.py": "fd00ffc0930b9eb24c51be7e776a98e9f8c8bf04791338cd47c1d9f183e9d0fa",
+        "cameras/crestron_1beyond_camera.py": "e78354f8f21704b0b744f2248423b12fb7a6044b45f03fc1d8eb4e6f61b979e0",
         "cameras/crestron_1beyond_camera_sim.py": "aec48243d3da925ed83318c908f5acacc9826c4ca6e45a9a6f5615a931cdb325"
       },
       "ports": [
@@ -2851,7 +2851,7 @@
       ],
       "help": {
         "overview": "Crestron 1 Beyond IV-CAM cameras over VISCA. Set Model to the camera in hand: the commands offered follow it. Power Off puts the camera in Privacy Mode (video output off, lightbar half red) and Power On wakes it; Crestron's manual says to send Power On before any other command. Start Tracking and Pause Tracking run the intelligent camera's Group Framing or Presenter Tracking, whichever mode Camera Manager set. The camera is polled every few seconds; it does not report changes on its own.",
-        "setup": "1. Network: add the camera's IP address. VISCA control uses TCP port 5500.\n2. Serial: wire the RS-232 / RS-485 terminal block and use 9600 baud (the camera's OSD can set 2400 to 38400).\n3. Set Camera Address to the address in the camera's OSD (System > Address, 1 by default).\n4. Set the Home Shot and Tracking Shot (presets 0 and 1) on an intelligent camera before using tracking.\n5. Video Panel: set the Camera Password (the one set in Camera Manager) and turn on Login in Stream Address to play the RTSP feeds, or add the stream under Video Streams with its login."
+        "setup": "1. Set Model to the camera in hand (the label on the camera or its box).\n2. Network: add the camera's IP address. VISCA control uses TCP port 5500.\n3. Serial: wire the RS-232 / RS-485 terminal block and use 9600 baud (the camera's OSD can set 2400 to 38400).\n4. Set Camera Address to the address in the camera's OSD (System > Address, 1 by default).\n5. Set the Home Shot and Tracking Shot (presets 0 and 1) on an intelligent camera before using tracking.\n6. Video Panel: set the Camera Password (the one set in Camera Manager) and turn on Login in Stream Address to play the RTSP feeds, or add the stream under Video Streams with its login."
       },
       "compatible_models": [
         {

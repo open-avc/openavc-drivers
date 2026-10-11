@@ -24,7 +24,9 @@ What it adds over the generic VISCA drivers
 One driver for the whole line, narrowed by the Model setting: the camera
 cannot say which model it is in a form the document decodes (CAM_VersionInq
 returns a model code with no table), so the integrator picks it and the
-instance offers only that model's commands and settings.
+instance offers only that model's commands and settings. Model has no
+default: a camera with none set does not connect (``invalid_config``),
+because any default would be wrong for four models out of five.
 
 Why Python
 ----------
@@ -73,7 +75,7 @@ import ipaddress
 from typing import Any
 from urllib.parse import quote
 
-from openavc.drivers.base import BaseDriver
+from openavc.drivers.base import BaseDriver, ConnectionFaultError
 from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -345,7 +347,7 @@ class CrestronOneBeyondCameraDriver(BaseDriver):
         "name": "Crestron 1 Beyond Camera",
         "manufacturer": "Crestron",
         "category": "camera",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         "min_platform_version": "0.36.0",
         "description": (
@@ -426,15 +428,17 @@ class CrestronOneBeyondCameraDriver(BaseDriver):
                 "few seconds; it does not report changes on its own."
             ),
             "setup": (
-                "1. Network: add the camera's IP address. VISCA control uses TCP "
+                "1. Set Model to the camera in hand (the label on the camera or "
+                "its box).\n"
+                "2. Network: add the camera's IP address. VISCA control uses TCP "
                 "port 5500.\n"
-                "2. Serial: wire the RS-232 / RS-485 terminal block and use 9600 "
+                "3. Serial: wire the RS-232 / RS-485 terminal block and use 9600 "
                 "baud (the camera's OSD can set 2400 to 38400).\n"
-                "3. Set Camera Address to the address in the camera's OSD "
+                "4. Set Camera Address to the address in the camera's OSD "
                 "(System > Address, 1 by default).\n"
-                "4. Set the Home Shot and Tracking Shot (presets 0 and 1) on an "
+                "5. Set the Home Shot and Tracking Shot (presets 0 and 1) on an "
                 "intelligent camera before using tracking.\n"
-                "5. Video Panel: set the Camera Password (the one set in Camera "
+                "6. Video Panel: set the Camera Password (the one set in Camera "
                 "Manager) and turn on Login in Stream Address to play the RTSP "
                 "feeds, or add the stream under Video Streams with its login."
             ),
@@ -442,7 +446,7 @@ class CrestronOneBeyondCameraDriver(BaseDriver):
         "default_config": {
             "host": "",
             "port": 5500,
-            "model": "i12",
+            "model": "",
             "camera_address": 1,
             "pan_speed": 12,
             "tilt_speed": 10,
@@ -464,7 +468,7 @@ class CrestronOneBeyondCameraDriver(BaseDriver):
                 "description": "5500 unless it was changed in Camera Manager (Advanced Settings > Control Port).",
             },
             "model": {
-                "type": "enum", "default": "i12", "label": "Model",
+                "type": "enum", "required": True, "label": "Model",
                 "values": [
                     {"value": "i12", "label": "IV-CAM-I12 (intelligent, 12x)"},
                     {"value": "i20", "label": "IV-CAM-I20 (intelligent, 20x)"},
@@ -472,7 +476,7 @@ class CrestronOneBeyondCameraDriver(BaseDriver):
                     {"value": "p20", "label": "IV-CAM-P20 (PTZ, 20x)"},
                     {"value": "i12d", "label": "IV-CAM-I12D-B (dual PTZ, speaker tracking)"},
                 ],
-                "help": "The camera model. The commands and settings offered follow it.",
+                "help": "The camera model. The commands and settings offered follow it, and the camera does not connect until it is set.",
             },
             "camera_address": {
                 "type": "integer", "default": 1, "min": 1, "max": 7,
@@ -1206,8 +1210,10 @@ class CrestronOneBeyondCameraDriver(BaseDriver):
 
     @property
     def _model(self) -> str:
-        model = str(self.config.get("model") or "i12").strip().lower()
-        return model if model in _MODELS else "i12"
+        """The picked model, or "" when none is set (the camera then offers
+        the full declaration and does not connect)."""
+        model = str(self.config.get("model") or "").strip().lower()
+        return model if model in _MODELS else ""
 
     def _switching_host(self) -> bool:
         return self._model in _SWITCHING_HOSTS and _as_bool(self.config.get("switching_host", False))
@@ -1224,6 +1230,9 @@ class CrestronOneBeyondCameraDriver(BaseDriver):
         """Offer only the picked model's commands and settings."""
         base = type(self).DRIVER_INFO
         model = self._model
+        if not model:
+            self.DRIVER_INFO = base
+            return
         commands: dict[str, Any] = {}
         for command_id, cdef in base["commands"].items():
             if not self._offers(command_id):
@@ -1272,6 +1281,13 @@ class CrestronOneBeyondCameraDriver(BaseDriver):
         return b"\xff"
 
     # ── Connection lifecycle ──
+
+    async def _pre_connect(self) -> None:
+        if not self._model:
+            raise ConnectionFaultError(
+                "Set Model to the camera's model (I12, I20, P12, P20 or I12D-B).",
+                code="invalid_config",
+            )
 
     async def _initial_sync(self) -> None:
         self._lock = asyncio.Lock()
@@ -1458,7 +1474,7 @@ class CrestronOneBeyondCameraDriver(BaseDriver):
         return bytes([max(1, min(0x18, int(pan))), max(1, min(0x14, int(tilt)))])
 
     def _check_preset(self, number: int, action: str) -> None:
-        reserved = _RESERVED[self._model]
+        reserved = _RESERVED.get(self._model, frozenset())
         if action == "recall" and number == 99:
             raise ValueError("Preset 99 restarts the camera. Use Reboot.")
         if action != "recall" and number in reserved:

@@ -105,6 +105,9 @@ _CONFIG: dict[str, dict] = {
     # is auth_failed before any request); its sim accepts anything but
     # "invalid" and serves HTTPS with its own certificate.
     "sennheiser_tccm": {"password": "smokepw"},
+    # Model has no default (any default is wrong for four models of five), and
+    # a camera with none set refuses to connect as invalid_config.
+    "crestron_1beyond_camera": {"model": "i12"},
 }
 
 

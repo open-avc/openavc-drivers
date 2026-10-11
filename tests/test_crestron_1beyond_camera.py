@@ -759,6 +759,35 @@ def test_a_late_completion_or_another_sockets_error_does_not_answer_an_inquiry()
 # Narrowing by model
 # --------------------------------------------------------------------------
 
+def test_model_has_no_default_and_is_required():
+    field = INFO["config_schema"]["model"]
+    assert field["required"] is True
+    assert "default" not in field
+    assert INFO["default_config"]["model"] == ""
+
+
+@pytest.mark.parametrize("model", ["", "x99"])
+def test_a_camera_with_no_model_does_not_connect_and_says_why(model):
+    async def run():
+        driver = DRV.CrestronOneBeyondCameraDriver(
+            "cam", {"host": "10.0.0.20", "port": 5500, "model": model}, StubState(), StubEvents(),
+        )
+        with pytest.raises(DRV.ConnectionFaultError) as caught:
+            await driver._pre_connect()
+        assert caught.value.fault_code == "invalid_config"
+        assert "Set Model" in str(caught.value)
+        # Until a model is picked the full declaration is offered.
+        assert driver.DRIVER_INFO is INFO
+    asyncio.run(run())
+
+
+def test_a_picked_model_connects():
+    async def run():
+        driver, _ = make("p20")
+        await driver._pre_connect()
+    asyncio.run(run())
+
+
 def commands_of(model, **config):
     driver, _ = make(model, **config)
     return set(driver.DRIVER_INFO["commands"])

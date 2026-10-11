@@ -155,7 +155,8 @@ def _closest_name(name: str, candidates: set[str]) -> str | None:
 
 
 def _unresolved_substitutions(
-    where: str, template: Any, resolvable: set[str], sources: str
+    where: str, template: Any, resolvable: set[str], sources: str,
+    effect: str = "it would be sent to the device as written",
 ) -> list[str]:
     """Report ``{name}`` tokens in one template that resolve to nothing.
 
@@ -168,7 +169,8 @@ def _unresolved_substitutions(
 
     ``sources`` names what this template is allowed to interpolate, because
     that differs by position — a command sees its own params and the config, a
-    response pattern is matched long after any params are gone.
+    response pattern is matched long after any params are gone. ``effect`` is
+    what the unresolved token would do there.
     """
     if not isinstance(template, str):
         return []
@@ -180,8 +182,8 @@ def _unresolved_substitutions(
         suggestion = _closest_name(name, resolvable)
         hint = f" (did you mean '{suggestion}'?)" if suggestion else ""
         errors.append(
-            f"{where}: '{{{name}}}' resolves to nothing{hint} — it names "
-            f"{sources}, so it would go to the device literally"
+            f"{where}: '{{{name}}}' resolves to nothing{hint}. It names "
+            f"{sources}, so {effect}"
         )
     return errors
 
@@ -269,6 +271,7 @@ def validate_substitutions(driver_def: dict[str, Any]) -> list[str]:
                         response.get("match"),
                         config_names,
                         _CFG_SOURCES,
+                        effect="the pattern would look for it as written",
                     )
                 )
 
@@ -657,7 +660,7 @@ def unknown_key_errors(driver_def: dict[str, Any]) -> list[str]:
                 if not isinstance(key, str):
                     where = f"{loc}: " if loc else ""
                     errors.append(
-                        f"{where}name '{key}' is not text — YAML reads bare "
+                        f"{where}name '{key}' is not text. YAML reads bare "
                         f"on/off/yes/no/true/false as booleans and bare "
                         f"digits as numbers. Put it in quotes."
                     )
@@ -753,7 +756,7 @@ def platform_version_errors(
         return []
     return [
         f'min_platform_version is "{declared}", but this driver uses {named}, '
-        f'which needs platform {floor}. Raise it to "{floor}" — or drop '
+        f'which needs platform {floor}. Raise it to "{floor}", or drop '
         f"{them} if the driver has to keep installing on {declared}."
     ]
 
@@ -896,17 +899,17 @@ def validate_driver_definition(
         if resp.get("after_json"):
             if resp.get("json"):
                 errors.append(
-                    f"Response {i}: after_json applies to regex rules — a "
+                    f"Response {i}: after_json applies to regex rules; a "
                     f"json: true rule already reads the body"
                 )
             elif "address" in resp:
                 errors.append(
-                    f"Response {i}: after_json applies to regex rules — an "
+                    f"Response {i}: after_json applies to regex rules; an "
                     f"OSC address rule never runs after a json rule"
                 )
             elif not any_json_rule:
                 errors.append(
-                    f"Response {i}: after_json has no effect — no response "
+                    f"Response {i}: after_json has no effect: no response "
                     f"rule in this driver is json: true"
                 )
         # A `set:` value on a regex or OSC rule is a capture reference ("$1")
@@ -1022,7 +1025,7 @@ def validate_driver_definition(
                                             break
                     elif isinstance(cid, str) and cid.startswith("$"):
                         errors.append(
-                            f"{where}: OSC rules have no capture groups — "
+                            f"{where}: OSC rules have no capture groups; "
                             f"use {{segment: N}} for the id, {{arg: N}} for "
                             f"values"
                         )
@@ -1042,7 +1045,7 @@ def validate_driver_definition(
                             )
                         if isinstance(expr, str) and expr.startswith("$"):
                             errors.append(
-                                f"{where}: state '{prop}' — OSC rules have "
+                                f"{where}: state '{prop}': OSC rules have "
                                 f"no capture groups; use {{arg: N}}"
                             )
                         elif isinstance(expr, dict):
@@ -1123,7 +1126,7 @@ def validate_driver_definition(
                     cid = entry.get("id")
                     if cid is None:
                         errors.append(
-                            f"{where}: missing 'id' (a literal child id — a "
+                            f"{where}: missing 'id' (a literal child id: a "
                             f"json body has no captures to route on, so write "
                             f"one entry per child)"
                         )
@@ -1132,7 +1135,7 @@ def validate_driver_definition(
                     ):
                         errors.append(
                             f"{where}: a json rule has no captures or address "
-                            f"segments — id must be a literal child id "
+                            f"segments, so id must be a literal child id "
                             f"(got {cid!r})"
                         )
                     elif isinstance(cid, bool) or not isinstance(cid, (str, int)):
@@ -1176,7 +1179,7 @@ def validate_driver_definition(
                                 errors.append(
                                     f"{where}: state '{prop}' has "
                                     f"{sorted(unknown)}, which a json rule "
-                                    f"does not read — the spec is "
+                                    f"does not read; the spec is "
                                     f"{{key, type, map, contains}}"
                                 )
                             errors.extend(
@@ -1184,7 +1187,7 @@ def validate_driver_definition(
                             )
                         elif isinstance(expr, str) and expr.startswith("$"):
                             errors.append(
-                                f"{where}: state '{prop}' — a json rule has "
+                                f"{where}: state '{prop}': a json rule has "
                                 f"no capture groups; use a JSON path"
                             )
                         elif not isinstance(expr, str) or not expr.strip():
@@ -1496,7 +1499,7 @@ def validate_driver_definition(
             write = setting_def.get("write")
             if not isinstance(write, dict):
                 errors.append(
-                    f"{where}: missing 'write' block (send / path / address) — "
+                    f"{where}: missing 'write' block (send / path / address); "
                     f"a device setting must be writable"
                 )
             elif write.get("address") is not None:
@@ -1941,7 +1944,7 @@ def validate_driver_definition(
             send = liveness_def.get("send")
             if not isinstance(send, str) or not send:
                 errors.append(
-                    "liveness: missing required 'send' (the probe payload — "
+                    "liveness: missing required 'send' (the probe payload: "
                     "a raw protocol string, or an OSC address on osc)"
                 )
             expect = liveness_def.get("expect")
@@ -2157,7 +2160,7 @@ def validate_driver_definition(
             if bad:
                 errors.append(
                     f"child_entity_types: type name '{child_type}' must not contain "
-                    f"glob metacharacters ({', '.join(bad)}) — they break state-change dispatch"
+                    f"glob metacharacters ({', '.join(bad)}); they break state-change dispatch"
                 )
             # Deep-validate the schema so a malformed declaration fails at
             # load with a clear message — not at connect() (a bad id_format
@@ -2333,7 +2336,7 @@ def validate_driver_definition(
                         if id_type == "string":
                             errors.append(
                                 f"{where}.instances: 'count' requires integer "
-                                f"ids (id_format.type is 'string' — use "
+                                f"ids (id_format.type is 'string'; use "
                                 f"'ids_from')"
                             )
                     else:
@@ -2353,7 +2356,7 @@ def validate_driver_definition(
                         if src_key == "count_from" and id_type == "string":
                             errors.append(
                                 f"{where}.instances: 'count_from' requires "
-                                f"integer ids (id_format.type is 'string' — "
+                                f"integer ids (id_format.type is 'string'; "
                                 f"use 'ids_from')"
                             )
                     label = instances.get("label")
@@ -2459,7 +2462,7 @@ def validate_driver_definition(
             ):
                 errors.append(
                     f"{name}[{i}]: each_child type '{ec}' declares no "
-                    f"instances: block — nothing would ever be polled"
+                    f"instances: block, so nothing would ever be polled"
                 )
             send = q.get("send")
             if not isinstance(send, str) or not send:
@@ -2479,7 +2482,7 @@ def validate_driver_definition(
         # only; an interval here would silently do nothing.
         if "interval" in polling_def:
             errors.append(
-                "polling.interval is not read by the runtime — remove the "
+                "polling.interval is not read by the runtime. Remove the "
                 "interval: key and set default_config.poll_interval instead"
             )
         _validate_each_child(
@@ -2586,7 +2589,7 @@ def routing_block_errors(driver_def: dict[str, Any]) -> list[str]:
     planes = block.get("planes")
     if not isinstance(planes, list) or not planes:
         errors.append(
-            "routing: needs a non-empty 'planes' list — the independent things "
+            "routing: needs a non-empty 'planes' list, the independent things "
             "this device routes (usually one; a decoder that routes video, "
             "audio and USB separately declares three)"
         )
@@ -2609,7 +2612,7 @@ def routing_block_errors(driver_def: dict[str, Any]) -> list[str]:
         if not isinstance(route_property, str) or not route_property:
             errors.append(
                 f"{where}: missing required 'route_property' (the property "
-                f"reporting what is routed here — without it a Matrix can "
+                f"reporting what is routed here; without it a Matrix can "
                 f"switch and can never show what is on)"
             )
             route_property = ""
@@ -2670,13 +2673,13 @@ def routing_block_errors(driver_def: dict[str, Any]) -> list[str]:
         ]
         if not command and raw.get("params") is not None:
             errors.append(
-                f"{where}: 'params' needs a 'command' to send them on — "
-                f"declare the routing command here or on the routing block"
+                f"{where}: 'params' needs a 'command' to send them on. "
+                f"Declare the routing command here or on the routing block"
             )
         elif not command and any(k in named for k in ("destination_param", "source_param")):
             errors.append(
-                f"{where}: names a routing parameter but no 'command' — "
-                f"declare the routing command here or on the routing block"
+                f"{where}: names a routing parameter but no 'command'. "
+                f"Declare the routing command here or on the routing block"
             )
 
         taken: list[str] = []
@@ -2700,7 +2703,7 @@ def routing_block_errors(driver_def: dict[str, Any]) -> list[str]:
                     errors.append(
                         f"{where}: params.{name} is already the route's "
                         f"{'destination' if name == plane.get('destination_param') else 'source'}"
-                        f" — a fixed value here would overwrite what the panel routes"
+                        f"; a fixed value here would overwrite what the panel routes"
                     )
                 elif params is not None and name not in params:
                     errors.append(
@@ -2731,7 +2734,7 @@ def routing_block_errors(driver_def: dict[str, Any]) -> list[str]:
             if key in seen:
                 errors.append(
                     f"{where}: already declared by routing.planes[{seen[key]}] "
-                    f"— two planes watching one property and routing it the same "
+                    f"; two planes watching one property and routing it the same "
                     f"way are the same matrix twice"
                 )
             else:
@@ -2812,7 +2815,7 @@ def validate_driver_warnings(driver_def: dict[str, Any]) -> list[str]:
             warnings.append(
                 f"discovery.port_open is matched against a TCP port scan, but "
                 f"this driver's transport is "
-                f"{', '.join(sorted(transports))} — the hint can never fire. "
+                f"{', '.join(sorted(transports))}, so the hint can never fire. "
                 f"Drop it, or add a transport that listens on TCP."
             )
 
@@ -3200,7 +3203,7 @@ def device_setting_state_key_errors(
         return []
     return [
         f"{where}: state_key '{state_key}' is not a declared "
-        f"state variable — the setting would never read back"
+        f"state variable, so the setting would never read back"
     ]
 
 
@@ -3367,20 +3370,20 @@ def child_param_reference_errors(
     if commands is None:
         return errors, skipped
     if not isinstance(commands, dict):
-        skipped.append("commands is computed — no command params were checked")
+        skipped.append("commands is computed, so no command params were checked")
         return errors, skipped
 
     raw_types = driver_def.get("child_entity_types")
     if raw_types is not None and not isinstance(raw_types, dict):
         skipped.append(
-            "child_entity_types is computed — no child_type reference was "
+            "child_entity_types is computed, so no child_type reference was "
             "checked"
         )
         return errors, skipped
     if UNEVALUATED_KEY in commands:
         skipped.append(
             f"{len(commands) - 1} of an unknown number of commands were "
-            f"readable — params of the rest were not checked"
+            f"readable; params of the rest were not checked"
         )
     child_types: dict[str, Any] = raw_types if isinstance(raw_types, dict) else {}
     # The type NAMES themselves were built at runtime, so "not in this map"
@@ -3414,7 +3417,7 @@ def child_param_reference_errors(
             if child_type not in child_types:
                 if types_computed:
                     skipped.append(
-                        f"{where}: child_type '{child_type}' — "
+                        f"{where}: child_type '{child_type}', because "
                         f"child_entity_types keys are computed"
                     )
                     continue
@@ -3452,13 +3455,13 @@ def _child_id_bound_errors(
     if param_min is not None and fmt_min is not None and param_min < fmt_min:
         errors.append(
             f"{where}: min {param_min:g} is below "
-            f"child_entity_types.{child_type}.id_format.min ({fmt_min:g}) — "
+            f"child_entity_types.{child_type}.id_format.min ({fmt_min:g}), so "
             f"the gate would accept an id the child type cannot have"
         )
     if param_max is not None and fmt_max is not None and param_max > fmt_max:
         errors.append(
             f"{where}: max {param_max:g} is above "
-            f"child_entity_types.{child_type}.id_format.max ({fmt_max:g}) — "
+            f"child_entity_types.{child_type}.id_format.max ({fmt_max:g}), so "
             f"the gate would accept an id the child type cannot have"
         )
     return errors

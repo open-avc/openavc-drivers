@@ -375,7 +375,7 @@ module constant, or filling them in once the device says what it supports —
 the check cannot decide that reference, so it skips it and names the skip:
 
 ```
-my_driver.py: note: cross-reference not checked — 6 action/quick_action reference(s) into commands — commands is only partly visible (15 key(s) read, the rest merged or built at runtime)
+my_driver.py: note: cross-reference not checked: 6 action/quick_action reference(s) into commands, because commands is only partly visible (15 key(s) read, the rest merged or built at runtime)
 ```
 
 That is deliberate. A subset of the target set proves nothing about what is

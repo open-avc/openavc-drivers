@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 234,
+    "total_devices": 237,
     "shards": null,
     "category": "audio"
   },
@@ -2033,7 +2033,7 @@
         {
           "id": "shure_network",
           "confidence": "untested",
-          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model. The MXA910, MXA920 (8 mic channels plus the automixer output, 9) and the ANI4IN/4OUT (4) report their model, which sets the count. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
+          "notes": "All speak the same command strings grammar. The MXA910, MXA920, MXA925, MXA320, MXA902 and ANI4IN / ANI4OUT report their model, which sets their channels: 1-8 plus the automix output 9 on the ceiling arrays (coverage areas while automatic coverage is on, lobes while it is off), microphones 1-4 plus the automix output 5 on the MXA320, and the automix output 9, loudspeaker output 10 and Dante inputs 11-12 on the MXA902. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets. Properties a model lacks answer a benign REP ERR."
         }
       ]
     },
@@ -2045,7 +2045,7 @@
         {
           "id": "shure_network",
           "confidence": "untested",
-          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model. The MXA910, MXA920 (8 mic channels plus the automixer output, 9) and the ANI4IN/4OUT (4) report their model, which sets the count. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
+          "notes": "All speak the same command strings grammar. The MXA910, MXA920, MXA925, MXA320, MXA902 and ANI4IN / ANI4OUT report their model, which sets their channels: 1-8 plus the automix output 9 on the ceiling arrays (coverage areas while automatic coverage is on, lobes while it is off), microphones 1-4 plus the automix output 5 on the MXA320, and the automix output 9, loudspeaker output 10 and Dante inputs 11-12 on the MXA902. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets. Properties a model lacks answer a benign REP ERR."
         }
       ]
     },
@@ -2057,7 +2057,19 @@
         {
           "id": "shure_network",
           "confidence": "untested",
-          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model. The MXA910, MXA920 (8 mic channels plus the automixer output, 9) and the ANI4IN/4OUT (4) report their model, which sets the count. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
+          "notes": "All speak the same command strings grammar. The MXA910, MXA920, MXA925, MXA320, MXA902 and ANI4IN / ANI4OUT report their model, which sets their channels: 1-8 plus the automix output 9 on the ceiling arrays (coverage areas while automatic coverage is on, lobes while it is off), microphones 1-4 plus the automix output 5 on the MXA320, and the automix output 9, loudspeaker output 10 and Dante inputs 11-12 on the MXA902. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets. Properties a model lacks answer a benign REP ERR."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "MXA320",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_network",
+          "confidence": "untested",
+          "notes": "All speak the same command strings grammar. The MXA910, MXA920, MXA925, MXA320, MXA902 and ANI4IN / ANI4OUT report their model, which sets their channels: 1-8 plus the automix output 9 on the ceiling arrays (coverage areas while automatic coverage is on, lobes while it is off), microphones 1-4 plus the automix output 5 on the MXA320, and the automix output 9, loudspeaker output 10 and Dante inputs 11-12 on the MXA902. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets. Properties a model lacks answer a benign REP ERR."
         }
       ]
     },
@@ -2069,7 +2081,19 @@
         {
           "id": "shure_network",
           "confidence": "untested",
-          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model. The MXA910, MXA920 (8 mic channels plus the automixer output, 9) and the ANI4IN/4OUT (4) report their model, which sets the count. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
+          "notes": "All speak the same command strings grammar. The MXA910, MXA920, MXA925, MXA320, MXA902 and ANI4IN / ANI4OUT report their model, which sets their channels: 1-8 plus the automix output 9 on the ceiling arrays (coverage areas while automatic coverage is on, lobes while it is off), microphones 1-4 plus the automix output 5 on the MXA320, and the automix output 9, loudspeaker output 10 and Dante inputs 11-12 on the MXA902. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets. Properties a model lacks answer a benign REP ERR."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "MXA902",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_network",
+          "confidence": "untested",
+          "notes": "All speak the same command strings grammar. The MXA910, MXA920, MXA925, MXA320, MXA902 and ANI4IN / ANI4OUT report their model, which sets their channels: 1-8 plus the automix output 9 on the ceiling arrays (coverage areas while automatic coverage is on, lobes while it is off), microphones 1-4 plus the automix output 5 on the MXA320, and the automix output 9, loudspeaker output 10 and Dante inputs 11-12 on the MXA902. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets. Properties a model lacks answer a benign REP ERR."
         }
       ]
     },
@@ -2081,7 +2105,7 @@
         {
           "id": "shure_network",
           "confidence": "untested",
-          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model. The MXA910, MXA920 (8 mic channels plus the automixer output, 9) and the ANI4IN/4OUT (4) report their model, which sets the count. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
+          "notes": "All speak the same command strings grammar. The MXA910, MXA920, MXA925, MXA320, MXA902 and ANI4IN / ANI4OUT report their model, which sets their channels: 1-8 plus the automix output 9 on the ceiling arrays (coverage areas while automatic coverage is on, lobes while it is off), microphones 1-4 plus the automix output 5 on the MXA320, and the automix output 9, loudspeaker output 10 and Dante inputs 11-12 on the MXA902. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets. Properties a model lacks answer a benign REP ERR."
         }
       ]
     },
@@ -2093,7 +2117,19 @@
         {
           "id": "shure_network",
           "confidence": "untested",
-          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model. The MXA910, MXA920 (8 mic channels plus the automixer output, 9) and the ANI4IN/4OUT (4) report their model, which sets the count. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
+          "notes": "All speak the same command strings grammar. The MXA910, MXA920, MXA925, MXA320, MXA902 and ANI4IN / ANI4OUT report their model, which sets their channels: 1-8 plus the automix output 9 on the ceiling arrays (coverage areas while automatic coverage is on, lobes while it is off), microphones 1-4 plus the automix output 5 on the MXA320, and the automix output 9, loudspeaker output 10 and Dante inputs 11-12 on the MXA902. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets. Properties a model lacks answer a benign REP ERR."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "MXA925",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_network",
+          "confidence": "untested",
+          "notes": "All speak the same command strings grammar. The MXA910, MXA920, MXA925, MXA320, MXA902 and ANI4IN / ANI4OUT report their model, which sets their channels: 1-8 plus the automix output 9 on the ceiling arrays (coverage areas while automatic coverage is on, lobes while it is off), microphones 1-4 plus the automix output 5 on the MXA320, and the automix output 9, loudspeaker output 10 and Dante inputs 11-12 on the MXA902. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets. Properties a model lacks answer a benign REP ERR."
         }
       ]
     },
@@ -2201,7 +2237,7 @@
         {
           "id": "shure_network",
           "confidence": "untested",
-          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model. The MXA910, MXA920 (8 mic channels plus the automixer output, 9) and the ANI4IN/4OUT (4) report their model, which sets the count. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
+          "notes": "All speak the same command strings grammar. The MXA910, MXA920, MXA925, MXA320, MXA902 and ANI4IN / ANI4OUT report their model, which sets their channels: 1-8 plus the automix output 9 on the ceiling arrays (coverage areas while automatic coverage is on, lobes while it is off), microphones 1-4 plus the automix output 5 on the MXA320, and the automix output 9, loudspeaker output 10 and Dante inputs 11-12 on the MXA902. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets. Properties a model lacks answer a benign REP ERR."
         }
       ]
     },
@@ -2225,7 +2261,7 @@
         {
           "id": "shure_network",
           "confidence": "untested",
-          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model. The MXA910, MXA920 (8 mic channels plus the automixer output, 9) and the ANI4IN/4OUT (4) report their model, which sets the count. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
+          "notes": "All speak the same command strings grammar. The MXA910, MXA920, MXA925, MXA320, MXA902 and ANI4IN / ANI4OUT report their model, which sets their channels: 1-8 plus the automix output 9 on the ceiling arrays (coverage areas while automatic coverage is on, lobes while it is off), microphones 1-4 plus the automix output 5 on the MXA320, and the automix output 9, loudspeaker output 10 and Dante inputs 11-12 on the MXA902. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets. Properties a model lacks answer a benign REP ERR."
         }
       ]
     },

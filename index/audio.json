@@ -2102,16 +2102,16 @@
       "name": "Shure Networked Devices",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "2.1.1",
+      "version": "2.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls Shure networked audio devices over the Device Control Strings protocol on TCP port 2202 \u2014 MXA910 / MXA920 / MXA710 ceiling arrays, ANI interfaces, the P300 IntelliMix processor, and the SCM820 automixer. Each audio channel is a child entity with mute, gain, name, and live metering; device-level mute, presets, and status LED are controlled directly. Channel state pushes live as it changes on the device or another controller.",
-      "source_url": "https://pubs.shure.com/command-strings/",
+      "description": "Controls Shure networked audio devices over the command strings protocol on TCP port 2202: MXA910 / MXA920 / MXA925 / MXA710 ceiling and linear arrays, the MXA320 table array, the MXA902 ceiling array with loudspeaker, ANI interfaces, the P300 IntelliMix processor and the SCM820 automixer. Each audio channel or coverage area is a child entity with mute, gain, name, gate status and live metering; device mute, presets, the status LED, automatic coverage, talker positions and the MXA902's loudspeaker are controlled directly. State pushes live as it changes on the device or another controller.",
+      "source_url": "https://www.shure.com/en-US/docs/commandstrings",
       "file": "audio/shure_network.py",
       "format": "python",
       "files": {
-        "audio/shure_network.py": "40edf2614922a6978f7211e35c19a75259407eb88d7fdf544f9d42ab6f3f775b",
-        "audio/shure_network_sim.py": "94177f4d18e18e0f2cf3a66edb629f03fe831df6fcbaeb5d00e06ddc60651a69"
+        "audio/shure_network.py": "0cf05db6a9ed2ead8fee73f542a3844e663b6cc0ea1b39aa7d6cd84f43ef1c08",
+        "audio/shure_network_sim.py": "75d685fdfd1ea901698c7049b9106fa15a7211f86acd5d0a455ad956d967f940"
       },
       "ports": [
         2202
@@ -2126,11 +2126,12 @@
         "microphone",
         "automixer",
         "intellimix",
-        "dsp"
+        "dsp",
+        "camera-tracking"
       ],
       "help": {
-        "overview": "Shure networked microphones, interfaces, and processors speak the Device Control Strings (DCS) protocol on TCP port 2202. This driver models each audio channel as a child entity carrying its mute, gain (in dB), name, and live level, and controls device-level mute, presets, and the status LED directly.\n\nState is push-driven: after connecting, the driver seeds every channel from the device, then mirrors the REP messages the device sends whenever anything changes \u2014 including changes made on the front panel or in Shure Designer.\n\nChannel names are read-only over third-party control \u2014 set them in Shure Designer, and they appear here as the channel labels.",
-        "setup": "1. In Shure Designer (or the device web UI), the third-party control interface on TCP 2202 is enabled by default.\n2. Give the device a static IP or a DHCP reservation.\n3. In OpenAVC, enter the IP. Port 2202 is fixed.\n4. An MXA910, MXA920, ANI4IN or ANI4OUT sets Channel Count itself when it connects. For other models, set it to match the device (8 for an SCM820). Over-sizing is harmless \u2014 extra channels just answer REP ERR \u2014 but clutters the channel list.\n5. To see live level meters, set Meter Interval to a value like 500 ms (0 disables metering)."
+        "overview": "Shure networked microphones, interfaces, and processors speak the command strings protocol on TCP port 2202. This driver models each audio channel as a child entity carrying its mute, gain (in dB), name, gate status and live level, and controls device mute, presets, the status LED and the model's own settings directly.\n\nState is push-driven: after connecting, the driver reads every channel from the device, then mirrors the reports the device sends whenever anything changes, including changes made in Shure Designer or the device's web application.\n\nOn an MXA920 or MXA925 with automatic coverage on (the factory setting), channels 1-8 are the coverage areas; with it off they are the steerable lobes. Channel 9 is the automix output either way.\n\nChannel names are read-only over third-party control. Set them in Shure Designer, and they appear here as the channel labels.",
+        "setup": "1. The device's command strings interface on TCP 2202 is on by default (Designer or the web application: Settings > Services).\n2. Give the device a static IP or a DHCP reservation. Use the Shure Control address, not the audio network one.\n3. In OpenAVC, enter the IP. Port 2202 is fixed.\n4. Leave Model on Detect automatically: the device reports its model when it connects, which sets its channels and the controls offered here. Pick it yourself to build or simulate the project before the device is on the network.\n5. For a P300, SCM820, ANI22 or MXA710, set Channel Count to match the device (8 for an SCM820).\n6. To see live level meters, set Meter Interval to a value like 500 ms (0 disables metering). For camera tracking on an MXA920 or MXA925, set Talker Position Interval."
       },
       "compatible_models": [
         {
@@ -2138,7 +2139,10 @@
           "models": [
             "MXA910",
             "MXA920",
+            "MXA925",
             "MXA710",
+            "MXA320",
+            "MXA902",
             "ANI22",
             "ANI4IN",
             "ANI4OUT",
@@ -2146,7 +2150,7 @@
             "SCM820"
           ],
           "confidence": "untested",
-          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model. The MXA910, MXA920 (8 mic channels plus the automixer output, 9) and the ANI4IN/4OUT (4) report their model, which sets the count. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
+          "notes": "All speak the same command strings grammar. The MXA910, MXA920, MXA925, MXA320, MXA902 and ANI4IN / ANI4OUT report their model, which sets their channels: 1-8 plus the automix output 9 on the ceiling arrays (coverage areas while automatic coverage is on, lobes while it is off), microphones 1-4 plus the automix output 5 on the MXA320, and the automix output 9, loudspeaker output 10 and Dante inputs 11-12 on the MXA902. Set Channel Count yourself for the others: the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets. Properties a model lacks answer a benign REP ERR."
         }
       ],
       "discovery": {

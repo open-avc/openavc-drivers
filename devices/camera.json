@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 95,
+    "total_devices": 106,
     "shards": null,
     "category": "camera"
   },
@@ -369,6 +369,138 @@
         {
           "id": "birddog_ptz",
           "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "IV-CAM-I12-B",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "crestron_1beyond_camera",
+          "confidence": "untested",
+          "notes": "Intelligent cameras. Set Model to I12 or I20. Tracking, Group Tracking (I20), preset zones and tracking profiles (I20) and the Intelligent Switching host commands (I12 in Group Framing) are offered for the model picked."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "IV-CAM-I12-GV-B",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "crestron_1beyond_camera",
+          "confidence": "untested",
+          "notes": "Intelligent cameras. Set Model to I12 or I20. Tracking, Group Tracking (I20), preset zones and tracking profiles (I20) and the Intelligent Switching host commands (I12 in Group Framing) are offered for the model picked."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "IV-CAM-I12D-B",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "crestron_1beyond_camera",
+          "confidence": "untested",
+          "notes": "Dual-PTZ speaker-tracking camera. Set Model to I12D-B. Commands reach the PTZ head the camera addresses over VISCA; all three feeds are published."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "IV-CAM-I20-B",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "crestron_1beyond_camera",
+          "confidence": "untested",
+          "notes": "Intelligent cameras. Set Model to I12 or I20. Tracking, Group Tracking (I20), preset zones and tracking profiles (I20) and the Intelligent Switching host commands (I12 in Group Framing) are offered for the model picked."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "IV-CAM-I20-GV-B",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "crestron_1beyond_camera",
+          "confidence": "untested",
+          "notes": "Intelligent cameras. Set Model to I12 or I20. Tracking, Group Tracking (I20), preset zones and tracking profiles (I20) and the Intelligent Switching host commands (I12 in Group Framing) are offered for the model picked."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "IV-CAM-I20-W",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "crestron_1beyond_camera",
+          "confidence": "untested",
+          "notes": "Intelligent cameras. Set Model to I12 or I20. Tracking, Group Tracking (I20), preset zones and tracking profiles (I20) and the Intelligent Switching host commands (I12 in Group Framing) are offered for the model picked."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "IV-CAM-P12-B",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "crestron_1beyond_camera",
+          "confidence": "untested",
+          "notes": "PTZ cameras. Set Model to P12 or P20 for mount mode and the zoom ratio."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "IV-CAM-P12-W",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "crestron_1beyond_camera",
+          "confidence": "untested",
+          "notes": "PTZ cameras. Set Model to P12 or P20 for mount mode and the zoom ratio."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "IV-CAM-P20-B",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "crestron_1beyond_camera",
+          "confidence": "untested",
+          "notes": "PTZ cameras. Set Model to P12 or P20 for mount mode and the zoom ratio."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "IV-CAM-P20-GV-B",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "crestron_1beyond_camera",
+          "confidence": "untested",
+          "notes": "PTZ cameras. Set Model to P12 or P20 for mount mode and the zoom ratio."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "IV-CAM-P20-W",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "crestron_1beyond_camera",
+          "confidence": "untested",
+          "notes": "PTZ cameras. Set Model to P12 or P20 for mount mode and the zoom ratio."
         }
       ]
     },

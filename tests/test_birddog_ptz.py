@@ -155,7 +155,7 @@ async def _close(driver):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.BirdDogPTZDriver.DRIVER_INFO["version"] == "1.5.3"
+    assert DRV.BirdDogPTZDriver.DRIVER_INFO["version"] == "1.5.4"
     assert DRV.BirdDogPTZDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
 
 
@@ -237,6 +237,41 @@ def test_unknown_device_setting_raises():
         try:
             with pytest.raises(ValueError):
                 await driver.set_device_setting("nonsense", 1)
+        finally:
+            await _close(driver)
+
+    asyncio.run(go())
+
+
+_RESETS = (httpx.ReadError, httpx.RemoteProtocolError, httpx.WriteError)
+
+
+@pytest.mark.parametrize("reset", _RESETS, ids=lambda cls: cls.__name__)
+def test_a_connection_reset_during_a_poll_reaches_the_poll_loop(reset):
+    # A connection reset, or a reply cut off, is a transport failure like a
+    # timeout: the poll lets it out so the platform's poll loop counts it.
+    # Before, only a refused connection or a timeout left the poll; a camera
+    # that reset every request was logged and read connected.
+    async def go():
+        sim = SIM.BirddogPtzSimulator("sim1", {})
+        driver = _make_driver(sim)
+        inner = _make_handler(sim)
+        calls = []
+
+        def handler(request):
+            calls.append(request.url.path)
+            if len(calls) > 1:
+                raise reset("Connection reset by peer")
+            return inner(request)
+
+        await driver._client.aclose()
+        driver._client = httpx.AsyncClient(
+            base_url="http://test", transport=httpx.MockTransport(handler)
+        )
+        try:
+            with pytest.raises(ConnectionError):
+                await driver.poll()
+            assert len(calls) == 2
         finally:
             await _close(driver)
 

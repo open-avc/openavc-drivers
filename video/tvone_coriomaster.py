@@ -230,9 +230,11 @@ class TvoneCoriomasterDriver(BaseDriver):
         "name": "tvONE CORIOmaster",
         "manufacturer": "tvONE",
         "category": "video",
-        "version": "1.0.2",
-        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        "version": "1.0.3",
+        # 0.37.0, declared by hand (the contract check cannot see it): the
+        # platform's silence check is what takes a hung controller offline,
+        # since a poll now stops at the first request nothing answers.
+        "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
             "Controls tvONE CORIOmaster, CORIOmaster mini/micro, and "
@@ -1016,7 +1018,6 @@ class TvoneCoriomasterDriver(BaseDriver):
         self._media_inputs: set[str] = set()
         self._events_armed = False
         self._poll_cycle = 0
-        self._poll_misses = 0
         self._roster_dirty = False
         self._presets_dirty = False
         super().__init__(device_id, config, state, events)
@@ -1039,7 +1040,6 @@ class TvoneCoriomasterDriver(BaseDriver):
         # First full read; steady-state polling (started by the platform
         # after this hook) doubles as the session keep-alive.
         self._poll_cycle = 0
-        self._poll_misses = 0
         await self.poll()
 
     async def _close_session(self) -> None:
@@ -1544,7 +1544,7 @@ class TvoneCoriomasterDriver(BaseDriver):
             + (f" ({len(media)} media)" if media else "")
         )
 
-    async def _enumerate_windows_canvases(self) -> None:
+    async def _enumerate_windows_canvases(self) -> bool:
         """Register the windows and canvases that are actually in use.
 
         'Windows' / 'Canvases' list every table slot the frame supports;
@@ -1552,12 +1552,18 @@ class TvoneCoriomasterDriver(BaseDriver):
         not registered (a C3-540 has 56 window slots — the wall built in
         CORIOgrapher uses a handful). An event referencing an unknown
         window marks the roster dirty and the next poll re-enumerates.
+
+        Returns False at the first request nothing answers, leaving the
+        roster being read as it was: a unit that stops answering part way
+        through must not have its unread windows deregistered.
         """
         for ctype, list_cmd, stub_re in (
             ("window", "Windows", _RE_WIN_STUB),
             ("canvas", "Canvases", _RE_CANVAS_STUB),
         ):
             ok, lines = await self._request(list_cmd)
+            if ok is None:
+                return False
             if not ok:
                 continue
             nums = [int(m.group(1)) for ln in lines if (m := stub_re.match(ln))]
@@ -1565,6 +1571,8 @@ class TvoneCoriomasterDriver(BaseDriver):
             for num in nums:
                 name = f"{'Window' if ctype == 'window' else 'Canvas'}{num}"
                 ok, lines = await self._request(name)
+                if ok is None:
+                    return False
                 if not ok:
                     continue
                 status = ""
@@ -1591,6 +1599,7 @@ class TvoneCoriomasterDriver(BaseDriver):
             f"[{self.device_id}] Registered {len(self._known['window'])} "
             f"windows / {len(self._known['canvas'])} canvases"
         )
+        return True
 
     async def refresh_children(self) -> dict[str, Any]:
         await self._enumerate_all()
@@ -1610,73 +1619,81 @@ class TvoneCoriomasterDriver(BaseDriver):
         Steady cycles re-read the windows, canvases, and active preset
         (events carry changes in between; these reads double as the
         session keep-alive). The full sweep adds ports, pickers, system
-        info, and roster reconciliation. Two consecutive cycles with no
-        answered request raise so the platform flips the device offline —
-        a hung controller keeps the TCP socket open.
-        """
-        answered = 0
+        info, and roster reconciliation.
 
+        A request nothing answers ends the cycle. The CLI answers a bad
+        request with !Failed, so silence means the unit is not answering,
+        and waiting out every remaining request (4 s each) only holds a
+        hung controller's poll for a minute or more. The platform's silence
+        check judges the cycle, and takes the device offline when polls in
+        a row draw nothing back (a hung controller keeps the TCP socket
+        open). A cycle that ends early is run again from the top next time,
+        so a full sweep is never skipped.
+        """
         if self._roster_dirty:
             self._roster_dirty = False
-            await self._enumerate_windows_canvases()
+            if not await self._enumerate_windows_canvases():
+                self._roster_dirty = True
+                return
 
         full = self._poll_cycle % 6 == 0
-        answered += await self._read_windows_canvases()
+        if not await self._read_windows_canvases():
+            return
         ok, _ = await self._request("Preset.Take")
-        answered += ok is not None
+        if ok is None:
+            return
         if full:
-            answered += await self._read_ports()
-            answered += await self._read_system()
+            if not await self._read_ports() or not await self._read_system():
+                return
             await self._refresh_pickers()
         elif self._presets_dirty:
             await self._refresh_preset_list()
         self._poll_cycle += 1
 
-        if answered == 0:
-            self._poll_misses += 1
-            if self._poll_misses >= 2:
-                raise ConnectionError(
-                    f"[{self.device_id}] Unit is not responding on the "
-                    f"CORIOmax CLI (connection open but silent)"
-                )
-        else:
-            self._poll_misses = 0
-
-    async def _read_windows_canvases(self) -> int:
-        answered = 0
+    async def _read_windows_canvases(self) -> bool:
+        """Re-read every known window and canvas. False at the first
+        request nothing answers; the rest are not sent."""
         for num in sorted(self._known["window"]):
             ok, _ = await self._request(f"Window{num}")
-            answered += ok is not None
+            if ok is None:
+                return False
         for num in sorted(self._known["canvas"]):
             ok, _ = await self._request(f"Canvas{num}")
-            answered += ok is not None
-        return answered
+            if ok is None:
+                return False
+        return True
 
-    async def _read_ports(self) -> int:
-        answered = 0
+    async def _read_ports(self) -> bool:
+        """Re-read every port and media queue; False as above."""
         for alias in sorted(self._known["input"] | self._known["output"]):
             ok, _ = await self._request(_long_form(alias) or alias)
-            answered += ok is not None
+            if ok is None:
+                return False
         for alias in sorted(self._media_inputs):
             base = _long_form(alias)
             for prop in ("Status", "CurrentIndex"):
                 ok, _ = await self._request(f"{base}.ActiveQueue.{prop}")
-                answered += ok is not None
-        return answered
+                if ok is None:
+                    return False
+        return True
 
-    async def _read_system(self) -> int:
-        answered = 0
+    async def _read_system(self) -> bool:
+        """Re-read the unit's system values; False as above."""
         for query in ("System.Status", "System.API_Version",
                       "System.Unit_Description", "System.StandbyMode"):
             ok, _ = await self._request(query)
-            answered += ok is not None
-        return answered
+            if ok is None:
+                return False
+        return True
 
     async def _full_read(self) -> None:
-        await self._read_windows_canvases()
-        await self._request("Preset.Take")
-        await self._read_ports()
-        await self._read_system()
+        if not await self._read_windows_canvases():
+            return
+        ok, _ = await self._request("Preset.Take")
+        if ok is None:
+            return
+        if not await self._read_ports() or not await self._read_system():
+            return
         await self._refresh_pickers()
 
     # ── Pickers ──
@@ -1734,7 +1751,11 @@ class TvoneCoriomasterDriver(BaseDriver):
         self._playlist_gather = {}
         try:
             for num in nums:
-                await self._request(f"Resources.Playlists.Playlist{num}.Name")
+                ok, _ = await self._request(
+                    f"Resources.Playlists.Playlist{num}.Name"
+                )
+                if ok is None:
+                    return
             options = [
                 {"value": f"Resources.Playlists.Playlist{num}", "label": name}
                 for num, name in sorted(self._playlist_gather.items())

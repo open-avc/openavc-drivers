@@ -564,7 +564,7 @@
       "name": "Dante DDM / Director",
       "manufacturer": "Audinate",
       "category": "audio",
-      "version": "1.7.4",
+      "version": "1.7.5",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Dante audio routing via the Audinate Managed API. Requires Dante Domain Manager or Dante Director Professional. Each Dante device is a child entity; route/unroute any Rx channel to a Tx channel and monitor live subscription status.",
@@ -572,7 +572,7 @@
       "file": "audio/dante_ddm.py",
       "format": "python",
       "files": {
-        "audio/dante_ddm.py": "1833e8fba3660518af56577c394bb90e81746b68cc0b543159fc2b7a29b85a17",
+        "audio/dante_ddm.py": "cd58fb2658265cbf8723c5b26b5a95fc7471eb7ed88e4473e7347e61cc95fe18",
         "audio/dante_ddm_sim.py": "d52b311a7df94f2e54373320477d9b30e9dfc1895ea7b09b9e82d3b8044e14dd"
       },
       "ports": [

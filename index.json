@@ -893,7 +893,7 @@
       "name": "Dante DDM / Director",
       "manufacturer": "Audinate",
       "category": "audio",
-      "version": "1.7.4",
+      "version": "1.7.5",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Dante audio routing via the Audinate Managed API. Requires Dante Domain Manager or Dante Director Professional. Each Dante device is a child entity; route/unroute any Rx channel to a Tx channel and monitor live subscription status.",
@@ -901,7 +901,7 @@
       "file": "audio/dante_ddm.py",
       "format": "python",
       "files": {
-        "audio/dante_ddm.py": "1833e8fba3660518af56577c394bb90e81746b68cc0b543159fc2b7a29b85a17",
+        "audio/dante_ddm.py": "cd58fb2658265cbf8723c5b26b5a95fc7471eb7ed88e4473e7347e61cc95fe18",
         "audio/dante_ddm_sim.py": "d52b311a7df94f2e54373320477d9b30e9dfc1895ea7b09b9e82d3b8044e14dd"
       },
       "ports": [
@@ -2133,7 +2133,7 @@
       "name": "BirdDog NDI Encoder/Decoder",
       "manufacturer": "BirdDog",
       "category": "video",
-      "version": "1.5.3",
+      "version": "1.5.4",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls BirdDog NDI encoders and decoders via REST API. Select NDI sources on decoders, monitor input/output status, reboot, and refresh source lists.",
@@ -2141,7 +2141,7 @@
       "file": "video/birddog_codec.py",
       "format": "python",
       "files": {
-        "video/birddog_codec.py": "0ed4fc29f9a1b4a215c8a84289c8814b4c69bb41906881a72a627ac0982ff70a",
+        "video/birddog_codec.py": "18a27167ff364209187055f6830a31fa2ce2e713d2e9c052645bbd7f8d82e1b1",
         "video/birddog_codec_sim.py": "1d84d80a44a8744ea5858e8c4302f3a0682d29ff051e1149e49cc24f6838b3b0"
       },
       "ports": [
@@ -2195,7 +2195,7 @@
       "name": "BirdDog PTZ Camera",
       "manufacturer": "BirdDog",
       "category": "camera",
-      "version": "1.5.3",
+      "version": "1.5.4",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls BirdDog PTZ cameras via REST API and VISCA. Pan, tilt, zoom, focus, presets, exposure, white balance, tally, and NDI encode settings.",
@@ -2203,7 +2203,7 @@
       "file": "cameras/birddog_ptz.py",
       "format": "python",
       "files": {
-        "cameras/birddog_ptz.py": "57184e51dc210b11969908525d9a4864a19c10df8140cf4e48a10c93467a1aa7",
+        "cameras/birddog_ptz.py": "41fb4e1fe29077dfbcfa61107ecfea8cff7078f16d240730811dfdd5c7d3da5e",
         "cameras/birddog_ptz_sim.py": "b88871dc244e45dde2d654f33b0e9a6cab0655389858177ecf003a78edddb05f"
       },
       "ports": [
@@ -4938,7 +4938,7 @@
       "name": "Mersive Solstice Pod",
       "manufacturer": "Mersive",
       "category": "streaming",
-      "version": "1.4.3",
+      "version": "1.4.4",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Mersive Solstice Pods (and Solstice Windows Software) over the OpenControl REST API. Boot users, clear posts, suspend and wake the display, reset the on-screen key, push bulletin or emergency banners, and monitor connected users and post counts.",
@@ -4946,7 +4946,7 @@
       "file": "streaming/mersive_solstice.py",
       "format": "python",
       "files": {
-        "streaming/mersive_solstice.py": "91495233ce5734a4891a75f62218e9a9e7aefc9bfacfcff848135e3332f7b1f6",
+        "streaming/mersive_solstice.py": "a6ef82c584f49c50206941dd69531da4c00bec63bba9829a6a1754af9fce1727",
         "streaming/mersive_solstice_sim.py": "22e8c15ce4d658d88aa50ecba7f601c1cdb158843c7043476054c2af7cc81520"
       },
       "ports": [
@@ -8233,7 +8233,7 @@
       "name": "tvONE CORIOmaster",
       "manufacturer": "tvONE",
       "category": "video",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls tvONE CORIOmaster, CORIOmaster mini/micro, and CORIOmaster2 video wall processors over the CORIOmax command-line API (TCP 10001). Windows, canvases, and the installed input/output cards are discovered from the unit and modeled as child entities \u2014 route sources into wall windows, move and resize windows, recall presets and storyboards, run canvas audio, and drive the Streaming Media card's playback, with live updates over the unit's event subscription.",
@@ -8241,7 +8241,7 @@
       "file": "video/tvone_coriomaster.py",
       "format": "python",
       "files": {
-        "video/tvone_coriomaster.py": "c76be044e07dcc03bd9f766fe770ee09a8774ab07c38cbd21d3f9c4801410bee",
+        "video/tvone_coriomaster.py": "4dc01655f8da69e245661311685fbfac4a3efaa2b2458e052d7648c83f999b0b",
         "video/tvone_coriomaster_sim.py": "0b75d09fb25b28bc6d2459e794f4055d1dbc785591a19c93c5a60096f9c37618"
       },
       "ports": [
@@ -8251,7 +8251,7 @@
         "coriomax_cli"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "video-wall",
         "processor",

@@ -129,7 +129,7 @@ class DanteDDMDriver(BaseDriver):
         "name": "Dante DDM / Director",
         "manufacturer": "Audinate",
         "category": "audio",
-        "version": "1.7.4",
+        "version": "1.7.5",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -536,15 +536,16 @@ class DanteDDMDriver(BaseDriver):
     async def poll(self) -> None:
         """Periodically refresh device and subscription status.
 
-        Transport errors propagate so the BaseDriver watchdog can flip
-        device.<id>.connected to False.
+        Every transport error (a refused or reset connection, a reply cut
+        off, a timeout) propagates so the platform's poll loop can take the
+        device offline.
         """
         if not self._client:
             return
 
         try:
             await self._refresh_devices()
-        except (httpx.ConnectError, httpx.TimeoutException) as exc:
+        except httpx.TransportError as exc:
             raise ConnectionError(
                 f"DDM at {self._base_url} not responding: {exc}"
             ) from exc
@@ -589,7 +590,8 @@ class DanteDDMDriver(BaseDriver):
             log.warning(f"[{self.device_id}] GraphQL request timeout")
             self.set_state("last_error", "Request timeout")
             raise
-        except httpx.ConnectError:
+        except httpx.TransportError:
+            # Refused, reset or cut off mid-reply.
             log.warning(f"[{self.device_id}] GraphQL connection error")
             self.set_state("last_error", "Connection failed")
             raise
@@ -634,7 +636,7 @@ class DanteDDMDriver(BaseDriver):
                 f"{subscription_count} active subscriptions"
             )
 
-        except (httpx.TimeoutException, httpx.ConnectError):
+        except httpx.TransportError:
             # Let transport errors propagate so poll()/connect() can react.
             raise
         except ConnectionFaultError:

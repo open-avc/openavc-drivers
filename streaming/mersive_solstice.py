@@ -75,7 +75,7 @@ class SolsticeDriver(BaseDriver):
         "name": "Mersive Solstice Pod",
         "manufacturer": "Mersive",
         "category": "streaming",
-        "version": "1.4.3",
+        "version": "1.4.4",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -778,17 +778,18 @@ class SolsticeDriver(BaseDriver):
     async def poll(self) -> None:
         """Refresh state from /api/stats and /api/config.
 
-        Transport errors propagate so the BaseDriver watchdog can flip
-        device.<id>.connected to False. A refused admin password is the
-        typed auth_failed fault, which drops the connection at the first
-        refusal instead of sending the password again every poll. Any other
-        error is logged and the poll returns.
+        Every transport error (a refused or reset connection, a reply cut
+        off, a timeout) propagates so the platform's poll loop can take the
+        device offline. A refused admin password is the typed auth_failed
+        fault, which drops the connection at the first refusal instead of
+        sending the password again every poll. Any other error, another
+        HTTP status included, is logged and the poll returns.
         """
         if self._client is None:
             return
         try:
             await self._refresh_state()
-        except (httpx.ConnectError, httpx.TimeoutException) as exc:
+        except httpx.TransportError as exc:
             raise ConnectionError(
                 f"Solstice at {self._base_url} not responding: {exc}"
             ) from exc

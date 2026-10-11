@@ -315,7 +315,7 @@ async def _close(driver):
 
 def test_version_and_min_platform():
     info = DRV.DanteDDMDriver.DRIVER_INFO
-    assert info["version"] == "1.7.4"
+    assert info["version"] == "1.7.5"
     assert info["min_platform_version"] == "0.25.0"
 
 
@@ -633,5 +633,40 @@ def test_connect_registers_children_end_to_end(monkeypatch):
                 "Tesira-1", "MXA920-1", "AMP-1"}
         finally:
             await driver.disconnect()
+
+    asyncio.run(go())
+
+
+_RESETS = (httpx.ReadError, httpx.RemoteProtocolError, httpx.WriteError)
+
+
+@pytest.mark.parametrize("reset", _RESETS, ids=lambda cls: cls.__name__)
+def test_a_connection_reset_during_a_poll_reaches_the_poll_loop(reset):
+    # A connection reset, or a reply cut off, is a transport failure like a
+    # timeout: the poll lets it out so the platform's poll loop counts it.
+    # Before, only a refused connection or a timeout left the poll; a DDM server
+    # that reset every request was logged and read connected.
+    async def go():
+        link = _Link(SIM.DanteDdmSimulator("sim1", {}))
+        driver = _make_driver(link)
+        inner = _make_handler(link)
+        calls = []
+
+        def handler(request):
+            calls.append(request.url.path)
+            if len(calls) > 0:
+                raise reset("Connection reset by peer")
+            return inner(request)
+
+        await driver._client.aclose()
+        driver._client = _REAL_ASYNC_CLIENT(
+            base_url="https://test", transport=httpx.MockTransport(handler)
+        )
+        try:
+            with pytest.raises(ConnectionError):
+                await driver.poll()
+            assert len(calls) == 1
+        finally:
+            await _close(driver)
 
     asyncio.run(go())

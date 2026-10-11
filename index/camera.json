@@ -174,7 +174,7 @@
       "name": "BirdDog PTZ Camera",
       "manufacturer": "BirdDog",
       "category": "camera",
-      "version": "1.5.3",
+      "version": "1.5.4",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls BirdDog PTZ cameras via REST API and VISCA. Pan, tilt, zoom, focus, presets, exposure, white balance, tally, and NDI encode settings.",
@@ -182,7 +182,7 @@
       "file": "cameras/birddog_ptz.py",
       "format": "python",
       "files": {
-        "cameras/birddog_ptz.py": "57184e51dc210b11969908525d9a4864a19c10df8140cf4e48a10c93467a1aa7",
+        "cameras/birddog_ptz.py": "41fb4e1fe29077dfbcfa61107ecfea8cff7078f16d240730811dfdd5c7d3da5e",
         "cameras/birddog_ptz_sim.py": "b88871dc244e45dde2d654f33b0e9a6cab0655389858177ecf003a78edddb05f"
       },
       "ports": [

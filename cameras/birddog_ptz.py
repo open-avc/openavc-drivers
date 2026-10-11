@@ -111,7 +111,7 @@ class BirdDogPTZDriver(BaseDriver):
         "name": "BirdDog PTZ Camera",
         "manufacturer": "BirdDog",
         "category": "camera",
-        "version": "1.5.3",
+        "version": "1.5.4",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -682,7 +682,13 @@ class BirdDogPTZDriver(BaseDriver):
                 raise ValueError(f"Unknown device setting: {key}")
 
     async def poll(self) -> None:
-        """Query camera status."""
+        """Query camera status.
+
+        Every transport error (a refused or reset connection, a reply cut
+        off, a timeout) propagates so the platform's poll loop can take the
+        device offline. Anything else, a body that is not JSON for one, is
+        logged and the poll returns.
+        """
         if not self._client:
             return
 
@@ -711,7 +717,7 @@ class BirdDogPTZDriver(BaseDriver):
             if wb:
                 self.set_state("wb_mode", wb.get("WBMode", ""))
 
-        except (httpx.ConnectError, httpx.TimeoutException) as exc:
+        except httpx.TransportError as exc:
             raise ConnectionError(
                 f"BirdDog camera at {self._base_url} not responding: {exc}"
             ) from exc

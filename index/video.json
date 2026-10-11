@@ -12,7 +12,7 @@
       "name": "BirdDog NDI Encoder/Decoder",
       "manufacturer": "BirdDog",
       "category": "video",
-      "version": "1.5.3",
+      "version": "1.5.4",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls BirdDog NDI encoders and decoders via REST API. Select NDI sources on decoders, monitor input/output status, reboot, and refresh source lists.",
@@ -20,7 +20,7 @@
       "file": "video/birddog_codec.py",
       "format": "python",
       "files": {
-        "video/birddog_codec.py": "0ed4fc29f9a1b4a215c8a84289c8814b4c69bb41906881a72a627ac0982ff70a",
+        "video/birddog_codec.py": "18a27167ff364209187055f6830a31fa2ce2e713d2e9c052645bbd7f8d82e1b1",
         "video/birddog_codec_sim.py": "1d84d80a44a8744ea5858e8c4302f3a0682d29ff051e1149e49cc24f6838b3b0"
       },
       "ports": [
@@ -546,7 +546,7 @@
       "name": "tvONE CORIOmaster",
       "manufacturer": "tvONE",
       "category": "video",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls tvONE CORIOmaster, CORIOmaster mini/micro, and CORIOmaster2 video wall processors over the CORIOmax command-line API (TCP 10001). Windows, canvases, and the installed input/output cards are discovered from the unit and modeled as child entities \u2014 route sources into wall windows, move and resize windows, recall presets and storyboards, run canvas audio, and drive the Streaming Media card's playback, with live updates over the unit's event subscription.",
@@ -554,7 +554,7 @@
       "file": "video/tvone_coriomaster.py",
       "format": "python",
       "files": {
-        "video/tvone_coriomaster.py": "c76be044e07dcc03bd9f766fe770ee09a8774ab07c38cbd21d3f9c4801410bee",
+        "video/tvone_coriomaster.py": "4dc01655f8da69e245661311685fbfac4a3efaa2b2458e052d7648c83f999b0b",
         "video/tvone_coriomaster_sim.py": "0b75d09fb25b28bc6d2459e794f4055d1dbc785591a19c93c5a60096f9c37618"
       },
       "ports": [
@@ -564,7 +564,7 @@
         "coriomax_cli"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "video-wall",
         "processor",

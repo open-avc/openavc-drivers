@@ -392,11 +392,11 @@ async def _inject(driver, line: str) -> None:
 
 def test_metadata_and_platform_gate():
     info = DRV.TvoneCoriomasterDriver.DRIVER_INFO
-    assert info["version"] == "1.0.2"
+    assert info["version"] == "1.0.3"
     assert info["category"] == "video"
-    # The connection lifecycle hooks this driver overrides ship in 0.24.0.
-    # The 0.25.0 floor is the package move: this file imports openavc.*.
-    assert info["min_platform_version"] == "0.25.0"
+    # 0.37.0, by hand: the platform's silence check is what takes a hung
+    # controller offline (the poll stops at the first silent request).
+    assert info["min_platform_version"] == "0.37.0"
     assert info["ports"] == [10001]
     # No active probe on purpose: the CLI answers nothing documented
     # before login.
@@ -814,29 +814,52 @@ async def test_out_of_band_change_seen_by_event_and_poll():
 # ── Never-offline guards ────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_silent_unit_raises_after_two_unanswered_cycles(monkeypatch):
+async def test_a_poll_stops_at_the_first_request_nothing_answers(monkeypatch):
+    # A bad request answers !Failed, so silence means the unit is not
+    # answering. The poll used to wait 4 s on every window, canvas and port
+    # of a hung controller (about 84 s at 20 windows) and raise from its own
+    # count, so it took 6-7 minutes to read offline. It now sends one request
+    # and returns, and the platform's silence check judges the cycle.
     global _SWALLOW
     driver, sim = await _make_pair()
     monkeypatch.setattr(DRV, "REQUEST_TIMEOUT_S", 0.02)
+    assert driver.list_children("window")
+    driver._poll_cycle = 6  # a full sweep is due
+    _FakeTCPTransport.sent_lines = []
     _SWALLOW = True
-    await driver.poll()  # first fully-unanswered cycle tolerated
-    with pytest.raises(ConnectionError) as exc:
+    for _ in range(3):
         await driver.poll()
-    assert "not responding" in str(exc.value).lower()
+    assert len(_FakeTCPTransport.sent_lines) == 3
+    # The cycle that ended early runs again from the top, full sweep and all.
+    _SWALLOW = False
+    _FakeTCPTransport.sent_lines = []
+    await driver.poll()
+    assert "System.Status" in _FakeTCPTransport.sent_lines
 
 
 @pytest.mark.asyncio
-async def test_recovery_resets_miss_counter(monkeypatch):
-    global _SWALLOW
+async def test_a_unit_that_stops_answering_mid_enumeration_keeps_its_windows():
+    # Re-enumeration read each window's Status and dropped every window that
+    # did not answer, so a unit that went quiet part way through lost its
+    # windows (and every binding to them) until it answered again.
     driver, sim = await _make_pair()
-    monkeypatch.setattr(DRV, "REQUEST_TIMEOUT_S", 0.02)
-    _SWALLOW = True
+    windows = set(driver.list_children("window"))
+    assert windows
+    real = driver._request
+    answered = []
+
+    async def goes_quiet(line, timeout=None):
+        if answered:
+            return None, []
+        answered.append(line)
+        return await real(line, timeout)
+
+    driver._request = goes_quiet
+    driver._roster_dirty = True
     await driver.poll()
-    _SWALLOW = False
-    await driver.poll()  # answered — counter resets
-    _SWALLOW = True
-    await driver.poll()  # first miss again, no raise
-    assert driver._poll_misses == 1
+    assert answered == ["Windows"]
+    assert set(driver.list_children("window")) == windows
+    assert driver._roster_dirty is True
 
 
 @pytest.mark.asyncio

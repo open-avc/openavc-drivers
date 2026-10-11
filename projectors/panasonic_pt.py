@@ -137,7 +137,7 @@ class PanasonicPTDriver(BaseDriver):
         "name": "Panasonic PT-MZ / PT-RZ Projector",
         "manufacturer": "Panasonic",
         "category": "projector",
-        "version": "1.4.5",
+        "version": "1.4.6",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -261,6 +261,12 @@ class PanasonicPTDriver(BaseDriver):
             "username": "admin1",
             "password": "",
             "poll_interval": 15,
+            # Pause after every command sent. After the power answer a poll
+            # sends the rest of its queries one after another without waiting
+            # for replies (up to nine), and each answer is matched to its query
+            # by order. The LAN Control Protocol states no minimum gap between
+            # commands, so this is the platform's default 50 ms line gap.
+            "inter_command_delay": 0.05,
         },
         "config_schema": {
             "host": {
@@ -308,6 +314,17 @@ class PanasonicPTDriver(BaseDriver):
                     "below 30 s also keeps the TCP socket from being "
                     "idle-closed by the projector. Set to 0 to "
                     "disable polling."
+                ),
+            },
+            "inter_command_delay": {
+                "type": "number",
+                "default": 0.05,
+                "min": 0,
+                "label": "Inter-Command Delay (sec)",
+                "description": (
+                    "Pause between messages sent to the projector. Raise it "
+                    "if picture settings show each other's values or never "
+                    "update."
                 ),
             },
         },

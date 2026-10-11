@@ -73,6 +73,7 @@ class _FakeBaseDriver:
             port=self.config.get("port", 9761),
             on_data=self.on_data_received,
             on_disconnect=self._handle_transport_disconnect,
+            inter_command_delay=self.config.get("inter_command_delay", 0.0),
         )
         self._connected = True
         self.set_state("connected", True)
@@ -209,8 +210,11 @@ class _FakeTCPTransport:
         self._sim = _CURRENT_SIM
 
     @classmethod
-    async def create(cls, *, host, port, on_data, on_disconnect, **_):
-        return cls(on_data, on_disconnect)
+    async def create(cls, *, host, port, on_data, on_disconnect,
+                     inter_command_delay=0.0, **_):
+        t = cls(on_data, on_disconnect)
+        t.inter_command_delay = inter_command_delay
+        return t
 
     async def send(self, data) -> None:
         if not self.connected:
@@ -350,7 +354,7 @@ def test_parse_frame_multiple_and_garbage():
 
 def test_version_and_platform_floor():
     info = DRV.LGSICPDriver.DRIVER_INFO
-    assert info["version"] == "2.0.7"
+    assert info["version"] == "2.0.8"
     # Child entities + child-prop cloud tiers are the hard runtime need.
     # The 0.25.0 floor is the package move: this file imports openavc.*.
     assert info["min_platform_version"] == "0.25.0"
@@ -1078,6 +1082,54 @@ def test_a_whole_poll_of_a_large_wall_is_matched():
             for set_id in range(1, 17):
                 assert driver.get_child_state("display", set_id).get("input"), set_id
             assert len(driver._pending) == 0
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_poll_frames_are_paced_for_a_9600_baud_chain():
+    # A poll sends every frame without waiting for its ack, and an RS-232
+    # chain carries them at 9600 baud, 8N1 (10 bits a character). The
+    # transport waits the declared delay after each frame, so the delay must
+    # cover the longest frame a poll sends plus its ack, three-digit Set IDs
+    # included.
+    info = DRV.LGSICPDriver.DRIVER_INFO
+    delay = info["default_config"]["inter_command_delay"]
+    field = info["config_schema"]["inter_command_delay"]
+    assert field["type"] == "number"
+    assert field["default"] == delay
+    assert field["min"] == 0
+
+    async def go():
+        ids = "1,1000"
+        driver, sim = await _make_pair(
+            sim_config={"set_ids": ids},
+            driver_overrides={
+                **info["default_config"],
+                "host": "10.0.0.9",
+                "display_ids": ids,
+                "poll_interval": 0,
+            },
+        )
+        await driver.connect()
+        try:
+            assert driver.transport.inter_command_delay == delay
+            for set_id in (1, 1000):
+                await driver.send_command("power_on", {"display": set_id})
+            pairs: list[tuple[bytes, bytes]] = []
+            inner = sim.handle_command
+
+            def recording(data):
+                resp = inner(data)
+                pairs.append((bytes(data), resp or b""))
+                return resp
+
+            sim.handle_command = recording
+            await driver.poll()
+            assert len(pairs) == 2 * DRV.LGSICPDriver._POLL_COMMANDS_PER_DISPLAY
+            longest = max(len(frame) + len(ack) for frame, ack in pairs)
+            assert longest * 10 / 9600 <= delay, longest
         finally:
             await driver.disconnect()
 

@@ -205,7 +205,7 @@ class ShureAxientDigitalDriver(BaseDriver):
         "name": "Shure Axient Digital Receivers",
         "manufacturer": "Shure",
         "category": "audio",
-        "version": "1.1.1",
+        "version": "1.1.2",
         "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
@@ -301,6 +301,12 @@ class ShureAxientDigitalDriver(BaseDriver):
             "poll_interval": 30,
             "meter_interval_ms": 0,
             "low_battery_bars": 1,
+            # Pause after every command sent. Connect and refresh send their
+            # GETs one after another without waiting for replies (up to 70 on
+            # an AD4Q with meters on). The command strings document states no
+            # minimum gap between commands, so this is the platform's default
+            # 50 ms line gap.
+            "inter_command_delay": 0.05,
         },
         "config_schema": {
             "host": {
@@ -362,6 +368,18 @@ class ShureAxientDigitalDriver(BaseDriver):
                 "description": (
                     "Low Battery is raised when a transmitter's battery bars "
                     "are at or below this (0 never raises it)."
+                ),
+                "advanced": True,
+            },
+            "inter_command_delay": {
+                "type": "number",
+                "default": 0.05,
+                "min": 0,
+                "label": "Inter-Command Delay (sec)",
+                "description": (
+                    "Pause between messages sent to the receiver. Raise it if "
+                    "some channels or transmitter slots never show their "
+                    "status after connecting."
                 ),
                 "advanced": True,
             },

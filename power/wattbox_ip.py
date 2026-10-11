@@ -116,7 +116,7 @@ class WattBoxIPDriver(BaseDriver):
         "name": "WattBox IP-Controlled PDU",
         "manufacturer": "WattBox",
         "category": "power",
-        "version": "1.3.9",
+        "version": "1.3.10",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
@@ -207,6 +207,12 @@ class WattBoxIPDriver(BaseDriver):
             "username": "wattbox",
             "password": "wattbox",
             "poll_interval": 30,
+            # Pause after every line sent. A poll sends its queries one after
+            # another without waiting for replies (up to 29 on an 18-outlet
+            # unit with a UPS). The v1.7 protocol document states no minimum
+            # gap between commands, so this is the platform's default 50 ms
+            # line gap.
+            "inter_command_delay": 0.05,
         },
         "config_schema": {
             "host": {
@@ -243,6 +249,16 @@ class WattBoxIPDriver(BaseDriver):
                 "description": (
                     "How often to refresh outlet states + power readings. "
                     "Set to 0 to disable polling."
+                ),
+            },
+            "inter_command_delay": {
+                "type": "number",
+                "default": 0.05,
+                "min": 0,
+                "label": "Inter-Command Delay (sec)",
+                "description": (
+                    "Pause between messages sent to the WattBox. Raise it if "
+                    "some outlets never show their status or power readings."
                 ),
             },
         },

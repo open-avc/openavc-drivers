@@ -263,7 +263,7 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
         "name": "AtlasIED Atmosphere",
         "manufacturer": "AtlasIED",
         "category": "audio",
-        "version": "2.0.4",
+        "version": "2.0.5",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -363,6 +363,12 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
             "num_gpo_presets": DEFAULT_NUM_GPO_PRESETS,
             "num_gpos": DEFAULT_NUM_GPOS,
             "num_bell_schedules": DEFAULT_NUM_BELL_SCHEDULES,
+            # Pause after every line sent. Connect subscribes to every rostered
+            # param one line at a time without waiting for replies (about 150
+            # lines at the default counts). ATS006993 states no minimum gap
+            # between messages, so this is the platform's default 50 ms line
+            # gap.
+            "inter_command_delay": 0.05,
         },
         "config_schema": {
             "host": {
@@ -442,6 +448,17 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
                 "default": DEFAULT_NUM_BELL_SCHEDULES,
                 "min": 0,
                 "label": "Bell Schedule Count",
+            },
+            "inter_command_delay": {
+                "type": "number",
+                "default": 0.05,
+                "min": 0,
+                "label": "Inter-Command Delay (sec)",
+                "description": (
+                    "Pause between messages sent to the Atmosphere. Raise it "
+                    "if some zones or sources never show their name or level "
+                    "after connecting."
+                ),
             },
         },
         "state_variables": {

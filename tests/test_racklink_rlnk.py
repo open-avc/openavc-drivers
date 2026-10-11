@@ -328,6 +328,7 @@ class _FakeTCPTransport:
                      delimiter=None, frame_parser=None, timeout=5.0,
                      inter_command_delay=0.0, name="", local_addr=None, **kw):
         t = cls(on_data, on_disconnect)
+        t.inter_command_delay = inter_command_delay
 
         async def _push(client_id, data):
             await t.on_data(data)
@@ -417,7 +418,35 @@ async def _settle(n: int = 4) -> None:
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.RackLinkRLNKDriver.DRIVER_INFO["version"] == "1.3.10"
+    assert DRV.RackLinkRLNKDriver.DRIVER_INFO["version"] == "1.3.11"
+
+
+def test_poll_frames_are_paced():
+    # A poll sends up to 66 Get frames without waiting for replies; the
+    # transport waits the declared delay after each one, so the delay is a
+    # default the device page shows, and it reaches the transport.
+    info = DRV.RackLinkRLNKDriver.DRIVER_INFO
+    delay = info["default_config"]["inter_command_delay"]
+    assert delay > 0
+    field = info["config_schema"]["inter_command_delay"]
+    assert field["type"] == "number"
+    assert field["default"] == delay
+    assert field["min"] == 0
+
+    async def go():
+        driver, _sim = await _make_pair(driver_overrides={
+            **info["default_config"],
+            "host": "10.0.0.9",
+            "password": "pw",
+            "poll_interval": 0,
+        })
+        await driver.connect()
+        try:
+            assert driver.transport.inter_command_delay == delay
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
 
 
 def test_child_entity_types_declared():

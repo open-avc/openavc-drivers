@@ -284,7 +284,7 @@ class LGSICPDriver(BaseDriver):
         "name": "LG SICP Display",
         "manufacturer": "LG",
         "category": "display",
-        "version": "2.0.7",
+        "version": "2.0.8",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
@@ -365,6 +365,21 @@ class LGSICPDriver(BaseDriver):
             "port": 9761,
             "display_ids": "1",
             "poll_interval": 15,
+            # Pause after every frame sent. The manual states no minimum gap
+            # (only that "there may be a delay between the transmission and
+            # acknowledgement signals"), so the gap is sized to the RS-232
+            # link it documents: 9600 baud, 8N1, which is 10 bits a
+            # character. One poll frame and its acknowledgement cross the
+            # chain before the next frame goes out. The longest pair a poll
+            # sends is the signal check: "sv 01 02 FF\r" (12 characters, see
+            # _build_sicp_command) and its ack "v 01 OK0201x" (12), so
+            # 24 x 10 bits / 9600 bit/s = 25.0 ms, rounded up to 30 ms. A Set
+            # ID above 255 travels as three hex digits (100-3E8) and adds a
+            # character each way: 26 x 10 / 9600 = 27.1 ms, still under
+            # 30 ms. A 16-display wall with every display on sends 304 frames
+            # a poll: 9.1 s at this gap, inside the 15 s default poll
+            # interval.
+            "inter_command_delay": 0.03,
         },
         "config_schema": {
             "host": {"type": "string", "required": True, "label": "IP Address"},
@@ -385,6 +400,17 @@ class LGSICPDriver(BaseDriver):
                 "default": 15,
                 "min": 0,
                 "label": "Poll Interval (sec)",
+            },
+            "inter_command_delay": {
+                "type": "number",
+                "default": 0.03,
+                "min": 0,
+                "label": "Inter-Command Delay (sec)",
+                "description": (
+                    "Pause between messages sent to the displays. Raise it if "
+                    "some displays on a daisy chain miss commands or show "
+                    "stale status."
+                ),
             },
         },
         "state_variables": {

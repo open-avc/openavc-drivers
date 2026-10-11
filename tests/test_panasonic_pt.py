@@ -77,6 +77,7 @@ class _FakeTCPTransport:
         t.on_data = on_data
         t.connected = True
         t.delimiter = delimiter
+        t.inter_command_delay = inter_command_delay
         t._sim = _CURRENT_SIM
         _CURRENT_SIM._clients["c1"] = object()
         greeting = await _CURRENT_SIM.on_client_connected("c1")
@@ -341,8 +342,33 @@ async def _make_pair(driver_overrides=None, sim_password="", power="on"):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.PanasonicPTDriver.DRIVER_INFO["version"] == "1.4.5"
+    assert DRV.PanasonicPTDriver.DRIVER_INFO["version"] == "1.4.6"
     assert DRV.PanasonicPTDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
+
+
+def test_poll_queries_are_paced():
+    # After the power answer a poll sends up to nine queries without waiting
+    # for replies; the transport waits the declared delay after each one, so
+    # the delay is a default the device page shows, and it reaches the
+    # transport.
+    info = DRV.PanasonicPTDriver.DRIVER_INFO
+    delay = info["default_config"]["inter_command_delay"]
+    assert delay > 0
+    field = info["config_schema"]["inter_command_delay"]
+    assert field["type"] == "number"
+    assert field["default"] == delay
+    assert field["min"] == 0
+
+    async def go():
+        driver, _sim = await _make_pair(driver_overrides={
+            **info["default_config"], "host": "10.0.0.9", "poll_interval": 0})
+        await driver.connect()
+        try:
+            assert driver.transport.inter_command_delay == delay
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
 
 
 def test_device_settings_declared():

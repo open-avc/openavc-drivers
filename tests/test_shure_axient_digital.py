@@ -260,6 +260,23 @@ class TestConnect:
         # Metering is off by default, so nothing armed it.
         assert not any("METER_RATE" in s for s in link.sent)
 
+    def test_the_connect_burst_is_paced(self):
+        """Connect sends its GETs without waiting for replies (66 on an AD4Q,
+        70 with meters on). The transport waits the declared delay after each
+        one, so the delay is a default the device page shows, and the
+        driver's transport options leave it in place."""
+        info = Driver.DRIVER_INFO
+        delay = info["default_config"]["inter_command_delay"]
+        assert delay > 0
+        field = info["config_schema"]["inter_command_delay"]
+        assert field["type"] == "number"
+        assert field["default"] == delay
+        assert field["min"] == 0
+        driver, _sim, _state = _make()
+        kwargs = driver._transport_kwargs(
+            "tcp", {"delimiter": b"\r", "inter_command_delay": delay})
+        assert kwargs["inter_command_delay"] == delay
+
     @pytest.mark.asyncio
     async def test_channel_one_reads_its_transmitter_and_meters(self):
         driver, sim, state = await _connected()

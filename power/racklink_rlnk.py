@@ -244,7 +244,7 @@ class RackLinkRLNKDriver(BaseDriver):
         "name": "Middle Atlantic RackLink PDU",
         "manufacturer": "Middle Atlantic",
         "category": "power",
-        "version": "1.3.10",
+        "version": "1.3.11",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -348,6 +348,11 @@ class RackLinkRLNKDriver(BaseDriver):
             "username": "user",
             "password": "",
             "poll_interval": 60,
+            # Pause after every frame sent. A poll sends its Get frames one
+            # after another without waiting for replies (18 plus two per outlet
+            # and contact, up to 66). The protocol manual states no minimum gap
+            # between frames, so this is the platform's default 50 ms line gap.
+            "inter_command_delay": 0.05,
         },
         "config_schema": {
             "host": {
@@ -389,6 +394,16 @@ class RackLinkRLNKDriver(BaseDriver):
                     "updates so polling can be infrequent (60 s); "
                     "Select models depend on polling. Set to 0 to "
                     "disable."
+                ),
+            },
+            "inter_command_delay": {
+                "type": "number",
+                "default": 0.05,
+                "min": 0,
+                "label": "Inter-Command Delay (sec)",
+                "description": (
+                    "Pause between messages sent to the PDU. Raise it if some "
+                    "outlets never show their status or names."
                 ),
             },
         },

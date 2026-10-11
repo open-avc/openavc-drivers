@@ -302,8 +302,10 @@ class _FakeTCPTransport:
 
     @classmethod
     async def create(cls, *, host, port, on_data, on_disconnect,
-                     delimiter=None, timeout=5.0, name="", **kw):
+                     delimiter=None, timeout=5.0, name="",
+                     inter_command_delay=0.0, **kw):
         t = cls(on_data, on_disconnect)
+        t.inter_command_delay = inter_command_delay
         t._sim._clients["c1"] = t
         return t
 
@@ -381,7 +383,7 @@ def _run(coro):
 
 def test_metadata_and_actions_shape():
     info = DRV.AtlasIEDAtmosphereDriver.DRIVER_INFO
-    assert info["version"] == "2.0.4"
+    assert info["version"] == "2.0.5"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
     # The 0.25.0 floor is the package move: this file imports openavc.*.
     assert info["min_platform_version"] == "0.25.0"
@@ -520,6 +522,30 @@ def test_connect_populates_children_from_sim():
             assert zone0["source"] == 0
             assert driver.get_child_state("message", 2)["name"] == "Message 3"
             assert driver.get_child_state("gpo", 0)["state"] is False
+        finally:
+            await driver.disconnect()
+    _run(scenario())
+
+
+def test_connect_subscriptions_are_paced():
+    # Connect sends one `sub` line per rostered param without waiting for
+    # replies; the transport waits the declared delay after each line, so
+    # the delay is a default the device page shows, and it reaches the
+    # transport the driver connects through.
+    info = DRV.AtlasIEDAtmosphereDriver.DRIVER_INFO
+    delay = info["default_config"]["inter_command_delay"]
+    assert delay > 0
+    field = info["config_schema"]["inter_command_delay"]
+    assert field["type"] == "number"
+    assert field["default"] == delay
+    assert field["min"] == 0
+
+    async def scenario():
+        driver, _sim = await _make_pair(driver_overrides={
+            **info["default_config"], "host": "10.0.0.5"})
+        await driver.connect()
+        try:
+            assert driver.transport.inter_command_delay == delay
         finally:
             await driver.disconnect()
     _run(scenario())

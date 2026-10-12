@@ -276,6 +276,28 @@ Declaring a mode with `no_response` (to give it the device's own wording, say) r
 
 If you want to test TCP connection drops, use the **Network Conditions** controls in the Simulator UI (instability presets) rather than an error mode — connection-drop behavior lives in the network-conditions layer, not in `error_modes`.
 
+### Capacity
+
+A device reads what it receives into a buffer of fixed size and works through it one message at a time; what arrives while the buffer is full is lost. Declare the device's numbers so the Simulator UI's **Capacity** setting uses them:
+
+```yaml
+simulator:
+  capacity:
+    rx_buffer: 64        # bytes the device holds before it reads them
+    process_ms: 20       # milliseconds per message before it takes the next
+    on_overflow: discard # or silence
+```
+
+In a Python simulator, the same mapping goes in `SIMULATOR_INFO["capacity"]`.
+
+| Field | Meaning |
+|-------|---------|
+| `rx_buffer` | Bytes the device holds before it reads them. What arrives while they are all in use is lost. Required. |
+| `process_ms` | Milliseconds the device spends on each message before it takes the next. Required. Not `delays.command_response`, which is how long a reply takes: the simulator answers one message at a time, so a message takes the longer of the two. |
+| `on_overflow` | `discard` (the default): the device carries on with what it kept. `silence`: it stops answering until the connection closes; over UDP, until Capacity is switched off. |
+
+Capacity is off until it is switched on for a device in the Simulator UI, so declaring it changes nothing in an ordinary simulator run. Switched on, a driver that sends a burst faster than the device can take it loses part of it, the way it does on the device. A driver that declares nothing gets the simulator's own numbers, which are not any device's. A message is what the simulator reads as one: a line, a frame ending in its `delimiter`, or one `send_frame` packet. TCP, serial and UDP devices have the setting; HTTP devices do not. In a YAML driver it raises the driver's `min_platform_version` to 0.37.0 when the catalog is built.
+
 ### Complete Example
 
 Here's a full `simulator:` section for an Extron SIS switcher:

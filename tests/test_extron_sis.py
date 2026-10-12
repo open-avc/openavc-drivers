@@ -29,7 +29,7 @@ BANNER = (
 
 
 def test_version_bumped():
-    assert str(INFO["version"]) == "1.10.0"
+    assert str(INFO["version"]) == "1.11.0"
     assert str(INFO["min_platform_version"]) == "0.37.0"
 
 
@@ -193,3 +193,36 @@ def test_every_inputs_hdcp_comes_in_one_reply():
     # Ahead of the per-input rules, which would read a one-input list as input 0.
     rules = [r for r in INFO["responses"] if r["match"].startswith("^HdcpI")]
     assert "child_list" in rules[0]
+
+
+def _first_rule(reply):
+    for rule in INFO["responses"]:
+        if "match" in rule and re.match(rule["match"], reply):
+            return rule
+    return None
+
+
+def test_power_save_mode_1_holds_the_poll_and_mode_2_does_not():
+    """Mode 1 ends at any SIS command (DXP HD 4K PLUS guide p. 26); mode 2
+    answers viewing commands."""
+    assert INFO["polling"]["when_state"] == {"power_save": [0, 2]}
+    sends = {name: c["send"] for name, c in INFO["commands"].items()}
+    assert sends["power_save_off"] == "\x1b0PSAV\r"
+    assert sends["power_save_1"] == "\x1b1PSAV\r"
+    assert sends["power_save_2"] == "\x1b2PSAV\r"
+
+
+def test_a_psav_reply_reads_the_mode():
+    for digit in "012":
+        rule = _first_rule("Psav" + digit)
+        assert rule is not None and rule["set"] == {"power_save": "$1"}
+
+
+def test_the_verbose_reply_ends_mode_1_only_when_mode_1_was_read():
+    """Esc 3CV goes out on every connect and is an SIS command, so a switcher
+    last read in mode 1 has left it once Vrb3 comes back (a power cycle)."""
+    rule = _first_rule("Vrb3")
+    assert rule["only_when"] == {"key": "power_save", "operator": "eq", "value": 1}
+    assert rule["set"] == {"power_save": 0}
+    assert INFO["on_connect"][0] == "\x1b3CV\r\n"
+    assert "\x1bPSAV\r" in INFO["on_connect"]

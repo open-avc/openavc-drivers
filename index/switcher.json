@@ -769,7 +769,7 @@
       "name": "Extron SIS Protocol",
       "manufacturer": "Extron",
       "category": "switcher",
-      "version": "1.10.0",
+      "version": "1.11.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Extron products via the SIS (Simple Instruction Set) protocol. Covers crosspoint matrix switchers (DXP, CrossPoint), presentation switchers (IN Series), scalers (DSC, DVS), distribution amplifiers, and DSP products. On matrix models each configured output and input is a child entity with per-output routing and mute state. Works over TCP (port 23) or RS-232 (9600 8N1).\n",
@@ -777,7 +777,7 @@
       "file": "switchers/extron_sis.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/extron_sis.avcdriver": "4db3b2d5624a4fff678915f00de5e895652788b360522dec653df3d2f1c736f4"
+        "switchers/extron_sis.avcdriver": "5b32616ec80c2dc0950efd7bb768fdb1e6d69650cbf2869ffe53b5e9da537e46"
       },
       "ports": [
         23
@@ -1341,7 +1341,7 @@
       "name": "WyreStorm MX / MXV Matrix",
       "manufacturer": "WyreStorm",
       "category": "switcher",
-      "version": "1.1.2",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls WyreStorm MX-H2A, MXV, and MX-KIT series HDMI/HDBaseT matrix switchers (4x4 up to 8x8) via Telnet on port 23 or RS-232. Every video output and every audio de-embed output is a child entity tracking its routed source; audio outputs also track mute. Covers independent audio routing, A/V scene presets, CEC display power (manual and automatic), low-power standby, IR system codes, and input EDID presets on the MX-0404-HDMI.\n",
@@ -1349,7 +1349,7 @@
       "file": "switchers/wyrestorm_mx.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/wyrestorm_mx.avcdriver": "72ac6502723f77d7b4e7868cbf3c95d5a8d738bc7c3b15acd65c65f7169fcbef"
+        "switchers/wyrestorm_mx.avcdriver": "47732d08f6dceebd0422c9561890231a3fe407a743d9df386e54b5022f4c6ed9"
       },
       "ports": [
         23
@@ -1358,7 +1358,7 @@
         "wyrestorm_mx"
       ],
       "simulated": true,
-      "min_platform_version": "0.27.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "matrix-switcher",
         "hdmi",

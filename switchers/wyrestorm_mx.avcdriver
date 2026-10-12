@@ -45,9 +45,10 @@ id: wyrestorm_mx
 name: WyreStorm MX / MXV Matrix
 manufacturer: WyreStorm
 category: switcher
-version: 1.1.2
+version: 1.2.0
 author: OpenAVC
-min_platform_version: "0.27.0"
+# when_state on the poll and the start-up steps.
+min_platform_version: "0.37.0"
 description: >
   Controls WyreStorm MX-H2A, MXV, and MX-KIT series HDMI/HDBaseT matrix
   switchers (4x4 up to 8x8) via Telnet on port 23 or RS-232. Every video
@@ -198,7 +199,7 @@ state_variables:
   standby:
     type: boolean
     label: Standby
-    help: "True when the matrix is in low-power standby (front panel dark, outputs off). Any command wakes it."
+    help: "True when the matrix is in low-power standby (front panel dark, outputs off). Polling pauses while it reads true."
   ir_system_code:
     type: enum
     values: ["mode1", "mode2", "all"]
@@ -610,11 +611,14 @@ commands:
   standby:
     label: Enter Standby
     send: "STANDBY\r\n"
-    help: "Low-power mode: the front panel and outputs power down. Any command wakes the unit, the driver's own polls included, so with polling on it wakes again within the Poll Interval. Requires v2+ firmware on most MXV models."
+    help: "Low-power mode: the front panel and outputs power down, and polling pauses until Wake from Standby is sent. A front panel button, the IR remote or any other command also wakes the matrix, but polling stays paused until Wake from Standby. While polling is paused, nothing notices the matrix going offline. Requires v2+ firmware on most MXV models."
 
+  # GET STANDBY after WAKE: its answer (WAKE) is documented, so polling
+  # resumes on it whether or not the matrix acknowledges WAKE itself.
   wake:
     label: Wake from Standby
-    send: "WAKE\r\n"
+    send: "WAKE\r\nGET STANDBY\r\n"
+    help: "Wakes the matrix from standby and resumes polling."
 
   ir_callback_on:
     label: Enable Remote IR Callback
@@ -731,11 +735,15 @@ responses:
   - match: '(?i:^IPADDR\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s*$)'
     set: { ip_address: "$1" }
 
+# Any command wakes the matrix from standby (API v4, Matrix Low Power Mode),
+# so nothing is sent while the last reading says standby: a reconnect leaves
+# it there, and polling pauses until Wake from Standby.
 on_connect:
-  - "GET VER\r\n"
-  - "GET IPADDR\r\n"
+  - { send: "GET VER\r\n", when_state: { standby: false } }
+  - { send: "GET IPADDR\r\n", when_state: { standby: false } }
 
 polling:
+  when_state: { standby: false }
   queries:
     - { each_child: output, send: "GET MP {out_token}{child_id}\r\n" }
     - { each_child: audio_output, send: "GET AUDIOMP audioout{child_id}\r\n" }

@@ -53,12 +53,20 @@
 #
 # On connect the driver sets verbose mode 3 (Esc 3CV) so views get tagged
 # replies ("Out{o} In{i} ...", "Mut...", "HdcpI00*...").
+#
+# Power save (DXP HD 4K PLUS guide p. 26 and p. 51): Esc {n}PSAV<CR> answers
+# "Psav{n}". Mode 1 ends at any SIS command, a front panel press or a power
+# cycle, so the poll is held while the switcher reports mode 1. Mode 2 answers
+# viewing commands and ends only at Esc 0PSAV<CR>, so the poll runs. The view
+# Esc PSAV<CR> is documented as answering the bare digit; whether verbose
+# mode 3 tags it "Psav{n}" is not verified. A unit without power save answers
+# E10, its power_save stays blank, and its poll is never held.
 
 id: extron_sis
 name: Extron SIS Protocol
 manufacturer: Extron
 category: switcher
-version: 1.10.0
+version: 1.11.0
 author: OpenAVC
 # learned_from on the input and output counts.
 min_platform_version: "0.37.0"
@@ -185,6 +193,7 @@ config_schema:
 
 on_connect:
   - "\x1b3CV\r\n"
+  - "\x1bPSAV\r"
 
 state_variables:
   input:
@@ -219,6 +228,12 @@ state_variables:
     type: boolean
     label: Signal Detected
     help: "True when the device detects a valid signal on the active input ('Sig1' / 'Sig0' notification)."
+  power_save:
+    type: integer
+    label: Power Save Mode
+    min: 0
+    max: 2
+    help: "0 normal, 1 low power, 2 low power with the front panel locked. Polling pauses in mode 1. Blank on a unit without power save."
 
 # One frame, two switching planes: video and audio, which can be routed
 # together or broken away. Each reports on its own property.
@@ -455,6 +470,24 @@ commands:
         label: Preset Number
         min: 1
 
+  power_save_off:
+    label: Power Save Off
+    send: "\x1b0PSAV\r"
+    sets: { power_save: 0 }
+    help: "Returns the switcher to normal operation and resumes polling."
+
+  power_save_1:
+    label: Power Save Mode 1
+    send: "\x1b1PSAV\r"
+    sets: { power_save: 1 }
+    help: "Low power: everything but control stops and the fans slow. Polling pauses until Power Save Off is sent. A front panel press or any other command also ends this mode, but polling stays paused until Power Save Off, or until the switcher reconnects after a power cycle. While polling is paused, nothing notices the switcher going offline."
+
+  power_save_2:
+    label: Power Save Mode 2
+    send: "\x1b2PSAV\r"
+    sets: { power_save: 2 }
+    help: "Low power with the front panel locked: everything but control stops, and ties, mutes and presets are refused until Power Save Off is sent. Polling continues."
+
 # Quick actions — routing and preset recall are the everyday matrix moves;
 # audio mute covers the single-output devices.
 actions:
@@ -601,6 +634,17 @@ responses:
   - match: 'Ver(\S+)'
     set: { firmware: "$1" }
 
+  # Power save: "Psav1", the answer to Esc 1PSAV (and, if verbose mode 3
+  # tags it, to the view Esc PSAV).
+  - match: '^Psav([0-2])$'
+    set: { power_save: "$1" }
+  # The answer to the verbose-mode command sent on every connect. Any SIS
+  # command ends mode 1, so a switcher last read in mode 1 has left it: a
+  # power cycle, or a reconnect, resumes polling.
+  - match: '^Vrb3$'
+    only_when: { key: power_save, operator: eq, value: 1 }
+    set: { power_save: 0 }
+
   # Signal presence notification (single-output devices; 0=no signal)
   - match: 'Sig1'
     set: { signal_active: true }
@@ -618,6 +662,8 @@ responses:
     set: { matrix_inputs: "$1", matrix_outputs: "$2" }
 
 polling:
+  # Any SIS command ends power save mode 1, so the poll waits it out.
+  when_state: { power_save: [0, 2] }
   queries:
     # Single-output dialect (matrices answer these with info strings or
     # errors, which is benign — their state rides the per-output queries).
@@ -653,6 +699,7 @@ simulator:
     video_mute: false
     firmware: "1.04"
     signal_active: true
+    power_save: 0
     output.1.input: 1
     output.2.input: 1
     output.3.input: 1
@@ -727,6 +774,16 @@ simulator:
     - match: '\x1b3CV.*'
       handler: |
         respond("Vrb3\r\n")
+
+    # Power save: Esc {n}PSAV  ->  "Psav{n}"; the view Esc PSAV answers the
+    # bare digit, as the guide's table shows it.
+    - match: '\x1b([0-2])PSAV.*'
+      handler: |
+        state["power_save"] = int(match.group(1))
+        respond("Psav" + match.group(1) + "\r\n")
+    - match: '\x1bPSAV.*'
+      handler: |
+        respond(str(state.get("power_save", 0)) + "\r\n")
 
     # AV tie: {input}*{output}!  ->  "Out{o} In{i} All"
     - match: '(\d+)\*(\d+)!'

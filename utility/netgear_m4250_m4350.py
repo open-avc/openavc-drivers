@@ -539,10 +539,12 @@ class NetgearM4250M4350Driver(BaseDriver):
         "name": "NETGEAR M4250 / M4350 AV Line Switch",
         "manufacturer": "NETGEAR",
         "category": "utility",
-        "version": "1.4.8",
+        "version": "1.4.9",
         "author": "OpenAVC",
-        # confirm on the commands that erase, delete or reset needs 0.36.0.
-        "min_platform_version": "0.36.0",
+        # confirm on the commands that erase, delete or reset needs 0.36.0;
+        # local_address(), which binds the Enable SSH wizard's own telnet
+        # session, needs 0.37.0.
+        "min_platform_version": "0.37.0",
         "description": (
             "Monitor and control NETGEAR M4250 and M4350 AV Line managed "
             "switches over their CLI: per-port PoE power-cycling and draw, "
@@ -1108,12 +1110,15 @@ class NetgearM4250M4350Driver(BaseDriver):
         self.transport is free to borrow for the provisioning run.
         """
         self._iac_buf = b""   # fresh telnet IAC state for this session
+        # From the adapter Settings > Network > Reach devices through chose.
+        local_ip = self.local_address(host)
         self.transport = await TCPTransport.create(
             host=host, port=23,
             on_data=self.on_data_received,
             on_disconnect=lambda: None,   # we manage this session ourselves
             delimiter=None, frame_parser=None,
             name=f"{self.device_id}-enable-ssh",
+            local_addr=(local_ip, 0) if local_ip else None,
         )
         self._clear()
 

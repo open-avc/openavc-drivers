@@ -22,6 +22,7 @@ import json
 import os
 import ssl
 from typing import Any
+from urllib.parse import urlsplit
 
 import websockets
 
@@ -123,7 +124,7 @@ class LgWebosDriver(BaseDriver):
         "name": "LG webOS TV",
         "manufacturer": "LG",
         "category": "display",
-        "version": "4.2.5",
+        "version": "4.2.6",
         "author": "OpenAVC",
         "description": "Controls LG webOS TVs over the SSAP WebSocket protocol "
                        "with live power/volume/input feedback.",
@@ -135,8 +136,9 @@ class LgWebosDriver(BaseDriver):
         # driver overrides connect() and never uses a platform transport.
         "transport": "tcp",
         "ports": [3001],
-        # confirm on the commands that erase, delete or reset needs 0.36.0.
-        "min_platform_version": "0.36.0",
+        # confirm on the commands that erase, delete or reset needs 0.36.0;
+        # binding the WebSockets to Reach devices through, 0.37.0.
+        "min_platform_version": "0.37.0",
 
         "default_config": {
             "host": "",
@@ -322,9 +324,12 @@ class LgWebosDriver(BaseDriver):
         port = int(self.config.get("port", 3001))
         scheme = "wss" if self.config.get("ssl", True) else "ws"
         url = f"{scheme}://{host}:{port}"
+        # From the adapter Settings > Network > Reach devices through chose.
+        ip = self.local_address(host)
         self._ws = await websockets.connect(
             url,
             ssl=self._ssl_ctx() if scheme == "wss" else None,
+            local_addr=(ip, 0) if ip else None,
             open_timeout=6.0,
             max_size=None,
             ping_interval=20,
@@ -750,10 +755,13 @@ class LgWebosDriver(BaseDriver):
         if not path:
             return None
         use_tls = path.startswith("wss://")
+        # The TV names this socket's address itself; bind for that host.
+        ip = self.local_address(urlsplit(path).hostname)
         try:
             self._pointer_ws = await websockets.connect(
                 path,
                 ssl=self._ssl_ctx() if use_tls else None,
+                local_addr=(ip, 0) if ip else None,
                 open_timeout=3.0,
                 max_size=None,
             )

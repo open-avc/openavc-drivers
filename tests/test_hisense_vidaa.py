@@ -24,6 +24,7 @@ from types import ModuleType
 
 import pytest
 from _platform_stubs import (
+    StubBaseDriver,
     StubEvents as _Events,
 )
 
@@ -44,6 +45,10 @@ class _BaseDriver:
     omitted here.)"""
 
     DRIVER_INFO: dict = {}
+    # Settings > Network > Reach devices through, as local_address() answers
+    # it: nothing pinned unless a test sets it.
+    reach_devices_address = None
+    local_address = StubBaseDriver.local_address
 
     def __init__(self, device_id, config, state=None, events=None):
         self.device_id = device_id
@@ -317,7 +322,7 @@ def test_the_pairing_pin_is_a_secret(mod):
     # A secret parameter is masked in the server log, on the device page and
     # in a device audit's report.
     info = mod.HisenseVidaaDriver.DRIVER_INFO
-    assert info["version"] == "1.0.5"
+    assert info["version"] == "1.0.6"
     assert info["commands"]["submit_pin"]["params"]["pin"].get("secret") is True
 
 
@@ -404,6 +409,31 @@ def test_disconnect_closes_transport_and_emits(mod):
     assert drv.connected is False
     assert drv.get_state("connected") is False
     assert drv.events.emitted[-1] == "device.disconnected.tv1"
+
+
+# ── Reach devices through: the broker connection the driver builds itself ──
+
+def test_every_credential_attempt_leaves_from_the_chosen_adapter(mod):
+    FakeMQTTTransport.reject = lambda kw: kw["username"] != "hisenseservice"
+    drv = mod.HisenseVidaaDriver("tv1", {"host": "10.0.0.5"}, None, _Events())
+    drv.reach_devices_address = "10.20.0.5"
+    asyncio.run(drv.connect())
+    assert [kw["local_address"] for kw in FakeMQTTTransport.created] == [
+        "10.20.0.5", "10.20.0.5",
+    ]
+
+
+@pytest.mark.parametrize("pinned, host", [
+    (None, "10.0.0.5"),          # no adapter chosen
+    ("10.20.0.5", "127.0.0.1"),  # a TV on this computer (a simulator)
+])
+def test_nothing_is_bound_with_no_adapter_chosen_or_a_tv_on_this_computer(
+    mod, pinned, host,
+):
+    drv = mod.HisenseVidaaDriver("tv1", {"host": host}, None, _Events())
+    drv.reach_devices_address = pinned
+    asyncio.run(drv.connect())
+    assert FakeMQTTTransport.created[0]["local_address"] is None
 
 
 # ── Credential generator: documented test vector ──

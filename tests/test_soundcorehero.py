@@ -35,6 +35,7 @@ import httpx
 import pytest
 from _platform_stubs import (
     ConnectionFaultError,
+    StubBaseDriver,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -65,6 +66,11 @@ class _FakeBaseDriver:
         # ctype -> {local_id -> {"schema": {...}, "state": {...}}}
         self._children: dict[str, dict[int, dict]] = {}
         self.polling_starts = 0
+        self.reach_devices_address: str | None = None
+
+    # Settings > Network > Reach devices through, borrowed from the shared
+    # stub so it cannot drift from the platform's rule.
+    local_address = StubBaseDriver.local_address
 
     # Child entity API ----------------------------------------------------
     def _child_schema(self, ctype: str) -> dict:
@@ -638,3 +644,53 @@ def test_other_login_failure_is_not_auth_failed(monkeypatch):
         assert "internal error" in str(exc.value)
 
     asyncio.run(go())
+
+
+@pytest.mark.parametrize("pinned,host,expected", [
+    ("10.20.0.5", "10.0.0.9", ("10.20.0.5", 0)),
+    (None, "10.0.0.9", None),
+    ("10.20.0.5", "127.0.0.1", None),
+], ids=["pinned", "nothing-pinned", "loopback-host"])
+def test_the_control_websocket_leaves_from_the_reach_devices_adapter(
+        monkeypatch, pinned, host, expected):
+    """Settings > Network > Reach devices through: the control WebSocket
+    binds to the chosen adapter. With nothing chosen, or a unit on this
+    computer (a simulator), the operating system picks the way out."""
+    d = _driver(host=host)
+    d.reach_devices_address = pinned
+
+    def handler(request):
+        if request.url.path == "/api/usersmanager-login":
+            return httpx.Response(200, json={"sessionId": "sess-1"})
+        return httpx.Response(200, json={})
+
+    real_client = _MOD.httpx.AsyncClient
+
+    def client_factory(*a, **k):
+        k.pop("verify", None)
+        k["transport"] = httpx.MockTransport(handler)
+        return real_client(*a, **k)
+
+    monkeypatch.setattr(_MOD.httpx, "AsyncClient", client_factory)
+
+    prompt = json.dumps({"status": "unauthorized"})
+    snapshot = json.dumps({"zones": {"z-1": _zone_obj(0, "Lobby", 42)}})
+    ws_conn = _FakeWsConn([prompt, snapshot])
+    opened: list[tuple[str, dict]] = []
+
+    def fake_connect(url, **kwargs):
+        opened.append((url, kwargs))
+        return ws_conn
+
+    monkeypatch.setattr(_MOD.websockets, "connect", fake_connect)
+
+    async def go():
+        await d.connect()
+        assert d.get_state("connected") is True
+        await d.disconnect()
+
+    asyncio.run(go())
+    assert len(opened) == 1
+    url, kwargs = opened[0]
+    assert url == f"wss://{host}:443/ws/"
+    assert kwargs["local_addr"] == expected

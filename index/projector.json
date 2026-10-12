@@ -12,7 +12,7 @@
       "name": "Barco Pulse Projector",
       "manufacturer": "Barco",
       "category": "projector",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Barco Pulse-platform laser projectors (F70 / F80 / F90, UDX, UDM, HDX 4K, I600, G62 / G100, XDL and other Pulse models) over the Pulse JSON-RPC API on TCP 9090. Live push updates for power, source, shutter, laser power and picture settings; source picker built from the projector's own input list; lens shift / zoom / focus; test patterns; environment temperatures; and a raw property/method escape hatch for the full Pulse API.",
@@ -20,7 +20,7 @@
       "file": "projectors/barco_pulse.py",
       "format": "python",
       "files": {
-        "projectors/barco_pulse.py": "9f51b5d0ad283679a3eafda1e13d14bad32f9fedfcf2cb88efd4b2be25cd4cd3",
+        "projectors/barco_pulse.py": "68058535a905ce7141fe4315b34167a07069d8c38e5eff2340ab270afd711f77",
         "projectors/barco_pulse_sim.py": "4f87820c7c9d18294a059a3f25b163334ef66a126e8d52a52592908090c6d0fa"
       },
       "ports": [
@@ -571,7 +571,7 @@
       "name": "Panasonic PT-MZ / PT-RZ Projector",
       "manufacturer": "Panasonic",
       "category": "projector",
-      "version": "1.4.6",
+      "version": "1.4.7",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Panasonic PT-MZ (LCD) and PT-RZ (DLP) professional installation projectors via the NTCONTROL TCP protocol (Protocol 2). Power, input, shutter / AV mute, freeze, and operating-hours readout. Supports Panasonic's MD5 session-challenge authentication so the projector keeps its default Web Control admin password.",
@@ -579,7 +579,7 @@
       "file": "projectors/panasonic_pt.py",
       "format": "python",
       "files": {
-        "projectors/panasonic_pt.py": "f8cb85d80b7dd62de1bca61bb42128f3e40bc70c88cc45b967cb28ca1043fd1a",
+        "projectors/panasonic_pt.py": "d0cc65faf157b2252af06c92fa959ac852f5ba6c69cef0d34a25e1e32e0705d5",
         "projectors/panasonic_pt_sim.py": "91817756d9ad3333358e18df07cb0fa7b58a2d7c8742349e9ce1d6d0c4177cff"
       },
       "ports": [
@@ -589,7 +589,7 @@
         "ntcontrol"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "projector",
         "panasonic",
@@ -823,7 +823,7 @@
       "name": "Sony VPL Projector (ADCP)",
       "manufacturer": "Sony",
       "category": "projector",
-      "version": "1.4.3",
+      "version": "1.4.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Sony VPL professional installation projectors over Sony's Advanced Display Control Protocol (ADCP) on TCP port 53595. Power, input, blank, freeze, picture mode, aspect ratio, image-quality (contrast / brightness / colour / sharpness), and the universal remote-key set. Supports SHA-256 challenge-response authentication so the projector can keep its default auth-on web setting.",
@@ -831,7 +831,7 @@
       "file": "projectors/sony_vpl.py",
       "format": "python",
       "files": {
-        "projectors/sony_vpl.py": "6c9efbace40d536f4da1b1e929bd85c05d198ff4012faf10f228d5a4cc372784",
+        "projectors/sony_vpl.py": "33f295ec6a712c4c40dd046165c78059196d6078ae4b162ea1c6158621f352e9",
         "projectors/sony_vpl_sim.py": "225eb5c08b97ad5c0c05f277ad7b334e99077490ecebe7e6dec675244796acb3"
       },
       "ports": [
@@ -841,7 +841,7 @@
         "adcp"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "projector",
         "sony",

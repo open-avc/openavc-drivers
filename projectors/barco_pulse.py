@@ -251,8 +251,10 @@ class BarcoPulseDriver(BaseDriver):
         "name": "Barco Pulse Projector",
         "manufacturer": "Barco",
         "category": "projector",
-        "version": "1.1.1",
-        # learned_from on the MAC address setting landed in 0.37.0.
+        "version": "1.1.2",
+        # learned_from on the MAC address setting landed in 0.37.0, and so
+        # did BaseDriver.local_address(), which the Test Pulse socket binds
+        # to (a method call the contract check cannot see).
         "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
@@ -1442,9 +1444,15 @@ class BarcoPulseDriver(BaseDriver):
         save = bool(params.get("save", True))
 
         await progress(f"Connecting to {host}:{port}…", 10)
+        # From the adapter Settings > Network > Reach devices through chose.
+        local_ip = self.local_address(host)
         try:
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, port), timeout=5.0,
+                asyncio.open_connection(
+                    host, port,
+                    local_addr=(local_ip, 0) if local_ip else None,
+                ),
+                timeout=5.0,
             )
         except (OSError, asyncio.TimeoutError) as exc:
             raise ConnectionError(

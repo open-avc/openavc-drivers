@@ -354,6 +354,26 @@ def test_connects_without_a_password_and_subscribes_to_events():
     _run(go())
 
 
+@pytest.mark.parametrize("pinned,host,expected", [
+    ("10.20.0.5", "10.0.0.20", ("10.20.0.5", 0)),
+    (None, "10.0.0.20", None),
+    ("10.20.0.5", "127.0.0.1", None),
+], ids=["pinned", "nothing-pinned", "loopback-host"])
+def test_the_websocket_leaves_from_the_reach_devices_adapter(pinned, host, expected):
+    """Settings > Network > Reach devices through: the WebSocket binds to the
+    chosen adapter. With nothing chosen, or OBS on this computer, the
+    operating system picks the way out."""
+    async def go():
+        driver, sim, fake_connect, sockets = _make(None, {"host": host})
+        driver.reach_devices_address = pinned
+        await _connect(driver, fake_connect)
+        assert driver.connected
+        assert sockets[0].url == f"ws://{host}:4455"
+        assert sockets[0].kwargs["local_addr"] == expected
+        await driver.disconnect()
+    _run(go())
+
+
 def test_the_right_password_answers_the_challenge():
     async def go():
         driver, sim, sockets = await _connected({"password": "hunter2"}, {"password": "hunter2"})

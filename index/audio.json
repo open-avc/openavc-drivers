@@ -564,7 +564,7 @@
       "name": "Dante DDM / Director",
       "manufacturer": "Audinate",
       "category": "audio",
-      "version": "1.7.5",
+      "version": "1.7.6",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Dante audio routing via the Audinate Managed API. Requires Dante Domain Manager or Dante Director Professional. Each Dante device is a child entity; route/unroute any Rx channel to a Tx channel and monitor live subscription status.",
@@ -572,14 +572,14 @@
       "file": "audio/dante_ddm.py",
       "format": "python",
       "files": {
-        "audio/dante_ddm.py": "cd58fb2658265cbf8723c5b26b5a95fc7471eb7ed88e4473e7347e61cc95fe18",
+        "audio/dante_ddm.py": "180281fe7498182c15ec82cdc25d3b3e3f1ea9afb277f7e4487211b8e5c0dd64",
         "audio/dante_ddm_sim.py": "d52b311a7df94f2e54373320477d9b30e9dfc1895ea7b09b9e82d3b8044e14dd"
       },
       "ports": [
         443
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "dante",
         "audio-routing",
@@ -953,7 +953,7 @@
       "name": "Biamp Tesira TTP",
       "manufacturer": "Biamp",
       "category": "audio",
-      "version": "3.1.5",
+      "version": "3.1.6",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Biamp Tesira and TesiraFORT\u00c9 DSPs over the Tesira Text Protocol on TCP port 23 (Telnet). Supports Mute, Level, Source Selector, Matrix Mixer (crosspoints), Auto Mixer, Router, Logic, AEC, Room Combiner, Audio Meter, Signal Present Meter, Tone Generator, Preset recall, and basic VoIP / Dialer surfaces. Subscribes to push updates instead of polling. Declare your Tesira blocks once in the device config \u2014 each block becomes a child entity whose per-channel controls panel UIs bind to directly.",
@@ -961,7 +961,7 @@
       "file": "audio/biamp_tesira_ttp.py",
       "format": "python",
       "files": {
-        "audio/biamp_tesira_ttp.py": "ba7f72a71fd7e6e4ba7ba43b43ab2bd6b01ab192efa768b203312cc04292d139",
+        "audio/biamp_tesira_ttp.py": "79176aab88ca65abf513f648345cd417d59e8cd38319415b895bc84251562840",
         "audio/biamp_tesira_ttp_discovery.py": "52a9a3d6c365efd4549d6b69b5bab2d385b207ac51da02d197089464a723d66e",
         "audio/biamp_tesira_ttp_sim.py": "292b470d6c8d8c88d5349b70c4d9f91ab6ac07ca0ce2ee772bb6fea1b2b15e22"
       },
@@ -972,7 +972,7 @@
         "biamp_tesira"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "dsp",
         "tesira",
@@ -1022,7 +1022,7 @@
       "name": "Bose Professional ControlSpace (ESP / EX / CSP)",
       "manufacturer": "Bose Professional",
       "category": "audio",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Bose Professional ControlSpace EX, ESP and CSP processors through the ControlSpace Serial Control Protocol on TCP port 10055 or the RS-232 port. Declare the modules from your ControlSpace Designer design (gains, inputs, outputs, selectors, routers, mixers, automatic mic mixers, EQs, dynamics, delays, logic, telephone and VoIP lines, signal-level meters, or any parameter by index) and each becomes a child entity whose controls panels bind to. Groups carry master level, mute and source; parameter sets recall by number or name; room combine groups join and split. Every control is subscribed on a processor that supports subscriptions, so changes made from a CC-16 or CC-64 wall controller or from Designer appear at once.",
@@ -1030,7 +1030,7 @@
       "file": "audio/bose_controlspace.py",
       "format": "python",
       "files": {
-        "audio/bose_controlspace.py": "4b64d29e16d2e0fb8965b55fb27eb63123a9fa06e0bce943b3d39872e826153e",
+        "audio/bose_controlspace.py": "f7add21d6038722faaf18cdbc574289aae561f29887a4a976e14c8c74b36fb8f",
         "audio/bose_controlspace_sim.py": "80cfe3aed3debec7ed012d979fe33bd27b5d223d62a5bea85cfb3e60fc567166"
       },
       "ports": [
@@ -1040,7 +1040,7 @@
         "bose-controlspace-serial"
       ],
       "simulated": true,
-      "min_platform_version": "0.36.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "dsp",
         "bose",
@@ -1144,7 +1144,7 @@
       "name": "BSS Soundweb London (BLU)",
       "manufacturer": "BSS Audio",
       "category": "audio",
-      "version": "1.1.7",
+      "version": "1.1.8",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls BSS Soundweb London BLU-series processors through the London Direct Inject protocol on TCP port 1023. Declare the processing objects from your Audio Architect design (gains, mixers, automixers, matrices, routers, source selectors, meters, input and output cards, or any single state variable) and each becomes a child entity whose controls panels bind to. Every control is subscribed, so changes made from Architect or a wall controller appear instantly; venue and parameter presets recall by number.",
@@ -1152,7 +1152,7 @@
       "file": "audio/bss_soundweb_london.py",
       "format": "python",
       "files": {
-        "audio/bss_soundweb_london.py": "e799ef3eb168d2ace5646de55abc86a24aa3242260c62f2faf56ff2c2c257ab8",
+        "audio/bss_soundweb_london.py": "b59aaeef3cd74aa72655ea2565ee033da0286009c03daf86320b91c76fad7c1f",
         "audio/bss_soundweb_london_sim.py": "b5e01e6f1f336639a8431c8d4990e0fd72ff25f5e541d516fdbb350c9beed491"
       },
       "ports": [
@@ -1163,7 +1163,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "dsp",
         "bss",
@@ -1230,7 +1230,7 @@
       "name": "SoundCoreHero Audio System",
       "manufacturer": "Hero AV",
       "category": "audio",
-      "version": "1.0.6",
+      "version": "1.0.7",
       "author": "Wiktor Myszolow (Hero AV)",
       "transport": "tcp",
       "description": "Controls a SoundCoreHero multi-zone audio distribution system (zones, players, speakers, inputs) over its HTTPS/WebSocket API.",
@@ -1238,12 +1238,12 @@
       "file": "audio/soundcorehero.py",
       "format": "python",
       "files": {
-        "audio/soundcorehero.py": "764336d03e6476cf003614eccba82138b7460a9af932926e12895136f6baab7d"
+        "audio/soundcorehero.py": "38e79ba84a139bce610e8849163d3cc71b65851aacebbf95261b588d3b19d4e6"
       },
       "protocols": [
         "soundcorehero"
       ],
-      "min_platform_version": "0.36.0",
+      "min_platform_version": "0.37.0",
       "help": {
         "overview": "SoundCoreHero is a professional multi-zone audio distribution and management system. This driver exposes its zones, players, speakers and inputs as child entities, controls volume/mute/transport, and plays announcements.",
         "setup": "1. Note the device IP. By default only HTTPS (port 443) is enabled.\n2. Create or pick a user account in Settings -> Users. The driver logs in with that account's email and password to obtain a session (required by the control WebSocket).\n3. Enter IP, email and password. Leave 'Verify SSL' off if the device uses its default self-signed certificate."
@@ -1585,7 +1585,7 @@
       "name": "QSC Q-SYS QRC",
       "manufacturer": "QSC",
       "category": "audio",
-      "version": "4.3.3",
+      "version": "4.3.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls QSC Q-SYS Cores via QRC (Q-SYS Remote Control) \u2014 JSON-RPC 2.0 over TCP port 1710. Auto-discovers the running design's Components and their controls on connect (no manual block list), models each Component as a typed child entity, and streams real-time state via Change Group auto-poll. Covers Component control, Named Controls, Mixer, Audio Router, Snapshot recall/save, Loop Player, and PA Router paging.",
@@ -1593,7 +1593,7 @@
       "file": "audio/qsc_qrc.py",
       "format": "python",
       "files": {
-        "audio/qsc_qrc.py": "4ccb6bb55b85c00b29c7fdb184f82df615d429be89e958fd931f34c816b2c65c",
+        "audio/qsc_qrc.py": "22bae254e58945d82ab3ce1c4f96b180aff1fe538cc94f5e7e9804fd0cd5d588",
         "audio/qsc_qrc_sim.py": "9668f6f8082acffbe222245aba544b641930eff96125b0f8e2462e545dec1ab0"
       },
       "ports": [
@@ -1604,7 +1604,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "dsp",
         "q-sys",

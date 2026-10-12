@@ -83,7 +83,7 @@
       "name": "Art-Net DMX (Generic)",
       "manufacturer": "Generic",
       "category": "lighting",
-      "version": "1.4.2",
+      "version": "1.4.3",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Sends DMX512 lighting data over Art-Net (UDP 6454) to any Art-Net-compatible node, gateway, fixture, or controller. Maintains a 512-byte channel buffer per universe in memory; commands set channels, blackout, or full-on; a periodic keep-alive re-broadcast keeps long-running shows alive on receivers that time out idle universes.",
@@ -91,7 +91,7 @@
       "file": "lighting/artnet_dmx.py",
       "format": "python",
       "files": {
-        "lighting/artnet_dmx.py": "0ccda5e77db5b6dc4bf6cff963353972bb3cb3282ccb5ea0a643196a68be9e5f",
+        "lighting/artnet_dmx.py": "190f763c88875e85e53ba67e6ef497bc85016bd863c52c5bcc92d9da8e6d8bf4",
         "lighting/artnet_dmx_sim.py": "639d3cd041f3e9af9216b9684cfef064a10f61eef34450f5a85fff0dfb5bfd6f"
       },
       "ports": [
@@ -101,7 +101,7 @@
         "artnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "artnet",
         "dmx",
@@ -250,7 +250,7 @@
       "name": "sACN / E1.31 DMX (Generic)",
       "manufacturer": "Generic",
       "category": "lighting",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Streams DMX512 lighting data over sACN (Streaming ACN, ANSI E1.31) to any sACN-compatible node, gateway, fixture, or controller. Uses per-universe multicast (239.255.x.x, UDP 5568) by default, or unicast to a specific node. Maintains a 512-byte channel buffer per universe in memory; commands set channels, blackout, or full-on; per-source priority tunes multi-source merging; a keep-alive re-send holds static looks alive and a graceful stream-termination releases the universe on disconnect.",
@@ -258,7 +258,7 @@
       "file": "lighting/sacn_e131.py",
       "format": "python",
       "files": {
-        "lighting/sacn_e131.py": "4589b65b8a20d28ca6eaf12734146dada4d2baf8c885812b14253cbf953cd389",
+        "lighting/sacn_e131.py": "0712e890e4c446050700f184b52fa76932bfe538796c35bf9c04018fb072f976",
         "lighting/sacn_e131_sim.py": "350b89ef019c34d69085600261a2b52f10de356e67b3982ef9d26a8365204516"
       },
       "ports": [
@@ -269,7 +269,7 @@
         "e131"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "sacn",
         "e131",

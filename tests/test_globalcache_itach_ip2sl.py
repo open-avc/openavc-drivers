@@ -9,11 +9,16 @@ catalog-facing DRIVER_INFO (bridge port + discovery hints).
 
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import logging
 import sys
 from pathlib import Path
 from types import ModuleType
+
+import pytest
+
+from _platform_stubs import StubBaseDriver
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "utility" / "globalcache_itach_ip2sl.py"
@@ -33,6 +38,14 @@ def _install_server_stubs() -> None:
 
     class _BaseDriver:
         DRIVER_INFO: dict = {}
+        # Settings > Network > Reach devices through, as local_address()
+        # answers it: nothing pinned unless a test sets it.
+        reach_devices_address = None
+        local_address = StubBaseDriver.local_address
+
+        def __init__(self, device_id, config, state=None, events=None):
+            self.device_id = device_id
+            self.config = config
 
     base.BaseDriver = _BaseDriver
     sys.modules["openavc.drivers.base"] = base
@@ -214,8 +227,45 @@ def test_the_probe_claims_this_unit_and_neither_sibling():
             )
 
 
-def test_min_platform_version_gates_on_the_package_move():
-    # Bridge runtime (resolver + prepare_bridge_port) ships in 0.19.0, but this
-    # file imports openavc.*, which only exists from 0.25.0 — so that is the
-    # floor an older box has to refuse the install on.
-    assert drv.GlobalCacheItachIP2SLDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
+def test_min_platform_version_gates_on_the_adapter_bind():
+    # The set_SERIAL connection binds to local_address(), which arrives in
+    # 0.37.0 — so that is the floor an older box has to refuse the install on.
+    assert drv.GlobalCacheItachIP2SLDriver.DRIVER_INFO["min_platform_version"] == "0.37.0"
+
+
+# ---------------------------------------------------------------------------
+# Reach devices through — the set_SERIAL connection the driver opens itself
+# ---------------------------------------------------------------------------
+
+
+def _push_line_settings(monkeypatch, host, pinned):
+    """Run prepare_bridge_port against a refused 4998 connection and return
+    the address each connection would have left from."""
+    local_addrs = []
+
+    async def _refuse(conn_host, port, **kwargs):
+        local_addrs.append(kwargs.get("local_addr"))
+        raise ConnectionRefusedError("refused in test")
+
+    monkeypatch.setattr(asyncio, "open_connection", _refuse)
+    driver = drv.GlobalCacheItachIP2SLDriver("gc", {"host": host, "port": 4998})
+    driver.reach_devices_address = pinned
+    with pytest.raises(ConnectionRefusedError):
+        asyncio.run(driver.prepare_bridge_port("serial:1", {"baudrate": 9600}))
+    return local_addrs
+
+
+def test_the_set_serial_connection_leaves_from_the_chosen_adapter(monkeypatch):
+    assert _push_line_settings(monkeypatch, "10.1.2.3", "10.20.0.5") == [
+        ("10.20.0.5", 0)
+    ]
+
+
+@pytest.mark.parametrize("pinned, host", [
+    (None, "10.1.2.3"),          # no adapter chosen
+    ("10.20.0.5", "127.0.0.1"),  # a bridge on this computer (a simulator)
+])
+def test_nothing_is_bound_with_no_adapter_chosen_or_a_bridge_on_this_computer(
+    monkeypatch, pinned, host,
+):
+    assert _push_line_settings(monkeypatch, host, pinned) == [None]

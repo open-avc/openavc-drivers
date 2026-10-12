@@ -170,10 +170,11 @@ class AVerPTZDriver(BaseDriver):
         "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
         "manufacturer": "AVer",
         "category": "camera",
-        "version": "1.3.7",
+        "version": "1.3.8",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
-        # confirm on factory_reset needs 0.36.0.
-        "min_platform_version": "0.36.0",
+        # confirm on factory_reset needs 0.36.0; binding the VISCA socket to
+        # Reach devices through, 0.37.0.
+        "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
             "AVer Pro-AV PTZ310 / PTZ330 family. Combines VISCA-over-IP "
@@ -955,9 +956,12 @@ class AVerPTZDriver(BaseDriver):
         try:
             loop = asyncio.get_running_loop()
             self._visca_protocol = _ViscaUDPProtocol(self._on_visca_data)
+            # From the adapter Settings > Network > Reach devices through chose.
+            ip = self.local_address(host)
             transport, _ = await loop.create_datagram_endpoint(
                 lambda: self._visca_protocol,
                 remote_addr=(host, visca_port),
+                local_addr=(ip, 0) if ip else None,
             )
             self._visca_transport = transport
         except Exception as e:

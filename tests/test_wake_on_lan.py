@@ -24,6 +24,7 @@ from types import ModuleType
 
 import pytest
 from _platform_stubs import (
+    StubBaseDriver,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -43,6 +44,10 @@ class _FakeBaseDriver:
     _link_alive to True for its connectionless protocol)."""
 
     DRIVER_INFO: dict = {}
+    # Settings > Network > Reach devices through, as local_address() answers
+    # it: nothing pinned unless a test sets it.
+    reach_devices_address = None
+    local_address = StubBaseDriver.local_address
 
     def __init__(self, device_id, config, state, events) -> None:
         self.device_id = device_id
@@ -129,10 +134,11 @@ class _FakeUDPTransport:
         self.name = name
         self.sent_to: list[tuple[bytes, str, int]] = []
         self.closed = False
+        self.local_addr = None
         _FakeUDPTransport.instances.append(self)
 
     async def open(self, allow_broadcast=True, local_addr=None) -> None:
-        pass
+        self.local_addr = local_addr
 
     async def send(self, data) -> None:
         raise AssertionError(
@@ -225,6 +231,39 @@ def test_wake_sends_magic_packet_and_closes_socket():
         assert udp.closed is True
         assert driver.state.get("device.wolX.last_wake")
     _run(scenario())
+
+
+# ── Reach devices through: the socket the driver opens itself ───────────────
+
+def _wake_bound_to(broadcast, pinned):
+    async def scenario():
+        _FakeUDPTransport.instances.clear()
+        driver = WakeOnLANDriver(
+            "wolX",
+            {"mac_address": "AA:BB:CC:DD:EE:FF", "broadcast_address": broadcast},
+            _FakeState(), _FakeEvents(),
+        )
+        driver.reach_devices_address = pinned
+        await driver.connect()
+        assert await driver.send_command("wake") is True
+        (udp,) = _FakeUDPTransport.instances
+        return udp.local_addr
+    return _run(scenario())
+
+
+@pytest.mark.parametrize("broadcast", ["255.255.255.255", "192.168.1.255"])
+def test_the_magic_packet_leaves_from_the_chosen_adapter(broadcast):
+    assert _wake_bound_to(broadcast, "10.20.0.5") == "10.20.0.5"
+
+
+@pytest.mark.parametrize("pinned, broadcast", [
+    (None, "255.255.255.255"),   # no adapter chosen
+    ("10.20.0.5", "127.0.0.1"),  # a target on this computer (a simulator)
+])
+def test_nothing_is_bound_with_no_adapter_chosen_or_a_target_on_this_computer(
+    pinned, broadcast,
+):
+    assert _wake_bound_to(broadcast, pinned) is None
 
 
 # ── Magic packet builder ────────────────────────────────────────────────────

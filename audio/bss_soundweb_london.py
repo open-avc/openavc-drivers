@@ -1147,8 +1147,10 @@ class BSSSoundwebLondonDriver(BaseDriver):
         "name": "BSS Soundweb London (BLU)",
         "manufacturer": "BSS Audio",
         "category": "audio",
-        "version": "1.1.7",
-        "min_platform_version": "0.25.0",
+        "version": "1.1.8",
+        # Set by hand (the contract check cannot see a method call): the
+        # Test Connection socket binds to BaseDriver.local_address(), 0.37.0.
+        "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
             "Controls BSS Soundweb London BLU-series processors through the "
@@ -1900,8 +1902,12 @@ class BSSSoundwebLondonDriver(BaseDriver):
         if self._problems:
             await progress("Object list has problems: " + "; ".join(self._problems), 5)
         await progress(f"Connecting to {host}:{port}", 10)
+        # From the adapter Settings > Network > Reach devices through chose.
+        local_ip = self.local_address(host)
         try:
-            reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), 10.0)
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(host, port, local_addr=(local_ip, 0) if local_ip else None), 10.0
+            )
         except (OSError, asyncio.TimeoutError) as exc:
             raise ConnectionError(
                 f"Could not reach {host}:{port}. Check the address and that the unit is on the network ({exc})."

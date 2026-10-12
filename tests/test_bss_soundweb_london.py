@@ -245,7 +245,7 @@ def test_the_object_accounting_says_what_it_counts():
     connect, before the unit answers; their help says they describe the
     Objects table and this connection, not something the unit reported."""
     info = DRV.BSSSoundwebLondonDriver.DRIVER_INFO
-    assert info["version"] == "1.1.7"
+    assert info["version"] == "1.1.8"
     sv = info["state_variables"]
     for key in ("objects_declared", "objects_responding", "config_problems"):
         assert sv[key].get("help"), key
@@ -816,6 +816,26 @@ async def test_test_connection_leaves_the_live_session_alone():
     sim.set_value("Program", "mute", True)
     await _settle()
     assert _child(drv, "Program", "mute") is True
+
+
+@pytest.mark.asyncio
+async def test_the_connection_test_dials_from_the_chosen_adapter(monkeypatch):
+    # The wizard's own socket leaves from the adapter Settings > Network >
+    # Reach devices through chose; the operating system picks when none is
+    # chosen or the unit is on this computer (a simulator).
+    dialed = []
+
+    async def refused(host, port, **kwargs):
+        dialed.append(kwargs)
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(DRV.asyncio, "open_connection", refused)
+    for host, pinned in (("10.0.0.5", "10.20.0.5"), ("10.0.0.5", None), ("127.0.0.1", "10.20.0.5")):
+        drv, _ = _make(host=host)
+        drv.reach_devices_address = pinned
+        with pytest.raises(ConnectionError):
+            await drv.run_setup_action("test_connection", {}, lambda m, p: asyncio.sleep(0))
+    assert [d["local_addr"] for d in dialed] == [("10.20.0.5", 0), None, None]
 
 
 # ── What the BLU-100 showed on the bench ────────────────────────────────────

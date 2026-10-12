@@ -24,6 +24,7 @@ from types import ModuleType, SimpleNamespace
 import pytest
 from _platform_stubs import (
     ConnectionFaultError as _ConnectionFaultError,
+    StubBaseDriver as _StubBaseDriver,
     StubEvents as _FakeEvents,
 )
 
@@ -87,6 +88,11 @@ def _install_server_stubs() -> None:
         HEALTH_FAULT_MESSAGE = (
             "The device stopped answering keep-alive probes."
         )
+
+        # Settings > Network > Reach devices through: nothing pinned unless
+        # a test sets it; local_address() answers it the way the platform does.
+        reach_devices_address: str | None = None
+        local_address = _StubBaseDriver.local_address
 
         def __init__(self, device_id, config, state, events):
             self.device_id = device_id
@@ -1021,3 +1027,26 @@ def test_set_component_control_value_type_follows_control():
     # and the named sibling is the child_schema cascade it chains through
     control = cmds["set_component_control"]["params"]["control"]
     assert control["options_from"]["source"] == "child_schema"
+
+
+def test_the_connection_test_dials_from_the_chosen_adapter(monkeypatch):
+    """The wizard's own socket leaves from the adapter Settings > Network >
+    Reach devices through chose; the operating system picks when none is
+    chosen or the Core is on this computer (a simulator)."""
+    dialed: list[dict] = []
+
+    async def refused(host, port, **kwargs):
+        dialed.append(kwargs)
+        raise OSError("connection refused")
+
+    async def progress(msg, pct=None):
+        pass
+
+    monkeypatch.setattr(qsc.asyncio, "open_connection", refused)
+    for host, pinned in (("10.0.0.5", "10.20.0.5"), ("10.0.0.5", None),
+                         ("127.0.0.1", "10.20.0.5")):
+        drv = _make_driver({"host": host})
+        drv.reach_devices_address = pinned
+        with pytest.raises(ConnectionError):
+            asyncio.run(drv.run_setup_action("test_connection", {}, progress))
+    assert [d["local_addr"] for d in dialed] == [("10.20.0.5", 0), None, None]

@@ -42,6 +42,7 @@ import pytest
 
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
+    StubBaseDriver as _StubBaseDriver,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -61,6 +62,10 @@ class _FakeBaseDriver(LifecycleFake):
     allowed for dynamic child types)."""
 
     DRIVER_INFO: dict = {}
+    # Settings > Network > Reach devices through: nothing pinned unless a
+    # test sets it; local_address() answers it the way the platform does.
+    reach_devices_address: str | None = None
+    local_address = _StubBaseDriver.local_address
 
     def __init__(self, device_id, config, state, events) -> None:
         self.device_id = device_id
@@ -392,10 +397,11 @@ async def _inject(driver, line: str) -> None:
 
 def test_metadata_and_platform_gate():
     info = DRV.TvoneCoriomasterDriver.DRIVER_INFO
-    assert info["version"] == "1.0.3"
+    assert info["version"] == "1.0.4"
     assert info["category"] == "video"
     # 0.37.0, by hand: the platform's silence check is what takes a hung
-    # controller offline (the poll stops at the first silent request).
+    # controller offline (the poll stops at the first silent request), and
+    # the Test Login socket binds to BaseDriver.local_address().
     assert info["min_platform_version"] == "0.37.0"
     assert info["ports"] == [10001]
     # No active probe on purpose: the CLI answers nothing documented
@@ -868,3 +874,26 @@ async def test_poll_propagates_transport_failure():
     driver.transport.connected = False
     with pytest.raises(ConnectionError):
         await driver.poll()
+
+
+@pytest.mark.asyncio
+async def test_the_login_test_dials_from_the_chosen_adapter(monkeypatch):
+    """The setup action's own socket leaves from the adapter Settings >
+    Network > Reach devices through chose; the operating system picks when
+    none is chosen or the CORIOmaster is on this computer (a simulator)."""
+    dialed: list[dict] = []
+
+    async def refused(host, port, **kwargs):
+        dialed.append(kwargs)
+        raise OSError("connection refused")
+
+    async def progress(step, pct=None):
+        pass
+
+    monkeypatch.setattr(DRV.asyncio, "open_connection", refused)
+    for host, pinned in (("10.0.0.20", "10.20.0.5"), ("10.0.0.20", None), ("127.0.0.1", "10.20.0.5")):
+        driver, _sim = await _make_pair({"host": host}, connect=False)
+        driver.reach_devices_address = pinned
+        with pytest.raises(ConnectionError):
+            await driver.run_setup_action("test_login", {}, progress)
+    assert [d["local_addr"] for d in dialed] == [("10.20.0.5", 0), None, None]

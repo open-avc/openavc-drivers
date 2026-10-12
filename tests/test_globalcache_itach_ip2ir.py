@@ -20,6 +20,8 @@ from types import ModuleType
 
 import pytest
 
+from _platform_stubs import StubBaseDriver as _StubBaseDriver
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "utility" / "globalcache_itach_ip2ir.py"
 SIM_PATH = REPO_ROOT / "utility" / "globalcache_itach_ip2ir_sim.py"
@@ -43,6 +45,11 @@ def _install_stubs() -> None:
         # platform does at instantiation) instead of the stub masking it.
         class _BaseDriver(abc.ABC):
             DRIVER_INFO: dict = {}
+            # Settings > Network > Reach devices through: nothing pinned unless
+            # a test sets it; local_address() answers it the way the platform
+            # does.
+            reach_devices_address: str | None = None
+            local_address = _StubBaseDriver.local_address
 
             def __init__(self, device_id, config, state, events):
                 self.device_id = device_id
@@ -405,7 +412,7 @@ def test_learn_start_poll_stop(monkeypatch):
     ])
     writer = _FakeWriter()
 
-    async def fake_open(host, port):
+    async def fake_open(host, port, **kwargs):
         return reader, writer
 
     monkeypatch.setattr(drv.asyncio, "open_connection", fake_open)
@@ -433,7 +440,7 @@ def test_emit_blocked_during_learn(monkeypatch):
     reader = _FakeReader([b"IR Learner Enabled\r"])
     writer = _FakeWriter()
 
-    async def fake_open(host, port):
+    async def fake_open(host, port, **kwargs):
         return reader, writer
 
     monkeypatch.setattr(drv.asyncio, "open_connection", fake_open)
@@ -445,6 +452,28 @@ def test_emit_blocked_during_learn(monkeypatch):
         await d.bridge_learn_stop()
 
     asyncio.run(run())
+
+
+def test_the_learner_dials_from_the_chosen_adapter(monkeypatch):
+    """The learner's own socket leaves from the adapter Settings > Network >
+    Reach devices through chose; the operating system picks when none is
+    chosen or the unit is on this computer (a simulator)."""
+    dialed: list[dict] = []
+
+    async def refused(host, port, **kwargs):
+        dialed.append(kwargs)
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(drv.asyncio, "open_connection", refused)
+    for host, pinned in (("192.168.4.98", "10.20.0.5"), ("192.168.4.98", None),
+                         ("127.0.0.1", "10.20.0.5")):
+        d = _make_driver()
+        d.config["host"] = host
+        d.reach_devices_address = pinned
+        with pytest.raises(OSError):
+            asyncio.run(d.bridge_learn_start())
+        assert d._learning is False
+    assert [k["local_addr"] for k in dialed] == [("10.20.0.5", 0), None, None]
 
 
 # ---------------------------------------------------------------------------
@@ -467,11 +496,12 @@ def test_discovery_hints_match_real_beacon():
     assert "IR" not in "device,1,3 RELAY"
 
 
-def test_min_platform_version_gates_on_the_package_move():
-    # The IR runtime ships in 0.22.0, but this file imports openavc.*, which
-    # only exists from 0.25.0 — so that is the floor an older box has to refuse
-    # the install on.
-    assert drv.GlobalCacheItachIP2IRDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
+def test_min_platform_version_gates_on_the_chosen_adapter():
+    # The IR runtime ships in 0.22.0 and the openavc.* imports in 0.25.0, but
+    # the learner's socket binds to BaseDriver.local_address(), which only
+    # exists from 0.37.0 — so that is the floor an older box has to refuse the
+    # install on.
+    assert drv.GlobalCacheItachIP2IRDriver.DRIVER_INFO["min_platform_version"] == "0.37.0"
 
 
 # ---------------------------------------------------------------------------

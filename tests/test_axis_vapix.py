@@ -211,7 +211,7 @@ class _FakeSocket:
 
 def _make(sim_config=None, driver_config=None, *, ws_challenge="digest"):
     sim = SIM.AxisVapixSimulator("cam-sim", sim_config or {})
-    attempts = {"connect": 0, "urls": []}
+    attempts = {"connect": 0, "urls": [], "kwargs": []}
 
     async def handler(request: httpx.Request) -> httpx.Response:
         body = request.content.decode("utf-8")
@@ -228,6 +228,7 @@ def _make(sim_config=None, driver_config=None, *, ws_challenge="digest"):
     async def fake_connect(url, additional_headers=None, **kwargs):
         attempts["connect"] += 1
         attempts["urls"].append(url)
+        attempts["kwargs"].append(kwargs)
         path = url.split("/", 3)[-1]
         path = "/" + path
         headers = dict(additional_headers or {})
@@ -484,6 +485,32 @@ def test_event_stream_falls_back_to_the_session_token():
             assert attempts["connect"] == 2
             assert "wssession=" in attempts["urls"][-1]
             assert "/axis-cgi/wssession.cgi" in sim.calls
+        finally:
+            await driver.disconnect()
+
+    _run(scenario())
+
+
+@pytest.mark.parametrize("ws_challenge", ["digest", "basic"])
+@pytest.mark.parametrize("pinned,host,expected", [
+    ("10.20.0.5", "10.0.0.9", ("10.20.0.5", 0)),
+    (None, "10.0.0.9", None),
+    ("10.20.0.5", "127.0.0.1", None),
+], ids=["pinned", "nothing-pinned", "loopback-host"])
+def test_the_event_socket_leaves_from_the_reach_devices_adapter(ws_challenge, pinned, host, expected):
+    """Settings > Network > Reach devices through: every attempt at the event
+    socket (the Digest answer and the session-token fallback included) binds
+    to the chosen adapter. With nothing chosen, or a camera on this computer
+    (a simulator), the operating system picks the way out."""
+    async def scenario():
+        driver, sim, handler, fake_connect, attempts = _make(
+            {"require_auth": True}, {"host": host}, ws_challenge=ws_challenge)
+        driver.reach_devices_address = pinned
+        await _connect(driver, handler, fake_connect)
+        try:
+            assert _st(driver, "events_active") is True
+            assert attempts["connect"] == 2
+            assert [kw["local_addr"] for kw in attempts["kwargs"]] == [expected, expected]
         finally:
             await driver.disconnect()
 

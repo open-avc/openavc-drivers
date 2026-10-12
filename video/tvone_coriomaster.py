@@ -230,10 +230,11 @@ class TvoneCoriomasterDriver(BaseDriver):
         "name": "tvONE CORIOmaster",
         "manufacturer": "tvONE",
         "category": "video",
-        "version": "1.0.3",
+        "version": "1.0.4",
         # 0.37.0, declared by hand (the contract check cannot see it): the
         # platform's silence check is what takes a hung controller offline,
-        # since a poll now stops at the first request nothing answers.
+        # since a poll now stops at the first request nothing answers; and
+        # the Test Login socket binds to BaseDriver.local_address().
         "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
@@ -2024,9 +2025,14 @@ class TvoneCoriomasterDriver(BaseDriver):
             raise ValueError("No IP address configured")
 
         await progress(f"Connecting to {host}:{port}…", 20)
+        # From the adapter Settings > Network > Reach devices through chose.
+        local_ip = self.local_address(host)
         try:
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, port), timeout=5.0
+                asyncio.open_connection(
+                    host, port, local_addr=(local_ip, 0) if local_ip else None
+                ),
+                timeout=5.0,
             )
         except (OSError, asyncio.TimeoutError) as exc:
             raise ConnectionError(

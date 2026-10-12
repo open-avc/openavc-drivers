@@ -10,6 +10,7 @@ integration test.
 
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import logging
 import string
@@ -17,7 +18,9 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
-from _platform_stubs import ConnectionFaultError
+import pytest
+
+from _platform_stubs import ConnectionFaultError, StubBaseDriver
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "utility" / "netgear_m4250_m4350.py"
@@ -38,6 +41,14 @@ def _install_server_stubs() -> None:
 
     class _BaseDriver:  # minimal stand-in; we only test module-level code
         DRIVER_INFO: dict = {}
+        # Settings > Network > Reach devices through, as local_address()
+        # answers it: nothing pinned unless a test sets it.
+        reach_devices_address = None
+        local_address = StubBaseDriver.local_address
+
+        def __init__(self, device_id, config, state=None, events=None):
+            self.device_id = device_id
+            self.config = config
 
     base.BaseDriver = _BaseDriver
     base.ConnectionFaultError = ConnectionFaultError
@@ -307,4 +318,48 @@ def test_reset_all_poe_ports_asks_first():
     confirm = INFO["commands"]["poe_reset_all"].get("confirm")
     assert isinstance(confirm, str) and confirm.strip()
     assert "—" not in confirm
-    assert INFO["min_platform_version"] == "0.36.0"
+    assert INFO["min_platform_version"] == "0.37.0"
+
+
+# ── Reach devices through: the Enable SSH wizard's own telnet session ──
+
+async def _noop_progress(step, pct=None):
+    return None
+
+
+def _telnet_bound_to(monkeypatch, host, pinned):
+    """Start the Enable SSH wizard against a refused telnet port; return the
+    local_addr each session it opened was given."""
+    local_addrs = []
+
+    class _RefusedTCPTransport:
+        @classmethod
+        async def create(cls, host, port, **kwargs):
+            local_addrs.append(kwargs.get("local_addr"))
+            raise ConnectionRefusedError("refused in test")
+
+    monkeypatch.setattr(drv, "TCPTransport", _RefusedTCPTransport)
+    driver = drv.NetgearM4250M4350Driver("sw1", {"host": host}, None, None)
+    driver.reach_devices_address = pinned
+    with pytest.raises(ConnectionRefusedError):
+        asyncio.run(driver.run_setup_action(
+            "enable_ssh", {"username": "admin", "password": "pw"},
+            _noop_progress,
+        ))
+    return local_addrs
+
+
+def test_the_telnet_session_leaves_from_the_chosen_adapter(monkeypatch):
+    assert _telnet_bound_to(monkeypatch, "10.1.2.3", "10.20.0.5") == [
+        ("10.20.0.5", 0)
+    ]
+
+
+@pytest.mark.parametrize("pinned, host", [
+    (None, "10.1.2.3"),          # no adapter chosen
+    ("10.20.0.5", "127.0.0.1"),  # a switch on this computer (a simulator)
+])
+def test_nothing_is_bound_with_no_adapter_chosen_or_a_switch_on_this_computer(
+    monkeypatch, pinned, host,
+):
+    assert _telnet_bound_to(monkeypatch, host, pinned) == [None]

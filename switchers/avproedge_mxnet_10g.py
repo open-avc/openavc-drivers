@@ -462,14 +462,15 @@ class AVProEdgeMXNet10GDriver(BaseDriver):
         "name": "AVPro Edge MXNet 10G",
         "manufacturer": "AVPro Edge",
         "category": "switcher",
-        "version": "1.0.0",
+        "version": "1.0.1",
         # Computed, not chosen: `routing:` needs 0.27.0, sharing a route
         # property between the All-streams and Video planes needs 0.28.0,
-        # BaseDriver.child_fault() needs 0.29.0, and `restarts_device_for`
-        # needs 0.34.0. The child_fault() one is a method call the contract
-        # check cannot see, so it is carried by hand here the way the 1G
-        # driver carries it.
-        "min_platform_version": "0.34.0",
+        # BaseDriver.child_fault() needs 0.29.0, `restarts_device_for`
+        # needs 0.34.0, and BaseDriver.local_address(), which the Test
+        # Connection socket binds to, needs 0.37.0. child_fault() and
+        # local_address() are method calls the contract check cannot see, so
+        # the floor is carried by hand here the way the 1G driver carries it.
+        "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
             "Controls an AVPro Edge MXNet 10G AV-over-IP system through its 10G "
@@ -2589,9 +2590,14 @@ class AVProEdgeMXNet10GDriver(BaseDriver):
             raise ValueError("No IP address configured")
 
         await progress(f"Connecting to {host}:{port}…", 20)
+        # From the adapter Settings > Network > Reach devices through chose.
+        local_ip = self.local_address(host)
         try:
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, port), timeout=5.0
+                asyncio.open_connection(
+                    host, port, local_addr=(local_ip, 0) if local_ip else None
+                ),
+                timeout=5.0,
             )
         except (OSError, asyncio.TimeoutError) as exc:
             raise ConnectionError(

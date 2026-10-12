@@ -55,9 +55,10 @@ class WakeOnLANDriver(BaseDriver):
         "name": "Wake-on-LAN",
         "manufacturer": "Generic",
         "category": "utility",
-        "version": "1.3.3",
-        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        "version": "1.3.4",
+        # local_address(), which binds the socket this driver opens itself,
+        # needs 0.37.0.
+        "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
             "Send Wake-on-LAN magic packets to wake devices on the network. "
@@ -151,7 +152,10 @@ class WakeOnLANDriver(BaseDriver):
         # Create a temporary UDP transport, send, and close
         udp = UDPTransport(name=self.device_id)
         try:
-            await udp.open(allow_broadcast=True)
+            # From the adapter Settings > Network > Reach devices through chose.
+            await udp.open(
+                allow_broadcast=True, local_addr=self.local_address(broadcast)
+            )
             await udp.send_to(packet, broadcast, port)
             log.info(f"[{self.device_id}] Sent WoL magic packet to {mac}")
 

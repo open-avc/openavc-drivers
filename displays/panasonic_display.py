@@ -250,9 +250,11 @@ class PanasonicDisplayDriver(BaseDriver):
         "name": "Panasonic Professional Display",
         "manufacturer": "Panasonic",
         "category": "display",
-        "version": "1.0.4",
-        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        "version": "1.0.5",
+        # Set by hand (the contract check cannot see a method call): every
+        # control connection binds to BaseDriver.local_address(), which landed
+        # in 0.37.0 (supersedes the lifecycle-hook 0.24.0 requirement).
+        "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
             "Controls Panasonic TH-series professional displays (SQ / "
@@ -785,9 +787,13 @@ class PanasonicDisplayDriver(BaseDriver):
         if password is None:
             password = str(self.config.get("password", "") or "")
 
+        # From the adapter Settings > Network > Reach devices through chose.
+        local_ip = self.local_address(host)
         try:
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, port),
+                asyncio.open_connection(
+                    host, port, local_addr=(local_ip, 0) if local_ip else None
+                ),
                 timeout=_CONNECT_TIMEOUT,
             )
         except (OSError, asyncio.TimeoutError) as exc:

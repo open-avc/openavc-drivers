@@ -382,9 +382,10 @@ class AxisVapixDriver(BaseDriver):
         "name": "Axis Camera (VAPIX)",
         "manufacturer": "Axis",
         "category": "camera",
-        "version": "1.1.6",
-        # confirm on the commands that erase, delete or reset needs 0.36.0.
-        "min_platform_version": "0.36.0",
+        "version": "1.1.7",
+        # confirm on the commands that erase, delete or reset needs 0.36.0;
+        # binding the event WebSocket to Reach devices through, 0.37.0.
+        "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
             "Controls Axis network cameras through VAPIX, Axis's own API: remote "
@@ -2408,7 +2409,12 @@ class AxisVapixDriver(BaseDriver):
         query = "sources=events"
         url = self._ws_url(query)
         uri = f"{WS_EVENTS_PATH}?{query}"
-        kwargs: dict[str, Any] = {"open_timeout": EVENT_OPEN_TIMEOUT_S, "max_size": None}
+        # From the adapter Settings > Network > Reach devices through chose.
+        ip = self.local_address(self._host)
+        kwargs: dict[str, Any] = {
+            "open_timeout": EVENT_OPEN_TIMEOUT_S, "max_size": None,
+            "local_addr": (ip, 0) if ip else None,
+        }
         ssl_ctx = self._ws_ssl()
         if ssl_ctx is not None:
             kwargs["ssl"] = ssl_ctx

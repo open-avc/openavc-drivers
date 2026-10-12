@@ -30,6 +30,7 @@ import pytest
 
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
+    StubBaseDriver,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -49,6 +50,10 @@ class _FakeBaseDriver(LifecycleFake):
     every teardown path, mirroring base.py."""
 
     DRIVER_INFO: dict = {}
+    # Settings > Network > Reach devices through, as local_address() answers
+    # it: nothing pinned unless a test sets it.
+    reach_devices_address = None
+    local_address = StubBaseDriver.local_address
 
     def __init__(self, device_id, config, state, events) -> None:
         self.device_id = device_id
@@ -188,8 +193,10 @@ class _FakeUDPTransport:
         self.sent: list = []
         self.closed = False
         self.connected = False
+        self.local_addr = None
 
     async def open(self, allow_broadcast=True, local_addr=None) -> None:
+        self.local_addr = local_addr
         self.connected = True
 
     async def send_to(self, data, host, port) -> None:
@@ -529,3 +536,32 @@ def test_unicast_requires_host():
         with pytest.raises(ConnectionError):
             await driver.connect()
     _run(scenario())
+
+
+# ── Reach devices through: the socket the driver opens itself ────────────────
+
+def _bound_to(overrides, pinned):
+    async def scenario():
+        driver, _sim = _make_pair(overrides)
+        driver.reach_devices_address = pinned
+        await driver.connect()
+        return driver.transport.local_addr
+    return _run(scenario())
+
+
+@pytest.mark.parametrize("overrides", [
+    {"mode": "multicast", "host": ""},        # sends to 239.255.0.1
+    {"mode": "unicast", "host": "10.1.2.3"},  # sends to the receiver
+])
+def test_the_socket_leaves_from_the_chosen_adapter(overrides):
+    assert _bound_to(overrides, "10.20.0.5") == "10.20.0.5"
+
+
+@pytest.mark.parametrize("pinned, overrides", [
+    (None, {"mode": "multicast", "host": ""}),  # no adapter chosen
+    ("10.20.0.5", {}),  # unicast to a receiver on this computer (127.0.0.1)
+])
+def test_nothing_is_bound_with_no_adapter_chosen_or_a_receiver_on_this_computer(
+    pinned, overrides,
+):
+    assert _bound_to(overrides, pinned) is None

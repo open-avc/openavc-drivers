@@ -183,9 +183,10 @@ class SonyBraviaDriver(BaseDriver):
         "name": "Sony Bravia Display",
         "manufacturer": "Sony",
         "category": "display",
-        "version": "1.5.7",
-        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        "version": "1.5.8",
+        # local_address(), which binds the client the Test Pre-Shared Key
+        # wizard builds itself, needs 0.37.0.
+        "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
             "Controls Sony Bravia TVs and professional displays via the "
@@ -1076,6 +1077,8 @@ class SonyBraviaDriver(BaseDriver):
             verify_ssl=False,
             timeout=8.0,
             name=f"{self.device_id}-setup",
+            # From the adapter Settings > Network > Reach devices through chose.
+            local_address=self.local_address(host),
         )
 
         await progress(f"Connecting to {host}:{port}…", 20)

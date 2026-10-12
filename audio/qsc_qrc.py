@@ -333,10 +333,11 @@ class QSCQRCDriver(BaseDriver):
         "name": "QSC Q-SYS QRC",
         "manufacturer": "QSC",
         "category": "audio",
-        "version": "4.3.3",
-        # The connection lifecycle hooks this driver overrides landed in
-        # 0.24.0 (supersedes the table-editor 0.23.0 requirement).
-        "min_platform_version": "0.25.0",
+        "version": "4.3.4",
+        # Set by hand (the contract check cannot see a method call): the
+        # Test Connection socket binds to BaseDriver.local_address(), which
+        # landed in 0.37.0 (supersedes the lifecycle-hook 0.24.0 requirement).
+        "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
             "Controls QSC Q-SYS Cores via QRC (Q-SYS Remote Control) — "
@@ -1617,9 +1618,14 @@ class QSCQRCDriver(BaseDriver):
             raise ValueError("No IP address configured")
 
         await progress(f"Connecting to {host}:{port}…", 15)
+        # From the adapter Settings > Network > Reach devices through chose.
+        local_ip = self.local_address(host)
         try:
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, port), timeout=5.0)
+                asyncio.open_connection(
+                    host, port,
+                    local_addr=(local_ip, 0) if local_ip else None),
+                timeout=5.0)
         except (OSError, asyncio.TimeoutError) as exc:
             raise ConnectionError(
                 f"Could not reach the Core on {host}:{port} ({exc}). Check the "

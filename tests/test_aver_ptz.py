@@ -6,7 +6,8 @@ client to the real simulator's CGI handler via httpx.MockTransport — the drive
 fires /storks?cmd=... setters, the sim mutates, the driver's bulk get_sys_stat
 poll parses the result, both sides asserted. (The VISCA-over-UDP path that
 connect() also opens is unchanged by the v1.3.0 adoption and out of scope here,
-so the tests drive the HTTP image surface directly instead of through connect().)
+apart from the adapter it binds to, so the tests drive the HTTP image surface
+directly instead of through connect().)
 
 Covers the v1.3.0 first-class adoption:
   - device settings: the 19-entry image / exposure / WB / picture / AI surface
@@ -35,6 +36,7 @@ import pytest
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
     ConnectionFaultError,
+    StubBaseDriver,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -56,6 +58,11 @@ class _FakeBaseDriver(LifecycleFake):
         self.events = events
         self.transport = None
         self._connected = False
+        self.reach_devices_address: str | None = None
+
+    # Settings > Network > Reach devices through, borrowed from the shared
+    # stub so it cannot drift from the platform's rule.
+    local_address = StubBaseDriver.local_address
 
     def set_state(self, key, value) -> None:
         self.state.set(key, value)
@@ -147,7 +154,7 @@ def _make_handler(sim, reject_paths=(), reject_status=401):
 def _make_driver(sim, reject_paths=(), reject_status=401, username="",
                  password=""):
     """Construct the driver and wire its httpx client to the sim, bypassing
-    connect()'s VISCA-over-UDP setup (unchanged, out of scope)."""
+    connect()'s VISCA-over-UDP setup (only its bind is tested, separately)."""
     driver = DRV.AVerPTZDriver(
         "cam1",
         {"host": "test", "port": 80, "poll_interval": 0,
@@ -174,8 +181,8 @@ async def _close(driver):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.AVerPTZDriver.DRIVER_INFO["version"] == "1.3.7"
-    assert DRV.AVerPTZDriver.DRIVER_INFO["min_platform_version"] == "0.36.0"
+    assert DRV.AVerPTZDriver.DRIVER_INFO["version"] == "1.3.8"
+    assert DRV.AVerPTZDriver.DRIVER_INFO["min_platform_version"] == "0.37.0"
 
 
 def test_the_rtmp_stream_key_is_a_secret():
@@ -409,3 +416,43 @@ def test_no_inter_command_delay_setting_the_driver_does_not_apply():
     info = DRV.AVerPTZDriver.DRIVER_INFO
     assert "inter_command_delay" not in info["default_config"]
     assert "inter_command_delay" not in info["config_schema"]
+
+
+@pytest.mark.parametrize("pinned,host,expected", [
+    ("10.20.0.5", "10.0.0.9", ("10.20.0.5", 0)),
+    (None, "10.0.0.9", None),
+    ("10.20.0.5", "127.0.0.1", None),
+], ids=["pinned", "nothing-pinned", "loopback-host"])
+def test_the_visca_socket_leaves_from_the_reach_devices_adapter(
+        monkeypatch, pinned, host, expected):
+    """Settings > Network > Reach devices through: the VISCA UDP socket binds
+    to the chosen adapter. With nothing chosen, or a camera on this computer
+    (a simulator), the operating system picks the way out."""
+    async def go():
+        driver = DRV.AVerPTZDriver(
+            "cam1", {"host": host, "port": 80, "poll_interval": 0},
+            _FakeState(), _FakeEvents(),
+        )
+        driver.reach_devices_address = pinned
+        opened: list[dict] = []
+
+        class _FakeDatagramTransport:
+            def close(self) -> None:
+                pass
+
+        async def fake_endpoint(factory, **kwargs):
+            opened.append(kwargs)
+            return _FakeDatagramTransport(), factory()
+
+        monkeypatch.setattr(
+            asyncio.get_running_loop(), "create_datagram_endpoint", fake_endpoint)
+        try:
+            await driver._create_transport("udp")
+        finally:
+            await _close(driver)
+        assert opened == [{
+            "remote_addr": (host, DRV._PT_VISCA_PORT),
+            "local_addr": expected,
+        }]
+
+    asyncio.run(go())

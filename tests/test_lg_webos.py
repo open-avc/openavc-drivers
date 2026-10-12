@@ -66,6 +66,7 @@ class _FakeBaseDriver:
         self.health_starts = 0
         self.polling_starts = 0
         self.udp_sent: list[tuple[bytes, str, int]] = []
+        self.reach_devices_address: str | None = None
 
     # State helpers -------------------------------------------------------
     def set_state(self, key, value):
@@ -82,6 +83,8 @@ class _FakeBaseDriver:
     # implementation, borrowed from the shared stub so it cannot drift.
     send_udp = StubBaseDriver.send_udp
     wake_on_lan = StubBaseDriver.wake_on_lan
+    # Settings > Network > Reach devices through, the same way.
+    local_address = StubBaseDriver.local_address
 
     @property
     def connected(self) -> bool:
@@ -597,3 +600,75 @@ def test_connect_pairing_failure_tears_down(monkeypatch):
         assert d._ws is None
 
     asyncio.run(go())
+
+
+@pytest.mark.parametrize("pinned,host,expected", [
+    ("10.20.0.5", "10.0.0.5", ("10.20.0.5", 0)),
+    (None, "10.0.0.5", None),
+    ("10.20.0.5", "127.0.0.1", None),
+], ids=["pinned", "nothing-pinned", "loopback-host"])
+def test_the_control_socket_leaves_from_the_reach_devices_adapter(
+        monkeypatch, pinned, host, expected):
+    """Settings > Network > Reach devices through: the control socket binds
+    to the chosen adapter. With nothing chosen, or a TV on this computer (a
+    simulator), the operating system picks the way out."""
+    d = _driver(host=host)
+    d.reach_devices_address = pinned
+    opened: list[tuple[str, dict]] = []
+
+    async def fake_connect(url, **kwargs):
+        opened.append((url, kwargs))
+        return _FakeWs()
+
+    async def noop(*a, **k):
+        return None
+
+    monkeypatch.setattr(_MOD.websockets, "connect", fake_connect)
+    monkeypatch.setattr(d, "_register", noop)
+    monkeypatch.setattr(d, "_read_loop", noop)
+    monkeypatch.setattr(d, "_load_metadata", noop)
+    monkeypatch.setattr(d, "_subscribe_all", noop)
+
+    async def go():
+        await d.connect()
+        await d.disconnect()
+
+    asyncio.run(go())
+    assert [url for url, _ in opened] == [f"wss://{host}:3001"]
+    assert opened[0][1]["local_addr"] == expected
+
+
+@pytest.mark.parametrize("pinned,host,socket_path,expected", [
+    ("10.20.0.5", "10.0.0.5",
+     "wss://10.0.0.5:3001/resources/abc/netinput.pointer.sock", ("10.20.0.5", 0)),
+    (None, "10.0.0.5",
+     "wss://10.0.0.5:3001/resources/abc/netinput.pointer.sock", None),
+    # The TV names the pointer socket's host: the bind follows that host,
+    # not the one the control socket was opened to.
+    ("10.20.0.5", "10.0.0.5",
+     "ws://127.0.0.1:3000/resources/abc/netinput.pointer.sock", None),
+    ("10.20.0.5", "127.0.0.1",
+     "wss://10.0.0.77:3001/resources/abc/netinput.pointer.sock", ("10.20.0.5", 0)),
+], ids=["pinned", "nothing-pinned", "pointer-on-loopback", "pointer-on-another-host"])
+def test_the_pointer_socket_binds_for_the_host_the_tv_names(
+        monkeypatch, pinned, host, socket_path, expected):
+    d = _driver(host=host)
+    d.reach_devices_address = pinned
+    d._pointer_ws = None
+    opened: list[tuple[str, dict]] = []
+
+    async def fake_request(uri, payload=None, **kwargs):
+        assert uri.endswith("getPointerInputSocket")
+        return {"socketPath": socket_path}
+
+    async def fake_connect(url, **kwargs):
+        opened.append((url, kwargs))
+        return _FakeWs()
+
+    d._request = fake_request
+    monkeypatch.setattr(_MOD.websockets, "connect", fake_connect)
+
+    ws = asyncio.run(d._pointer_socket())
+    assert ws is not None
+    assert [url for url, _ in opened] == [socket_path]
+    assert opened[0][1]["local_addr"] == expected

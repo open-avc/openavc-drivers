@@ -111,9 +111,10 @@ class BirdDogPTZDriver(BaseDriver):
         "name": "BirdDog PTZ Camera",
         "manufacturer": "BirdDog",
         "category": "camera",
-        "version": "1.5.4",
-        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        "version": "1.5.5",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0;
+        # binding the VISCA socket to Reach devices through needs 0.37.0.
+        "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
             "Controls BirdDog PTZ cameras via REST API and VISCA. "
@@ -531,9 +532,12 @@ class BirdDogPTZDriver(BaseDriver):
         # degrades gracefully without it (warn, don't fail).
         try:
             loop = asyncio.get_running_loop()
+            # From the adapter Settings > Network > Reach devices through chose.
+            ip = self.local_address(host)
             transport, _ = await loop.create_datagram_endpoint(
                 asyncio.DatagramProtocol,
                 remote_addr=(host, _VISCA_PORT),
+                local_addr=(ip, 0) if ip else None,
             )
             self._visca_transport = transport
             log.info(f"[{self.device_id}] VISCA UDP connected to {host}:{_VISCA_PORT}")

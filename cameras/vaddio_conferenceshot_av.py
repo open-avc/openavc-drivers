@@ -101,6 +101,34 @@ def manual_steps(host: str) -> str:
     )
 
 
+def _web_handlers(context: Any, source_ip: str | None) -> list[Any]:
+    """The urllib handlers for one request to the camera's web interface.
+
+    With ``source_ip`` set, every connection, HTTPS or plain HTTP, leaves from
+    that address: the adapter Settings > Network > Reach devices through chose.
+    urllib has no bind argument of its own, so the handlers pass one to the
+    connection they open.
+    """
+    import http.client
+    import urllib.request
+
+    if not source_ip:
+        return [urllib.request.HTTPSHandler(context=context)]
+    source = (source_ip, 0)
+
+    class _BoundHTTPS(urllib.request.HTTPSHandler):
+        def https_open(self, req):
+            return self.do_open(http.client.HTTPSConnection, req,
+                                context=self._context, source_address=source)
+
+    class _BoundHTTP(urllib.request.HTTPHandler):
+        def http_open(self, req):
+            return self.do_open(http.client.HTTPConnection, req,
+                                source_address=source)
+
+    return [_BoundHTTPS(context=context), _BoundHTTP()]
+
+
 # Every reply block ends with the shell's prompt, which follows a CRLF and
 # carries no newline of its own:
 #     b'camera led get\r\nLED:    off\r\nOK\r\n> '
@@ -295,9 +323,11 @@ class VaddioConferenceShotAVDriver(BaseDriver):
         "name": "Vaddio ConferenceSHOT AV",
         "manufacturer": "Vaddio",
         "category": "camera",
-        "version": "1.1.2",
+        "version": "1.1.3",
         "author": "OpenAVC",
-        "min_platform_version": "0.34.0",
+        # local_address(), which binds the connections this driver opens
+        # itself, needs 0.37.0.
+        "min_platform_version": "0.37.0",
         "description": (
             "Controls the Vaddio (Legrand AV) ConferenceSHOT AV conferencing "
             "system over its Telnet Serial Command API. Pan/tilt/zoom with "
@@ -1245,7 +1275,9 @@ class VaddioConferenceShotAVDriver(BaseDriver):
 
         host = str(self.config.get("host", "") or "").strip()
         port = int(self.config.get("port", 23) or 23)
-        if host and not await self._port_answers(host, port, timeout=4.0):
+        if host and not await self._port_answers(
+            host, port, timeout=4.0, local_address=self.local_address(host)
+        ):
             raise ConnectionFaultError(
                 f"Nothing is answering on port {port} at {host}. Vaddio "
                 f"ships this camera with Telnet switched off, which is the "
@@ -2077,7 +2109,9 @@ class VaddioConferenceShotAVDriver(BaseDriver):
             }
 
         port = int(self.config.get("port", 23) or 23)
-        already_on = await self._port_answers(host, port, timeout=4.0)
+        already_on = await self._port_answers(
+            host, port, timeout=4.0, local_address=self.local_address(host)
+        )
 
         await progress(f"Looking for the camera's web interface at {host}...", 5)
         scheme = await self._find_web_interface(host)
@@ -2148,7 +2182,9 @@ class VaddioConferenceShotAVDriver(BaseDriver):
             }
 
         await progress("Checking that the camera is answering...", 80)
-        if not await self._port_answers(host, port):
+        if not await self._port_answers(
+            host, port, local_address=self.local_address(host)
+        ):
             return {
                 "success": False,
                 "message": (
@@ -2195,16 +2231,33 @@ class VaddioConferenceShotAVDriver(BaseDriver):
         integrator may have turned HTTP back on, so both are tried.
         """
         for scheme, port in WEB_PORTS:
-            if await self._port_answers(host, port, timeout=4.0):
+            if await self._port_answers(
+                host, port, timeout=4.0, local_address=self.local_address(host)
+            ):
                 return scheme
         return None
 
     @staticmethod
-    async def _port_answers(host: str, port: int, timeout: float = 5.0) -> bool:
-        """True when a TCP connection to host:port completes."""
+    async def _port_answers(
+        host: str,
+        port: int,
+        timeout: float = 5.0,
+        *,
+        local_address: str | None = None,
+    ) -> bool:
+        """True when a TCP connection to host:port completes.
+
+        ``local_address`` is the address the connection leaves from (the
+        adapter Settings > Network > Reach devices through chose), or None for
+        the operating system's choice.
+        """
         try:
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, port), timeout=timeout
+                asyncio.open_connection(
+                    host, port,
+                    local_addr=(local_address, 0) if local_address else None,
+                ),
+                timeout=timeout,
             )
         except (OSError, asyncio.TimeoutError):
             return False
@@ -2253,6 +2306,8 @@ class VaddioConferenceShotAVDriver(BaseDriver):
 
         url = f"{scheme}://{host}{path}"
         data = _json.dumps(body).encode() if body is not None else None
+        # From the adapter Settings > Network > Reach devices through chose.
+        source_ip = self.local_address(host)
 
         def _call() -> dict[str, Any]:
             req = urllib.request.Request(url, data=data, method=method)
@@ -2263,9 +2318,7 @@ class VaddioConferenceShotAVDriver(BaseDriver):
             ctx = ssl.create_default_context()
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
-            opener = urllib.request.build_opener(
-                urllib.request.HTTPSHandler(context=ctx)
-            )
+            opener = urllib.request.build_opener(*_web_handlers(ctx, source_ip))
             try:
                 with opener.open(req, timeout=15) as resp:
                     raw = resp.headers.get("Set-Cookie", "") or ""

@@ -12,7 +12,7 @@
       "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
       "manufacturer": "AVer",
       "category": "camera",
-      "version": "1.3.7",
+      "version": "1.3.8",
       "author": "OpenAVC",
       "transport": "http",
       "description": "AVer Pro-AV PTZ310 / PTZ330 family. Combines VISCA-over-IP (UDP 52381) for power, PTZ motion, and position inquiries with AVer's HTTP CGI (port 80, /storks) for image quality (shutter, iris, gain, white balance, color temperature, saturation, contrast, sharpness), AI features (SmartShoot, SmartFraming), bulk status query, RTMP streaming, mirror/flip, and reboot. For other AVer models without a documented HTTP CGI guide, prefer the generic 'visca_ip' driver.",
@@ -20,7 +20,7 @@
       "file": "cameras/aver_ptz.py",
       "format": "python",
       "files": {
-        "cameras/aver_ptz.py": "edd860b0148ba9507115fc151db40644f4e73182a23722ae14e4eb174cfb1af4",
+        "cameras/aver_ptz.py": "9543eb420ef283f862afb67bba5862ad20ddbe35f05ea8ab38e995bd2795b6da",
         "cameras/aver_ptz_sim.py": "af9ade272070341ee27eb402b44d536907f458733ba5ffd8c1bfebf7cc3b9205"
       },
       "ports": [
@@ -32,7 +32,7 @@
         "aver-cgi"
       ],
       "simulated": true,
-      "min_platform_version": "0.36.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "ptz",
         "camera",
@@ -71,7 +71,7 @@
       "name": "Axis Camera (VAPIX)",
       "manufacturer": "Axis",
       "category": "camera",
-      "version": "1.1.6",
+      "version": "1.1.7",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Axis network cameras through VAPIX, Axis's own API: remote zoom and focus on fixed cameras, the IR cut filter and day/night switching, image settings, rotation, text and image overlays, the I/O ports, IR illuminators, audio, and the stream and snapshot addresses for the Video Panel. PTZ models add pan, tilt, zoom, presets and guard tours. Port changes, day/night mode, motion, tampering and hardware faults arrive as events.",
@@ -79,7 +79,7 @@
       "file": "cameras/axis_vapix.py",
       "format": "python",
       "files": {
-        "cameras/axis_vapix.py": "45c9cef30fbef7c4735280601b48f05f5c692e1e71474a780ae1fa40e41e4c43",
+        "cameras/axis_vapix.py": "7ed73329859a903723c0c4914ce058edbd1ca4d53641e950d401528d6c59bca4",
         "cameras/axis_vapix_sim.py": "f42ab97d40d6c76ceab31f9ae97d6d366087440acd97e32f782d8ffeef68113f"
       },
       "ports": [
@@ -92,7 +92,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.36.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "axis",
         "vapix",
@@ -174,7 +174,7 @@
       "name": "BirdDog PTZ Camera",
       "manufacturer": "BirdDog",
       "category": "camera",
-      "version": "1.5.4",
+      "version": "1.5.5",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls BirdDog PTZ cameras via REST API and VISCA. Pan, tilt, zoom, focus, presets, exposure, white balance, tally, and NDI encode settings.",
@@ -182,7 +182,7 @@
       "file": "cameras/birddog_ptz.py",
       "format": "python",
       "files": {
-        "cameras/birddog_ptz.py": "41fb4e1fe29077dfbcfa61107ecfea8cff7078f16d240730811dfdd5c7d3da5e",
+        "cameras/birddog_ptz.py": "a0be26ad985d7d8f118a6b9ece0f9f47b108bb3f2c8b2e4005071978754c9d7c",
         "cameras/birddog_ptz_sim.py": "b88871dc244e45dde2d654f33b0e9a6cab0655389858177ecf003a78edddb05f"
       },
       "ports": [
@@ -193,7 +193,7 @@
         "visca"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "ptz",
         "ndi",
@@ -703,7 +703,7 @@
       "name": "Vaddio ConferenceSHOT AV",
       "manufacturer": "Vaddio",
       "category": "camera",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Vaddio (Legrand AV) ConferenceSHOT AV conferencing system over its Telnet Serial Command API. Pan/tilt/zoom with absolute positioning and readable position, 16 presets, the full CCU colour and lighting surface, the seven-channel audio mixer as child entities, video mute, indicator LED, IR cut filter, software triggers, IP/USB streaming control with a previewable RTSP stream, and device health.",
@@ -711,7 +711,7 @@
       "file": "cameras/vaddio_conferenceshot_av.py",
       "format": "python",
       "files": {
-        "cameras/vaddio_conferenceshot_av.py": "6a47ff45111b087c7c826fb42dbe04290023ed61b8140246c7430c838852b06d",
+        "cameras/vaddio_conferenceshot_av.py": "427e4d4b6f1c1eabeece0e2f398a8681684fb82a6e755f67186331e34fa5bf9d",
         "cameras/vaddio_conferenceshot_av_sim.py": "e7b79afb83066191c810b51f3cf6a926316592eed4c445fd34ed1eafd9e40407"
       },
       "ports": [
@@ -722,7 +722,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.34.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "ptz",
         "camera",

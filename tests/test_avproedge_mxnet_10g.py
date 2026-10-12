@@ -286,9 +286,10 @@ def test_rebooting_the_control_box_declares_its_restart_window():
     just asked for."""
     reboot = Driver.DRIVER_INFO["commands"]["reboot_cbox"]
     # A literal in the driver on purpose: the contract check reads the source,
-    # so a named constant would hide the field that sets the platform floor.
+    # so a named constant would hide the field that sets its computed 0.34.0
+    # floor. The declared 0.37.0 is local_address(), carried by hand.
     assert reboot["restarts_device_for"] == 120
-    assert Driver.DRIVER_INFO["min_platform_version"] == "0.34.0"
+    assert Driver.DRIVER_INFO["min_platform_version"] == "0.37.0"
     # An endpoint reboot does NOT take the control box away, so it must not
     # declare one -- the platform would stop trusting the box for two minutes.
     assert "restarts_device_for" not in Driver.DRIVER_INFO["commands"]["reboot_endpoint"]
@@ -1067,3 +1068,26 @@ async def test_disconnect_clears_the_route_holds_and_poll_bookkeeping():
     await driver.disconnect()
     assert driver._route_expect == {}
     assert driver._poll_cycle == 0
+
+
+@pytest.mark.asyncio
+async def test_the_connection_test_dials_from_the_chosen_adapter(monkeypatch):
+    """The wizard's own socket leaves from the adapter Settings > Network >
+    Reach devices through chose; the operating system picks when none is
+    chosen or the control box is on this computer (a simulator)."""
+    dialed: list[dict] = []
+
+    async def refused(host, port, **kwargs):
+        dialed.append(kwargs)
+        raise OSError("connection refused")
+
+    async def progress(step, pct=None):
+        pass
+
+    monkeypatch.setattr(DRV.asyncio, "open_connection", refused)
+    for host, pinned in (("10.0.0.30", "10.20.0.5"), ("10.0.0.30", None), ("127.0.0.1", "10.20.0.5")):
+        driver, _sim, _link = await _pair({"host": host}, connect=False)
+        driver.reach_devices_address = pinned
+        with pytest.raises(ConnectionError):
+            await driver.run_setup_action("test_connection", {}, progress)
+    assert [d["local_addr"] for d in dialed] == [("10.20.0.5", 0), None, None]

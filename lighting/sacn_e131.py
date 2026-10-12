@@ -237,9 +237,10 @@ class SacnE131Driver(BaseDriver):
         "name": "sACN / E1.31 DMX (Generic)",
         "manufacturer": "Generic",
         "category": "lighting",
-        "version": "1.0.2",
-        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        "version": "1.0.3",
+        # local_address(), which binds the socket this driver opens itself,
+        # needs 0.37.0.
+        "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
             "Streams DMX512 lighting data over sACN (Streaming ACN, "
@@ -718,7 +719,13 @@ class SacnE131Driver(BaseDriver):
             on_disconnect=self._handle_transport_disconnect,
             name=self.device_id,
         )
-        await self.transport.open(allow_broadcast=True)
+        # From the adapter Settings > Network > Reach devices through chose,
+        # for the destination this socket sends to: the unicast host, or the
+        # multicast group, which then also leaves through that adapter.
+        await self.transport.open(
+            allow_broadcast=True,
+            local_addr=self.local_address(self._destination()[0]),
+        )
         log.info(
             f"[{self.device_id}] sACN source bound "
             f"(universe {self._universe}, {self._destination_str()}, "

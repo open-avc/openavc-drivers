@@ -4,9 +4,9 @@ No BirdDog camera on hand, so correctness is proven two ways: metadata/shape
 assertions, and a **dual-proof round trip** that wires the real driver's httpx
 client to the real simulator's REST handler via httpx.MockTransport — the driver
 POSTs /birddogexpsetup etc., the sim mutates, the driver's poll re-reads it back,
-both sides asserted. (The VISCA-over-UDP path connect() also opens is unchanged
-and out of scope; the tests drive the REST surface directly instead of through
-connect().)
+both sides asserted. (The VISCA-over-UDP path connect() also opens is out of
+scope apart from the adapter it binds to; the tests drive the REST surface
+directly instead of through connect().)
 
 Covers the exposure_mode + wb_mode device-settings promotion: each was a
 command + poll read-back before; they're now device_settings entries whose
@@ -31,6 +31,7 @@ import pytest
 
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
+    StubBaseDriver,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -52,6 +53,11 @@ class _FakeBaseDriver(LifecycleFake):
         self.events = events
         self.transport = None
         self._connected = False
+        self.reach_devices_address: str | None = None
+
+    # Settings > Network > Reach devices through, borrowed from the shared
+    # stub so it cannot drift from the platform's rule.
+    local_address = StubBaseDriver.local_address
 
     def set_state(self, key, value) -> None:
         self.state.set(key, value)
@@ -133,7 +139,7 @@ def _make_handler(sim):
 
 def _make_driver(sim):
     """Construct the driver and wire its httpx client to the sim, bypassing
-    connect()'s VISCA-over-UDP setup (unchanged, out of scope)."""
+    connect()'s VISCA-over-UDP setup (only its bind is tested, separately)."""
     driver = DRV.BirdDogPTZDriver(
         "cam1", {"host": "test", "port": 8080, "poll_interval": 0},
         _FakeState(), _FakeEvents(),
@@ -155,8 +161,8 @@ async def _close(driver):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.BirdDogPTZDriver.DRIVER_INFO["version"] == "1.5.4"
-    assert DRV.BirdDogPTZDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
+    assert DRV.BirdDogPTZDriver.DRIVER_INFO["version"] == "1.5.5"
+    assert DRV.BirdDogPTZDriver.DRIVER_INFO["min_platform_version"] == "0.37.0"
 
 
 def test_device_settings_declared():
@@ -274,5 +280,45 @@ def test_a_connection_reset_during_a_poll_reaches_the_poll_loop(reset):
             assert len(calls) == 2
         finally:
             await _close(driver)
+
+    asyncio.run(go())
+
+
+@pytest.mark.parametrize("pinned,host,expected", [
+    ("10.20.0.5", "10.0.0.9", ("10.20.0.5", 0)),
+    (None, "10.0.0.9", None),
+    ("10.20.0.5", "127.0.0.1", None),
+], ids=["pinned", "nothing-pinned", "loopback-host"])
+def test_the_visca_socket_leaves_from_the_reach_devices_adapter(
+        monkeypatch, pinned, host, expected):
+    """Settings > Network > Reach devices through: the VISCA UDP socket binds
+    to the chosen adapter. With nothing chosen, or a camera on this computer
+    (a simulator), the operating system picks the way out."""
+    async def go():
+        sim = SIM.BirddogPtzSimulator("sim1", {})
+        driver = _make_driver(sim)
+        driver.config["host"] = host
+        driver.reach_devices_address = pinned
+        opened: list[dict] = []
+
+        class _FakeDatagramTransport:
+            def close(self) -> None:
+                pass
+
+        async def fake_endpoint(factory, **kwargs):
+            opened.append(kwargs)
+            return _FakeDatagramTransport(), factory()
+
+        monkeypatch.setattr(
+            asyncio.get_running_loop(), "create_datagram_endpoint", fake_endpoint)
+        try:
+            await driver._post_connect()
+            assert driver._visca_transport is not None
+        finally:
+            await _close(driver)
+        assert opened == [{
+            "remote_addr": (host, DRV._VISCA_PORT),
+            "local_addr": expected,
+        }]
 
     asyncio.run(go())

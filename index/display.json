@@ -97,7 +97,7 @@
       "name": "Hisense VIDAA TV",
       "manufacturer": "Hisense",
       "category": "display",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "author": "OpenAVC",
       "transport": "mqtt",
       "description": "Controls Hisense VIDAA OS TVs over the TV's embedded MQTT broker (the path the RemoteNOW/VIDAA app uses). Power, volume, input, key passthrough, and PIN pairing.",
@@ -105,14 +105,14 @@
       "file": "displays/hisense_vidaa.py",
       "format": "python",
       "files": {
-        "displays/hisense_vidaa.py": "68b861c4c20885ced8a68b1e7dd0315b65443ff36f40d72941c99aa426ecd63e",
+        "displays/hisense_vidaa.py": "b15e3c6dae110a3f74579d0556964dfb7a71df18fa6d6ffc0b250361160a994f",
         "displays/hisense_vidaa_sim.py": "ba41e4d1077ce9d3cb6cddf4b6071f7fb28e206ab10ff7abd99b886bd69683e5"
       },
       "ports": [
         36669
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "tv",
         "display",
@@ -213,7 +213,7 @@
       "name": "LG webOS TV",
       "manufacturer": "LG",
       "category": "display",
-      "version": "4.2.5",
+      "version": "4.2.6",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LG webOS TVs over the SSAP WebSocket protocol with live power/volume/input feedback.",
@@ -221,14 +221,14 @@
       "file": "displays/lg_webos.py",
       "format": "python",
       "files": {
-        "displays/lg_webos.py": "7d11560df8a3e99a8581b8bad6eac6f9f6f8b1bb68d0ec455f989a81ff3c37df",
+        "displays/lg_webos.py": "f7b6a16d52e3ad73d60c7778d147f882ba7ac2c5309bd9283a73b43c57b2da35",
         "displays/lg_webos_sim.py": "bdf3e7d51d6edf5019a79e7bb7ca4016847c1faf44fef8d26ba5cb8db4732f98"
       },
       "ports": [
         3001
       ],
       "verified": true,
-      "min_platform_version": "0.36.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "tv",
         "display",
@@ -287,7 +287,7 @@
       "name": "Panasonic Professional Display",
       "manufacturer": "Panasonic",
       "category": "display",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Panasonic TH-series professional displays (SQ / EQ / CQ / VF / SF / BQ lines) over the LAN command channel. Power, input, volume, audio / video mute, aspect, and the picture adjustment surface. Speaks both of Panasonic's LAN control protocols (auto-detected) and supports the MD5 challenge authentication, so the display works whichever way its service menu is set.",
@@ -295,7 +295,7 @@
       "file": "displays/panasonic_display.py",
       "format": "python",
       "files": {
-        "displays/panasonic_display.py": "b7f0612e00fdf8f223817ed395d0322bcf2bca84615fd0c10a28e8d81543631b",
+        "displays/panasonic_display.py": "c23b9e26f1df2339eda74127cffaa38dd57a107f1669359d658e4e0079e428a4",
         "displays/panasonic_display_sim.py": "34a023a6571d7dd1b8faa2904c1a95b33c0ae32b4bbfea8403e992127007d184"
       },
       "ports": [
@@ -306,7 +306,7 @@
         "pdpcontrol"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "display",
         "panasonic",
@@ -574,7 +574,7 @@
       "name": "Sony Bravia Display",
       "manufacturer": "Sony",
       "category": "display",
-      "version": "1.5.7",
+      "version": "1.5.8",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Sony Bravia TVs and professional displays via the JSON-RPC REST API and IRCC remote emulation. Power, input, volume, mute, navigation, media transport, app launch. Covers Android TV, Google TV, and Pro Bravia models.",
@@ -582,7 +582,7 @@
       "file": "displays/sony_bravia.py",
       "format": "python",
       "files": {
-        "displays/sony_bravia.py": "f375be0e390194a81725649dc0a9de42d1d55cd403bee1ca4ad403b0e7d7751e",
+        "displays/sony_bravia.py": "19b675e84b2a16e1f9f6b7d94c067c02a54a294033cd26740cceb201258e9eef",
         "displays/sony_bravia_sim.py": "3d890393a8b2afd77bc274a745d995fc465475b79d4c153ed64d8674e177104f"
       },
       "ports": [
@@ -593,7 +593,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "tv",
         "display",

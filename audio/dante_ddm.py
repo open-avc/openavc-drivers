@@ -30,6 +30,7 @@ from __future__ import annotations
 import json
 import re
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -129,9 +130,12 @@ class DanteDDMDriver(BaseDriver):
         "name": "Dante DDM / Director",
         "manufacturer": "Audinate",
         "category": "audio",
-        "version": "1.7.5",
-        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        "version": "1.7.6",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0;
+        # local_address() (keeping the Dante Director cloud off the adapter
+        # chosen for device traffic) in 0.37.0, set by hand because the
+        # contract check cannot see a method call.
+        "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
             "Controls Dante audio routing via the Audinate Managed API. "
@@ -410,9 +414,22 @@ class DanteDDMDriver(BaseDriver):
         else:
             self._base_url = f"{scheme}://{host}:{port}"
 
+        # Dante Director is a cloud service, not equipment on site: it keeps
+        # this computer's usual way to the internet instead of the adapter
+        # Settings > Network > Reach devices through chose for device traffic,
+        # which may have no route out. A client given its own transport is
+        # left alone, and the transport carries verify_ssl itself because
+        # httpx then ignores the client's. Only while an adapter is chosen:
+        # with none, the client is exactly the one httpx builds (proxy
+        # settings from the environment included). An on-site Domain Manager
+        # follows the chosen adapter like any device.
+        hostname = urlsplit(self._base_url).hostname or ""
+        cloud = (hostname == "dante.cloud" or hostname.endswith(".dante.cloud")) \
+            and self.local_address() is not None
         self._client = httpx.AsyncClient(
             base_url=self._base_url,
             verify=verify_ssl,
+            transport=httpx.AsyncHTTPTransport(verify=verify_ssl) if cloud else None,
             timeout=15.0,
             headers={
                 "Authorization": self._api_key,

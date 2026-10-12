@@ -179,7 +179,7 @@ class GlobalCacheItachIP2SLDriver(BaseDriver):
         "name": "Global Cache iTach IP2SL Serial Bridge",
         "manufacturer": "Global Cache",
         "category": "utility",
-        "version": "1.0.2",
+        "version": "1.0.3",
         "author": "OpenAVC",
         "transport": "tcp",
         "description": (
@@ -193,7 +193,9 @@ class GlobalCacheItachIP2SLDriver(BaseDriver):
         "protocols": ["global-cache-unified-tcp"],
         "simulated": False,
         "verified": True,
-        "min_platform_version": "0.25.0",
+        # local_address(), which binds the set_SERIAL connection this driver
+        # opens itself, needs 0.37.0.
+        "min_platform_version": "0.37.0",
         # Search-friendly: integrators look for what they need ("RS232",
         # "serial", "bridge"), not the box name.
         "tags": [
@@ -323,7 +325,9 @@ class GlobalCacheItachIP2SLDriver(BaseDriver):
         baudrate, flow, parity = openavc_serial_to_gc(params)
         request = format_set_serial(modaddr, baudrate, flow, parity)
 
-        echo = await self._command(host, cmd_port, request)
+        echo = await self._command(
+            host, cmd_port, request, local_address=self.local_address(host)
+        )
         parsed = parse_serial_response(echo)
         if parsed.get("baudrate") == baudrate:
             self.set_state(
@@ -341,13 +345,26 @@ class GlobalCacheItachIP2SLDriver(BaseDriver):
 
     @staticmethod
     async def _command(
-        host: str, port: int, request: bytes, *, timeout: float = 4.0
+        host: str,
+        port: int,
+        request: bytes,
+        *,
+        timeout: float = 4.0,
+        local_address: str | None = None,
     ) -> str:
         """Open a short-lived 4998 connection, send one CR-terminated request,
         return the first CR-terminated response line as text.
+
+        ``local_address`` is the address the connection leaves from (the
+        adapter Settings > Network > Reach devices through chose), or None for
+        the operating system's choice.
         """
         reader, writer = await asyncio.wait_for(
-            asyncio.open_connection(host, port), timeout=timeout
+            asyncio.open_connection(
+                host, port,
+                local_addr=(local_address, 0) if local_address else None,
+            ),
+            timeout=timeout,
         )
         try:
             writer.write(request)

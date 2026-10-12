@@ -1749,9 +1749,11 @@ class BoseControlSpaceDriver(BaseDriver):
         "name": "Bose Professional ControlSpace (ESP / EX / CSP)",
         "manufacturer": "Bose Professional",
         "category": "audio",
-        "version": "1.0.5",
-        # confirm on the commands that erase, delete or reset needs 0.36.0.
-        "min_platform_version": "0.36.0",
+        "version": "1.0.6",
+        # confirm on the commands that erase, delete or reset needs 0.36.0;
+        # BaseDriver.local_address(), which the Test Connection socket binds
+        # to, needs 0.37.0 (set by hand: the contract check cannot see it).
+        "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
             "Controls Bose Professional ControlSpace EX, ESP and CSP processors "
@@ -2888,8 +2890,12 @@ class BoseControlSpaceDriver(BaseDriver):
         if self._problems:
             await progress("Tables have problems: " + "; ".join(self._problems), 5)
         await progress(f"Connecting to {host}:{port}", 10)
+        # From the adapter Settings > Network > Reach devices through chose.
+        local_ip = self.local_address(host)
         try:
-            reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), 10.0)
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(host, port, local_addr=(local_ip, 0) if local_ip else None), 10.0
+            )
         except (OSError, asyncio.TimeoutError) as exc:
             raise ConnectionError(
                 f"Could not reach {host}:{port}: check the address, and that serial-over-Ethernet "

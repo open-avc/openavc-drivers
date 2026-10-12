@@ -299,13 +299,14 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
         "name": "AVPro Edge MXNet 1G",
         "manufacturer": "AVPro Edge",
         "category": "switcher",
-        "version": "1.4.2",
+        "version": "1.4.3",
         # Gated on the platform surface this driver actually calls, which is
-        # the newest thing it needs -- currently BaseDriver.child_fault(), the
-        # child fault vocabulary. On an older box that call is an
-        # AttributeError in the middle of a poll, so the gate is what keeps a
-        # working system from being handed a driver that takes it down.
-        "min_platform_version": "0.29.0",
+        # the newest thing it needs -- currently BaseDriver.local_address(),
+        # which the Test Connection socket binds to (0.37.0), after
+        # BaseDriver.child_fault(), the child fault vocabulary (0.29.0). On an
+        # older box either call is an AttributeError, so the gate is what
+        # keeps a working system from being handed a driver that breaks it.
+        "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
             "Controls an AVPro Edge MXNet 1G AV-over-IP system through its MXNet "
@@ -2463,9 +2464,14 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
             raise ValueError("No IP address configured")
 
         await progress(f"Connecting to {host}:{port}…", 20)
+        # From the adapter Settings > Network > Reach devices through chose.
+        local_ip = self.local_address(host)
         try:
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, port), timeout=5.0
+                asyncio.open_connection(
+                    host, port, local_addr=(local_ip, 0) if local_ip else None
+                ),
+                timeout=5.0,
             )
         except (OSError, asyncio.TimeoutError) as exc:
             raise ConnectionError(

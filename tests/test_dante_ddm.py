@@ -25,6 +25,7 @@ from __future__ import annotations
 import asyncio
 import importlib.util
 import logging
+import ssl
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -35,6 +36,7 @@ import pytest
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
     ConnectionFaultError,
+    StubBaseDriver as _StubBaseDriver,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -66,6 +68,10 @@ class _FakeBaseDriver(LifecycleFake):
     """Functional stand-in for the platform BaseDriver dynamic child-entity API."""
 
     DRIVER_INFO: dict = {}
+    # Settings > Network > Reach devices through: nothing pinned unless a
+    # test sets it; local_address() answers it the way the platform does.
+    reach_devices_address: str | None = None
+    local_address = _StubBaseDriver.local_address
 
     def __init__(self, device_id, config, state, events) -> None:
         self.device_id = device_id
@@ -315,8 +321,8 @@ async def _close(driver):
 
 def test_version_and_min_platform():
     info = DRV.DanteDDMDriver.DRIVER_INFO
-    assert info["version"] == "1.7.5"
-    assert info["min_platform_version"] == "0.25.0"
+    assert info["version"] == "1.7.6"
+    assert info["min_platform_version"] == "0.37.0"
 
 
 def test_device_child_type_declared():
@@ -666,6 +672,87 @@ def test_a_connection_reset_during_a_poll_reaches_the_poll_loop(reset):
             with pytest.raises(ConnectionError):
                 await driver.poll()
             assert len(calls) == 1
+        finally:
+            await _close(driver)
+
+    asyncio.run(go())
+
+
+def _record_clients(monkeypatch) -> list[dict]:
+    """Record the keyword arguments of every client the driver builds."""
+    built: list[dict] = []
+
+    def make(**kw):
+        built.append(kw)
+        return _REAL_ASYNC_CLIENT(**kw)
+
+    monkeypatch.setattr(DRV.httpx, "AsyncClient", make)
+    return built
+
+
+@pytest.mark.parametrize("host,verify_ssl", [
+    ("https://api.director.dante.cloud", True),
+    ("api.director.dante.cloud", False),
+    ("https://dante.cloud/graphql", True),
+], ids=["cloud-url", "cloud-host-no-verify", "bare-domain"])
+def test_the_dante_director_cloud_keeps_off_the_reach_devices_adapter(
+        monkeypatch, host, verify_ssl):
+    # The cloud is not equipment on site: while an adapter is chosen the
+    # client gets a transport of its own, which the platform leaves alone,
+    # and that transport carries the verify setting because httpx ignores
+    # the client's once one is given.
+    async def go():
+        built = _record_clients(monkeypatch)
+        cfg = dict(_CFG, host=host, verify_ssl=verify_ssl)
+        driver = DRV.DanteDDMDriver("dante1", cfg, _FakeState(), _FakeEvents())
+        driver.reach_devices_address = "10.20.0.5"
+        try:
+            await driver._create_transport("http")
+            [kw] = built
+            transport = kw["transport"]
+            assert isinstance(transport, httpx.AsyncHTTPTransport)
+            assert driver._client._transport is transport
+            ctx = transport._pool._ssl_context
+            assert ctx.check_hostname is verify_ssl
+            assert ctx.verify_mode == (ssl.CERT_REQUIRED if verify_ssl else ssl.CERT_NONE)
+            assert kw["verify"] is verify_ssl
+        finally:
+            await _close(driver)
+
+    asyncio.run(go())
+
+
+def test_with_no_adapter_chosen_the_cloud_client_is_the_one_httpx_builds(monkeypatch):
+    # No transport of its own, so httpx keeps everything it would do anyway,
+    # proxy settings from the environment included.
+    async def go():
+        built = _record_clients(monkeypatch)
+        cfg = dict(_CFG, host="https://api.director.dante.cloud")
+        driver = DRV.DanteDDMDriver("dante1", cfg, _FakeState(), _FakeEvents())
+        try:
+            await driver._create_transport("http")
+            [kw] = built
+            assert kw.get("transport") is None
+        finally:
+            await _close(driver)
+
+    asyncio.run(go())
+
+
+@pytest.mark.parametrize("host", [
+    "10.20.0.80", "https://ddm.local", "https://notdante.cloud",
+])
+def test_an_on_site_domain_manager_follows_the_reach_devices_adapter(monkeypatch, host):
+    # No transport of its own, so the platform sends the client out through
+    # the adapter Settings > Network > Reach devices through chose.
+    async def go():
+        built = _record_clients(monkeypatch)
+        cfg = dict(_CFG, host=host)
+        driver = DRV.DanteDDMDriver("dante1", cfg, _FakeState(), _FakeEvents())
+        try:
+            await driver._create_transport("http")
+            [kw] = built
+            assert kw.get("transport") is None
         finally:
             await _close(driver)
 

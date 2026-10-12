@@ -840,6 +840,29 @@ async def test_test_connection_reports_answered_rejected_and_silent():
         await drv3.run_setup_action("test_connection", {}, progress)
 
 
+@pytest.mark.asyncio
+async def test_the_connection_test_dials_from_the_chosen_adapter(monkeypatch):
+    # The wizard's own socket leaves from the adapter Settings > Network >
+    # Reach devices through chose; the operating system picks when none is
+    # chosen or the processor is on this computer (a simulator).
+    dialed = []
+
+    async def refused(host, port, **kwargs):
+        dialed.append(kwargs)
+        raise OSError("connection refused")
+
+    async def progress(msg, pct):
+        pass
+
+    monkeypatch.setattr(DRV.asyncio, "open_connection", refused)
+    for host, pinned in (("10.0.0.5", "10.20.0.5"), ("10.0.0.5", None), ("127.0.0.1", "10.20.0.5")):
+        drv, _ = _make(host=host)
+        drv.reach_devices_address = pinned
+        with pytest.raises(ConnectionError):
+            await drv.run_setup_action("test_connection", {}, progress)
+    assert [d["local_addr"] for d in dialed] == [("10.20.0.5", 0), None, None]
+
+
 # ── Catalog surface ─────────────────────────────────────────────────────────
 
 def test_an_empty_table_says_where_the_rows_go():
@@ -961,8 +984,8 @@ def test_a_command_that_erases_or_deletes_asks_first(command):
     assert "—" not in confirm
 
 
-def test_asking_first_needs_platform_0_36_0():
-    assert DRV.BoseControlSpaceDriver.DRIVER_INFO["min_platform_version"] == "0.36.0"
+def test_asking_first_and_the_chosen_adapter_need_platform_0_37_0():
+    assert DRV.BoseControlSpaceDriver.DRIVER_INFO["min_platform_version"] == "0.37.0"
 
 
 

@@ -44,6 +44,7 @@ import pytest
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
     ConnectionFaultError,
+    StubBaseDriver,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -65,6 +66,10 @@ class _FakeBaseDriver(LifecycleFake):
     every teardown path."""
 
     DRIVER_INFO: dict = {}
+    # Settings > Network > Reach devices through, as local_address() answers
+    # it: nothing pinned unless a test sets it.
+    reach_devices_address = None
+    local_address = StubBaseDriver.local_address
 
     def __init__(self, device_id, config, state, events) -> None:
         self.device_id = device_id
@@ -431,8 +436,8 @@ def _make_driver(sim, psk="secret"):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.SonyBraviaDriver.DRIVER_INFO["version"] == "1.5.7"
-    assert DRV.SonyBraviaDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
+    assert DRV.SonyBraviaDriver.DRIVER_INFO["version"] == "1.5.8"
+    assert DRV.SonyBraviaDriver.DRIVER_INFO["min_platform_version"] == "0.37.0"
 
 
 def test_the_pre_shared_key_is_a_secret():
@@ -757,3 +762,47 @@ def test_setup_wizard_no_save():
         assert driver.config_updates == []
 
     asyncio.run(go())
+
+
+# ── Reach devices through: the client the wizard builds itself ──────────────
+
+def _wizard_client_bound_to(monkeypatch, host, pinned):
+    """Run the Test Pre-Shared Key wizard; return the local_address each
+    client it built was given."""
+    built = []
+
+    class _Recording(_FakeHTTPClientTransport):
+        def __init__(self, *args, **kwargs):
+            built.append(kwargs.get("local_address"))
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(DRV, "HTTPClientTransport", _Recording)
+
+    async def go():
+        sim = _make_sim(psk="secret")
+        driver = _make_driver(sim, psk="")
+        driver.config["host"] = host
+        driver.reach_devices_address = pinned
+        result = await driver.run_setup_action(
+            "test_psk", {"psk": "secret", "save": False}, _noop_progress
+        )
+        assert result["auth_ok"] is True
+
+    asyncio.run(go())
+    return built
+
+
+def test_the_wizard_s_client_leaves_from_the_chosen_adapter(monkeypatch):
+    assert _wizard_client_bound_to(monkeypatch, "test", "10.20.0.5") == [
+        "10.20.0.5"
+    ]
+
+
+@pytest.mark.parametrize("pinned, host", [
+    (None, "test"),              # no adapter chosen
+    ("10.20.0.5", "127.0.0.1"),  # a TV on this computer (a simulator)
+])
+def test_nothing_is_bound_with_no_adapter_chosen_or_a_tv_on_this_computer(
+    monkeypatch, pinned, host,
+):
+    assert _wizard_client_bound_to(monkeypatch, host, pinned) == [None]

@@ -66,6 +66,10 @@ class _FakeBaseDriver(LifecycleFake):
     # implementation, borrowed from the shared stub so it cannot drift.
     send_udp = StubBaseDriver.send_udp
     wake_on_lan = StubBaseDriver.wake_on_lan
+    # Settings > Network > Reach devices through: nothing pinned unless a
+    # test sets it; local_address() answers it the way the platform does.
+    reach_devices_address: str | None = None
+    local_address = StubBaseDriver.local_address
 
     def __init__(self, device_id, config, state, events) -> None:
         self.device_id = device_id
@@ -401,8 +405,9 @@ async def _settle(n: int = 4) -> None:
 
 def test_version_and_platform_gate():
     info = DRV.BarcoPulseDriver.DRIVER_INFO
-    assert info["version"] == "1.1.1"
-    # learned_from on the MAC address setting ships in 0.37.0.
+    assert info["version"] == "1.1.2"
+    # learned_from on the MAC address setting ships in 0.37.0, and so does
+    # the local_address() the Test Pulse socket binds to.
     assert info["min_platform_version"] == "0.37.0"
     assert info["ports"] == [9090]
     # The MAC the projector reports is saved, so Power On can wake it from
@@ -1082,3 +1087,29 @@ def test_setup_wizard_unreachable_host():
             )
 
     asyncio.run(go())
+
+
+def test_the_connection_test_dials_from_the_chosen_adapter(monkeypatch):
+    """The wizard's own socket leaves from the adapter Settings > Network >
+    Reach devices through chose; the operating system picks when none is
+    chosen or the projector is on this computer (a simulator)."""
+    dialed: list[dict] = []
+
+    async def refused(host, port, **kwargs):
+        dialed.append(kwargs)
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(DRV.asyncio, "open_connection", refused)
+
+    async def go(host, pinned):
+        driver, _sim = await _make_pair(driver_overrides={"host": host})
+        driver.reach_devices_address = pinned
+        with pytest.raises(ConnectionError):
+            await driver.run_setup_action(
+                "test_pulse", {"auth_code": "", "save": False}, _progress,
+            )
+
+    asyncio.run(go("10.0.0.80", "10.20.0.5"))
+    asyncio.run(go("10.0.0.80", None))
+    asyncio.run(go("127.0.0.1", "10.20.0.5"))
+    assert [d["local_addr"] for d in dialed] == [("10.20.0.5", 0), None, None]

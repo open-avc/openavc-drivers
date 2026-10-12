@@ -76,6 +76,11 @@ class _FakeBaseDriver(LifecycleFake):
     # yields the plain function, which would rebind as an instance
     # method here and pass `self` where the code goes.
     child_fault = staticmethod(_StubBaseDriver.child_fault)
+    # Settings > Network > Reach devices through: nothing pinned unless a
+    # test sets it; local_address() answers it the way the platform does.
+    # It takes self, so it is borrowed as the plain function.
+    reach_devices_address: str | None = None
+    local_address = _StubBaseDriver.local_address
 
     def __init__(self, device_id, config, state, events) -> None:
         self.device_id = device_id
@@ -424,7 +429,7 @@ def test_metadata():
     assert info["manufacturer"] == "AVPro Edge"
     assert info["transport"] == "tcp"
     assert info["ports"] == [24]
-    assert info["version"] == "1.4.2"
+    assert info["version"] == "1.4.3"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
     # The 0.25.0 floor is the package move: this file imports openavc.*.
     # 0.27.0 was the routing: block. 0.28.0 is the combined "All streams"
@@ -432,8 +437,9 @@ def test_metadata():
     # different stream, which earlier releases refuse as a duplicate and then
     # hand the picker two planes answering to one id.
     # Raised with the child fault vocabulary: this driver calls
-    # BaseDriver.child_fault(), which an older box does not have.
-    assert info["min_platform_version"] == "0.29.0"
+    # BaseDriver.child_fault(), which an older box does not have. 0.37.0 is
+    # BaseDriver.local_address(), which the Test Connection socket binds to.
+    assert info["min_platform_version"] == "0.37.0"
     assert info["source_url"].startswith("https://support.avproglobal.com")
     # String-id children (MACs) from a device-enumerated roster.
     for ctype in ("encoder", "decoder"):
@@ -1216,3 +1222,26 @@ async def test_a_rename_moves_the_label_without_re_identifying_the_child():
     assert _child(driver, "encoder", TX_APPLE, "name") == "Stage-Player"
     # And a route reported under the NEW name still resolves to the same child.
     assert _child(driver, "decoder", RX_LOBBY, "source_video") == TX_APPLE
+
+
+@pytest.mark.asyncio
+async def test_the_connection_test_dials_from_the_chosen_adapter(monkeypatch):
+    """The wizard's own socket leaves from the adapter Settings > Network >
+    Reach devices through chose; the operating system picks when none is
+    chosen or the CBOX is on this computer (a simulator)."""
+    dialed: list[dict] = []
+
+    async def refused(host, port, **kwargs):
+        dialed.append(kwargs)
+        raise OSError("connection refused")
+
+    async def progress(step, pct=None):
+        pass
+
+    monkeypatch.setattr(DRV.asyncio, "open_connection", refused)
+    for host, pinned in (("10.0.0.30", "10.20.0.5"), ("10.0.0.30", None), ("127.0.0.1", "10.20.0.5")):
+        driver, _sim = await _make_pair({"host": host}, connect=False)
+        driver.reach_devices_address = pinned
+        with pytest.raises(ConnectionError):
+            await driver.run_setup_action("test_connection", {}, progress)
+    assert [d["local_addr"] for d in dialed] == [("10.20.0.5", 0), None, None]

@@ -25,6 +25,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import asyncio
+import http.client
 
 import pytest
 
@@ -209,7 +210,7 @@ def _wire(drv, *, login=None, patch=None, port_open=True):
 
     answers = list(port_open) if isinstance(port_open, list) else None
 
-    async def _answers(host, port, timeout=5.0):
+    async def _answers(host, port, timeout=5.0, local_address=None):
         if answers is not None:
             return answers.pop(0) if answers else True
         return port_open
@@ -356,7 +357,7 @@ async def test_an_unknown_action_id_is_not_swallowed():
 async def test_a_closed_control_port_blames_telnet_and_names_the_button():
     drv = make_driver()
 
-    async def _shut(host, port, timeout=5.0):
+    async def _shut(host, port, timeout=5.0, local_address=None):
         return False
 
     drv._port_answers = _shut
@@ -380,11 +381,123 @@ async def test_a_blank_credential_is_an_auth_failure_not_a_network_one():
 async def test_an_open_control_port_lets_the_connect_proceed():
     drv = make_driver()
 
-    async def _open(host, port, timeout=5.0):
+    async def _open(host, port, timeout=5.0, local_address=None):
         return True
 
     drv._port_answers = _open
     await drv._pre_connect()   # must not raise
+
+
+# --------------------------------------------------------------------------
+# Reach devices through — the connections the driver opens itself
+# --------------------------------------------------------------------------
+
+
+class _RecordedConnect:
+    """Stands in for asyncio.open_connection: records the address each
+    connection would leave from, then refuses it."""
+
+    def __init__(self):
+        self.local_addrs: list = []
+
+    async def __call__(self, host, port, **kwargs):
+        self.local_addrs.append(kwargs.get("local_addr"))
+        raise ConnectionRefusedError("refused in test")
+
+
+_CONTENT_LENGTH = http.client.HTTPConnection._get_content_length
+
+
+def _recording():
+    """Stands in for an http.client connection class: records the address the
+    connection would leave from, then refuses the request."""
+    seen: list = []
+
+    class _Recording:
+        debuglevel = 0
+        # urllib sizes a request body through the connection class.
+        _get_content_length = staticmethod(_CONTENT_LENGTH)
+
+        def __init__(self, host, **kwargs):
+            seen.append(kwargs.get("source_address"))
+
+        def set_debuglevel(self, level):
+            pass
+
+        def request(self, *args, **kwargs):
+            raise ConnectionRefusedError("refused in test")
+
+        def close(self):
+            pass
+
+    return _Recording, seen
+
+
+@pytest.mark.asyncio
+async def test_the_control_port_probe_leaves_from_the_chosen_adapter(monkeypatch):
+    drv = make_driver()
+    drv.reach_devices_address = "10.20.0.5"
+    connect = _RecordedConnect()
+    monkeypatch.setattr(asyncio, "open_connection", connect)
+    with pytest.raises(Exception):
+        await drv._pre_connect()
+    assert connect.local_addrs == [("10.20.0.5", 0)]
+
+
+@pytest.mark.asyncio
+async def test_the_wizard_s_port_checks_leave_from_the_chosen_adapter(monkeypatch):
+    # Port 23 first, then the web interface on 443 and 80.
+    drv = make_driver()
+    drv.reach_devices_address = "10.20.0.5"
+    connect = _RecordedConnect()
+    monkeypatch.setattr(asyncio, "open_connection", connect)
+    res = await drv.run_setup_action("enable_telnet", {"username": "admin",
+                                                       "password": "pw"},
+                                     _noop_progress)
+    assert res["success"] is False
+    assert connect.local_addrs == [("10.20.0.5", 0)] * 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scheme", ["https", "http"])
+async def test_a_web_interface_request_leaves_from_the_chosen_adapter(
+    monkeypatch, scheme,
+):
+    https_class, https_seen = _recording()
+    http_class, http_seen = _recording()
+    monkeypatch.setattr(http.client, "HTTPSConnection", https_class)
+    monkeypatch.setattr(http.client, "HTTPConnection", http_class)
+    drv = make_driver()
+    drv.reach_devices_address = "10.20.0.5"
+    res = await drv._web_request(
+        "POST", scheme, HOST, "/api/config/session",
+        body={"username": "admin", "password": "pw"},
+    )
+    assert "refused in test" in res["error"]
+    seen = https_seen if scheme == "https" else http_seen
+    assert seen == [("10.20.0.5", 0)]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("pinned, host", [
+    (None, HOST),               # no adapter chosen
+    ("10.20.0.5", "127.0.0.1"),  # a camera on this computer (a simulator)
+])
+async def test_nothing_is_bound_with_no_adapter_chosen_or_a_camera_on_this_computer(
+    monkeypatch, pinned, host,
+):
+    connect = _RecordedConnect()
+    monkeypatch.setattr(asyncio, "open_connection", connect)
+    https_class, https_seen = _recording()
+    monkeypatch.setattr(http.client, "HTTPSConnection", https_class)
+    drv = make_driver(host=host)
+    drv.reach_devices_address = pinned
+    with pytest.raises(Exception):
+        await drv._pre_connect()
+    res = await drv._web_request("GET", "https", host, "/")
+    assert "refused in test" in res["error"]
+    assert connect.local_addrs == [None]
+    assert https_seen == [None]
 
 
 

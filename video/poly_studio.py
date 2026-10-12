@@ -99,9 +99,10 @@ class PolyStudioDriver(BaseDriver):
         "name": "Poly Studio (VideoOS)",
         "manufacturer": "Poly",
         "category": "video",
-        "version": "1.4.3",
-        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        "version": "1.4.4",
+        # local_address(), which binds the client the Test Admin Login wizard
+        # builds itself, needs 0.37.0.
+        "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
             "Controls Poly (HP) Studio X30, X50, X70, E70, and "
@@ -811,6 +812,8 @@ class PolyStudioDriver(BaseDriver):
             verify_ssl=verify_ssl,
             timeout=8.0,
             name=f"{self.device_id}-setup",
+            # From the adapter Settings > Network > Reach devices through chose.
+            local_address=self.local_address(host),
         )
 
         await progress(f"Connecting to {host}:{port}…", 20)

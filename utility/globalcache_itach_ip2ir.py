@@ -273,7 +273,7 @@ class GlobalCacheItachIP2IRDriver(BaseDriver):
         "name": "Global Cache iTach IP2IR (IR Bridge)",
         "manufacturer": "Global Cache",
         "category": "utility",
-        "version": "1.0.2",
+        "version": "1.0.3",
         "author": "OpenAVC",
         "transport": "tcp",
         "description": (
@@ -286,7 +286,9 @@ class GlobalCacheItachIP2IRDriver(BaseDriver):
         "protocols": ["global-cache-unified-tcp"],
         "simulated": True,
         "verified": True,
-        "min_platform_version": "0.25.0",
+        # Set by hand (the contract check cannot see a method call): the
+        # learner's socket binds to BaseDriver.local_address(), 0.37.0.
+        "min_platform_version": "0.37.0",
         # Search-friendly: integrators look for what they need.
         "tags": [
             "ir", "infrared", "ir-bridge", "ir-blaster", "blaster", "remote",
@@ -525,8 +527,10 @@ class GlobalCacheItachIP2IRDriver(BaseDriver):
         port = int(self.config.get("port", COMMAND_PORT) or COMMAND_PORT)
         # Pause the liveness poll so it doesn't disable the learner mid-session.
         await self.stop_polling()
+        # From the adapter Settings > Network > Reach devices through chose.
+        local_ip = self.local_address(host)
         self._learn_reader, self._learn_writer = await asyncio.open_connection(
-            host, port
+            host, port, local_addr=(local_ip, 0) if local_ip else None
         )
         self._learning = True
         self._learn_queue = asyncio.Queue()

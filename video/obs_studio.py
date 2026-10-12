@@ -327,10 +327,11 @@ class ObsStudioDriver(BaseDriver):
         "name": "OBS Studio",
         "manufacturer": "OBS Project",
         "category": "video",
-        "version": "1.0.2",
+        "version": "1.0.3",
         # The connection lifecycle hooks this driver overrides landed in
         # 0.24.0; the sibling drivers that own their session declare 0.25.0.
-        "min_platform_version": "0.25.0",
+        # Binding the WebSocket to Reach devices through needs 0.37.0.
+        "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
             "Controls OBS Studio through its built-in WebSocket server: switch "
@@ -938,9 +939,12 @@ class ObsStudioDriver(BaseDriver):
 
     async def _create_transport(self, transport_type: str) -> None:
         url = f"ws://{self._host()}:{self._port()}"
+        # From the adapter Settings > Network > Reach devices through chose.
+        ip = self.local_address(self._host())
         self._ws = await websockets.connect(
             url,
             subprotocols=[SUBPROTOCOL],
+            local_addr=(ip, 0) if ip else None,
             open_timeout=6.0,
             max_size=None,
             ping_interval=20,

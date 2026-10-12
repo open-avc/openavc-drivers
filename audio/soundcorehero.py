@@ -147,7 +147,7 @@ class SoundCoreHeroDriver(BaseDriver):
         "name": "SoundCoreHero Audio System",
         "manufacturer": "Hero AV",
         "category": "audio",
-        "version": "1.0.6",
+        "version": "1.0.7",
         "author": "Wiktor Myszolow (Hero AV)",
         "description": "Controls a SoundCoreHero multi-zone audio distribution system (zones, players, speakers, inputs) over its HTTPS/WebSocket API.",
         "source_url": "https://soundcorehero.com",
@@ -156,8 +156,9 @@ class SoundCoreHeroDriver(BaseDriver):
         # which the platform only invokes from 0.24.0 on — an earlier build
         # would never open the session. (Child entities need 0.13.0 and the
         # tls: discovery probe 0.15.0; both are subsumed by this floor.)
-        # confirm on users_delete and users_create_api_key needs 0.36.0.
-        "min_platform_version": "0.36.0",
+        # confirm on users_delete and users_create_api_key needs 0.36.0;
+        # binding the control WebSocket to Reach devices through, 0.37.0.
+        "min_platform_version": "0.37.0",
         "transport": "tcp",  # nominal; real I/O is custom httpx + websockets
         "help": {
             "overview": (
@@ -1833,8 +1834,12 @@ class SoundCoreHeroDriver(BaseDriver):
         if not verify:
             ssl_ctx.check_hostname = False
             ssl_ctx.verify_mode = ssl.CERT_NONE
+        # From the adapter Settings > Network > Reach devices through chose.
+        ip = self.local_address(host)
         try:
-            async with websockets.connect(ws_url, ssl=ssl_ctx) as ws:
+            async with websockets.connect(
+                ws_url, ssl=ssl_ctx, local_addr=(ip, 0) if ip else None,
+            ) as ws:
                 log.info(f"[{self.device_id}] WS connected to {ws_url}, awaiting prompt")
                 # The server first pushes {"status": "unauthorized"} and waits
                 # for the (sessionId, receiverId) auth frame.

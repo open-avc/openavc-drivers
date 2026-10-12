@@ -50,6 +50,7 @@ from __future__ import annotations
 
 import fnmatch
 import importlib.util
+import ipaddress
 import logging
 import os
 import re
@@ -499,6 +500,10 @@ class StubBaseDriver:
         # wake_on_lan(): (payload, host, port). The platform opens a socket
         # per send; here the bytes are recorded so a test can assert on them.
         self.udp_sent: list[tuple[bytes, str, int]] = []
+        # The address Settings > Network > Reach devices through pins device
+        # traffic to, as local_address() answers it. Nothing is pinned unless
+        # a test sets it, as on a system where no adapter is chosen.
+        self.reach_devices_address: str | None = None
         self._init_state_variables()
 
     def _init_state_variables(self) -> None:
@@ -549,6 +554,20 @@ class StubBaseDriver:
             f"device.{self.device_id}.{property_name}",
             source=f"device.{self.device_id}",
         )
+
+    def local_address(self, host: str | None = None) -> str | None:
+        """The platform's rule: the pinned address, except for a host on this
+        computer (a simulator), which a socket bound to an adapter cannot
+        reach. ``host`` defaults to the device's own."""
+        if not self.reach_devices_address:
+            return None
+        name = str(self.config.get("host", "") if host is None else host)
+        name = name.strip().strip("[]").lower()
+        try:
+            loopback = name == "localhost" or ipaddress.ip_address(name).is_loopback
+        except ValueError:
+            loopback = False
+        return None if loopback else self.reach_devices_address
 
     async def send_udp(
         self,

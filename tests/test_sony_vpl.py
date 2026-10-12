@@ -35,6 +35,7 @@ import pytest
 
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
+    StubBaseDriver as _StubBaseDriver,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -106,6 +107,10 @@ class _FakeBaseDriver(LifecycleFake):
     teardown on failure), then polling."""
 
     DRIVER_INFO: dict = {}
+    # Settings > Network > Reach devices through: nothing pinned unless a
+    # test sets it; local_address() answers it the way the platform does.
+    reach_devices_address: str | None = None
+    local_address = _StubBaseDriver.local_address
 
     def __init__(self, device_id, config, state, events) -> None:
         self.device_id = device_id
@@ -326,8 +331,8 @@ async def _make_pair(driver_overrides=None, sim_password="", power="on"):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.SonyVPLDriver.DRIVER_INFO["version"] == "1.4.3"
-    assert DRV.SonyVPLDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
+    assert DRV.SonyVPLDriver.DRIVER_INFO["version"] == "1.4.4"
+    assert DRV.SonyVPLDriver.DRIVER_INFO["min_platform_version"] == "0.37.0"
 
 
 def test_device_settings_declared():
@@ -652,3 +657,31 @@ def test_setup_wizard_unreachable_raises():
                 "test_adcp", {"password": "x", "save": False}, progress)
 
     asyncio.run(go())
+
+
+def test_the_connection_test_dials_from_the_chosen_adapter(monkeypatch):
+    """The wizard's own socket leaves from the adapter Settings > Network >
+    Reach devices through chose; the operating system picks when none is
+    chosen or the projector is on this computer (a simulator)."""
+    dialed: list[dict] = []
+
+    async def refused(host, port, **kwargs):
+        dialed.append(kwargs)
+        raise OSError("connection refused")
+
+    async def progress(step, pct=None):
+        pass
+
+    monkeypatch.setattr(DRV.asyncio, "open_connection", refused)
+
+    async def go(host, pinned):
+        driver, _sim = await _make_pair(driver_overrides={"host": host})
+        driver.reach_devices_address = pinned
+        with pytest.raises(ConnectionError):
+            await driver.run_setup_action(
+                "test_adcp", {"password": "x", "save": False}, progress)
+
+    asyncio.run(go("10.0.0.9", "10.20.0.5"))
+    asyncio.run(go("10.0.0.9", None))
+    asyncio.run(go("127.0.0.1", "10.20.0.5"))
+    assert [d["local_addr"] for d in dialed] == [("10.20.0.5", 0), None, None]

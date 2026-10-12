@@ -163,9 +163,11 @@ class SonyVPLDriver(BaseDriver):
         "name": "Sony VPL Projector (ADCP)",
         "manufacturer": "Sony",
         "category": "projector",
-        "version": "1.4.3",
-        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        "version": "1.4.4",
+        # Set by hand (the contract check cannot see a method call): the
+        # Test ADCP socket binds to BaseDriver.local_address(), which landed
+        # in 0.37.0 (supersedes the lifecycle-hook 0.24.0 requirement).
+        "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
             "Controls Sony VPL professional installation projectors "
@@ -953,9 +955,14 @@ class SonyVPLDriver(BaseDriver):
             raise ValueError("No IP address configured")
 
         await progress(f"Connecting to {host}:{port}…", 20)
+        # From the adapter Settings > Network > Reach devices through chose.
+        local_ip = self.local_address(host)
         try:
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, port), timeout=5.0
+                asyncio.open_connection(
+                    host, port, local_addr=(local_ip, 0) if local_ip else None
+                ),
+                timeout=5.0,
             )
         except (OSError, asyncio.TimeoutError) as exc:
             raise ConnectionError(

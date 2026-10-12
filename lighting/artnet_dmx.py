@@ -123,9 +123,10 @@ class ArtNetDMXDriver(BaseDriver):
         "name": "Art-Net DMX (Generic)",
         "manufacturer": "Generic",
         "category": "lighting",
-        "version": "1.4.2",
-        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        "version": "1.4.3",
+        # local_address(), which binds the socket this driver opens itself,
+        # needs 0.37.0.
+        "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
             "Sends DMX512 lighting data over Art-Net (UDP 6454) to "
@@ -555,7 +556,10 @@ class ArtNetDMXDriver(BaseDriver):
             on_disconnect=self._handle_transport_disconnect,
             name=self.device_id,
         )
-        await self.transport.open(allow_broadcast=True)
+        # From the adapter Settings > Network > Reach devices through chose.
+        await self.transport.open(
+            allow_broadcast=True, local_addr=self.local_address(host)
+        )
         log.info(
             f"[{self.device_id}] Art-Net controller bound for "
             f"{host}:{port} (universe {self._universe})"

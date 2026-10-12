@@ -38,6 +38,7 @@ from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
     ConnectionFaultError as _ConnectionFaultError,
     DelimiterFrameParser as _DelimiterFrameParser,
+    StubBaseDriver as _StubBaseDriver,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -59,6 +60,10 @@ class _FakeBaseDriver(LifecycleFake):
     """Stand-in mirroring the platform BaseDriver liveness watchdog."""
 
     DRIVER_INFO: dict = {}
+    # Settings > Network > Reach devices through: nothing pinned unless a
+    # test sets it; local_address() answers it the way the platform does.
+    reach_devices_address: str | None = None
+    local_address = _StubBaseDriver.local_address
 
     def __init__(self, device_id, config, state, events) -> None:
         self.device_id = device_id
@@ -591,10 +596,10 @@ def test_the_control_pickers_offer_what_each_command_takes():
 
 def test_metadata_and_actions_shape():
     info = DRV.BiampTesiraTTPDriver.DRIVER_INFO
-    assert info["version"] == "3.1.5"
-    # The connection-lifecycle hooks the driver overrides landed in 0.24.0.
-    # The 0.25.0 floor is the package move: this file imports openavc.*.
-    assert info["min_platform_version"] == "0.25.0"
+    assert info["version"] == "3.1.6"
+    # The Test Connection socket binds to BaseDriver.local_address(), which
+    # landed in 0.37.0; the contract check cannot see a method call.
+    assert info["min_platform_version"] == "0.37.0"
 
     # Static class-level surface: escape hatches + child-scoped commands +
     # system state vars, plus the dynamic "block" child type.
@@ -1131,3 +1136,27 @@ def test_setup_wizard_unreachable_host():
             return
         raise AssertionError("expected ConnectionError")
     _run(scenario())
+
+
+def test_the_connection_test_dials_from_the_chosen_adapter(monkeypatch):
+    """The wizard's own socket leaves from the adapter Settings > Network >
+    Reach devices through chose, and lets the operating system pick when
+    none is chosen or the DSP is on this computer (a simulator)."""
+    dialed: list[dict] = []
+
+    async def _refused(host, port, **kwargs):
+        dialed.append(kwargs)
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(DRV.asyncio, "open_connection", _refused)
+
+    async def scenario(host, pinned):
+        driver, _sim = await _make_pair({"host": host})
+        driver.reach_devices_address = pinned
+        with pytest.raises(ConnectionError):
+            await driver.run_setup_action("test_connection", {}, _progress)
+
+    _run(scenario("10.0.0.5", "10.20.0.5"))
+    _run(scenario("10.0.0.5", None))
+    _run(scenario("127.0.0.1", "10.20.0.5"))
+    assert [d["local_addr"] for d in dialed] == [("10.20.0.5", 0), None, None]

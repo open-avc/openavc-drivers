@@ -6,6 +6,9 @@ without the "?"). The driver asks on connect, sizes its Input and Output
 rosters from the answer, and the platform saves the counts into the
 Input Count and Output Count settings (learned_from).
 
+Also the replies an SWT3-41-H (firmware 1.0.65739) sent, byte for byte:
+what each one sets, and that its error lines set nothing.
+
 Runs with PyYAML only, like the rest of the community CI.
 """
 
@@ -30,7 +33,7 @@ def _size_rule():
 
 
 def test_version_and_floor():
-    assert str(INFO["version"]) == "1.7.0"
+    assert str(INFO["version"]) == "1.7.1"
     assert str(INFO["min_platform_version"]) == "0.37.0"
 
 
@@ -57,3 +60,62 @@ def test_a_single_output_device_keeps_its_flat_surface():
     rule = _size_rule()
     assert not rule.match("~01@INFO-IO IN 4,OUT 1")
     assert not rule.match("~01@INFO-IO ERR 002")
+
+
+def _first_rule(reply):
+    for rule in INFO["responses"]:
+        m = re.match(rule["match"], reply)
+        if m:
+            return rule, m
+    return None, None
+
+
+# Measured on an SWT3-41-H, firmware 1.0.65739 (ROUTE dialect only).
+SWT3_READ = (
+    ("~01@MODEL SWT3-41-H", {"model": "SWT3-41-H"}),
+    ("~01@VERSION 1.0.65739", {"firmware": "1.0.65739"}),
+    ("~01@ROUTE 1,1,2", {"input": "2"}),
+    ("~01@VMUTE 1,1", {"video_mute": "true"}),
+    ("~01@SIGNAL 1,0", {"signal_present": "false"}),
+    ("~01@AUD-LVL 1,1,0.0", {"volume": "0.0"}),
+    ("~01@AUD-LVL 1,1,-12.5", {"volume": "-12.5"}),
+)
+
+SWT3_ERRORS = (
+    "~01@ OK ",
+    "~01@INFO-IO? ERR 002",
+    "~01@VID? 1 ERR 002",
+    "~01@VID? * ERR 002",
+    "~01@AUD? 1 ERR 002",
+    "~01@AV 3>1 ERR 002",
+    "~01@VID 4>1 ERR 002",
+    "~01@AV 2>* ERR 002",
+    "~01@ROUTE 1 ERR 001",
+    "~01@ROUTE 1 ERR 031",
+    "~01@ROUTE ERR 003",
+    "~01@MUTE? 0 ERR 002",
+    "~01@AUD-LVL ERR 003",
+    "~01@VMUTE 1 ERR 005",
+)
+
+
+def test_an_swt3_reply_sets_what_it_reports():
+    for reply, expected in SWT3_READ:
+        rule, m = _first_rule(reply)
+        assert rule is not None, reply
+        got = {k: (m.expand(v.replace("$", "\\")) if "$" in v else v)
+               for k, v in rule["set"].items()}
+        assert got == expected, reply
+
+
+def test_an_swt3_error_line_sets_nothing():
+    for reply in SWT3_ERRORS:
+        rule, _ = _first_rule(reply)
+        assert rule is None, reply
+
+
+def test_volume_is_a_number_on_both_surfaces():
+    assert INFO["state_variables"]["volume"]["type"] == "number"
+    out = INFO["child_entity_types"]["output"]["state_variables"]
+    assert out["volume"]["type"] == "number"
+    assert INFO["commands"]["set_volume"]["params"]["level"]["type"] == "number"

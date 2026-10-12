@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 987,
+    "total_devices": 988,
     "shards": null
   },
   "devices": [
@@ -6211,6 +6211,18 @@
           "id": "onkyo_integra_iscp",
           "confidence": "untested",
           "notes": "Integra (Onkyo's professional line) receivers share the same ISCP command set over RS-232."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Kramer",
+      "model": "SWT3-41-H",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "kramer_p3000",
+          "confidence": "partial",
+          "notes": "Tested on firmware 1.0.65739 with Input Count and Output Count left at 0. Routing, video mute, volume, input signal, model and firmware work. Audio mute does not (the unit has no #MUTE), and Route Input to All Outputs and input 0 (untie) are refused.\n"
         }
       ]
     },

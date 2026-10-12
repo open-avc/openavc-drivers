@@ -4550,7 +4550,7 @@
       "name": "Kramer Protocol 3000",
       "manufacturer": "Kramer",
       "category": "switcher",
-      "version": "1.7.0",
+      "version": "1.7.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Kramer products via Protocol 3000 over TCP (port 5000) or RS-232. Covers matrix switchers (VS series), scalers and presentation switchers (VP series), and distribution amplifiers. On matrix models each configured output and input is a child entity with per-output routing, mute, volume, and sink state. Routing commands speak both Protocol 3000 routing dialects (legacy VID/AUD/AV and layer-based ROUTE), so one driver covers the whole family.\n",
@@ -4558,7 +4558,7 @@
       "file": "switchers/kramer_p3000.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/kramer_p3000.avcdriver": "2c96e299566e91b22468d52a55025b18ce376d3c235b55cc59d70486b0c45bd7"
+        "switchers/kramer_p3000.avcdriver": "c1e4784d27607fa66e951559a54932ee33f4f366958cb93a2b28fcdd69ed8261"
       },
       "ports": [
         5000,
@@ -4589,6 +4589,14 @@
           ],
           "confidence": "untested",
           "notes": "Any Kramer product implementing Protocol 3000. For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. VS-series HDMI matrices use the legacy VID/AUD/AV routing dialect, VP-series scalers the layer-based ROUTE dialect \u2014 the driver's routing commands send both forms, and the unsupported one answers a benign error. Device security (#SECUR), where present, must be left disabled.\n"
+        },
+        {
+          "manufacturer": "Kramer",
+          "models": [
+            "SWT3-41-H"
+          ],
+          "confidence": "partial",
+          "notes": "Tested on firmware 1.0.65739 with Input Count and Output Count left at 0. Routing, video mute, volume, input signal, model and firmware work. Audio mute does not (the unit has no #MUTE), and Route Input to All Outputs and input 0 (untie) are refused.\n"
         }
       ],
       "discovery": {

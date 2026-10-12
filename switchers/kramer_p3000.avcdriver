@@ -11,9 +11,12 @@
 #
 # Command format:  #<CMD> <PARAMS><CR>       (LF after CR is ignored)
 # Response format: ~<NN>@<CMD> <PARAMS><CR><LF>   NN = machine number (01)
-# Errors:          ~NN@ERR <code> (general) / ~NN@<CMD> ERR <code> (command)
-#                  002 = command not available, 003 = parameter out of range
-# Handshake:       #<CR> -> ~NN@ok
+# Errors:          ~NN@ERR <code> (general) / ~NN@<CMD> [params] ERR <code>
+#                  (command; an SWT3-41-H echoes the parameters too,
+#                  "~01@VID? 1 ERR 002"). 001 = syntax, 002 = command not
+#                  available, 003 = parameter out of range, 031 = device
+#                  specific.
+# Handshake:       #<CR> -> ~NN@ OK (an SWT3-41-H answers "~01@ OK ")
 # Chaining:        #CMD1|CMD2<CR> — '#' and <CR> once, commands separated by
 #                  '|'; the device answers each chained command separately.
 #
@@ -29,8 +32,13 @@
 #
 #   Routing commands and per-output route queries therefore CHAIN BOTH
 #   FORMS (#AV 1>2|ROUTE 1,2,1). The unsupported half answers a benign
-#   "~nn@CMD ERR 002" line that matches no response rule; on devices that
-#   implement both, the duplicate tie is idempotent.
+#   "~nn@CMD ... ERR 002" line that matches no response rule; on devices
+#   that implement both, the duplicate tie is idempotent. Measured on an
+#   SWT3-41-H (firmware 1.0.65739, ROUTE only): "#AV 3>1|ROUTE 1,1,3" routes
+#   and answers "~01@AV 3>1 ERR 002" then "~01@ROUTE 1,1,3", one reply per
+#   chained command in the order sent, the second about 45 ms after the
+#   first. Whether a VS unit answers the ROUTE half the same way is not
+#   measured.
 #
 # Shared commands (both dialects, verified in both product docs):
 #   #VMUTE out,flag   flag: 0 = video enabled, 1 = disabled, 2 = blank.
@@ -39,7 +47,9 @@
 #     ",0" as "disable" — a copy-paste artifact, the tables win.)
 #   #MUTE ch,mode     audio mute; ch = output number (0 on VP-440X-class)
 #   #AUD-LVL stage,ch,vol   stage 1 = output; vol envelope is MODEL-SPECIFIC
-#     (0..100 on VP-440X, -80..10 dB per the master spec; '++'/'--' = step)
+#     (0..100 on VP-440X, -80..10 dB per the master spec; '++'/'--' = step).
+#     An SWT3-41-H answers in dB with one decimal ("~01@AUD-LVL 1,1,-12.5")
+#     and takes a whole or a decimal level.
 #   #SIGNAL? in / #DISPLAY? out / #HDCP-STAT? io,idx / #MODEL? / #VERSION?
 #   #PRST-RCL n / #PRST-STO n / #LOCK-FP 0|1
 #
@@ -71,7 +81,7 @@ id: kramer_p3000
 name: Kramer Protocol 3000
 manufacturer: Kramer
 category: switcher
-version: 1.7.0
+version: 1.7.1
 author: OpenAVC
 # learned_from on the input and output counts.
 min_platform_version: "0.37.0"
@@ -106,6 +116,15 @@ compatible_models:
       routing commands send both forms, and the unsupported one answers
       a benign error. Device security (#SECUR), where present, must be
       left disabled.
+  - manufacturer: Kramer
+    models:
+      - SWT3-41-H
+    confidence: partial
+    notes: >
+      Tested on firmware 1.0.65739 with Input Count and Output Count left at
+      0. Routing, video mute, volume, input signal, model and firmware work.
+      Audio mute does not (the unit has no #MUTE), and Route Input to All
+      Outputs and input 0 (untie) are refused.
 
 transport: tcp
 delimiter: "\r\n"
@@ -224,12 +243,12 @@ state_variables:
       Single-output devices: the selected input. On a matrix, the input
       of the most recent route report (use the Output children there).
   volume:
-    type: integer
+    type: number
     label: Volume Level
     help: >
       Audio output level as reported by the device (single-output
-      devices; scale is model-specific). On a matrix, echoes the most
-      recent per-output level report.
+      devices): 0 to 100 on some models, dB on others. On a matrix,
+      echoes the most recent per-output level report.
   video_mute:
     type: boolean
     label: Video Mute
@@ -304,9 +323,9 @@ child_entity_types:
         label: Audio Muted
         help: "True when this output's audio is muted (#MUTE; not implemented on all models)."
       volume:
-        type: integer
+        type: number
         label: Volume
-        help: "Audio output level (#AUD-LVL; scale is model-specific — 0-100 or dB. Not implemented on all models)."
+        help: "Audio output level (#AUD-LVL): 0 to 100 on some models, dB on others. Not every model has it."
       sink:
         type: boolean
         label: Sink Connected
@@ -462,9 +481,9 @@ commands:
     label: Set Volume
     send: "#AUD-LVL 1,{output},{level}\r"
     help: >
-      Set an audio output's level. The level envelope is model-specific
-      (0-100 on VP-440X-class scalers, -80..10 dB on others) — the device
-      rejects out-of-range values with ERR 003.
+      Set an audio output's level. The range depends on the model: 0 to
+      100 on VP-440X-class scalers, dB on others (-80 to 10 in the
+      Protocol 3000 reference). The device refuses a level outside it.
     params:
       output:
         type: integer
@@ -473,10 +492,10 @@ commands:
         min: 0
         help: "Audio output number (model-specific; VP-440X-class uses 0)"
       level:
-        type: integer
+        type: number
         required: true
         label: Volume Level
-        help: "Level in the device's native scale (0-100 or dB, model-specific)"
+        help: "Level in the device's own scale: 0 to 100, or dB (such as -12.5)"
 
   volume_up:
     label: Volume Up
@@ -605,8 +624,9 @@ responses:
     child_set:
       - { type: output, id: "$1", state: { audio_mute: "true" } }
 
-  # ── Output volume: "~01@AUD-LVL 1,2,50" (stage 1 = output) ──
-  - match: '^~\d+@AUD-LVL 1,(\d+),(-?\d+)$'
+  # ── Output volume: "~01@AUD-LVL 1,2,50" (stage 1 = output); dB models
+  # answer with one decimal ("~01@AUD-LVL 1,1,-12.5", SWT3-41-H) ──
+  - match: '^~\d+@AUD-LVL 1,(\d+),(-?\d+(?:\.\d+)?)$'
     set: { volume: "$2" }
     child_set:
       - { type: output, id: "$1", state: { volume: "$2" } }
@@ -933,7 +953,7 @@ simulator:
                     else:
                         emit("MUTE ERR 003")
                     continue
-                m = re.match(r'^AUD-LVL 1,(\d+),(\+\+|--|-?\d+)$', part)
+                m = re.match(r'^AUD-LVL 1,(\d+),(\+\+|--|-?\d+(?:\.\d+)?)$', part)
                 if m:
                     o = m.group(1)
                     v = m.group(2)
@@ -945,7 +965,10 @@ simulator:
                     elif v == "--":
                         state["vol_" + o] = max(0, state["vol_" + o] - 1)
                     else:
-                        state["vol_" + o] = max(0, min(100, int(v)))
+                        lvl = float(v)
+                        if lvl == int(lvl):
+                            lvl = int(lvl)
+                        state["vol_" + o] = max(0, min(100, lvl))
                     emit("AUD-LVL 1," + o + "," + str(state["vol_" + o]))
                     continue
                 m = re.match(r'^AUD-LVL\? 1,(\d+)$', part)

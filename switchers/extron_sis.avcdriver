@@ -6,7 +6,10 @@
 #
 # Protocol reference: Extron SIS Command/Response Reference
 # https://www.extron.com/article/sisseries
-# (Matrix dialect verified against the DXP HD 4K PLUS user guide, 68-2939-01.)
+# (Matrix dialect verified against the DXP HD 4K PLUS user guide, 68-2939-01.
+# The bulk views below are also in the XTP CrossPoint Series user guide,
+# 68-1736-01 Rev. J, and the CrossPoint 450 Plus / CrossPoint Ultra / MAV Plus
+# user guide, 68-521-20 Rev. F.)
 #
 # Command format: SIS commands execute as typed (no terminator); Esc-prefixed
 # commands end with <CR>. Responses are terminated with CR+LF.
@@ -31,20 +34,31 @@
 #     Esc I{n}HDCP<CR>   — Input HDCP/source status -> "HdcpI{n}*{0|1|2}"
 #     Front panel pushes: "{oo}Vmt{s}" / "{oo}Amt{s}" / "Qik"
 #
-#   CAUTION (why per-output polling is roster-gated): the bare view forms
-#   ("2!", "2Z", "2B") are ACTIONS in the single-output dialect (select
-#   input 2 / mute on). Per-output queries are only sent for configured
-#   output/input children, so a scaler with the default counts of 0 never
-#   receives them.
+#   Bulk views (matrix), one reply for many outputs or inputs, which the poll
+#   uses instead of a view per output:
+#     Esc 0*{o}*1VC<CR>  — the video ties of 16 outputs from output o
+#                          -> "Vgp00*Out{oo} {ii} {ii} ... Vid" (DXP, verbose
+#                          2/3; the XTP and CrossPoint guides show no tag)
+#     Esc 0*{o}*2VC<CR>  — the same for audio ties -> "... Aud"
+#     Esc VM<CR>         — every output's mutes -> "Mut{d}{d}...", one digit
+#                          per output: 1 video, 2 audio, 4 analog audio
+#     Esc IHDCP<CR>      — every input's HDCP status -> "HdcpI00*{d}{d}..."
+#                          (DXP and XTP; an analog CrossPoint has none)
 #
-# On connect the driver sets verbose mode 3 (Esc 3CV) so view queries get
-# the tagged "Out{o} In{i} ..." responses the per-output parsing needs.
+#   CAUTION (why matrix polling is roster-gated): the bare view forms ("2!",
+#   "2Z", "2B") are ACTIONS in the single-output dialect (select input 2 /
+#   mute on), and an unknown Esc command answers an error. The matrix views
+#   are only sent while outputs or inputs are configured, so a scaler with
+#   the default counts of 0 never receives them.
+#
+# On connect the driver sets verbose mode 3 (Esc 3CV) so views get tagged
+# replies ("Out{o} In{i} ...", "Mut...", "HdcpI00*...").
 
 id: extron_sis
 name: Extron SIS Protocol
 manufacturer: Extron
 category: switcher
-version: 1.9.0
+version: 1.10.0
 author: OpenAVC
 # learned_from on the input and output counts.
 min_platform_version: "0.37.0"
@@ -157,7 +171,7 @@ config_schema:
       Number of outputs on a matrix switcher. Each becomes an Output child
       tracking its routed input and mute state. A matrix reports its size
       when it connects, and it is saved here. Leave 0 for single-output
-      devices (scalers, presentation switchers, DAs). On a large matrix, set Poll Interval longer than one read of the whole matrix: about 0.5 s per output and 0.1 s per input (a 32x32 matrix takes about 16 seconds).
+      devices (scalers, presentation switchers, DAs).
   poll_interval:
     type: integer
     default: 10
@@ -519,6 +533,52 @@ responses:
   - match: '^Vmt0$'
     set: { video_mute: "false" }
 
+  # ── Bulk views (matrix): one reply covers many outputs or inputs ──
+  # Ties, 16 outputs a read from the output asked for (Esc 0*{o}*1VC video,
+  # *2VC audio; preset 0 means the current ties): DXP guide "Global Presets",
+  # XTP CrossPoint guide p. 113, CrossPoint 450 Plus/Ultra guide p. 100. Each
+  # place is a two-digit input (00 = untied), "--" where the frame has no
+  # output. The DXP tags the reply in verbose mode 2/3 with the page's first
+  # output ("Vgp00*Out17 ..."), which says where the list starts.
+  - match: '^Vgp\d+\*Out(\d+) ((?:(?:\d\d|--) ?)+)Vid$'
+    child_list: { type: output, group: $2, element: '(\d\d)|--', start: $1, state: { input: $1 } }
+  - match: '^Vgp\d+\*Out(\d+) ((?:(?:\d\d|--) ?)+)Aud$'
+    child_list: { type: output, group: $2, element: '(\d\d)|--', start: $1, state: { audio_input: $1 } }
+  # The XTP and CrossPoint guides show the reply without that tag. Untagged,
+  # a reply could be any page, so it is read only while the matrix reports 16
+  # outputs or fewer, where the one page starts at output 1. (A larger XTP or
+  # CrossPoint frame that does not tag the reply keeps its last ties until a
+  # tie is made: unverified on hardware.)
+  - match: '^((?:(?:\d\d|--) ?)+)Vid$'
+    only_when: { key: matrix_outputs, operator: lte, value: 16 }
+    child_list: { type: output, element: '(\d\d)|--', state: { input: $1 } }
+  - match: '^((?:(?:\d\d|--) ?)+)Aud$'
+    only_when: { key: matrix_outputs, operator: lte, value: 16 }
+    child_list: { type: output, element: '(\d\d)|--', state: { audio_input: $1 } }
+
+  # Every output's mutes, one digit per output from output 1 (Esc VM, "Mut"
+  # in verbose mode 2/3; same three guides). The digit adds 1 for video, 2 for
+  # (digital) audio and 4 for analog audio: the XTP reports 0-7, the DXP and
+  # CrossPoint 0-3. Any audio path muted reads as muted.
+  - match: '^Mut ?([0-7 ]+)$'
+    child_list:
+      type: output
+      element: '([0-7])'
+      state:
+        video_mute: { group: 1, map: { "0": "false", "1": "true", "2": "false", "3": "true", "4": "false", "5": "true", "6": "false", "7": "true" } }
+        audio_mute: { group: 1, map: { "0": "false", "1": "false", "2": "true", "3": "true", "4": "true", "5": "true", "6": "true", "7": "true" } }
+
+  # Every input's HDCP status, one digit per input from input 1 (Esc IHDCP,
+  # tagged "HdcpI00*" in verbose mode 2/3; DXP guide p. 43, XTP guide). Ahead
+  # of the per-input rules below, which would read a one-input list as input 0.
+  - match: '^HdcpI00\*([0-2 ]+)$'
+    child_list:
+      type: input
+      element: '([0-2])'
+      state:
+        signal: { group: 1, map: { "0": "false", "1": "true", "2": "true" } }
+        hdcp: { group: 1, map: { "0": "none", "1": "hdcp", "2": "non_hdcp" } }
+
   # ── Per-input source/HDCP status (matrix): "HdcpI3*1" ──
   # 0 = no source detected, 1 = HDCP source, 2 = non-HDCP source.
   - match: '^HdcpI(\d+)\*0$'
@@ -566,24 +626,24 @@ polling:
     - { send: "I", query_for: input }
     - { send: "V", query_for: volume }
     - { send: "Z", query_for: mute }
-    # Matrix dialect — only sent for configured children (counts > 0).
-    # Bare {n}% / {n}$ / {n}B / {n}Z are VIEWS on matrices; verbose mode 3
-    # (set on connect) makes the responses carry the output number.
-    # query_for names the child variable each view reports, so the
-    # simulator answers every output/input from its own modeled state.
-    - { each_child: output, send: "{child_id}%", query_for: input }
-    - { each_child: output, send: "{child_id}$", query_for: audio_input }
-    - { each_child: output, send: "{child_id}B", query_for: video_mute }
-    - { each_child: output, send: "{child_id}Z", query_for: audio_mute }
-    - { each_child: input, send: "\x1bI{child_id}HDCP\r", query_for: hdcp }
+    # Matrix dialect, only sent while outputs or inputs are configured: the
+    # bulk views, a page of 16 outputs per tie read (once for a frame of up
+    # to 16 outputs, from outputs 1, 17, 33 ... on a larger one), and one
+    # read for every output's mutes and one for every input's HDCP status.
+    # query_for names what each reports, so the simulator answers it from
+    # every output's or input's own modeled state.
+    - { each_child: output, page_size: 16, send: "\x1b0*{child_id}*1VC\r", query_for: input }
+    - { each_child: output, page_size: 16, send: "\x1b0*{child_id}*2VC\r", query_for: audio_input }
+    - { send: "\x1bVM\r", query_for: output.video_mute, when: output_count }
+    - { send: "\x1bIHDCP\r", query_for: input.hdcp, when: input_count }
 
 # ── SIMULATOR DEFINITION ──
 # Models an 8x4 DXP-style matrix in verbose mode 3 (tagged responses), with
 # the single-output dialect's volume kept so the flat commands round-trip.
-# Per-output/per-input state uses the child model's dotted keys — seeding
-# them here also rosters the 4 outputs and 8 inputs, so the per-child view
-# queries (declared with query_for above) answer from each child's own
-# state without any handler code.
+# Per-output/per-input state uses the child model's dotted keys. Seeding
+# them here also rosters the 4 outputs and 8 inputs, so the bulk views
+# (declared with query_for above) answer from each child's own state; only
+# the mute view needs a handler.
 simulator:
   push_state: true
   initial_state:
@@ -736,9 +796,21 @@ simulator:
         else:
             respond("E01\r\n")
 
-    # The per-output/per-input VIEWS ({o}%, {o}$, {o}B, {o}Z, Esc I{n}HDCP)
-    # need no handlers: the polling entries declare query_for, so the
-    # simulator answers each one from that child's own modeled state.
+    # The bulk tie and HDCP views need no handlers: the polling entries
+    # declare query_for, so the simulator answers them from every output's
+    # and input's own modeled state, in the shape of the driver's rules.
+
+    # Every output's mutes: one digit per output, 1 for video plus 2 for
+    # audio. A handler, because one digit carries two of an output's values.
+    - match: '\x1bVM'
+      handler: |
+        outs = int(config.get("output_count") or 0)
+        digits = ""
+        for out in range(1, outs + 1):
+            video = 1 if state.get(f"output.{out}.video_mute") else 0
+            audio = 2 if state.get(f"output.{out}.audio_mute") else 0
+            digits += str(video + audio)
+        respond(f"Mut{digits}\r\n")
 
     # View AV tie — on DXP-class units a bare "{output}!" is a view,
     # NOT input-to-all (that form is "{input}*!"). Not polled, so it

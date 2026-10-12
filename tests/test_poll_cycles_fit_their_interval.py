@@ -33,21 +33,13 @@ CATEGORIES = (
 
 # driver id -> why its poll can outlast its interval today.
 POLL_OUTLASTS_INTERVAL: dict[str, str] = {
-    "extron_sis": (
-        "four reads per output and one per input, 100 ms apart, on rosters "
-        "of up to 128; from 20x20 a poll outlasts the 10 s interval. The "
-        "protocol's bulk reads (every tie, every mute in one reply) need a "
-        "response rule that spreads a list across children, which YAML does "
-        "not have yet, and a front-panel switch is announced only as Qik, so "
-        "the poll is not a backstop. The roster's help tells an installer to "
-        "raise Poll Interval"
-    ),
     "kramer_p3000": (
         "four reads per output and one per input, 100 ms apart, on rosters "
-        "of up to 128; from 20x20 a poll outlasts the 10 s interval. Same "
-        "missing list-to-children rule as extron_sis, and the protocol "
-        "announces only front-panel and IR changes, so the poll is not a "
-        "backstop. The roster's help tells an installer to raise Poll "
+        "of up to 128; from 20x20 a poll outlasts the 10 s interval. The "
+        "list reads that would shorten it (#VID? *, #AUD? *) are in the "
+        "Protocol 3000 master spec only and unchecked on a unit, and the "
+        "protocol announces only front-panel and IR changes, so the poll is "
+        "not a backstop. The roster's help tells an installer to raise Poll "
         "Interval"
     ),
 }

@@ -83,7 +83,7 @@ id: evertz_quartz
 name: Evertz Quartz Router
 manufacturer: Evertz
 category: switcher
-version: 1.0.0
+version: 1.0.1
 author: OpenAVC
 min_platform_version: "0.27.0"
 description: >
@@ -192,13 +192,13 @@ config_schema:
     default: 16
     min: 1
     label: Destination Count
-    description: "Number of destinations to control. Each one becomes a Destination."
+    description: "Number of destinations to control. Each one becomes a Destination. A poll asks for every destination's name and lock, its route on each level in use, and every source's name, about 20 a second: 128 destinations and 128 sources on two levels take about 32 seconds. Set Poll Interval longer than one poll."
   source_count:
     type: integer
     default: 16
     min: 1
     label: Source Count
-    description: "Number of sources on the router. Each one becomes a Source."
+    description: "Number of sources on the router. Each one becomes a Source, and a poll asks for its name."
   use_level_v:
     type: boolean
     default: true

@@ -3249,7 +3249,7 @@
       "name": "Evertz Quartz Router",
       "manufacturer": "Evertz",
       "category": "switcher",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Evertz routers and Evertz MAGNUM over the Quartz protocol. Every destination and source is named from the router, each destination shows the source routed to it on every level in use and whether it is locked, and routes made from panels or other control systems show up as they happen.\n",
@@ -3257,7 +3257,7 @@
       "file": "switchers/evertz_quartz.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/evertz_quartz.avcdriver": "0c1c96755a121448b05b39517ba3dfdbb7258c55b6dfc87800457cf0bea8ae99"
+        "switchers/evertz_quartz.avcdriver": "e7004701e1afc6953879d25a7dbf620e49889d056a038f81d48b5252fdf06460"
       },
       "ports": [
         23,
@@ -3389,7 +3389,7 @@
       "name": "Extron SIS Protocol",
       "manufacturer": "Extron",
       "category": "switcher",
-      "version": "1.9.0",
+      "version": "1.10.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Extron products via the SIS (Simple Instruction Set) protocol. Covers crosspoint matrix switchers (DXP, CrossPoint), presentation switchers (IN Series), scalers (DSC, DVS), distribution amplifiers, and DSP products. On matrix models each configured output and input is a child entity with per-output routing and mute state. Works over TCP (port 23) or RS-232 (9600 8N1).\n",
@@ -3397,7 +3397,7 @@
       "file": "switchers/extron_sis.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/extron_sis.avcdriver": "54acdbcc8ae8eb715e2ca7d662227053be89e2e1db1e4568156fdc0f38f31d8e"
+        "switchers/extron_sis.avcdriver": "4db3b2d5624a4fff678915f00de5e895652788b360522dec653df3d2f1c736f4"
       },
       "ports": [
         23

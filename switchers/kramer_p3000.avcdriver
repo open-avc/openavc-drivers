@@ -19,6 +19,16 @@
 # Handshake:       #<CR> -> ~NN@ OK (an SWT3-41-H answers "~01@ OK ")
 # Chaining:        #CMD1|CMD2<CR> — '#' and <CR> once, commands separated by
 #                  '|'; the device answers each chained command separately.
+# Serial:          RS-232 carries the same strings at 115200 8N1 (master spec
+#                  "Protocol 3000 Syntax"; #BAUD sets another rate on units
+#                  that take it, factory default 115200). A 3-pin terminal
+#                  block: the unit's TX to pin 2, RX to pin 3 and G to pin 5
+#                  of a 9-pin D-sub (VS-88H2 and SWT3 manuals). The device
+#                  address is K-NET only, so the driver sends none: one unit
+#                  per serial line. On an SWT3 the RS-232 port also serves as
+#                  a control gateway; its Tunneling setting must be Control
+#                  (SWT3 manual Rev 6, "Setting Serial Port Properties").
+#                  Not tested on a unit over serial.
 #
 # The Protocol 3000 family has two ROUTING dialects (verified):
 #
@@ -81,7 +91,7 @@ id: kramer_p3000
 name: Kramer Protocol 3000
 manufacturer: Kramer
 category: switcher
-version: 1.7.1
+version: 1.8.0
 author: OpenAVC
 # learned_from on the input and output counts.
 min_platform_version: "0.37.0"
@@ -112,21 +122,23 @@ compatible_models:
       set Input Count / Output Count to the frame size to get per-output
       routing and mute state; leave both 0 for single-output devices.
       VS-series HDMI matrices use the legacy VID/AUD/AV routing dialect,
-      VP-series scalers the layer-based ROUTE dialect — the driver's
+      VP-series scalers the layer-based ROUTE dialect. The driver's
       routing commands send both forms, and the unsupported one answers
       a benign error. Device security (#SECUR), where present, must be
-      left disabled.
+      left disabled. RS-232 control follows Kramer's protocol documentation
+      and has not been tested on a unit.
   - manufacturer: Kramer
     models:
       - SWT3-41-H
     confidence: partial
     notes: >
-      Tested on firmware 1.0.65739 with Input Count and Output Count left at
-      0. Routing, video mute, volume, input signal, model and firmware work.
+      Tested over the network on firmware 1.0.65739 with Input Count and
+      Output Count left at 0. Routing, video mute, volume, input signal, model and firmware work.
       Audio mute does not (the unit has no #MUTE), and Route Input to All
       Outputs and input 0 (untie) are refused.
 
 transport: tcp
+transports: [tcp, serial]
 delimiter: "\r\n"
 
 help:
@@ -139,17 +151,21 @@ help:
     sink, with per-input signal and HDCP detection. Front-panel switches
     are pushed by the device and reflected immediately.
   setup: >
-    1. Connect the switcher to the network via Ethernet.
-    2. Set the IP address via the front panel menu or Kramer Network.
-    3. Enter the IP address and port 5000 (default) in the device config.
-    4. Matrix switchers: set Input Count and Output Count to the frame
+    1. Over the network: connect the switcher by Ethernet, set its IP
+    address from the front panel menu or Kramer Network, and enter the
+    IP address and port 5000 (the default).
+    2. Over RS-232: wire the unit's RS-232 terminal block to the serial
+    port (TX to pin 2, RX to pin 3 and G to pin 5 of a 9-pin D-sub),
+    choose Direct serial or Through a bridge, and keep 115200 8N1 unless
+    the unit was set to another rate. Connect one Kramer unit per serial
+    line. On an SWT3, first set the RS-232 port's Tunneling to Control
+    (Control Gateway page, Serial Ports tab).
+    3. Matrix switchers: set Input Count and Output Count to the frame
     size (e.g. 8 and 8 for a VS-88H2). Each output and input becomes a
     child entity. Leave both at 0 for single-output devices (scalers,
     presentation switchers, DAs).
-    5. Machine number defaults to 01. Change it if multiple daisy-chained
-    Kramer units share one serial line.
-    6. If the device supports Protocol 3000 security (#SECUR), leave it
-    disabled — the driver does not send #LOGIN.
+    4. If the device supports Protocol 3000 security (#SECUR), leave it
+    disabled. The driver does not send #LOGIN.
 
 discovery:
   # `#MODEL?` is the Protocol 3000 model query and returns a structured
@@ -170,6 +186,7 @@ discovery:
 default_config:
   host: ""
   port: 5000
+  baudrate: 115200
   machine_number: "01"
   input_count: 0
   output_count: 0
@@ -185,11 +202,18 @@ config_schema:
     type: integer
     default: 5000
     label: Port
+  baudrate:
+    type: integer
+    default: 115200
+    label: Baud Rate (serial)
+    description: "RS-232 runs at 115200 8N1 unless the unit was set to another rate."
   machine_number:
     type: string
     default: "01"
     label: Machine Number
-    description: "01-99; only meaningful on daisy-chained RS-232 units"
+    description: >
+      01-99. The driver reads replies from any machine number and sends
+      none, so this sets only the number the simulated unit answers with.
   input_count:
     type: integer
     default: 0

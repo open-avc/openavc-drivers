@@ -4550,7 +4550,7 @@
       "name": "Kramer Protocol 3000",
       "manufacturer": "Kramer",
       "category": "switcher",
-      "version": "1.7.1",
+      "version": "1.8.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Kramer products via Protocol 3000 over TCP (port 5000) or RS-232. Covers matrix switchers (VS series), scalers and presentation switchers (VP series), and distribution amplifiers. On matrix models each configured output and input is a child entity with per-output routing, mute, volume, and sink state. Routing commands speak both Protocol 3000 routing dialects (legacy VID/AUD/AV and layer-based ROUTE), so one driver covers the whole family.\n",
@@ -4558,7 +4558,7 @@
       "file": "switchers/kramer_p3000.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/kramer_p3000.avcdriver": "c1e4784d27607fa66e951559a54932ee33f4f366958cb93a2b28fcdd69ed8261"
+        "switchers/kramer_p3000.avcdriver": "04de62158a9faa6d9e34a93f030750ec051fae4656e7e91c9c66ceabd219a540"
       },
       "ports": [
         5000,
@@ -4577,7 +4577,7 @@
       ],
       "help": {
         "overview": "Controls Kramer matrix switchers, scalers, presentation switchers, and distribution amplifiers via Protocol 3000. Common in corporate AV, education, and houses of worship. On matrix switchers, configure the frame size (Input Count / Output Count) and every output becomes a child entity tracking its routed input, mutes, volume, and connected sink, with per-input signal and HDCP detection. Front-panel switches are pushed by the device and reflected immediately.\n",
-        "setup": "1. Connect the switcher to the network via Ethernet. 2. Set the IP address via the front panel menu or Kramer Network. 3. Enter the IP address and port 5000 (default) in the device config. 4. Matrix switchers: set Input Count and Output Count to the frame size (e.g. 8 and 8 for a VS-88H2). Each output and input becomes a child entity. Leave both at 0 for single-output devices (scalers, presentation switchers, DAs). 5. Machine number defaults to 01. Change it if multiple daisy-chained Kramer units share one serial line. 6. If the device supports Protocol 3000 security (#SECUR), leave it disabled \u2014 the driver does not send #LOGIN.\n"
+        "setup": "1. Over the network: connect the switcher by Ethernet, set its IP address from the front panel menu or Kramer Network, and enter the IP address and port 5000 (the default). 2. Over RS-232: wire the unit's RS-232 terminal block to the serial port (TX to pin 2, RX to pin 3 and G to pin 5 of a 9-pin D-sub), choose Direct serial or Through a bridge, and keep 115200 8N1 unless the unit was set to another rate. Connect one Kramer unit per serial line. On an SWT3, first set the RS-232 port's Tunneling to Control (Control Gateway page, Serial Ports tab). 3. Matrix switchers: set Input Count and Output Count to the frame size (e.g. 8 and 8 for a VS-88H2). Each output and input becomes a child entity. Leave both at 0 for single-output devices (scalers, presentation switchers, DAs). 4. If the device supports Protocol 3000 security (#SECUR), leave it disabled. The driver does not send #LOGIN.\n"
       },
       "compatible_models": [
         {
@@ -4588,7 +4588,7 @@
             "VP Series scalers and presentation switchers"
           ],
           "confidence": "untested",
-          "notes": "Any Kramer product implementing Protocol 3000. For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. VS-series HDMI matrices use the legacy VID/AUD/AV routing dialect, VP-series scalers the layer-based ROUTE dialect \u2014 the driver's routing commands send both forms, and the unsupported one answers a benign error. Device security (#SECUR), where present, must be left disabled.\n"
+          "notes": "Any Kramer product implementing Protocol 3000. For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. VS-series HDMI matrices use the legacy VID/AUD/AV routing dialect, VP-series scalers the layer-based ROUTE dialect. The driver's routing commands send both forms, and the unsupported one answers a benign error. Device security (#SECUR), where present, must be left disabled. RS-232 control follows Kramer's protocol documentation and has not been tested on a unit.\n"
         },
         {
           "manufacturer": "Kramer",
@@ -4596,7 +4596,7 @@
             "SWT3-41-H"
           ],
           "confidence": "partial",
-          "notes": "Tested on firmware 1.0.65739 with Input Count and Output Count left at 0. Routing, video mute, volume, input signal, model and firmware work. Audio mute does not (the unit has no #MUTE), and Route Input to All Outputs and input 0 (untie) are refused.\n"
+          "notes": "Tested over the network on firmware 1.0.65739 with Input Count and Output Count left at 0. Routing, video mute, volume, input signal, model and firmware work. Audio mute does not (the unit has no #MUTE), and Route Input to All Outputs and input 0 (untie) are refused.\n"
         }
       ],
       "discovery": {

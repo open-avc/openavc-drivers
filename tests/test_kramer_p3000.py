@@ -7,7 +7,9 @@ rosters from the answer, and the platform saves the counts into the
 Input Count and Output Count settings (learned_from).
 
 Also the replies an SWT3-41-H (firmware 1.0.65739) sent, byte for byte:
-what each one sets, and that its error lines set nothing.
+what each one sets, and that its error lines set nothing. And RS-232 at
+the documented 115200 8N1 (Protocol 3000 3.0 master, "Protocol 3000
+Syntax").
 
 Runs with PyYAML only, like the rest of the community CI.
 """
@@ -33,8 +35,18 @@ def _size_rule():
 
 
 def test_version_and_floor():
-    assert str(INFO["version"]) == "1.7.1"
+    assert str(INFO["version"]) == "1.8.0"
     assert str(INFO["min_platform_version"]) == "0.37.0"
+
+
+def test_rs232_runs_at_the_documented_rate():
+    assert INFO["transport"] == "tcp"
+    assert INFO["transports"] == ["tcp", "serial"]
+    assert INFO["default_config"]["baudrate"] == 115200
+    assert INFO["config_schema"]["baudrate"]["default"] == 115200
+    # 8N1 is the platform's serial default, so the driver names only the rate.
+    for key in ("parity", "bytesize", "stopbits"):
+        assert key not in INFO["default_config"]
 
 
 def test_the_size_is_asked_on_connect():

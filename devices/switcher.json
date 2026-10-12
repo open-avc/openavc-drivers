@@ -807,7 +807,7 @@
         {
           "id": "kramer_p3000",
           "confidence": "partial",
-          "notes": "Tested on firmware 1.0.65739 with Input Count and Output Count left at 0. Routing, video mute, volume, input signal, model and firmware work. Audio mute does not (the unit has no #MUTE), and Route Input to All Outputs and input 0 (untie) are refused.\n"
+          "notes": "Tested over the network on firmware 1.0.65739 with Input Count and Output Count left at 0. Routing, video mute, volume, input signal, model and firmware work. Audio mute does not (the unit has no #MUTE), and Route Input to All Outputs and input 0 (untie) are refused.\n"
         }
       ]
     },
@@ -819,7 +819,7 @@
         {
           "id": "kramer_p3000",
           "confidence": "untested",
-          "notes": "Any Kramer product implementing Protocol 3000. For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. VS-series HDMI matrices use the legacy VID/AUD/AV routing dialect, VP-series scalers the layer-based ROUTE dialect \u2014 the driver's routing commands send both forms, and the unsupported one answers a benign error. Device security (#SECUR), where present, must be left disabled.\n"
+          "notes": "Any Kramer product implementing Protocol 3000. For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. VS-series HDMI matrices use the legacy VID/AUD/AV routing dialect, VP-series scalers the layer-based ROUTE dialect. The driver's routing commands send both forms, and the unsupported one answers a benign error. Device security (#SECUR), where present, must be left disabled. RS-232 control follows Kramer's protocol documentation and has not been tested on a unit.\n"
         }
       ]
     },
@@ -831,7 +831,7 @@
         {
           "id": "kramer_p3000",
           "confidence": "untested",
-          "notes": "Any Kramer product implementing Protocol 3000. For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. VS-series HDMI matrices use the legacy VID/AUD/AV routing dialect, VP-series scalers the layer-based ROUTE dialect \u2014 the driver's routing commands send both forms, and the unsupported one answers a benign error. Device security (#SECUR), where present, must be left disabled.\n"
+          "notes": "Any Kramer product implementing Protocol 3000. For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. VS-series HDMI matrices use the legacy VID/AUD/AV routing dialect, VP-series scalers the layer-based ROUTE dialect. The driver's routing commands send both forms, and the unsupported one answers a benign error. Device security (#SECUR), where present, must be left disabled. RS-232 control follows Kramer's protocol documentation and has not been tested on a unit.\n"
         }
       ]
     },
@@ -843,7 +843,7 @@
         {
           "id": "kramer_p3000",
           "confidence": "untested",
-          "notes": "Any Kramer product implementing Protocol 3000. For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. VS-series HDMI matrices use the legacy VID/AUD/AV routing dialect, VP-series scalers the layer-based ROUTE dialect \u2014 the driver's routing commands send both forms, and the unsupported one answers a benign error. Device security (#SECUR), where present, must be left disabled.\n"
+          "notes": "Any Kramer product implementing Protocol 3000. For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. VS-series HDMI matrices use the legacy VID/AUD/AV routing dialect, VP-series scalers the layer-based ROUTE dialect. The driver's routing commands send both forms, and the unsupported one answers a benign error. Device security (#SECUR), where present, must be left disabled. RS-232 control follows Kramer's protocol documentation and has not been tested on a unit.\n"
         }
       ]
     },

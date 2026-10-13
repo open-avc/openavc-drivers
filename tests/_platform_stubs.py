@@ -580,7 +580,10 @@ class StubBaseDriver:
 
         Same rules as ``BaseDriver.send_udp``: a port is required, the host
         defaults to the device's own, ``broadcast`` goes to 255.255.255.255,
-        and ``udp_redirect`` wins over both.
+        and ``udp_redirect`` wins over both. One entry per call: the platform
+        sends a 255.255.255.255 broadcast once through every connected
+        adapter when Reach devices through chose none, which a driver test
+        has no adapters to show.
         """
         if port is None or int(port) <= 0:
             raise ValueError(f"[{self.device_id}] send_udp needs a port to send to")

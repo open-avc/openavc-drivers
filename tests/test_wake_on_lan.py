@@ -5,10 +5,13 @@ stubs installed in ``sys.modules`` (this repo's community CI has no
 ``openavc`` install; ``conftest.py`` brackets the stub install so it
 can't leak into other modules).
 
-Two layers:
+Three layers:
   * the connection lifecycle — the driver is connectionless, so connect
     must declare it ready with no transport at all and the ``connected``
     property must read True while active;
+  * the wake — the packet goes through the platform's ``send_udp`` to the
+    configured broadcast address (the platform binds it, and sends a
+    255.255.255.255 broadcast through every connected adapter);
   * the magic-packet builder — 6 x 0xFF followed by the MAC repeated 16
     times, with the common MAC separator formats accepted.
 """
@@ -44,10 +47,8 @@ class _FakeBaseDriver:
     _link_alive to True for its connectionless protocol)."""
 
     DRIVER_INFO: dict = {}
-    # Settings > Network > Reach devices through, as local_address() answers
-    # it: nothing pinned unless a test sets it.
-    reach_devices_address = None
-    local_address = StubBaseDriver.local_address
+    # The platform's side-send, recording into udp_sent.
+    send_udp = StubBaseDriver.send_udp
 
     def __init__(self, device_id, config, state, events) -> None:
         self.device_id = device_id
@@ -56,6 +57,7 @@ class _FakeBaseDriver:
         self.events = events
         self.transport = None
         self._connected = False
+        self.udp_sent: list[tuple[bytes, str, int]] = []
 
     def set_state(self, key, value) -> None:
         self.state.set(f"device.{self.device_id}.{key}", value)
@@ -118,54 +120,17 @@ class _FakeBaseDriver:
         await self.events.emit(f"device.disconnected.{self.device_id}")
 
 
-class _FakeUDPTransport:
-    """Stand-in for openavc.transport.udp.UDPTransport (the driver only
-    builds throwaway instances inside send_command).
-
-    The method signatures deliberately mirror the real transport exactly —
-    ``send()`` takes only data, ad-hoc sends go through ``send_to()``, and
-    ``close()`` is async — so a driver calling the API wrong fails here the
-    same way it would against the platform.
-    """
-
-    instances: list["_FakeUDPTransport"] = []
-
-    def __init__(self, host=None, port=None, name="", **kw) -> None:
-        self.name = name
-        self.sent_to: list[tuple[bytes, str, int]] = []
-        self.closed = False
-        self.local_addr = None
-        _FakeUDPTransport.instances.append(self)
-
-    async def open(self, allow_broadcast=True, local_addr=None) -> None:
-        self.local_addr = local_addr
-
-    async def send(self, data) -> None:
-        raise AssertionError(
-            "send() has no destination - ad-hoc sends must use send_to()"
-        )
-
-    async def send_to(self, data, host, port) -> None:
-        self.sent_to.append((bytes(data), host, port))
-
-    async def close(self) -> None:
-        self.closed = True
-
-
 def _load(name: str, path: Path) -> ModuleType:
     server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
     sys.modules["openavc"] = server
-    for sub in ("drivers", "transport", "utils"):
+    for sub in ("drivers", "utils"):
         m = ModuleType(f"openavc.{sub}")
         m.__path__ = []  # type: ignore[attr-defined]
         sys.modules[f"openavc.{sub}"] = m
     base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
     sys.modules["openavc.drivers.base"] = base
-    udp = ModuleType("openavc.transport.udp")
-    udp.UDPTransport = _FakeUDPTransport
-    sys.modules["openavc.transport.udp"] = udp
     logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
     sys.modules["openavc.utils.logger"] = logger
@@ -207,9 +172,8 @@ def test_connect_declares_ready_with_no_transport():
     _run(scenario())
 
 
-def test_wake_sends_magic_packet_and_closes_socket():
+def test_wake_sends_the_magic_packet_through_the_platform():
     async def scenario():
-        _FakeUDPTransport.instances.clear()
         driver = WakeOnLANDriver(
             "wolX",
             {
@@ -220,50 +184,26 @@ def test_wake_sends_magic_packet_and_closes_socket():
             _FakeState(), _FakeEvents(),
         )
         await driver.connect()
-        result = await driver.send_command("wake")
-        assert result is True
-
-        assert len(_FakeUDPTransport.instances) == 1
-        udp = _FakeUDPTransport.instances[0]
-        assert udp.sent_to == [
+        assert await driver.send_command("wake") is True
+        assert driver.udp_sent == [
             (build_magic_packet("AA:BB:CC:DD:EE:FF"), "192.168.1.255", 7)
         ]
-        assert udp.closed is True
         assert driver.state.get("device.wolX.last_wake")
     _run(scenario())
 
 
-# ── Reach devices through: the socket the driver opens itself ───────────────
-
-def _wake_bound_to(broadcast, pinned):
+def test_the_default_wake_is_a_broadcast_on_port_nine():
     async def scenario():
-        _FakeUDPTransport.instances.clear()
         driver = WakeOnLANDriver(
-            "wolX",
-            {"mac_address": "AA:BB:CC:DD:EE:FF", "broadcast_address": broadcast},
+            "wolX", {"mac_address": "AA:BB:CC:DD:EE:FF"},
             _FakeState(), _FakeEvents(),
         )
-        driver.reach_devices_address = pinned
         await driver.connect()
         assert await driver.send_command("wake") is True
-        (udp,) = _FakeUDPTransport.instances
-        return udp.local_addr
-    return _run(scenario())
-
-
-@pytest.mark.parametrize("broadcast", ["255.255.255.255", "192.168.1.255"])
-def test_the_magic_packet_leaves_from_the_chosen_adapter(broadcast):
-    assert _wake_bound_to(broadcast, "10.20.0.5") == "10.20.0.5"
-
-
-@pytest.mark.parametrize("pinned, broadcast", [
-    (None, "255.255.255.255"),   # no adapter chosen
-    ("10.20.0.5", "127.0.0.1"),  # a target on this computer (a simulator)
-])
-def test_nothing_is_bound_with_no_adapter_chosen_or_a_target_on_this_computer(
-    pinned, broadcast,
-):
-    assert _wake_bound_to(broadcast, pinned) is None
+        assert driver.udp_sent == [
+            (build_magic_packet("AA:BB:CC:DD:EE:FF"), "255.255.255.255", 9)
+        ]
+    _run(scenario())
 
 
 # ── Magic packet builder ────────────────────────────────────────────────────

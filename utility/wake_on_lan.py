@@ -1,9 +1,9 @@
 """
 OpenAVC Wake-on-LAN Driver.
 
-Sends WoL magic packets to wake devices on the network. This driver
-uses the UDP transport for broadcast. It doesn't maintain a persistent
-connection — it sends a magic packet on demand.
+Sends WoL magic packets to wake devices on the network, through the
+platform's send_udp. It doesn't maintain a persistent connection — it
+sends a magic packet on demand.
 
 WoL magic packet format:
     6 bytes of 0xFF followed by the target MAC address repeated 16 times.
@@ -15,7 +15,6 @@ import re
 from typing import Any
 
 from openavc.drivers.base import BaseDriver
-from openavc.transport.udp import UDPTransport
 from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -55,9 +54,10 @@ class WakeOnLANDriver(BaseDriver):
         "name": "Wake-on-LAN",
         "manufacturer": "Generic",
         "category": "utility",
-        "version": "1.3.4",
-        # local_address(), which binds the socket this driver opens itself,
-        # needs 0.37.0.
+        "version": "1.3.5",
+        # send_udp sends a 255.255.255.255 broadcast through the adapter
+        # Reach devices through chose, or through every connected adapter,
+        # from 0.37.0.
         "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
@@ -149,21 +149,17 @@ class WakeOnLANDriver(BaseDriver):
             log.error(f"[{self.device_id}] {e}")
             return
 
-        # Create a temporary UDP transport, send, and close
-        udp = UDPTransport(name=self.device_id)
+        # The platform's side-send: a socket opened for it and closed after,
+        # from the adapter Settings > Network > Reach devices through chose,
+        # and a 255.255.255.255 broadcast through every connected adapter
+        # when none is chosen.
         try:
-            # From the adapter Settings > Network > Reach devices through chose.
-            await udp.open(
-                allow_broadcast=True, local_addr=self.local_address(broadcast)
-            )
-            await udp.send_to(packet, broadcast, port)
+            await self.send_udp(packet, host=broadcast, port=port)
             log.info(f"[{self.device_id}] Sent WoL magic packet to {mac}")
 
             import time
             self.set_state("last_wake", time.strftime("%Y-%m-%d %H:%M:%S"))
         except Exception as e:
             log.error(f"[{self.device_id}] Failed to send WoL packet: {e}")
-        finally:
-            await udp.close()
 
         return True

@@ -171,7 +171,7 @@
       "name": "Wake-on-LAN",
       "manufacturer": "Generic",
       "category": "utility",
-      "version": "1.3.4",
+      "version": "1.3.5",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Send Wake-on-LAN magic packets to wake devices on the network. No persistent connection required.",
@@ -179,7 +179,7 @@
       "file": "utility/wake_on_lan.py",
       "format": "python",
       "files": {
-        "utility/wake_on_lan.py": "a11d2af9dff0c5adfc708c4878ae03e9a9452492208de3f0479196f9e54a32c7"
+        "utility/wake_on_lan.py": "5bab1a619690da52670b3d8da9ae469c74caff56b9514d9707c550a20b30a821"
       },
       "min_platform_version": "0.37.0",
       "tags": [

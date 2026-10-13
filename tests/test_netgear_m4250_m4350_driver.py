@@ -533,13 +533,17 @@ def test_enable_ssh_action_handles_forced_password_change():
     async def run():
         d, _state = _new_driver()
         # First session: blank/factory password triggers a forced change, then
-        # the switch logs us out.
+        # the switch logs us out. The prompts are an M4250-10G2F-PoE+ on
+        # firmware 13.0.4.7, which reads CR LF as two Enters at the two new
+        # password prompts: the LF lands in the confirm field and it answers
+        # "Passwords do not match!".
         sw1 = _ScriptedSwitch(None, [
-            b"\r\nPassword: ",                                  # after username
+            b"\r\n\r\nPassword:",                               # after username
             # after default password: forced change
-            b"\r\nDefault password authentication successful.\r\n"
-            b"Change the default password for user 'admin'.\r\nNew password: ",
-            b"\r\nRe-enter new password: ",                    # after new password
+            b"\r\n\r\nDefault password authentication successful.\r\n\r\n"
+            b"Change the default password for user 'admin'.\r\n\r\n\r\n"
+            b"Password requires 8 or more characters.\r\n\r\n\r\nNew password:",
+            b"*********\r\n\r\nRe-enter new password:",       # after new password
             # after confirm: success, then the switch re-presents the login.
             b"\r\nPassword change is successful.\r\nLog in again.\r\nUser: ",
         ])
@@ -574,8 +578,9 @@ def test_enable_ssh_action_handles_forced_password_change():
             restore()
 
         assert result["ssh_enabled"] is True
-        # The new password was set (sent twice on session 1) and used to flip SSH.
-        assert sw1.sent.count(b"NewPass99\r\n") == 2
+        # The new password was set (sent twice on session 1, each ended with a
+        # bare CR) and used to flip SSH.
+        assert sw1.sent.count(b"NewPass99\r") == 2
         assert ctx.delta["password"] == "NewPass99"
         assert ctx.reconnected is True
     asyncio.run(run())

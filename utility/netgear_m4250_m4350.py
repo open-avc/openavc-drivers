@@ -539,7 +539,7 @@ class NetgearM4250M4350Driver(BaseDriver):
         "name": "NETGEAR M4250 / M4350 AV Line Switch",
         "manufacturer": "NETGEAR",
         "category": "utility",
-        "version": "1.4.9",
+        "version": "1.4.10",
         "author": "OpenAVC",
         # confirm on the commands that erase, delete or reset needs 0.36.0;
         # local_address(), which binds the Enable SSH wizard's own telnet
@@ -1189,8 +1189,12 @@ class NetgearM4250M4350Driver(BaseDriver):
                 "The new admin password must be at least 8 characters."
             )
         await progress("Setting a new admin password (factory default)…", 22)
-        # "New password:" -> send it -> "Re-enter new password:".
-        await self.transport.send((new_password + "\r\n").encode("ascii", "replace"))
+        # "New password:" -> send it -> "Re-enter new password:". Both answers
+        # end with a bare CR: firmware 13.0.4.7 (an M4250-10G2F-PoE+) reads
+        # CR LF as two Enters at these two prompts, so the LF lands in the
+        # confirm field and the switch answers "Passwords do not match!". The
+        # login prompts before them take CR LF on the same firmware.
+        await self.transport.send((new_password + "\r").encode("ascii", "replace"))
         _text, kind = await self._setup_unit(10.0)
         if kind != "password":
             raise ConnectionError(
@@ -1200,7 +1204,7 @@ class NetgearM4250M4350Driver(BaseDriver):
         # "Re-enter new password:" -> send it again. The switch reports success
         # and tells you to log in again (it may re-present "User:" or drop the
         # session). Best-effort drain of that message, then reconnect fresh.
-        await self.transport.send((new_password + "\r\n").encode("ascii", "replace"))
+        await self.transport.send((new_password + "\r").encode("ascii", "replace"))
         try:
             await asyncio.wait_for(self._responses.get(), timeout=3.0)
         except asyncio.TimeoutError:

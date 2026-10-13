@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 988,
+    "total_devices": 1024,
     "shards": null
   },
   "devices": [
@@ -7186,6 +7186,438 @@
           "id": "netgear_m4250_m4350",
           "confidence": "untested",
           "notes": "Shares the CLI per the M4250/M4350 CLI Reference Manual; not yet validated on M4350 hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerBOX 3PE",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerBOX 3PF",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerBOX 3PG",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerBOX 4KE",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerBOX 4KF",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "partial",
+          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Uploading certificates and firmware is not part of this driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerBOX 4KG",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerCable 1Kx",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerCable 2KB",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerCable 2KE",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerCable 2KF",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerCable 2KG",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerCable 2KS",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerCable 2KZ",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerCable 2PB",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerCable 2PE",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerCable 2PF",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerCable 2PG",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerCable 2PS",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerCable 2PZ",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "partial",
+          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Uploading certificates and firmware is not part of this driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerCable REST 101x",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerDIN 4PZ",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "partial",
+          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Uploading certificates and firmware is not part of this driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerDIN ZK3",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerDIN ZP3",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerPDU 4KB",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerPDU 4KS",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "partial",
+          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Uploading certificates and firmware is not part of this driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerPDU 4PB",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerPDU 4PS",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "partial",
+          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Uploading certificates and firmware is not part of this driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerPDU 4QV",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerPDU 8KB",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerPDU 8KF",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerPDU 8KS",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerPDU 8QB",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerPDU 8QS",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "partial",
+          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Uploading certificates and firmware is not part of this driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerPDU 8QV",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerPDU FK6",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETIO",
+      "model": "PowerPDU VK6",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "netio",
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
         }
       ]
     },

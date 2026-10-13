@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 121,
+    "total_drivers": 122,
     "shards": null
   },
   "drivers": [
@@ -5216,6 +5216,127 @@
         ],
         "manufacturer_alias": [
           "netgear"
+        ]
+      }
+    },
+    {
+      "id": "netio",
+      "name": "NETIO PowerPDU, PowerBOX, PowerCable and PowerDIN",
+      "manufacturer": "NETIO",
+      "category": "power",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls NETIO rack PDUs, smart power strips, power cables and DIN-rail units over NETIO's JSON API: switch each output on or off, toggle it, reboot it or turn it on for a set time, and read each output's load, current, power factor and energy on metered models. Digital inputs, NETIO temperature and humidity sensors, and the unit's own watchdogs, rules and power analysis blocks are reported as live values.",
+      "source_url": "https://www.netio-products.com/files/M2M-HTTP-JSON_NETIO-API-protocol_v2-6_.pdf",
+      "file": "power/netio.py",
+      "format": "python",
+      "files": {
+        "power/netio.py": "33a9f71dc74851de98269b35d154512087ea6620b95865a094ceddb240ddc46a",
+        "power/netio_sim.py": "27eaa6aafc82d544175512785a89ea83549f24c888d3aca5f663155f908ef547"
+      },
+      "ports": [
+        80
+      ],
+      "protocols": [
+        "netio-json"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "pdu",
+        "power",
+        "outlet-control",
+        "metering",
+        "energy",
+        "rack",
+        "power-strip",
+        "din-rail"
+      ],
+      "help": {
+        "overview": "NETIO makes networked rack PDUs, power strips, power cables and DIN-rail units. Each output is a child entity here, so a macro, schedule or panel button can switch one output, reboot a frozen device, or switch an output on for a set time. On metered models each output's load and energy are reported too, along with the status of the unit's own IP watchdogs and rules.",
+        "setup": "1. In the NETIO's web interface, open M2M API Protocols, then the JSON API tab. Turn on Enable JSON API, Enable READ-ONLY and Enable WRITE, and save. The unit restarts its web server, so it answers errors for a few seconds.\n2. The same tab has a username and password for reading and another pair for writing. NETIO ships both as netio / netio. Enter the reading login as Username and Password here. Fill in Write Username and Write Password only when the writing login is different.\n3. The port on that tab is the one to enter here (80 unless it was changed). For HTTPS (firmware 5.0.3 and later), turn on Use HTTPS and enter the HTTPS port.\n4. Outputs, inputs, watchdogs, rules and power analysis blocks appear as children once connected."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "NETIO",
+          "models": [
+            "PowerPDU 8QS",
+            "PowerPDU 4PS",
+            "PowerPDU 4KS",
+            "PowerDIN 4PZ",
+            "PowerCable 2PZ",
+            "PowerBOX 4KF"
+          ],
+          "confidence": "partial",
+          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Uploading certificates and firmware is not part of this driver."
+        },
+        {
+          "manufacturer": "NETIO",
+          "models": [
+            "PowerPDU 4KB",
+            "PowerPDU 4PB",
+            "PowerPDU 4QV",
+            "PowerPDU 8QB",
+            "PowerPDU 8QV",
+            "PowerPDU 8KS",
+            "PowerPDU 8KF",
+            "PowerPDU 8KB",
+            "PowerPDU FK6",
+            "PowerPDU VK6",
+            "PowerBOX 3PF",
+            "PowerBOX 3PE",
+            "PowerBOX 3PG",
+            "PowerBOX 4KE",
+            "PowerBOX 4KG",
+            "PowerCable REST 101x",
+            "PowerCable 1Kx",
+            "PowerCable 2KZ",
+            "PowerCable 2PF",
+            "PowerCable 2KF",
+            "PowerCable 2PE",
+            "PowerCable 2KE",
+            "PowerCable 2PG",
+            "PowerCable 2KG",
+            "PowerCable 2PS",
+            "PowerCable 2KS",
+            "PowerCable 2PB",
+            "PowerCable 2KB",
+            "PowerDIN ZP3",
+            "PowerDIN ZK3"
+          ],
+          "confidence": "untested",
+          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 80,
+          "send_ascii": "GET /netio.json HTTP/1.0\r\n\r\n",
+          "expect_regex": "\"Agent\"\\s*:\\s*\\{\\s*\"Model\"\\s*:",
+          "timeout_ms": 1500,
+          "extract": {
+            "model": {
+              "regex": "\"Model\"\\s*:\\s*\"([^\"]+)\""
+            },
+            "device_name": {
+              "regex": "\"DeviceName\"\\s*:\\s*\"([^\"]+)\""
+            },
+            "firmware": {
+              "regex": "\"Version\"\\s*:\\s*\"([^\"]+)\""
+            },
+            "serial": {
+              "regex": "\"SerialNumber\"\\s*:\\s*\"([^\"]+)\""
+            }
+          }
+        },
+        "oui": [
+          "24:a4:2c"
+        ],
+        "manufacturer_alias": [
+          "netio",
+          "netio products",
+          "netio products a.s."
         ]
       }
     },

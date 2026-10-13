@@ -1,0 +1,20 @@
+{
+"Agent":{"Model":"4PS","DeviceName":"PowerPDU-77","MAC":"24:A4:2C:3B:05:77","SerialNumber":"24A42C3B0577","JSONVer":"2.6","Time":"2026-10-13T18:06:37+0100","Uptime":74671,"Version":"5.3.1","OemID":100,"VendorID":0,"NumOutputs":4,"NumInputs":0},
+"Outputs":[
+{"ID":1,"Name":"Power output 1","State":1,"Action":6,"Delay":5000},
+{"ID":2,"Name":"Power output 2","State":1,"Action":6,"Delay":5000},
+{"ID":3,"Name":"Power output 3","State":1,"Action":6,"Delay":5000},
+{"ID":4,"Name":"Power output 4","State":1,"Action":6,"Delay":5000}
+],
+"PAB":[
+],
+"Watchdogs":[
+{"Name":"google_pinger","Enabled":true,"Fail":false,"LastStatus":true,"Timestamp":1791914767},
+{"Name":"CR01_WDT","Enabled":false,"Fail":false,"LastStatus":false,"Timestamp":0}
+],
+"Rules":[
+{"Name":"CR01_RULE","Enabled":false,"Result":null},
+{"Name":"CR02_RULE","Enabled":false,"Result":null},
+{"Name":"CR03_RULE","Enabled":false,"Result":null},
+{"Name":"CR13_RULE","Enabled":false,"Result":null}
+]}

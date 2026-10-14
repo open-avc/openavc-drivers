@@ -54,6 +54,9 @@ class _FakeBaseDriver(LifecycleFake):
     # it: nothing pinned unless a test sets it.
     reach_devices_address = None
     local_address = StubBaseDriver.local_address
+    # Where a datagram goes instead while the device is simulated; the
+    # platform sets it with the host and port redirect.
+    udp_redirect = None
 
     def __init__(self, device_id, config, state, events) -> None:
         self.device_id = device_id
@@ -201,7 +204,13 @@ class _FakeUDPTransport:
 
     async def send_to(self, data, host, port) -> None:
         self.sent.append((bytes(data), host, port))
-        if self._sim is not None:
+        if self._sim is None:
+            return
+        # A simulator given the address its socket listens on hears only
+        # what is sent there, as the real one does: it binds 127.0.0.1 and
+        # joins no multicast group.
+        listening_on = self._sim.listening_on
+        if listening_on is None or (host, port) == listening_on:
             self._sim.handle_command(bytes(data))
 
     async def close(self) -> None:
@@ -221,6 +230,8 @@ class _FakeUDPSimulator:
     """Stand-in for openavc.simulator.udp_simulator.UDPSimulator."""
 
     SIMULATOR_INFO: dict = {}
+    # (host, port) the simulator's socket is bound to; None hears everything.
+    listening_on: tuple[str, int] | None = None
 
     def __init__(self, device_id, config=None) -> None:
         self.device_id = device_id
@@ -565,3 +576,64 @@ def test_nothing_is_bound_with_no_adapter_chosen_or_a_receiver_on_this_computer(
     pinned, overrides,
 ):
     assert _bound_to(overrides, pinned) is None
+
+
+# ── Simulate Devices: every packet goes to the simulator ─────────────────────
+
+_SIM_ADDR = ("127.0.0.1", 19000)
+
+
+def _simulated_pair(overrides=None):
+    """A pair set up the way Simulate Devices leaves it: host and port point
+    at the simulator, ``udp_redirect`` names the same place, and the
+    simulator's socket hears only that address."""
+    cfg = {"host": _SIM_ADDR[0], "port": _SIM_ADDR[1]}
+    cfg.update(overrides or {})
+    driver, sim = _make_pair(cfg)
+    driver.udp_redirect = _SIM_ADDR
+    sim.listening_on = _SIM_ADDR
+    return driver, sim
+
+
+@pytest.mark.parametrize("mode", ["multicast", "unicast"])
+def test_a_simulated_device_streams_to_its_simulator(mode):
+    async def scenario():
+        driver, sim = _simulated_pair({"mode": mode, "universe": 63999})
+        # An adapter chosen in Reach devices through: the simulator is on
+        # this computer, so the socket is not bound to it.
+        driver.reach_devices_address = "10.20.0.5"
+        await driver.connect()
+        await driver.send_command("set_channel", {"channel": 1, "value": 200})
+        await driver.send_command("send_now")
+
+        assert sim.state.get("frames_received") == 2
+        assert sim.universes[63999][0] == 200
+        assert {(h, p) for _d, h, p in driver.transport.sent} == {_SIM_ADDR}
+        assert driver.state.get("device.sacnX.destination") == "127.0.0.1:19000"
+        assert driver.transport.local_addr is None
+    _run(scenario())
+
+
+def test_the_stream_termination_goes_where_the_stream_went():
+    async def scenario():
+        # Simulation starts: the platform sets the redirect, then reconnects,
+        # and the goodbye goes to the receivers on the network.
+        live, _sim = _make_pair({"mode": "multicast", "host": ""})
+        await live.connect()
+        transport = live.transport
+        live.udp_redirect = _SIM_ADDR
+        await live.disconnect()
+        terminations = transport.sent[-3:]
+        assert all(d[112] & 0x40 for d, _h, _p in terminations)
+        assert {(h, p) for _d, h, p in terminations} == {("239.255.0.1", 5568)}
+
+        # Simulation stops: the redirect is cleared before the reconnect, and
+        # the goodbye still goes to the simulator.
+        simulated, sim = _simulated_pair({"mode": "multicast"})
+        await simulated.connect()
+        simulated.udp_redirect = None
+        frames_before = sim.state.get("frames_received")
+        await simulated.disconnect()
+        assert sim.state.get("frames_received") == frames_before + 3
+        assert sim.state.get("stream_terminated") is True
+    _run(scenario())

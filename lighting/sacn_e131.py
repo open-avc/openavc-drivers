@@ -237,7 +237,7 @@ class SacnE131Driver(BaseDriver):
         "name": "sACN / E1.31 DMX (Generic)",
         "manufacturer": "Generic",
         "category": "lighting",
-        "version": "1.0.3",
+        "version": "1.0.4",
         # local_address(), which binds the socket this driver opens itself,
         # needs 0.37.0.
         "min_platform_version": "0.37.0",
@@ -684,6 +684,9 @@ class SacnE131Driver(BaseDriver):
         self._host = ""
         self._port = ACN_SDT_MULTICAST_PORT
         self._source_name = "OpenAVC"
+        # Where this connection's packets go instead while the device is
+        # simulated (the platform's udp_redirect), taken when the socket opens.
+        self._sim_target: tuple[str, int] | None = None
         self._cid = _derive_cid(device_id)
         self._keepalive_task: asyncio.Task | None = None
         super().__init__(device_id, config, state, events)
@@ -719,9 +722,17 @@ class SacnE131Driver(BaseDriver):
             on_disconnect=self._handle_transport_disconnect,
             name=self.device_id,
         )
+        # Under simulation every packet goes to the simulator, which listens
+        # on 127.0.0.1 and joins no multicast group: the multicast address
+        # is worked out here, so the platform's redirect of host and port
+        # alone would leave the stream on the real network. Held for the
+        # life of this socket, so the stream termination sent when the
+        # simulation starts or stops reaches the receivers that had it.
+        self._sim_target = self.udp_redirect
         # From the adapter Settings > Network > Reach devices through chose,
         # for the destination this socket sends to: the unicast host, or the
-        # multicast group, which then also leaves through that adapter.
+        # multicast group, which then also leaves through that adapter (the
+        # simulator is on this computer, which is never bound).
         await self.transport.open(
             allow_broadcast=True,
             local_addr=self.local_address(self._destination()[0]),
@@ -936,6 +947,8 @@ class SacnE131Driver(BaseDriver):
 
     def _destination(self) -> tuple[str, int]:
         """Resolve the (host, port) for the current universe/mode."""
+        if self._sim_target is not None:
+            return self._sim_target
         if self._mode == "unicast":
             return (self._host, self._port)
         return (universe_to_multicast(self._universe), self._port)

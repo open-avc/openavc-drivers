@@ -54,7 +54,7 @@ class WakeOnLANDriver(BaseDriver):
         "name": "Wake-on-LAN",
         "manufacturer": "Generic",
         "category": "utility",
-        "version": "1.3.5",
+        "version": "1.3.6",
         # send_udp sends a 255.255.255.255 broadcast through the adapter
         # Reach devices through chose, or through every connected adapter,
         # from 0.37.0.
@@ -137,29 +137,23 @@ class WakeOnLANDriver(BaseDriver):
 
         mac = self.config.get("mac_address", "")
         if not mac:
-            log.error(f"[{self.device_id}] No MAC address configured")
-            return
+            raise ValueError(f"[{self.device_id}] No MAC address configured")
 
         broadcast = self.config.get("broadcast_address", "255.255.255.255")
         port = self.config.get("port", WOL_PORT)
 
-        try:
-            packet = build_magic_packet(mac)
-        except ValueError as e:
-            log.error(f"[{self.device_id}] {e}")
-            return
+        packet = build_magic_packet(mac)
 
         # The platform's side-send: a socket opened for it and closed after,
         # from the adapter Settings > Network > Reach devices through chose,
         # and a 255.255.255.255 broadcast through every connected adapter
-        # when none is chosen.
-        try:
-            await self.send_udp(packet, host=broadcast, port=port)
-            log.info(f"[{self.device_id}] Sent WoL magic packet to {mac}")
+        # when none is chosen. A wake that did not go out raises, so the
+        # command fails with the reason instead of reading as sent: with the
+        # chosen adapter not connected that is the platform's "Not sent"
+        # sentence, which the panel and the Programmer show as it is.
+        await self.send_udp(packet, host=broadcast, port=port)
+        log.info(f"[{self.device_id}] Sent WoL magic packet to {mac}")
 
-            import time
-            self.set_state("last_wake", time.strftime("%Y-%m-%d %H:%M:%S"))
-        except Exception as e:
-            log.error(f"[{self.device_id}] Failed to send WoL packet: {e}")
-
+        import time
+        self.set_state("last_wake", time.strftime("%Y-%m-%d %H:%M:%S"))
         return True

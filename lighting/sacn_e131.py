@@ -237,7 +237,7 @@ class SacnE131Driver(BaseDriver):
         "name": "sACN / E1.31 DMX (Generic)",
         "manufacturer": "Generic",
         "category": "lighting",
-        "version": "1.0.4",
+        "version": "1.0.5",
         # local_address(), which binds the socket this driver opens itself,
         # needs 0.37.0.
         "min_platform_version": "0.37.0",
@@ -893,10 +893,17 @@ class SacnE131Driver(BaseDriver):
             options=options,
         )
         host, port = self._destination()
+        # The transport counts what it sent. A multicast it held back (the
+        # adapter chosen in Reach devices through is not connected) returns
+        # without raising and without counting, and the transport logs that
+        # once; it is not a packet sent.
+        sent_before = getattr(self.transport, "send_count", None)
         try:
             await self.transport.send_to(packet, host, port)
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] E1.31 send failed")
+            return
+        if sent_before is not None and getattr(self.transport, "send_count", None) == sent_before:
             return
         self._sequence = (self._sequence + 1) & 0xFF
         try:

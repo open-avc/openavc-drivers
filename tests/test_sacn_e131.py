@@ -197,13 +197,21 @@ class _FakeUDPTransport:
         self.closed = False
         self.connected = False
         self.local_addr = None
+        # Like the real transport: send_count counts what went out, and a
+        # multicast held back (the chosen adapter not connected) returns
+        # without raising and without counting.
+        self.send_count = 0
+        self.held_back = False
 
     async def open(self, allow_broadcast=True, local_addr=None) -> None:
         self.local_addr = local_addr
         self.connected = True
 
     async def send_to(self, data, host, port) -> None:
+        if self.held_back:
+            return
         self.sent.append((bytes(data), host, port))
+        self.send_count += 1
         if self._sim is None:
             return
         # A simulator given the address its socket listens on hears only
@@ -492,6 +500,26 @@ def test_sequence_increments():
         await driver.send_command("send_now")
         seq_b = sim.state.get("last_sequence")
         assert ((seq_b - seq_a) & 0xFF) == 1
+    _run(scenario())
+
+
+def test_a_packet_the_transport_held_back_is_not_counted():
+    async def scenario():
+        driver, sim = _make_pair()
+        await driver.connect()
+        sent = driver.state.get("device.sacnX.packets_sent")
+        sequence = driver._sequence
+
+        driver.transport.held_back = True
+        await driver.send_command("set_channel", {"channel": 1, "value": 200})
+        assert driver.state.get("device.sacnX.packets_sent") == sent
+        assert driver._sequence == sequence
+
+        driver.transport.held_back = False
+        await driver.send_command("set_channel", {"channel": 1, "value": 201})
+        assert driver.state.get("device.sacnX.packets_sent") == sent + 1
+        assert driver._sequence == (sequence + 1) & 0xFF
+        assert sim.universes[1][0] == 201
     _run(scenario())
 
 

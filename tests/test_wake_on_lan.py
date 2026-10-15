@@ -206,6 +206,43 @@ def test_the_default_wake_is_a_broadcast_on_port_nine():
     _run(scenario())
 
 
+def test_a_wake_that_did_not_go_out_fails_the_command():
+    # The platform refuses the send (here: the adapter chosen in Reach
+    # devices through is not connected). The command must fail with that
+    # reason, not answer success with the reason only in the log.
+    async def scenario():
+        driver = WakeOnLANDriver(
+            "wolX", {"mac_address": "AA:BB:CC:DD:EE:FF"},
+            _FakeState(), _FakeEvents(),
+        )
+        await driver.connect()
+        refusal = ConnectionError("Not sent: Ethernet isn't connected.")
+
+        async def refused(*args, **kwargs):
+            raise refusal
+
+        driver.send_udp = refused
+        with pytest.raises(ConnectionError) as caught:
+            await driver.send_command("wake")
+        assert caught.value is refusal
+        assert driver.state.get("device.wolX.last_wake") is None
+    _run(scenario())
+
+
+@pytest.mark.parametrize("mac", ["", "not-a-mac-addr"])
+def test_a_wake_with_no_usable_mac_fails_the_command(mac):
+    async def scenario():
+        driver = WakeOnLANDriver(
+            "wolX", {"mac_address": mac}, _FakeState(), _FakeEvents(),
+        )
+        await driver.connect()
+        with pytest.raises(ValueError):
+            await driver.send_command("wake")
+        assert driver.udp_sent == []
+        assert driver.state.get("device.wolX.last_wake") is None
+    _run(scenario())
+
+
 # ── Magic packet builder ────────────────────────────────────────────────────
 
 def test_magic_packet_layout():

@@ -798,13 +798,12 @@ class NetioDriver(BaseDriver):
         "name": "NETIO PowerPDU, PowerBOX, PowerCable and PowerDIN",
         "manufacturer": "NETIO",
         "category": "power",
-        "version": "1.1.0",
+        "version": "1.1.1",
         "author": "OpenAVC",
-        # The contract check computes 0.36.0 (confirm). The web login's
-        # WebSocket binds to the adapter chosen under Reach devices through
-        # (BaseDriver.local_address), which arrives in 0.37.0; a method call
-        # is invisible to the check, so the floor is set by hand.
-        "min_platform_version": "0.37.0",
+        # confirm on the commands that reset or switch everything needs 0.36.0.
+        # The web login follows Reach devices through where the platform can
+        # (0.37.0 and later; see _open_web) and runs without it before that.
+        "min_platform_version": "0.36.0",
         "description": (
             "Controls NETIO rack PDUs, smart power strips, power cables and DIN-rail units over "
             "the unit's web login (firmware 5.1.3 and later) or NETIO's JSON API: switch each "
@@ -1581,7 +1580,10 @@ class NetioDriver(BaseDriver):
         if context is not None:
             kwargs["ssl"] = context
         # From the adapter Settings > Network > Reach devices through chose.
-        ip = self.local_address(self._host)
+        # The platform names it from 0.37.0; on 0.36.0 the computer picks, as
+        # it does for every driver's own connection there.
+        local_address = getattr(self, "local_address", None)
+        ip = local_address(self._host) if callable(local_address) else None
         if ip:
             kwargs["local_addr"] = (ip, 0)
         self._ws_closing = False

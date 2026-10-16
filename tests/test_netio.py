@@ -1042,3 +1042,24 @@ def test_web_https_uses_wss_with_the_units_own_certificate():
         assert url == "wss://10.0.0.30:443/emweb"
         assert kwargs["ssl"].verify_mode == DRV.ssl.CERT_NONE
     _web(scenario, driver_config={"ssl": True, "port": 443})
+
+
+def test_web_login_runs_on_a_platform_without_reach_devices_through():
+    """0.36.0 has no BaseDriver.local_address: the computer picks the adapter."""
+    async def scenario(h):
+        h.driver.local_address = None
+        await h.connect()
+        assert h.st("model") == "4KS" and "local_addr" not in h.opened[0][1]
+    _web(scenario, connect=False)
+
+
+def test_web_login_follows_reach_devices_through_where_the_platform_has_it():
+    async def scenario(h):
+        h.driver.local_address = lambda host=None: "192.168.10.5"
+        await h.connect()
+        assert h.opened[0][1]["local_addr"] == ("192.168.10.5", 0)
+    _web(scenario, connect=False)
+
+
+def test_the_web_login_needs_nothing_newer_than_0_36_0():
+    assert INFO["min_platform_version"] == "0.36.0"

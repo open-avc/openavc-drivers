@@ -680,7 +680,7 @@ class NetioSimulator(HTTPSimulator):
         async def push():
             while not ws.closed:
                 await asyncio.sleep(WEB_PUSH_S)
-                if self._silenced:
+                if self.has_error_behavior("no_response"):
                     continue
                 try:
                     for frame in session.events():
@@ -691,7 +691,7 @@ class NetioSimulator(HTTPSimulator):
         pusher = asyncio.create_task(push())
         try:
             async for msg in ws:
-                if msg.type != WSMsgType.TEXT or self._silenced:
+                if msg.type != WSMsgType.TEXT or self.has_error_behavior("no_response"):
                     continue
                 self.log_protocol("in", msg.data[:300])
                 for frame in session.handle(msg.data):

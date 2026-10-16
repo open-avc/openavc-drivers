@@ -1,0 +1,17 @@
+{"type":"REPLY","reqId":16,"data":{
+  "items":[
+      {
+       "name":"CR03_PAB",
+       "enabled":true
+    },
+      {
+       "name":"CR13_PAB",
+       "enabled":false
+    },
+      {
+       "name":"Falcon",
+       "enabled":false
+    }
+  ]
+},"status":"OK"}
+

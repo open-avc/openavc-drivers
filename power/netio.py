@@ -1,12 +1,20 @@
-"""NETIO PowerPDU, PowerBOX, PowerCable and PowerDIN driver (JSON over HTTP).
+"""NETIO PowerPDU, PowerBOX, PowerCable and PowerDIN driver.
 
 NETIO's networked power sockets, rack PDUs and DIN-rail units all run the same
-"universal" firmware and all speak NETIO's JSON M2M API: one status document,
-``netio.json``, read with an HTTP GET and written with an HTTP POST of the
-same document carrying only the changes. A write is answered with the whole
-status document again, so every command reads its own result back.
+"universal" firmware, and this driver reaches them two ways, chosen with the
+Connect With setting:
 
-What the document carries:
+  JSON API     NETIO's JSON M2M API: one status document, ``netio.json``, read
+               with an HTTP GET and written with an HTTP POST of the same
+               document carrying only the changes. A write is answered with the
+               whole status document again. Turned on and given its own logins
+               on the unit's M2M API page; every firmware has it.
+  Web login    The WebSocket API at ``/emweb`` that the unit's own web
+               interface uses, signed in with a web user. Firmware 5.1.3 and
+               later. Nothing to turn on, and the unit pushes an output
+               switching the moment it happens.
+
+What the JSON document carries:
 
   Agent          model, name, MAC, serial number, firmware, JSON version,
                  clock, uptime, output and input counts
@@ -25,12 +33,22 @@ Outputs are switched on, off and over (toggle), rebooted (short off), switched
 on for a time (short on), renamed, have their energy counter reset and their
 schedule enabled or disabled. That is every write the document defines.
 
-**Polling, deliberately.** NETIO's push protocols do not report an output
-switching. Netio Push sends this same document on a fixed period (60 s by
-default) and at once only when current moves past a set delta; MQTT-flex
-publishes to a broker the site has to run. Both are set up only in the unit's
-own web interface, never over this API. One GET returns everything, so a poll
-every few seconds carries the same information on the same schedule.
+The web login carries the same outputs, metering and inputs, plus each output's
+schedule (whether it is on, and its name). Its watchdog, rule and power
+analysis block lists carry each entry's name and whether it is enabled, but not
+its result, so those results are reported over the JSON API only.
+
+**Push and polling.** Over the JSON API the driver polls: NETIO's push
+protocols do not report an output switching (Netio Push sends this same
+document on a fixed period, 60 s by default, and at once only when current
+moves past a set delta; MQTT-flex publishes to a broker the site has to run),
+and both are set up only in the unit's own web interface. One GET returns
+everything, so a poll every few seconds carries the same information on the
+same schedule. Over the web login the driver subscribes: the unit pushes its
+output metering (which carries each output's on/off) about three times a
+second, and an output's change arrives within about 0.3 s of a command. On/off
+and schedule changes are written at once; metering at most once per poll
+interval. The poll re-reads the lists and settings the unit does not push.
 
 **Why Python, not YAML.**
   * The JSON API takes one login for reading and another for writing (its
@@ -42,22 +60,36 @@ every few seconds carries the same information on the same schedule.
     by name here; YAML cannot build a roster the device enumerates.
   * A write with its own short on/off time must end its HTTP connection (see
     ``_write``), and a refused write's error body is not valid JSON.
+  * The web login is a WebSocket session with a hashed sign-in, request ids
+    and pushed events on the one socket.
 
-Source: NETIO "JSON over HTTP NETIO M2M API protocols", JSON version 2.6,
-published 2026-02-24. Checked on 2026-10-13 against NETIO's public demo units
-(PowerPDU 8QS, 4PS and 4KS, PowerDIN 4PZ, PowerCable 2PZ, PowerBOX 4KF, on
-firmware 5.3.1 and 5.3.2). Where the units and the document disagree the code
-follows the units, and says so where it reads the value.
+Sources: NETIO "JSON over HTTP NETIO M2M API protocols", JSON version 2.6,
+published 2026-02-24, for the JSON API. For the web login NETIO publishes no
+protocol document; NETIO's own MIT-licensed library, PyNetioConf (0.3.1,
+2026-10-15), is the reference NETIO pointed to, and its author confirmed the
+API is the one every 5.1.3+ unit's web interface runs on. Both were checked
+against NETIO's public demo units (PowerPDU 8QS, 4PS and 4KS, PowerDIN 4PZ,
+PowerCable 2PZ, PowerBOX 4KF, on firmware 5.3.1 and 5.3.2): the JSON API on
+2026-10-13, the web login on 2026-10-16. Where the units and a source disagree
+the code follows the units, and says so where it reads the value.
 """
 
 from __future__ import annotations
 
+import asyncio
+import base64
+import hashlib
 import json
+import math
 import re
+import secrets
+import ssl
+import time
 from datetime import datetime, timezone
 from typing import Any
 
 import httpx
+import websockets
 
 from openavc.drivers.base import BaseDriver, ConnectionFaultError
 from openavc.utils.logger import get_logger
@@ -65,6 +97,39 @@ from openavc.utils.logger import get_logger
 log = get_logger(__name__)
 
 STATUS_PATH = "/netio.json"
+
+CONNECT_JSON = "json"
+CONNECT_WEB = "web"
+
+# ── Web login (WebSocket API) ──
+WEB_PATH = "/emweb"
+# PyNetioConf pauses 35 ms after every message it sends, "to give breathing
+# room to the internal device timers and reduce unwanted restarts".
+WEB_SEND_GAP_S = 0.035
+WEB_OPEN_TIMEOUT_S = 8.0
+WEB_REPLY_TIMEOUT_S = 10.0
+# How long a command waits for the unit to push the output state it caused.
+# The demo units pushed it 0.29 to 0.49 s after the command (2026-10-16).
+WEB_CONFIRM_S = 2.0
+# The web login API arrived in 5.1.3; PING in 5.2 (PyNetioConf: "not supported
+# on 5.0.x to 5.1.x"); 5.4 reads with GET instead of SUBSCRIBE and reports
+# output states in outputs/state rather than in outputs/measure.
+WEB_API_SINCE = (5, 1, 3)
+WEB_PING_SINCE = (5, 2, 0)
+WEB_GET_SINCE = (5, 4, 0)
+# Topics held subscribed for their pushed changes. outputs/measure and
+# outputs/globalmeasure push about three times a second whatever changes; the
+# two lists are expected to push on a change (unverified: nothing changed them
+# on the demo units) and are re-read every poll as well.
+WEB_HELD_TOPICS = ("outputs/measure", "outputs/globalmeasure", "outputs/list", "inputs/list")
+WEB_STATE_TOPIC = "outputs/state"
+# A web user's sign-in refused for its credentials (PyNetioConf names both).
+WEB_AUTH_REFUSALS = ("InvalidCredentials", "TooManyFailLogin", "Unauthorized")
+# The fields of an output's settings, all sent back on every write of them as
+# PyNetioConf does.
+WEB_OUTPUT_CONFIG_KEYS = (
+    "default", "isScheduleActive", "name", "powerUpInterval", "resetDelay", "scheduleId",
+)
 
 # "Not available": a sensor that is not connected, a figure the unit does not
 # measure (a power factor with no load on a 4KS reads 999.00).
@@ -83,6 +148,17 @@ ACTION_TOGGLE = 4
 ACTION_NO_CHANGE = 5
 ACTION_SCHEDULE_OFF = 20
 ACTION_SCHEDULE_ON = 21
+
+# The same actions as the web login's outputs/id/<n>/ctrl requests take them.
+# A short off / short on there runs for the output's own short on/off time;
+# the request has no time of its own.
+WEB_REQUESTS = {
+    ACTION_OFF: "off",
+    ACTION_ON: "on",
+    ACTION_SHORT_OFF: "soff",
+    ACTION_SHORT_ON: "son",
+    ACTION_TOGGLE: "toggle",
+}
 
 # The largest NETIO unit has eight outputs and two inputs; these leave room for
 # a model that does not exist yet without accepting nonsense.
@@ -112,6 +188,16 @@ class NetioCommandError(RuntimeError):
     A RuntimeError so the platform reports the sentence as the command's
     failure rather than reading it as a missing device.
     """
+
+
+class NetioWebError(Exception):
+    """The web login answered a request with ``"status": "ERROR"``."""
+
+    def __init__(self, code: str, message: str = "", topic: str = "") -> None:
+        self.code = code
+        self.message = message
+        self.topic = topic
+        super().__init__(f"{code}" + (f" ({message})" if message else ""))
 
 
 # ── Value readers ────────────────────────────────────────────────────────────
@@ -446,6 +532,257 @@ def summarize(doc: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# ── Web login (WebSocket API) ────────────────────────────────────────────────
+
+
+def web_login_token(
+    username: str, password: str, public_key: str, local_timestamp: int, salt: str | None = None,
+) -> str:
+    """The AUTH token a web user signs in with (PyNetioConf ``ws_api``).
+
+    The password never travels: it is hashed with the user name and the key
+    the unit sent in its HELO answer, salted, and tied to the unit's clock in
+    ten-second steps, so a token is good for that window only.
+    """
+    if salt is None:
+        salt = hashlib.sha256(str(secrets.randbits(32)).encode()).hexdigest()
+    password_hash = base64.b64encode(
+        hashlib.sha256(f"{username}{public_key}{password}".encode()).digest()
+    ).decode()
+    password_token = hashlib.sha256(f"{salt}{password_hash}".encode()).hexdigest()
+    time_mark = str(math.floor(local_timestamp / 10))
+    return f"{salt}.{hashlib.sha256(f'{time_mark}{password_token}'.encode()).hexdigest()}"
+
+
+def firmware_version(text: Any) -> tuple[int, int, int] | None:
+    """(major, minor, patch) from a version string such as
+    ``5.3.2 - 1.57(1.53) - 0  4k``, or None."""
+    match = re.search(r"(\d+)\.(\d+)\.(\d+)", str(text or ""))
+    if match is None:
+        return None
+    return int(match.group(1)), int(match.group(2)), int(match.group(3))
+
+
+def _firmware_text(text: Any) -> str | None:
+    """The firmware as the JSON API's Agent reports it: ``5.3.2``, the part
+    before the low-level (MCU) version."""
+    if not text:
+        return None
+    return str(text).split("-")[0].strip() or None
+
+
+def web_identity(info: dict[str, Any] | None, hello_device: dict[str, Any]) -> dict[str, Any]:
+    """Device identity from system/info, else what the HELO answer carries
+    (the type, firmware and serial number are there before signing in).
+
+    The web login reports no MAC address and no JSON version; both stay unset.
+    """
+    info = info or {}
+    devtype = str(hello_device.get("devtype") or "")
+    model = info.get("brandModel") or (devtype.split()[-1] if devtype else None)
+    values: dict[str, Any] = {
+        "model": _as_str(model),
+        "device_name": _as_str(info.get("deviceName")),
+        "serial_number": _as_str(info.get("deviceSN") or hello_device.get("deviceSN")),
+        "firmware": _firmware_text(info.get("fwVersion") or hello_device.get("fwVersion")),
+    }
+    for key, source in (("output_count", "outputCount"), ("input_count", "inputCount")):
+        count = _as_int(info.get(source))
+        if count is not None:
+            values[key] = count
+    return values
+
+
+def web_measure_mask(info: dict[str, Any] | None) -> int | None:
+    """Which outputs the unit meters, one bit per output (4KS 15, 8QS 1,
+    4PS 0), or None when system/info was not read."""
+    if not isinstance(info, dict):
+        return None
+    return _as_int(info.get("measureMask"))
+
+
+def web_global(measure: Any, metered: bool) -> dict[str, Any]:
+    """Whole-unit metering from outputs/globalmeasure, in the units the JSON
+    API's state uses. An unmetered unit (measureMask 0, the 4PS) still answers
+    with zeros, so ``metered`` decides, not the block's presence. Current is
+    in amps here (the JSON API counts mA), power in watts with decimals,
+    energy in watt-hours with decimals (read beside netio.json on the 4KF and
+    4KS demos, 2026-10-16)."""
+    blank = parse_global(None)
+    if not metered or not isinstance(measure, dict):
+        return blank
+    return {
+        "metered": True,
+        "voltage_v": _measure(measure.get("voltage")),
+        "frequency_hz": _measure(measure.get("frequency")),
+        "total_current_a": _amps(measure.get("current")),
+        "total_load_w": _measure(measure.get("power")),
+        "total_power_factor": _measure(measure.get("powerFactor")),
+        "total_phase_deg": _measure(measure.get("phase")),
+        "total_energy_wh": _as_int(measure.get("energy")),
+        "total_energy_nr_wh": _as_int(measure.get("energyNR")),
+        "total_reverse_energy_wh": _as_int(measure.get("reverseEnergy")),
+        "total_reverse_energy_nr_wh": _as_int(measure.get("reverseEnergyNR")),
+        "energy_start": _timestamp(measure.get("timestamp")),
+    }
+
+
+def _amps(value: Any) -> float | None:
+    number = _as_float(value)
+    if number is None or number == SENTINEL:
+        return None
+    return round(number, 3)
+
+
+def web_output_metering(item: dict[str, Any]) -> dict[str, Any]:
+    """One output's metering from an outputs/measure item. An unmetered
+    output's item has no ``measure`` block at all. ``timestamp`` is when its
+    energy counter was last reset: the unit's local clock counted as if it
+    were UTC (1791915791 on the 4KS demo is 18:23:11, the reset made at 18:23
+    on its clock), so it is shown as a clock reading with no zone; 0 means
+    never reset."""
+    measure = item.get("measure")
+    if not isinstance(measure, dict):
+        return {
+            "metered": False,
+            "voltage_v": None, "frequency_hz": None, "current_a": None,
+            "load_w": None, "power_factor": None, "phase_deg": None,
+            "energy_wh": None, "energy_nr_wh": None, "reverse_energy_wh": None,
+            "reverse_energy_nr_wh": None, "energy_start": None,
+        }
+    return {
+        "metered": True,
+        "voltage_v": _measure(measure.get("voltage")),
+        "frequency_hz": _measure(measure.get("frequency")),
+        "current_a": _amps(measure.get("current")),
+        "load_w": _measure(measure.get("power")),
+        "power_factor": _measure(measure.get("powerFactor")),
+        "phase_deg": _measure(measure.get("phase")),
+        "energy_wh": _as_int(measure.get("energy")),
+        "energy_nr_wh": _as_int(measure.get("energyNR")),
+        "reverse_energy_wh": _as_int(measure.get("reverseEnergy")),
+        "reverse_energy_nr_wh": _as_int(measure.get("reverseEnergyNR")),
+        "energy_start": _timestamp(measure.get("timestamp")),
+    }
+
+
+def _on_off(value: Any) -> bool | None:
+    """The web login's "on" / "off"."""
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    if text == "on":
+        return True
+    if text == "off":
+        return False
+    return None
+
+
+def web_output_live(item: dict[str, Any]) -> dict[str, Any]:
+    """What an outputs/measure (or, from 5.4, outputs/state) item says that is
+    written the moment it changes: on/off and whether the schedule is on."""
+    values: dict[str, Any] = {}
+    state = _on_off(item.get("state"))
+    if state is not None:
+        values["state"] = state
+    if "isScheduleActive" in item:
+        values["schedule_enabled"] = _as_bool(item.get("isScheduleActive"))
+    return values
+
+
+def web_output_listed(item: dict[str, Any]) -> dict[str, Any]:
+    """An outputs/list item: the name and the assigned schedule's name
+    (``N/A`` with scheduleId 0 when none is assigned)."""
+    schedule = item.get("scheduleName")
+    if _as_int(item.get("scheduleId")) == 0 or str(schedule or "").strip() in ("", "N/A"):
+        schedule = None
+    return {"name": _as_str(item.get("name")), "schedule_name": _as_str(schedule)}
+
+
+def web_output_config(config: Any) -> dict[str, Any]:
+    """An output's settings (outputs/id/<n>/config): its short on/off time
+    and whether its schedule is on."""
+    if not isinstance(config, dict):
+        return {}
+    values: dict[str, Any] = {}
+    delay = _as_int(config.get("resetDelay"))
+    if delay is not None:
+        values["delay_ms"] = delay
+    if "isScheduleActive" in config:
+        values["schedule_enabled"] = _as_bool(config.get("isScheduleActive"))
+    return values
+
+
+def web_input(item: dict[str, Any]) -> dict[str, Any]:
+    """An inputs/list item. "on" is the JSON API's State 1, a closed contact
+    (the 4KS demo's open input read State 0 and "off" side by side). The
+    temperature comes in the unit the NETIO is set to; both are reported."""
+    temperature = _measure(item.get("temperature"))
+    unit = str(item.get("temperatureUnit") or "C").strip().upper()
+    temp_c = temp_f = None
+    if temperature is not None:
+        if unit == "F":
+            temp_f, temp_c = temperature, round((temperature - 32) * 5 / 9, 1)
+        else:
+            temp_c, temp_f = temperature, round(temperature * 9 / 5 + 32, 1)
+    humidity = _as_float(item.get("humidity"))
+    if humidity in HUMIDITY_ABSENT:
+        humidity = None
+    return {
+        "name": _as_str(item.get("name")),
+        "closed": _on_off(item.get("state")),
+        "s0_counter": _as_int(item.get("s0Counter")),
+        "temperature_c": temp_c,
+        "temperature_f": temp_f,
+        "humidity": humidity,
+    }
+
+
+def web_numbered(items: Any, limit: int, parse) -> dict[int, dict[str, Any]]:
+    """outputs/... or inputs/list items by their id, in order."""
+    found: dict[int, dict[str, Any]] = {}
+    if not isinstance(items, list):
+        return found
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        local_id = _as_int(item.get("id"))
+        if local_id is None or not 1 <= local_id <= limit:
+            continue
+        found[local_id] = parse(item)
+    return dict(sorted(found.items()))
+
+
+def web_named(items: Any, blank: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """A wdtpingers/, rules/ or pab/list keyed by a child id made from each
+    name, the same ids the JSON API's lists give. The web login's lists carry
+    a name and whether the entry is enabled, nothing of its result."""
+    found: dict[str, dict[str, Any]] = {}
+    if not isinstance(items, list):
+        return found
+    taken: set[str] = set()
+    for item in items:
+        if not isinstance(item, dict) or not item.get("name"):
+            continue
+        values = dict(blank)
+        values["name"] = _as_str(item.get("name"))
+        values["enabled"] = _as_bool(item.get("enabled"))
+        found[child_key(str(item["name"]), taken)] = values
+    return found
+
+
+WEB_BLANK = {
+    "watchdog": {"name": None, "enabled": None, "failed": None, "last_ok": None, "last_check": None},
+    "rule": {"name": None, "enabled": None, "result": None},
+    "pab": {"name": None, "pab_type": None, "enabled": None, "in_range": None, "zone": None},
+}
+WEB_LISTS = {"watchdog": "wdtpingers/list", "rule": "rules/list", "pab": "pab/list"}
+
+
+def _items(data: Any) -> Any:
+    return data.get("items") if isinstance(data, dict) else None
+
+
 # ── Driver ───────────────────────────────────────────────────────────────────
 
 
@@ -461,22 +798,26 @@ class NetioDriver(BaseDriver):
         "name": "NETIO PowerPDU, PowerBOX, PowerCable and PowerDIN",
         "manufacturer": "NETIO",
         "category": "power",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
-        # confirm on the commands that reset or switch everything needs 0.36.0.
-        "min_platform_version": "0.36.0",
+        # The contract check computes 0.36.0 (confirm). The web login's
+        # WebSocket binds to the adapter chosen under Reach devices through
+        # (BaseDriver.local_address), which arrives in 0.37.0; a method call
+        # is invisible to the check, so the floor is set by hand.
+        "min_platform_version": "0.37.0",
         "description": (
             "Controls NETIO rack PDUs, smart power strips, power cables and DIN-rail units over "
-            "NETIO's JSON API: switch each output on or off, toggle it, reboot it or turn it on for "
-            "a set time, and read each output's load, current, power factor and energy on metered "
-            "models. Digital inputs, NETIO temperature and humidity sensors, and the unit's own "
+            "the unit's web login (firmware 5.1.3 and later) or NETIO's JSON API: switch each "
+            "output on or off, toggle it, reboot it or turn it on for a set time, and read each "
+            "output's load, current, power factor and energy on metered models. Digital inputs, "
+            "NETIO temperature and humidity sensors, each output's schedule and the unit's own "
             "watchdogs, rules and power analysis blocks are reported as live values."
         ),
         "source_url": "https://www.netio-products.com/files/M2M-HTTP-JSON_NETIO-API-protocol_v2-6_.pdf",
         "tags": ["pdu", "power", "outlet-control", "metering", "energy", "rack", "power-strip", "din-rail"],
         "verified": False,
         "simulated": True,
-        "protocols": ["netio-json"],
+        "protocols": ["netio-json", "netio-websocket"],
         "ports": [80],
         "transport": "http",
         "discovery": {
@@ -508,10 +849,14 @@ class NetioDriver(BaseDriver):
                 ],
                 "confidence": "partial",
                 "notes": (
-                    "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2: identity, "
-                    "outputs, inputs, metering, watchdogs, rules and power analysis blocks read; "
-                    "outputs switched, toggled, rebooted, switched on for a time and renamed. "
-                    "Uploading certificates and firmware is not part of this driver."
+                    "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2. JSON API: "
+                    "identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks "
+                    "read; outputs switched, toggled, rebooted, switched on for a time and renamed. "
+                    "Web login: the same reads, each output's schedule, and the outputs' switching "
+                    "pushed as it happened; outputs switched, toggled, rebooted and switched on for "
+                    "a time (the demo login may not rename outputs, change their schedules or reset "
+                    "energy counters, so those were not run over the web login). Uploading "
+                    "certificates and firmware is not part of this driver."
                 ),
             },
             {
@@ -527,10 +872,12 @@ class NetioDriver(BaseDriver):
                 ],
                 "confidence": "untested",
                 "notes": (
-                    "Same universal firmware and JSON API as the units above; the outlet type in the "
-                    "model name (S, B, F, E, G, Z) does not change the API. Metering follows the "
-                    "model: K models meter every output, Q models the whole unit and output 1, P "
-                    "models switch without metering."
+                    "Same universal firmware, JSON API and web login as the units above; the outlet "
+                    "type in the model name (S, B, F, E, G, Z) does not change the API. Metering "
+                    "follows the model: K models meter every output, Q models the whole unit and "
+                    "output 1, P models switch without metering. Firmware 5.4 reads its outputs' "
+                    "states from a topic of its own over the web login; that path follows NETIO's "
+                    "library and has not been run on a 5.4 unit."
                 ),
             },
         ],
@@ -539,24 +886,32 @@ class NetioDriver(BaseDriver):
                 "NETIO makes networked rack PDUs, power strips, power cables and DIN-rail units. "
                 "Each output is a child entity here, so a macro, schedule or panel button can switch "
                 "one output, reboot a frozen device, or switch an output on for a set time. On "
-                "metered models each output's load and energy are reported too, along with the "
-                "status of the unit's own IP watchdogs and rules."
+                "metered models each output's load and energy are reported too. Connected with the "
+                "web login, an output switching shows the moment it happens and each output's "
+                "schedule is reported. The results of the unit's own IP watchdogs, rules and power "
+                "analysis blocks are reported with the JSON API only."
             ),
             "setup": (
-                "1. In the NETIO's web interface, open M2M API Protocols, then the JSON API tab. "
-                "Turn on Enable JSON API, Enable READ-ONLY and Enable WRITE, and save. The unit "
-                "restarts its web server, so it answers errors for a few seconds.\n"
-                "2. The same tab has a username and password for reading and another pair for "
-                "writing. NETIO ships both as netio / netio. Enter the reading login as Username "
-                "and Password here. Fill in Write Username and Write Password only when the writing "
-                "login is different.\n"
-                "3. The port on that tab is the one to enter here (80 unless it was changed). For "
-                "HTTPS (firmware 5.0.3 and later), turn on Use HTTPS and enter the HTTPS port.\n"
+                "1. Choose Connect With. The web login (firmware 5.1.3 and later) needs nothing "
+                "turned on: enter a user from the NETIO's web interface as Username and Password. A "
+                "user allowed to control outputs can switch them. Renaming an output, turning its "
+                "schedule on or off and resetting its energy counter need a user that may change "
+                "output settings, such as an administrator.\n"
+                "2. For the JSON API instead, open M2M API Protocols in the NETIO's web interface, "
+                "then the JSON API tab. Turn on Enable JSON API, Enable READ-ONLY and Enable WRITE, "
+                "and save. The unit restarts its web server, so it answers errors for a few "
+                "seconds. The tab has a username and password for reading and another pair for "
+                "writing; NETIO ships both as netio / netio. Enter the reading login as Username "
+                "and Password here, and the writing login under Advanced only when it is different.\n"
+                "3. Port: for the web login, the port the web interface answers on (80, or 443 with "
+                "Use HTTPS on); for the JSON API, the port on its tab (80 unless it was changed). "
+                "The JSON API serves HTTPS from firmware 5.0.3.\n"
                 "4. Outputs, inputs, watchdogs, rules and power analysis blocks appear as children "
                 "once connected."
             ),
         },
         "default_config": {
+            "connection": "json",
             "host": "",
             "port": 80,
             "ssl": False,
@@ -568,17 +923,30 @@ class NetioDriver(BaseDriver):
             "poll_interval": 10,
         },
         "config_schema": {
+            "connection": {
+                "type": "enum", "default": "json", "label": "Connect With",
+                "values": [
+                    {"value": "web", "label": "Web login (firmware 5.1.3 and later)"},
+                    {"value": "json", "label": "JSON API"},
+                ],
+                "description": "The web login signs in as a user of the NETIO's web interface and "
+                               "shows an output switching the moment it happens. The JSON API has "
+                               "to be turned on in the NETIO first, and also reports the results of "
+                               "its watchdogs, rules and power analysis blocks.",
+            },
             "host": {
                 "type": "string", "required": True, "label": "IP Address",
                 "description": "The NETIO unit's IP address or hostname.",
             },
             "port": {
                 "type": "integer", "default": 80, "label": "Port", "min": 1, "max": 65535,
-                "description": "The JSON API port, set on the unit's JSON API tab. 80 unless it was changed.",
+                "description": "For the web login, the port the NETIO's web interface answers on (80, "
+                               "or 443 with HTTPS). For the JSON API, the port set on its tab, 80 "
+                               "unless it was changed.",
             },
             "ssl": {
                 "type": "boolean", "default": False, "label": "Use HTTPS",
-                "description": "Firmware 5.0.3 and later can serve the JSON API over HTTPS.",
+                "description": "Connects over HTTPS. The JSON API serves it from firmware 5.0.3.",
             },
             "verify_ssl": {
                 "type": "boolean", "default": False, "label": "Verify HTTPS Certificate",
@@ -586,26 +954,29 @@ class NetioDriver(BaseDriver):
             },
             "username": {
                 "type": "string", "default": "netio", "label": "Username",
-                "description": "The JSON API login for reading. Leave Username and Password blank if "
-                               "the unit reads with no login.",
+                "description": "For the web login, a user of the NETIO's web interface. For the JSON "
+                               "API, its login for reading; leave Username and Password blank if the "
+                               "unit reads with no login.",
             },
             "password": {
                 "type": "string", "secret": True, "label": "Password",
-                "description": "The JSON API password for reading. NETIO ships it as netio.",
+                "description": "The password for that user. NETIO ships the JSON API's as netio.",
             },
             "write_username": {
-                "type": "string", "default": "", "label": "Write Username",
-                "description": "The JSON API login for writing, when it differs from the one for "
-                               "reading. Blank uses the reading login.",
+                "type": "string", "default": "", "label": "Write Username", "advanced": True,
+                "description": "JSON API only: its login for writing, when it differs from the one "
+                               "for reading. Blank uses the reading login.",
             },
             "write_password": {
-                "type": "string", "secret": True, "label": "Write Password",
-                "description": "The JSON API password for writing, when it differs from the one for "
-                               "reading.",
+                "type": "string", "secret": True, "label": "Write Password", "advanced": True,
+                "description": "JSON API only: its password for writing, when it differs from the "
+                               "one for reading.",
             },
             "poll_interval": {
                 "type": "integer", "default": 10, "label": "Poll Interval (sec)", "min": 0,
-                "description": "How often to read the unit's status. 0 turns polling off.",
+                "description": "How often to read the unit's status. With the web login, outputs "
+                               "switching show at once and metering is updated at this interval. "
+                               "0 turns polling off.",
             },
         },
         "state_variables": {
@@ -708,6 +1079,16 @@ class NetioDriver(BaseDriver):
                         "cloud_priority": "low",
                     },
                     "energy_start": {"type": "string", "label": "Energy Counted Since", "cloud_priority": "low"},
+                    "schedule_enabled": {
+                        "type": "boolean", "label": "Schedule On", "cloud_priority": "low",
+                        "help": "Whether the schedule assigned to this output switches it. Reported "
+                                "with the web login.",
+                    },
+                    "schedule_name": {
+                        "type": "string", "label": "Schedule", "cloud_priority": "low",
+                        "help": "The schedule assigned to this output in the NETIO's web interface. "
+                                "Reported with the web login.",
+                    },
                 },
                 "summary_fields": ["name", "state", "load_w"],
                 "label_field": "name",
@@ -823,7 +1204,8 @@ class NetioDriver(BaseDriver):
                     "seconds": {
                         "type": "number", "required": False, "label": "Off Time (sec)", "min": 0.1,
                         "help": "How long the output stays off. Blank uses the output's own short "
-                                "on/off time, set in the NETIO's web interface.",
+                                "on/off time, set in the NETIO's web interface. JSON API only: with "
+                                "the web login the output's own time is always used.",
                     },
                 },
                 "help": "Switches the output off, then on again after its short on/off time "
@@ -836,7 +1218,8 @@ class NetioDriver(BaseDriver):
                     "seconds": {
                         "type": "number", "required": False, "label": "On Time (sec)", "min": 0.1,
                         "help": "How long the output stays on. Blank uses the output's own short "
-                                "on/off time, set in the NETIO's web interface.",
+                                "on/off time, set in the NETIO's web interface. JSON API only: with "
+                                "the web login the output's own time is always used.",
                     },
                 },
                 "help": "Switches the output on, then off again after its short on/off time "
@@ -893,12 +1276,13 @@ class NetioDriver(BaseDriver):
         },
     }
 
-    # The driver owns its HTTP session, so the platform's silence check does not
-    # watch it: this probe does, alongside the poll and while polling is off.
+    # The driver owns its session (an HTTP client, or the web login's
+    # WebSocket), so the platform's silence check does not watch it: this
+    # probe does, alongside the poll and while polling is off.
     HEALTH_INTERVAL_S = 30.0
     HEALTH_TIMEOUT_S = 10.0
     HEALTH_MAX_FAILURES = 2
-    HEALTH_FAULT_MESSAGE = "The NETIO stopped answering status reads."
+    HEALTH_FAULT_MESSAGE = "The NETIO stopped answering."
 
     _client: httpx.AsyncClient | None = None
 
@@ -911,8 +1295,32 @@ class NetioDriver(BaseDriver):
             secret = str(config.get(key, "") or "")
             if secret:
                 self.redact_in_log(secret)
+        # The web login's session.
+        self._ws: Any = None
+        self._ws_reader: asyncio.Task | None = None
+        self._ws_pending: dict[int, asyncio.Future] = {}
+        self._ws_req_id = 0
+        self._ws_send_lock = asyncio.Lock()
+        self._ws_last_send = 0.0
+        self._ws_closing = False
+        self._fw: tuple[int, int, int] | None = None
+        self._hello_device: dict[str, Any] = {}
+        self._web_info: dict[str, Any] | None = None
+        self._web_metered: bool | None = None
+        self._web_held: set[str] = set()
+        # output -> its on/off and schedule as last written, so a pushed event
+        # writes only what changed.
+        self._web_live: dict[int, dict[str, Any]] = {}
+        # topic -> when its pushed metering is next written.
+        self._web_meter_next: dict[str, float] = {}
+        self._web_connect: dict[str, Any] | None = None
 
     # ── Config ──
+
+    @property
+    def _web(self) -> bool:
+        connection = str(self.config.get("connection", CONNECT_JSON) or CONNECT_JSON)
+        return connection.strip().lower() == CONNECT_WEB
 
     @property
     def _host(self) -> str:
@@ -970,6 +1378,13 @@ class NetioDriver(BaseDriver):
             f"JSON API under M2M API Protocols on the NETIO, and check the port set there."
         )
 
+    def _web_absent(self) -> str:
+        return (
+            f"The device at {self._where()} answered, but has no web login (HTTP 404). The web "
+            f"login needs NETIO firmware 5.1.3 or later: update the firmware, or set Connect With "
+            f"to JSON API."
+        )
+
     @staticmethod
     def _write_refused(exc: NetioHTTPError) -> str:
         if exc.status == 401:
@@ -984,13 +1399,33 @@ class NetioDriver(BaseDriver):
         detail = f" ({exc.message})" if exc.message else ""
         return f"The NETIO answered the command with HTTP {exc.status}{detail}."
 
+    def _web_refused(self, exc: NetioWebError, what: str) -> NetioCommandError:
+        if exc.code == "Unauthorized":
+            message = f"The NETIO refused to {what}: this login is not allowed to."
+        else:
+            detail = f": {exc.message}" if exc.message else ""
+            message = f"The NETIO refused to {what} ({exc.code}{detail})."
+        self.set_state("last_error", message)
+        return NetioCommandError(message)
+
     # ── Connection lifecycle ──
 
     async def _create_transport(self, transport_type: str) -> None:
         if not self._host:
             raise ConnectionFaultError("No IP address configured", code="invalid_config")
+        if self._web and (not self._username or not self._password):
+            # A sign-in that cannot succeed is never sent: failed ones count
+            # toward the unit's lockout.
+            raise ConnectionFaultError(
+                "No web login is entered: the web login needs a user of the NETIO's web interface "
+                "and its password.",
+                code="auth_failed",
+            )
         if not await self._verify_reachable(self._host, self._port):
             raise ConnectionError(f"{self._where()} is not responding")
+        if self._web:
+            await self._open_web()
+            return
         self._client = httpx.AsyncClient(
             base_url=f"{self._scheme}://{self._where()}",
             verify=bool(_as_bool(self.config.get("verify_ssl"))),
@@ -1000,6 +1435,9 @@ class NetioDriver(BaseDriver):
         )
 
     async def _post_connect(self) -> None:
+        if self._web:
+            await self._web_handshake()
+            return
         try:
             doc = await self._read()
         except NetioHTTPError as exc:
@@ -1031,21 +1469,32 @@ class NetioDriver(BaseDriver):
         )
 
     async def _initial_sync(self) -> None:
+        if self._web:
+            snapshot, self._web_connect = self._web_connect, None
+            if snapshot is not None:
+                self._apply_web(snapshot)
+            return
         doc, self._connect_doc = self._connect_doc, None
         if doc is not None:
             self._apply(doc)
 
     def _link_alive(self) -> bool:
+        if self._web:
+            return self._ws is not None and _ws_open(self._ws)
         return self._client is not None
 
     async def _close_session(self) -> None:
         client, self._client = self._client, None
         if client is not None:
             await client.aclose()
+        await self._close_web()
 
     async def _liveness_probe(self) -> None:
-        """The status read. Any answer is a live unit; only a refused reading
-        login is a fault of its own."""
+        """The JSON API's status read, or the web login's PING. Any answer is a
+        live unit; only a refused reading login is a fault of its own."""
+        if self._web:
+            await self._web_probe()
+            return
         try:
             await self._read()
         except NetioHTTPError as exc:
@@ -1105,6 +1554,448 @@ class NetioDriver(BaseDriver):
             raise self._not_responding(exc) from exc
         self._apply_write_reply(doc)
 
+    # ── Web login: the socket ──
+
+    def _web_url(self) -> str:
+        scheme = "wss" if self._scheme == "https" else "ws"
+        return f"{scheme}://{self._where()}{WEB_PATH}"
+
+    def _web_ssl(self) -> ssl.SSLContext | None:
+        if self._scheme != "https":
+            return None
+        context = ssl.create_default_context()
+        if not _as_bool(self.config.get("verify_ssl")):
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+        return context
+
+    async def _open_web(self) -> None:
+        kwargs: dict[str, Any] = {
+            "open_timeout": WEB_OPEN_TIMEOUT_S,
+            "close_timeout": 2.0,
+            "max_size": None,
+            # Liveness is the protocol's own PING (_web_probe).
+            "ping_interval": None,
+        }
+        context = self._web_ssl()
+        if context is not None:
+            kwargs["ssl"] = context
+        # From the adapter Settings > Network > Reach devices through chose.
+        ip = self.local_address(self._host)
+        if ip:
+            kwargs["local_addr"] = (ip, 0)
+        self._ws_closing = False
+        try:
+            ws = await websockets.connect(self._web_url(), **kwargs)
+        except websockets.exceptions.InvalidStatus as exc:
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            if status == 404:
+                raise ConnectionFaultError(self._web_absent(), code="invalid_config") from exc
+            raise ConnectionError(
+                f"{self._where()} refused the web login's connection (HTTP {status})."
+            ) from exc
+        except websockets.exceptions.InvalidHandshake as exc:
+            raise ConnectionError(
+                f"{self._where()} did not open the web login's connection: {exc}"
+            ) from exc
+        except (OSError, asyncio.TimeoutError) as exc:
+            raise self._not_responding(exc) from exc
+        self._ws = ws
+        self._ws_reader = asyncio.create_task(self._web_read_loop(ws))
+
+    async def _close_web(self) -> None:
+        ws, self._ws = self._ws, None
+        reader, self._ws_reader = self._ws_reader, None
+        self._ws_closing = True
+        if ws is not None:
+            try:
+                # The unit keeps a session for every open socket and has room
+                # for only a few (PyNetioConf), so a socket is closed, never
+                # left behind.
+                await ws.close()
+            except Exception:  # noqa: BLE001 - a socket that cannot close cleanly is gone
+                pass
+        if reader is not None and reader is not asyncio.current_task():
+            reader.cancel()
+            await asyncio.wait({reader})
+        self._web_fail_pending(
+            ConnectionError(f"The connection to the NETIO at {self._where()} was closed.")
+        )
+        self._web_held.clear()
+
+    def _web_fail_pending(self, exc: Exception) -> None:
+        pending, self._ws_pending = self._ws_pending, {}
+        for fut in pending.values():
+            if not fut.done():
+                fut.set_exception(exc)
+
+    async def _web_read_loop(self, ws: Any) -> None:
+        """Every frame the unit sends: a reply goes to the request with its
+        reqId, an EVENT to the state it reports. Replies are never matched by
+        arrival, since events arrive between them all the time."""
+        try:
+            async for raw in ws:
+                text = raw if isinstance(raw, str) else bytes(raw).decode("utf-8", "replace")
+                self.record_traffic("rx", text)
+                try:
+                    frame = json.loads(text)
+                except ValueError:
+                    continue
+                if not isinstance(frame, dict):
+                    continue
+                if frame.get("type") == "EVENT":
+                    try:
+                        self._on_web_event(str(frame.get("topic") or ""), frame.get("data"))
+                    except Exception:  # noqa: BLE001 - one bad event never ends the session
+                        log.debug(f"[{self.device_id}] Could not apply an event", exc_info=True)
+                    continue
+                req_id = frame.get("reqId")
+                if isinstance(req_id, int) and not isinstance(req_id, bool):
+                    fut = self._ws_pending.get(req_id)
+                    if fut is not None and not fut.done():
+                        fut.set_result(frame)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - any end of the socket is a dropped link
+            log.debug(f"[{self.device_id}] The web login's connection ended: {exc}")
+        if self._ws is ws and not self._ws_closing:
+            self._ws = None
+            self._ws_reader = None
+            self._web_fail_pending(
+                ConnectionError(f"The connection to the NETIO at {self._where()} dropped.")
+            )
+            self._stash_fault("transport_disconnected", "The connection to the NETIO dropped.")
+            self._handle_transport_disconnect()
+
+    async def _web_send(self, frame: dict[str, Any]) -> None:
+        ws = self._ws
+        if ws is None:
+            raise ConnectionError(f"[{self.device_id}] Not connected")
+        text = json.dumps(frame, ensure_ascii=False)
+        loop = asyncio.get_running_loop()
+        async with self._ws_send_lock:
+            wait = self._ws_last_send + WEB_SEND_GAP_S - loop.time()
+            if wait > 0:
+                await asyncio.sleep(wait)
+            try:
+                await ws.send(text)
+            except websockets.exceptions.ConnectionClosed as exc:
+                raise ConnectionError(
+                    f"The connection to the NETIO at {self._where()} dropped."
+                ) from exc
+            self._ws_last_send = loop.time()
+        self.record_traffic("tx", text)
+
+    async def _web_call(
+        self,
+        kind: str,
+        topic: str | None = None,
+        data: Any = None,
+        *,
+        extra: dict[str, Any] | None = None,
+        check: bool = True,
+        timeout: float | None = None,
+    ) -> dict[str, Any]:
+        """One request and its reply. A reply with ``"status": "ERROR"`` raises
+        NetioWebError unless ``check`` is off; no reply raises ConnectionError."""
+        req_id = self._ws_req_id
+        self._ws_req_id += 1
+        frame: dict[str, Any] = {"type": kind, "reqId": req_id}
+        if topic:
+            frame["topic"] = topic
+        if data is not None:
+            frame["data"] = data
+        if extra:
+            frame.update(extra)
+        fut = asyncio.get_running_loop().create_future()
+        self._ws_pending[req_id] = fut
+        try:
+            await self._web_send(frame)
+            reply = await asyncio.wait_for(fut, timeout or WEB_REPLY_TIMEOUT_S)
+        except asyncio.TimeoutError as exc:
+            what = f"{kind} {topic}" if topic else kind
+            raise ConnectionError(f"{self._where()} did not answer {what}.") from exc
+        finally:
+            self._ws_pending.pop(req_id, None)
+        if check and str(reply.get("status") or "OK") != "OK":
+            error = reply.get("error") if isinstance(reply.get("error"), dict) else {}
+            raise NetioWebError(
+                str(error.get("code") or reply.get("status")),
+                str(error.get("message") or "").strip().rstrip(":").strip(),
+                topic or "",
+            )
+        return reply
+
+    def _web_reads_with_get(self) -> bool:
+        return self._fw is not None and self._fw >= WEB_GET_SINCE
+
+    async def _web_read(self, topic: str, *, hold: bool = False) -> Any:
+        """A topic's current data.
+
+        A held topic is subscribed and stays so, for its pushed changes; read
+        again it is subscribed again before 5.4 (the unit answers with the data
+        and does not double the events, checked on the 4KS demo) and read with
+        GET from 5.4. Any other topic is read with SUBSCRIBE and UNSUBSCRIBE
+        before 5.4, as PyNetioConf does, and with GET from 5.4.
+        """
+        hold = hold or topic in self._web_held
+        if self._web_reads_with_get() and (topic in self._web_held or not hold):
+            return (await self._web_call("GET", topic)).get("data")
+        reply = await self._web_call("SUBSCRIBE", topic)
+        if hold:
+            self._web_held.add(topic)
+        else:
+            await self._web_call("UNSUBSCRIBE", topic, check=False)
+        return reply.get("data")
+
+    async def _web_optional(self, topic: str, refusals: list[str], *, hold: bool = False) -> Any:
+        """A read the unit may refuse this user: the refusal is noted, not raised."""
+        try:
+            return await self._web_read(topic, hold=hold)
+        except NetioWebError as exc:
+            refusals.append(f"{topic} ({exc.code})")
+            return None
+
+    # ── Web login: signing in and reading ──
+
+    async def _web_handshake(self) -> None:
+        try:
+            hello = await self._web_call("HELO")
+        except NetioWebError as exc:
+            raise ConnectionFaultError(
+                f"The device at {self._where()} refused the web login's greeting ({exc}).",
+                code="invalid_config",
+            ) from exc
+        data = hello.get("data") if isinstance(hello.get("data"), dict) else {}
+        public_key = data.get("publicKey")
+        stamp = _as_int(data.get("localTimestamp"))
+        if not public_key or stamp is None:
+            raise ConnectionFaultError(
+                f"The device at {self._where()} answered, but not with NETIO's web login greeting.",
+                code="invalid_config",
+            )
+        device = data.get("device") if isinstance(data.get("device"), dict) else {}
+        self._hello_device = device
+        self._fw = firmware_version(device.get("fwVersion"))
+        if self._fw is not None and self._fw < WEB_API_SINCE:
+            raise ConnectionFaultError(
+                f"The NETIO runs firmware {_firmware_text(device.get('fwVersion'))}; the web login "
+                f"needs 5.1.3 or later. Update the firmware, or set Connect With to JSON API.",
+                code="invalid_config",
+            )
+        await self._web_sign_in(str(public_key), stamp)
+        self._web_connect = await self._web_snapshot(connecting=True)
+        info = self._web_connect.get("system/info") or {}
+        log.info(
+            f"[{self.device_id}] Connected to NETIO {info.get('brandName') or device.get('devtype', '?')} "
+            f"{info.get('deviceName', '')} at {self._where()} over the web login "
+            f"(firmware {_firmware_text(device.get('fwVersion')) or '?'})"
+        )
+
+    async def _web_sign_in(self, public_key: str, stamp: int) -> None:
+        user = self._username
+        token = web_login_token(user, self._password, public_key, stamp)
+        self.redact_in_log(token)
+        reply = await self._web_call("AUTH", extra={"username": user, "token": token}, check=False)
+        status = str(reply.get("status") or "OK")
+        if status == "OK":
+            return
+        error = reply.get("error") if isinstance(reply.get("error"), dict) else {}
+        code = str(error.get("code") or status)
+        if code == "TooManyFailLogin":
+            raise ConnectionFaultError(
+                f"The NETIO is refusing sign-ins for now, after too many failed ones ({code}).",
+                code="auth_failed",
+            )
+        if code in WEB_AUTH_REFUSALS:
+            raise ConnectionFaultError(
+                f"The NETIO refused the web login for {user} ({code}).", code="auth_failed",
+            )
+        raise ConnectionError(f"The NETIO answered the web login's sign-in with {code}.")
+
+    async def _web_snapshot(self, *, connecting: bool = False, configs: bool | None = None) -> dict[str, Any]:
+        """Everything the driver reads over the web login.
+
+        outputs/measure is the core read (it carries every output's on/off).
+        Refused at connect, the login cannot run this unit; refused later, or
+        any other read refused, it is named in last_error. Each output's own
+        settings (its short on/off time) are read at connect and on a refresh,
+        not every poll.
+        """
+        refusals: list[str] = []
+        snap: dict[str, Any] = {}
+        try:
+            snap["outputs/measure"] = await self._web_read("outputs/measure", hold=True)
+        except NetioWebError as exc:
+            if connecting and exc.code == "Unauthorized":
+                raise ConnectionFaultError(
+                    f"The NETIO refused this login access to its outputs ({exc.code}).",
+                    code="auth_failed",
+                ) from exc
+            if connecting:
+                raise ConnectionFaultError(
+                    f"The NETIO at {self._where()} did not report its outputs over the web login "
+                    f"({exc.code}). Set Connect With to JSON API.",
+                    code="invalid_config",
+                ) from exc
+            refusals.append(f"outputs/measure ({exc.code})")
+            snap["outputs/measure"] = None
+        held = [topic for topic in WEB_HELD_TOPICS if topic != "outputs/measure"]
+        if self._web_reads_with_get():
+            held.append(WEB_STATE_TOPIC)
+        for topic in held:
+            snap[topic] = await self._web_optional(topic, refusals, hold=True)
+        for topic in ("system/info", "system/uptime", "system/datetime", *WEB_LISTS.values()):
+            snap[topic] = await self._web_optional(topic, refusals)
+        snap["configs"] = {}
+        if connecting if configs is None else configs:
+            listed = _items(snap.get("outputs/list")) or _items(snap.get("outputs/measure"))
+            for local_id in web_numbered(listed, MAX_OUTPUTS, lambda item: item):
+                snap["configs"][local_id] = await self._web_optional(
+                    f"outputs/id/{local_id}/config", refusals,
+                )
+        snap["refusals"] = refusals
+        return snap
+
+    def _apply_web(self, snap: dict[str, Any]) -> None:
+        info = snap.get("system/info")
+        if isinstance(info, dict):
+            self._web_info = info
+        measure_items = _items(snap.get("outputs/measure"))
+        mask = web_measure_mask(self._web_info)
+        if mask is not None:
+            metered = mask != 0
+        else:
+            metered = any(
+                isinstance(item, dict) and isinstance(item.get("measure"), dict)
+                for item in measure_items or []
+            )
+        self._web_metered = metered
+        device = web_identity(self._web_info, self._hello_device)
+        # Reported by the JSON API only; cleared so a unit switched from it
+        # does not keep stale values.
+        device["mac_address"] = None
+        device["json_version"] = None
+        uptime = snap.get("system/uptime")
+        if isinstance(uptime, dict):
+            device["uptime_s"] = _as_int(uptime.get("uptime"))
+        clock = snap.get("system/datetime")
+        if isinstance(clock, dict):
+            device["device_time"] = _timestamp(clock.get("time"))
+        glob = snap.get("outputs/globalmeasure")
+        if glob is not None or not metered:
+            device.update(web_global(glob.get("measure") if isinstance(glob, dict) else None, metered))
+
+        listed = web_numbered(_items(snap.get("outputs/list")), MAX_OUTPUTS, web_output_listed)
+        measured = web_numbered(
+            measure_items, MAX_OUTPUTS,
+            lambda item: {**web_output_live(item), **web_output_metering(item)},
+        )
+        states = web_numbered(_items(snap.get(WEB_STATE_TOPIC)), MAX_OUTPUTS, web_output_live)
+        configs = snap.get("configs") or {}
+        outputs: dict[int, dict[str, Any]] = {}
+        for local_id in sorted(set(listed) | set(measured)):
+            values: dict[str, Any] = {}
+            values.update(listed.get(local_id, {}))
+            values.update(measured.get(local_id, {}))
+            values.update(states.get(local_id, {}))
+            values.update(web_output_config(configs.get(local_id)))
+            outputs[local_id] = values
+        inputs = web_numbered(_items(snap.get("inputs/list")), MAX_INPUTS, web_input)
+        if snap.get("outputs/list") is not None or measure_items is not None:
+            device.setdefault("output_count", len(outputs))
+        if snap.get("inputs/list") is not None:
+            device.setdefault("input_count", len(inputs))
+        self.set_states(device)
+
+        # A roster is changed only from a list the unit answered.
+        if snap.get("outputs/list") is not None or measure_items is not None:
+            self._sync_children("output", outputs)
+            self._web_live = {
+                local_id: {k: v for k, v in values.items() if k in ("state", "schedule_enabled")}
+                for local_id, values in outputs.items()
+            }
+        if snap.get("inputs/list") is not None:
+            self._sync_children("input", inputs)
+        for kind, topic in WEB_LISTS.items():
+            if snap.get(topic) is not None:
+                self._sync_children(kind, web_named(_items(snap[topic]), WEB_BLANK[kind]))
+
+        # Metering was just written from the reads; pushed metering resumes
+        # one interval from now.
+        now = time.monotonic()
+        interval = self._web_meter_interval()
+        for topic in ("outputs/measure", "outputs/globalmeasure"):
+            self._web_meter_next[topic] = now + interval
+        refusals = snap.get("refusals") or []
+        if refusals:
+            self.set_state(
+                "last_error",
+                "The NETIO refused this login some of its status: " + ", ".join(refusals) + ".",
+            )
+
+    # ── Web login: pushed events ──
+
+    def _web_meter_interval(self) -> float:
+        interval = _as_float(self.config.get("poll_interval"))
+        return interval if interval and interval > 0 else 10.0
+
+    def _web_meter_due(self, topic: str) -> bool:
+        now = time.monotonic()
+        if now < self._web_meter_next.get(topic, 0.0):
+            return False
+        self._web_meter_next[topic] = now + self._web_meter_interval()
+        return True
+
+    def _web_live_update(self, local_id: int, values: dict[str, Any]) -> dict[str, Any]:
+        """The on/off and schedule values that differ from what was last written."""
+        live = self._web_live.setdefault(local_id, {})
+        changed = {k: v for k, v in values.items() if live.get(k) != v}
+        live.update(values)
+        return changed
+
+    def _on_web_event(self, topic: str, data: Any) -> None:
+        items = _items(data)
+        roster = set(self._rosters["output"])
+        if topic in ("outputs/measure", WEB_STATE_TOPIC):
+            due = topic == "outputs/measure" and self._web_meter_due(topic)
+            for local_id, item in web_numbered(items, MAX_OUTPUTS, lambda i: i).items():
+                if local_id not in roster:
+                    continue
+                changed = self._web_live_update(local_id, web_output_live(item))
+                if due:
+                    changed.update(web_output_metering(item))
+                if changed:
+                    self.set_child_state_batch("output", local_id, changed)
+        elif topic == "outputs/globalmeasure":
+            if self._web_metered and self._web_meter_due(topic) and isinstance(data, dict):
+                self.set_states(web_global(data.get("measure"), True))
+        elif topic == "outputs/list":
+            for local_id, values in web_numbered(items, MAX_OUTPUTS, web_output_listed).items():
+                if local_id in roster:
+                    self.set_child_state_batch("output", local_id, values)
+        elif topic == "inputs/list":
+            inputs = set(self._rosters["input"])
+            for local_id, values in web_numbered(items, MAX_INPUTS, web_input).items():
+                if local_id in inputs:
+                    self.set_child_state_batch("input", local_id, values)
+
+    # ── Web login: liveness, poll ──
+
+    async def _web_probe(self) -> None:
+        """PING from 5.2; before it, a read of the uptime. Any answer, an error
+        included, is a live unit."""
+        if self._fw is None or self._fw >= WEB_PING_SINCE:
+            await self._web_call("PING", check=False)
+            return
+        await self._web_call("SUBSCRIBE", "system/uptime", check=False)
+        await self._web_call("UNSUBSCRIBE", "system/uptime", check=False)
+
+    async def _web_poll(self) -> None:
+        if self._ws is None:
+            return
+        self._apply_web(await self._web_snapshot())
+
     # ── State ──
 
     def _apply(self, doc: dict[str, Any]) -> None:
@@ -1149,6 +2040,9 @@ class NetioDriver(BaseDriver):
         """One status read. A refused reading login drops the connection; any
         other refusal leaves the unit connected and named in last_error, written
         again by every poll while it holds."""
+        if self._web:
+            await self._web_poll()
+            return
         if self._client is None:
             return
         try:
@@ -1172,6 +2066,11 @@ class NetioDriver(BaseDriver):
         self._apply(doc)
 
     async def refresh_children(self) -> Any:
+        if self._web:
+            if self._ws is None:
+                raise ConnectionError(f"[{self.device_id}] Not connected")
+            self._apply_web(await self._web_snapshot(configs=True))
+            return {t: list(ids) for t, ids in self._rosters.items()}
         try:
             doc = await self._read()
         except (NetioHTTPError, NetioReplyError) as exc:
@@ -1203,12 +2102,92 @@ class NetioDriver(BaseDriver):
             raise NetioCommandError("The time must be more than 0 seconds.")
         return int(round(seconds * 1000))
 
+    def _web_expected(self, local_id: int, action: int) -> bool | None:
+        """The state an output reads right after an action (a short off reads
+        off until its time is up)."""
+        if action in (ACTION_ON, ACTION_SHORT_ON):
+            return True
+        if action in (ACTION_OFF, ACTION_SHORT_OFF):
+            return False
+        if action == ACTION_TOGGLE:
+            current = self._web_live.get(local_id, {}).get("state")
+            return None if current is None else not current
+        return None
+
+    async def _web_switch(self, outputs: list[int], action: int) -> None:
+        """outputs/id/<n>/ctrl for each output, then a wait (bounded) for the
+        unit to push the state it caused, so it reads back as the command
+        returns. The reply to a ctrl request is a bare OK."""
+        expected = {n: self._web_expected(n, action) for n in outputs}
+        for local_id in outputs:
+            try:
+                await self._web_call(
+                    "SET", f"outputs/id/{local_id}/ctrl", {"request": WEB_REQUESTS[action]},
+                )
+            except NetioWebError as exc:
+                raise self._web_refused(exc, f"switch output {local_id}") from exc
+        await self._web_confirm({n: want for n, want in expected.items() if want is not None})
+
+    async def _web_confirm(self, outputs: dict[int, bool]) -> None:
+        if not outputs:
+            return
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + WEB_CONFIRM_S
+        while loop.time() < deadline:
+            if all(self._web_live.get(n, {}).get("state") == want for n, want in outputs.items()):
+                return
+            await asyncio.sleep(0.05)
+
+    async def _web_output_settings(self, local_id: int, changes: dict[str, Any], what: str) -> None:
+        """Change an output's own settings: read them, write them all back
+        with the changes (PyNetioConf sends all six), read them again."""
+        topic = f"outputs/id/{local_id}/config"
+        try:
+            current = await self._web_read(topic)
+            if not isinstance(current, dict) or not current:
+                raise NetioCommandError(
+                    f"The NETIO sent no settings for output {local_id}, so nothing changed."
+                )
+            body = {key: current[key] for key in WEB_OUTPUT_CONFIG_KEYS if key in current}
+            body.update(changes)
+            await self._web_call("SET", topic, body)
+            after = await self._web_read(topic)
+        except NetioWebError as exc:
+            raise self._web_refused(exc, what) from exc
+        values = web_output_config(after)
+        if isinstance(after, dict) and after.get("name") is not None:
+            values["name"] = str(after["name"])
+        if "schedule_enabled" in values:
+            self._web_live.setdefault(local_id, {})["schedule_enabled"] = values["schedule_enabled"]
+        self.set_child_state_batch("output", local_id, values)
+
     async def _set_action(self, params: dict[str, Any], action: int) -> None:
-        await self._write([{"ID": self._output_id(params), "Action": action}])
+        local_id = self._output_id(params)
+        if self._web:
+            if action in (ACTION_SCHEDULE_ON, ACTION_SCHEDULE_OFF):
+                on = action == ACTION_SCHEDULE_ON
+                await self._web_output_settings(
+                    local_id, {"isScheduleActive": on},
+                    "turn the output's schedule " + ("on" if on else "off"),
+                )
+                return
+            await self._web_switch([local_id], action)
+            return
+        await self._write([{"ID": local_id, "Action": action}])
 
     async def _short(self, params: dict[str, Any], action: int) -> None:
-        entry: dict[str, Any] = {"ID": self._output_id(params), "Action": action}
+        local_id = self._output_id(params)
         delay = self._delay_ms(params)
+        if self._web:
+            if delay is not None:
+                raise NetioCommandError(
+                    "With the web login, a NETIO uses the output's own short on/off time, set in "
+                    "its web interface. Leave the time blank, or set Connect With to JSON API to "
+                    "give a time with the command."
+                )
+            await self._web_switch([local_id], action)
+            return
+        entry: dict[str, Any] = {"ID": local_id, "Action": action}
         if delay is not None:
             entry["Delay"] = delay
         await self._write([entry], end_session=delay is not None)
@@ -1217,6 +2196,9 @@ class NetioDriver(BaseDriver):
         outputs = self._rosters["output"]
         if not outputs:
             raise NetioCommandError("The NETIO has not reported its outputs yet.")
+        if self._web:
+            await self._web_switch(list(outputs), action)
+            return
         await self._write([{"ID": output, "Action": action} for output in outputs])
 
     async def _cmd_refresh(self, params: dict[str, Any]) -> None:
@@ -1250,16 +2232,31 @@ class NetioDriver(BaseDriver):
         name = str(params.get("name", "") or "").strip()
         if not name:
             raise NetioCommandError("The output's name cannot be blank.")
-        await self._write([{"ID": self._output_id(params), "Name": name, "Action": ACTION_NO_CHANGE}])
+        local_id = self._output_id(params)
+        if self._web:
+            await self._web_output_settings(local_id, {"name": name}, "rename the output")
+            return
+        await self._write([{"ID": local_id, "Name": name, "Action": ACTION_NO_CHANGE}])
 
     async def _cmd_reset_output_energy(self, params: dict[str, Any]) -> None:
+        local_id = self._output_id(params)
+        if self._web:
+            try:
+                await self._web_call(
+                    "SET", f"outputs/id/{local_id}/resetOutputConsumption", {"request": True},
+                )
+            except NetioWebError as exc:
+                raise self._web_refused(exc, "reset the output's energy counter") from exc
+            # The next pushed metering is written at once.
+            self._web_meter_next.pop("outputs/measure", None)
+            return
         # The document spells the key two ways (resetEnergyCounter in its list
         # of commands, ResetEnergyCounter in its full example). The 4KS demo
         # took ResetEnergyCounter: the output's EnergyStart moved to the time
         # of the write (2026-10-13). A read follows, since the write's answer
         # is not where metering is taken from.
         await self._write([
-            {"ID": self._output_id(params), "ResetEnergyCounter": True, "Action": ACTION_NO_CHANGE}
+            {"ID": local_id, "ResetEnergyCounter": True, "Action": ACTION_NO_CHANGE}
         ])
         await self.poll()
 
@@ -1289,5 +2286,15 @@ class NetioDriver(BaseDriver):
         handler = self._DISPATCH.get(command)
         if handler is None:
             raise ValueError(f"Unknown command: {command}")
-        self._require_client()
+        if (self._ws if self._web else self._client) is None:
+            raise ConnectionError(f"[{self.device_id}] Not connected")
         return await handler(self, params or {})
+
+
+def _ws_open(ws: Any) -> bool:
+    """True while a websockets connection is open (websockets 16 exposes
+    ``state``; older releases a ``closed`` flag)."""
+    state = getattr(ws, "state", None)
+    if state is not None:
+        return getattr(state, "name", "") == "OPEN"
+    return not getattr(ws, "closed", False)

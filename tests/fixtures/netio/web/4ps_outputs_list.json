@@ -1,0 +1,37 @@
+{"type":"REPLY","reqId":4,"data":{
+  "items":[
+      {
+       "id":1,
+       "socketType":"S",
+       "name":"Power output 1",
+       "scheduleId":0,
+       "scheduleName":"N/A",
+       "scheduleOn":false
+    },
+      {
+       "id":2,
+       "socketType":"S",
+       "name":"Power output 2",
+       "scheduleId":0,
+       "scheduleName":"N/A",
+       "scheduleOn":false
+    },
+      {
+       "id":3,
+       "socketType":"S",
+       "name":"Power output 3",
+       "scheduleId":0,
+       "scheduleName":"N/A",
+       "scheduleOn":false
+    },
+      {
+       "id":4,
+       "socketType":"S",
+       "name":"Power output 4",
+       "scheduleId":0,
+       "scheduleName":"N/A",
+       "scheduleOn":false
+    }
+  ]
+},"status":"OK"}
+

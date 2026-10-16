@@ -1,0 +1,69 @@
+{"type":"REPLY","reqId":4,"data":{
+  "items":[
+      {
+       "id":1,
+       "socketType":"S",
+       "name":"Dream Machine",
+       "scheduleId":0,
+       "scheduleName":"N/A",
+       "scheduleOn":false
+    },
+      {
+       "id":2,
+       "socketType":"S",
+       "name":"Power output 2",
+       "scheduleId":0,
+       "scheduleName":"N/A",
+       "scheduleOn":false
+    },
+      {
+       "id":3,
+       "socketType":"S",
+       "name":"Power output 3",
+       "scheduleId":0,
+       "scheduleName":"N/A",
+       "scheduleOn":false
+    },
+      {
+       "id":4,
+       "socketType":"S",
+       "name":"Power output 4",
+       "scheduleId":0,
+       "scheduleName":"N/A",
+       "scheduleOn":false
+    },
+      {
+       "id":5,
+       "socketType":"S",
+       "name":"Power output 5",
+       "scheduleId":0,
+       "scheduleName":"N/A",
+       "scheduleOn":false
+    },
+      {
+       "id":6,
+       "socketType":"S",
+       "name":"Power output 6",
+       "scheduleId":0,
+       "scheduleName":"N/A",
+       "scheduleOn":false
+    },
+      {
+       "id":7,
+       "socketType":"S",
+       "name":"Power output 7",
+       "scheduleId":0,
+       "scheduleName":"N/A",
+       "scheduleOn":false
+    },
+      {
+       "id":8,
+       "socketType":"S",
+       "name":"Power output 8",
+       "scheduleId":0,
+       "scheduleName":"N/A",
+       "scheduleOn":false
+    }
+  ]
+},"status":"OK"}
+

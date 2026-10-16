@@ -1,0 +1,47 @@
+{"type":"REPLY","reqId":6,"data":{
+  "items":[
+      {
+       "id":1,
+       "state":"on",
+       "isScheduleActive":false,
+    "measure":{"voltage":245.21,"power":0.000,"current":0.000,"energy":43077.8,"reverseEnergy":646.3,"energyNR":154262.8,"reverseEnergyNR":66451.8,"frequency":50.000,"phase":0.00,"powerFactor":1.00,"timestamp":1618495700}
+
+    },
+      {
+       "id":2,
+       "state":"on",
+       "isScheduleActive":false
+    },
+      {
+       "id":3,
+       "state":"on",
+       "isScheduleActive":false
+    },
+      {
+       "id":4,
+       "state":"on",
+       "isScheduleActive":false
+    },
+      {
+       "id":5,
+       "state":"on",
+       "isScheduleActive":false
+    },
+      {
+       "id":6,
+       "state":"on",
+       "isScheduleActive":false
+    },
+      {
+       "id":7,
+       "state":"on",
+       "isScheduleActive":false
+    },
+      {
+       "id":8,
+       "state":"on",
+       "isScheduleActive":false
+    }
+  ]
+},"status":"OK"}
+

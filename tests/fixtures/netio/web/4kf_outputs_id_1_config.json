@@ -1,0 +1,9 @@
+{"type":"REPLY","reqId":18,"data":{
+ "name":"Power output 1",
+ "default":"last",
+ "resetDelay":5000,
+ "powerUpInterval":1000,
+ "isScheduleActive":true,
+ "scheduleId":2
+},"status":"OK"}
+

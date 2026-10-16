@@ -1,0 +1,5 @@
+{"type":"REPLY","reqId":8,"data":{
+"measure":{"voltage":245.65,"power":0.000,"current":0.000,"energy":1.8,"reverseEnergy":0.0,"energyNR":1.8,"reverseEnergyNR":0.0,"frequency":50.000,"phase":999.00,"powerFactor":999.00,"timestamp":0}
+
+},"status":"OK"}
+

@@ -1,0 +1,33 @@
+{"type":"REPLY","reqId":6,"data":{
+  "items":[
+      {
+       "id":1,
+       "state":"on",
+       "isScheduleActive":false,
+    "measure":{"voltage":245.72,"power":0.000,"current":0.000,"energy":0.4,"reverseEnergy":0.0,"energyNR":0.4,"reverseEnergyNR":0.0,"frequency":50.000,"phase":0.00,"powerFactor":1.00,"timestamp":0}
+
+    },
+      {
+       "id":2,
+       "state":"on",
+       "isScheduleActive":false,
+    "measure":{"voltage":245.44,"power":0.000,"current":0.000,"energy":0.0,"reverseEnergy":0.0,"energyNR":0.4,"reverseEnergyNR":0.0,"frequency":50.020,"phase":0.00,"powerFactor":1.00,"timestamp":1791915791}
+
+    },
+      {
+       "id":3,
+       "state":"on",
+       "isScheduleActive":false,
+    "measure":{"voltage":245.61,"power":0.000,"current":0.000,"energy":0.5,"reverseEnergy":0.0,"energyNR":0.5,"reverseEnergyNR":0.0,"frequency":50.020,"phase":0.00,"powerFactor":1.00,"timestamp":0}
+
+    },
+      {
+       "id":4,
+       "state":"on",
+       "isScheduleActive":false,
+    "measure":{"voltage":244.93,"power":0.000,"current":0.000,"energy":0.5,"reverseEnergy":0.0,"energyNR":0.5,"reverseEnergyNR":0.0,"frequency":50.020,"phase":0.00,"powerFactor":1.00,"timestamp":0}
+
+    }
+  ]
+},"status":"OK"}
+

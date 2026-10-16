@@ -5224,25 +5224,26 @@
       "name": "NETIO PowerPDU, PowerBOX, PowerCable and PowerDIN",
       "manufacturer": "NETIO",
       "category": "power",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "http",
-      "description": "Controls NETIO rack PDUs, smart power strips, power cables and DIN-rail units over NETIO's JSON API: switch each output on or off, toggle it, reboot it or turn it on for a set time, and read each output's load, current, power factor and energy on metered models. Digital inputs, NETIO temperature and humidity sensors, and the unit's own watchdogs, rules and power analysis blocks are reported as live values.",
+      "description": "Controls NETIO rack PDUs, smart power strips, power cables and DIN-rail units over the unit's web login (firmware 5.1.3 and later) or NETIO's JSON API: switch each output on or off, toggle it, reboot it or turn it on for a set time, and read each output's load, current, power factor and energy on metered models. Digital inputs, NETIO temperature and humidity sensors, each output's schedule and the unit's own watchdogs, rules and power analysis blocks are reported as live values.",
       "source_url": "https://www.netio-products.com/files/M2M-HTTP-JSON_NETIO-API-protocol_v2-6_.pdf",
       "file": "power/netio.py",
       "format": "python",
       "files": {
-        "power/netio.py": "33a9f71dc74851de98269b35d154512087ea6620b95865a094ceddb240ddc46a",
-        "power/netio_sim.py": "27eaa6aafc82d544175512785a89ea83549f24c888d3aca5f663155f908ef547"
+        "power/netio.py": "dc2b61c55e8cec5a4bd5c598b331058003d9a566bda632b36768c9134b0d7821",
+        "power/netio_sim.py": "35b214addb2c4142ad7cf12dac09fc1863336d888665b62c19b80e7f13fb171a"
       },
       "ports": [
         80
       ],
       "protocols": [
-        "netio-json"
+        "netio-json",
+        "netio-websocket"
       ],
       "simulated": true,
-      "min_platform_version": "0.36.0",
+      "min_platform_version": "0.37.0",
       "tags": [
         "pdu",
         "power",
@@ -5254,8 +5255,8 @@
         "din-rail"
       ],
       "help": {
-        "overview": "NETIO makes networked rack PDUs, power strips, power cables and DIN-rail units. Each output is a child entity here, so a macro, schedule or panel button can switch one output, reboot a frozen device, or switch an output on for a set time. On metered models each output's load and energy are reported too, along with the status of the unit's own IP watchdogs and rules.",
-        "setup": "1. In the NETIO's web interface, open M2M API Protocols, then the JSON API tab. Turn on Enable JSON API, Enable READ-ONLY and Enable WRITE, and save. The unit restarts its web server, so it answers errors for a few seconds.\n2. The same tab has a username and password for reading and another pair for writing. NETIO ships both as netio / netio. Enter the reading login as Username and Password here. Fill in Write Username and Write Password only when the writing login is different.\n3. The port on that tab is the one to enter here (80 unless it was changed). For HTTPS (firmware 5.0.3 and later), turn on Use HTTPS and enter the HTTPS port.\n4. Outputs, inputs, watchdogs, rules and power analysis blocks appear as children once connected."
+        "overview": "NETIO makes networked rack PDUs, power strips, power cables and DIN-rail units. Each output is a child entity here, so a macro, schedule or panel button can switch one output, reboot a frozen device, or switch an output on for a set time. On metered models each output's load and energy are reported too. Connected with the web login, an output switching shows the moment it happens and each output's schedule is reported. The results of the unit's own IP watchdogs, rules and power analysis blocks are reported with the JSON API only.",
+        "setup": "1. Choose Connect With. The web login (firmware 5.1.3 and later) needs nothing turned on: enter a user from the NETIO's web interface as Username and Password. A user allowed to control outputs can switch them. Renaming an output, turning its schedule on or off and resetting its energy counter need a user that may change output settings, such as an administrator.\n2. For the JSON API instead, open M2M API Protocols in the NETIO's web interface, then the JSON API tab. Turn on Enable JSON API, Enable READ-ONLY and Enable WRITE, and save. The unit restarts its web server, so it answers errors for a few seconds. The tab has a username and password for reading and another pair for writing; NETIO ships both as netio / netio. Enter the reading login as Username and Password here, and the writing login under Advanced only when it is different.\n3. Port: for the web login, the port the web interface answers on (80, or 443 with Use HTTPS on); for the JSON API, the port on its tab (80 unless it was changed). The JSON API serves HTTPS from firmware 5.0.3.\n4. Outputs, inputs, watchdogs, rules and power analysis blocks appear as children once connected."
       },
       "compatible_models": [
         {
@@ -5269,7 +5270,7 @@
             "PowerBOX 4KF"
           ],
           "confidence": "partial",
-          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Uploading certificates and firmware is not part of this driver."
+          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2. JSON API: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Web login: the same reads, each output's schedule, and the outputs' switching pushed as it happened; outputs switched, toggled, rebooted and switched on for a time (the demo login may not rename outputs, change their schedules or reset energy counters, so those were not run over the web login). Uploading certificates and firmware is not part of this driver."
         },
         {
           "manufacturer": "NETIO",
@@ -5306,7 +5307,7 @@
             "PowerDIN ZK3"
           ],
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ],
       "discovery": {

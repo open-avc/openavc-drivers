@@ -555,7 +555,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -567,7 +567,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -579,7 +579,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -591,7 +591,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -603,7 +603,7 @@
         {
           "id": "netio",
           "confidence": "partial",
-          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Uploading certificates and firmware is not part of this driver."
+          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2. JSON API: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Web login: the same reads, each output's schedule, and the outputs' switching pushed as it happened; outputs switched, toggled, rebooted and switched on for a time (the demo login may not rename outputs, change their schedules or reset energy counters, so those were not run over the web login). Uploading certificates and firmware is not part of this driver."
         }
       ]
     },
@@ -615,7 +615,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -627,7 +627,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -639,7 +639,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -651,7 +651,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -663,7 +663,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -675,7 +675,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -687,7 +687,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -699,7 +699,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -711,7 +711,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -723,7 +723,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -735,7 +735,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -747,7 +747,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -759,7 +759,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -771,7 +771,7 @@
         {
           "id": "netio",
           "confidence": "partial",
-          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Uploading certificates and firmware is not part of this driver."
+          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2. JSON API: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Web login: the same reads, each output's schedule, and the outputs' switching pushed as it happened; outputs switched, toggled, rebooted and switched on for a time (the demo login may not rename outputs, change their schedules or reset energy counters, so those were not run over the web login). Uploading certificates and firmware is not part of this driver."
         }
       ]
     },
@@ -783,7 +783,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -795,7 +795,7 @@
         {
           "id": "netio",
           "confidence": "partial",
-          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Uploading certificates and firmware is not part of this driver."
+          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2. JSON API: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Web login: the same reads, each output's schedule, and the outputs' switching pushed as it happened; outputs switched, toggled, rebooted and switched on for a time (the demo login may not rename outputs, change their schedules or reset energy counters, so those were not run over the web login). Uploading certificates and firmware is not part of this driver."
         }
       ]
     },
@@ -807,7 +807,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -819,7 +819,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -831,7 +831,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -843,7 +843,7 @@
         {
           "id": "netio",
           "confidence": "partial",
-          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Uploading certificates and firmware is not part of this driver."
+          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2. JSON API: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Web login: the same reads, each output's schedule, and the outputs' switching pushed as it happened; outputs switched, toggled, rebooted and switched on for a time (the demo login may not rename outputs, change their schedules or reset energy counters, so those were not run over the web login). Uploading certificates and firmware is not part of this driver."
         }
       ]
     },
@@ -855,7 +855,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -867,7 +867,7 @@
         {
           "id": "netio",
           "confidence": "partial",
-          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Uploading certificates and firmware is not part of this driver."
+          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2. JSON API: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Web login: the same reads, each output's schedule, and the outputs' switching pushed as it happened; outputs switched, toggled, rebooted and switched on for a time (the demo login may not rename outputs, change their schedules or reset energy counters, so those were not run over the web login). Uploading certificates and firmware is not part of this driver."
         }
       ]
     },
@@ -879,7 +879,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -891,7 +891,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -903,7 +903,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -915,7 +915,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -927,7 +927,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -939,7 +939,7 @@
         {
           "id": "netio",
           "confidence": "partial",
-          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Uploading certificates and firmware is not part of this driver."
+          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2. JSON API: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Web login: the same reads, each output's schedule, and the outputs' switching pushed as it happened; outputs switched, toggled, rebooted and switched on for a time (the demo login may not rename outputs, change their schedules or reset energy counters, so those were not run over the web login). Uploading certificates and firmware is not part of this driver."
         }
       ]
     },
@@ -951,7 +951,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -963,7 +963,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },
@@ -975,7 +975,7 @@
         {
           "id": "netio",
           "confidence": "untested",
-          "notes": "Same universal firmware and JSON API as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering."
+          "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
         }
       ]
     },

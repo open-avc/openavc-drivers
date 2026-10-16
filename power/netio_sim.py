@@ -1,4 +1,4 @@
-"""NETIO (JSON M2M API) simulator.
+"""NETIO simulator: the JSON M2M API and the web login, on one port.
 
 Serves ``/netio.json`` the way a NETIO unit does:
 
@@ -6,6 +6,18 @@ Serves ``/netio.json`` the way a NETIO unit does:
                      Inputs, PAB, Watchdogs, Rules)
   POST /netio.json   a partial document with output changes; answered with
                      the whole status document again
+
+and the web login, the WebSocket API at ``/emweb`` (``NetioWebSession``): HELO,
+a hashed sign-in (AUTH), SUBSCRIBE / UNSUBSCRIBE (GET from firmware 5.4), SET
+on an output's ctrl, settings and energy counter, and PING from 5.2. A
+subscribed outputs/measure and outputs/globalmeasure are pushed every 0.3 s,
+as the demo units push them; a subscribed list is pushed when it changes.
+Built from the replies NETIO's public demo units gave on 2026-10-16 and from
+PyNetioConf (NETIO's library) for what the demos could not show: the 5.4
+dialect (reads with GET, output states in outputs/state and not in
+outputs/measure) and a refused sign-in, whose wording is not known (its code
+is PyNetioConf's). The web login's sign-in refuses the user ``invalid`` and
+the password ``invalid``, so the refused-login path can be run.
 
 The model is a choice in the Simulator UI. It sets how many outputs and inputs
 there are and which of them are metered, laid out the way NETIO's public demo
@@ -27,7 +39,10 @@ mode (500 to everything).
 
 import asyncio
 import base64
+import hashlib
 import json
+import math
+import re
 import time
 from datetime import datetime, timezone
 
@@ -54,6 +69,147 @@ MODELS = {
 VALID_ACTIONS = {0, 1, 2, 3, 4, 5, 6, 20, 21}
 MAX_OUTPUTS = 8
 SENTINEL = 999.0
+
+# The product family each model's web login names it with (system/info
+# brandName, the HELO's devtype).
+FAMILY = {
+    "4KS": "PowerPDU", "4KB": "PowerPDU", "8KS": "PowerPDU", "8KB": "PowerPDU",
+    "FK6": "PowerPDU", "8QS": "PowerPDU", "4PS": "PowerPDU",
+    "4KF": "PowerBOX", "2PZ": "PowerCable", "4PZ": "PowerDIN",
+}
+FIRMWARES = ["5.3.1", "5.4.0", "5.1.3"]
+
+WEB_PATH = "/emweb"
+WEB_PUSH_S = 0.3
+WEB_PUBLIC_KEY = "openavc-sim-public-key"
+# ctrl request -> the JSON API action it is
+WEB_REQUESTS = {"off": 0, "on": 1, "soff": 2, "son": 3, "toggle": 4}
+WEB_LIST_TOPICS = ("outputs/list", "inputs/list")
+WEB_PUSHED_TOPICS = ("outputs/measure", "outputs/globalmeasure", "outputs/state")
+
+
+def _version(text):
+    match = re.search(r"(\d+)\.(\d+)\.(\d+)", str(text or ""))
+    return tuple(int(part) for part in match.groups()) if match else (5, 3, 1)
+
+
+def _token(username, password, public_key, stamp, salt):
+    """The sign-in token as NETIO's library builds it (see the driver)."""
+    password_hash = base64.b64encode(
+        hashlib.sha256(f"{username}{public_key}{password}".encode()).digest()
+    ).decode()
+    password_token = hashlib.sha256(f"{salt}{password_hash}".encode()).hexdigest()
+    mark = str(math.floor(stamp / 10))
+    return f"{salt}." + hashlib.sha256(f"{mark}{password_token}".encode()).hexdigest()
+
+
+class NetioWebSession:
+    """One web-login connection: an answer for each request, and the events
+    due on each push tick. No aiohttp here, so it runs in tests as well."""
+
+    def __init__(self, sim):
+        self.sim = sim
+        self.authed = False
+        self.stamp = None
+        self.subscribed = set()
+        self._sent_lists = {}
+
+    def _fw(self):
+        return _version(self.sim.get_state("firmware", "5.3.1"))
+
+    def handle(self, text):
+        try:
+            frame = json.loads(text)
+        except ValueError:
+            return []
+        if not isinstance(frame, dict):
+            return []
+        kind = frame.get("type")
+        rid = frame.get("reqId")
+        topic = frame.get("topic")
+
+        def ok(data=None):
+            reply = {"type": "REPLY", "reqId": rid}
+            if data is not None:
+                reply["data"] = data
+            reply["status"] = "OK"
+            return [reply]
+
+        def error(code, message):
+            return [{"type": "REPLY", "reqId": rid, "status": "ERROR",
+                     "error": {"code": code, "message": f"{message} : "}}]
+
+        if kind == "HELO":
+            self.stamp = int(time.time())
+            return ok({
+                "protocolVersion": "1.0.0",
+                "localTimestamp": self.stamp,
+                "publicKey": WEB_PUBLIC_KEY,
+                "serverApiVersion": "2.0.0",
+                "device": self.sim.web_device(),
+            })
+        if kind == "AUTH":
+            return self._auth(frame, ok, error)
+        if not self.authed:
+            return error("Unauthorized", "Client is not authorized to perform this operation.")
+        if kind == "PING":
+            if self._fw() < (5, 2, 0):
+                return error("UnknownRequestType", "Unknown request type")
+            return [{"type": "PONG", "reqId": rid, "status": "OK"}]
+        if kind == "GET" and self._fw() < (5, 4, 0):
+            return error("UnknownRequestType", "Unknown request type")
+        if kind in ("SUBSCRIBE", "GET"):
+            data = self.sim.web_topic(str(topic or ""))
+            if data is None:
+                # The demo units spell it so.
+                return error("TopicNotFonud", "Topic not found")
+            if kind == "SUBSCRIBE":
+                self.subscribed.add(topic)
+                if topic in WEB_LIST_TOPICS:
+                    self._sent_lists[topic] = json.dumps(data, sort_keys=True)
+            return ok(data)
+        if kind == "UNSUBSCRIBE":
+            self.subscribed.discard(topic)
+            return ok()
+        if kind == "SET":
+            return self.sim.web_set(str(topic or ""), frame.get("data"), ok, error)
+        return error("UnknownRequestType", "Unknown request type")
+
+    def _auth(self, frame, ok, error):
+        username = str(frame.get("username") or "")
+        token = str(frame.get("token") or "")
+        salt = token.split(".", 1)[0]
+        refused = (
+            self.stamp is None
+            or "." not in token
+            or username == "invalid"
+            or token == _token(username, "invalid", WEB_PUBLIC_KEY, self.stamp, salt)
+        )
+        if refused:
+            return error("InvalidCredentials", "Invalid credentials")
+        self.authed = True
+        return ok({"protocolVersion": "1.0.0", "localTimestamp": int(time.time())})
+
+    def events(self):
+        """The events a push tick sends: the metering topics every tick, as the
+        units send them, and a list only when it changed."""
+        if not self.authed:
+            return []
+        self.sim._settle()
+        frames = []
+        for topic in WEB_PUSHED_TOPICS:
+            if topic in self.subscribed:
+                data = self.sim.web_topic(topic)
+                if data is not None:
+                    frames.append({"type": "EVENT", "topic": topic, "data": data})
+        for topic in WEB_LIST_TOPICS:
+            if topic in self.subscribed:
+                data = self.sim.web_topic(topic)
+                text = json.dumps(data, sort_keys=True)
+                if text != self._sent_lists.get(topic):
+                    self._sent_lists[topic] = text
+                    frames.append({"type": "EVENT", "topic": topic, "data": data})
+        return frames
 
 
 def _output_controls():
@@ -88,6 +244,8 @@ class NetioSimulator(HTTPSimulator):
             "read_login_required": False,
             "write_login_required": False,
             "write_enabled": True,
+            "web_login_api": True,
+            "web_settings_allowed": True,
             "sensor_connected": False,
             "in1_temperature_c": 22.5,
             "in1_humidity": 40.0,
@@ -168,10 +326,17 @@ class NetioSimulator(HTTPSimulator):
                 "type": "select", "key": "model", "label": "Model",
                 "options": list(MODELS),
             },
+            {
+                "type": "select", "key": "firmware", "label": "Firmware",
+                "options": FIRMWARES,
+            },
             {"type": "toggle", "key": "json_api_enabled", "label": "JSON API enabled"},
             {"type": "toggle", "key": "write_enabled", "label": "Writing enabled"},
             {"type": "toggle", "key": "read_login_required", "label": "Login required to read"},
             {"type": "toggle", "key": "write_login_required", "label": "Login required to write"},
+            {"type": "toggle", "key": "web_login_api", "label": "Web login available"},
+            {"type": "toggle", "key": "web_settings_allowed",
+             "label": "Web login may change output settings"},
             {
                 "type": "group",
                 "label": "Inputs",
@@ -492,3 +657,239 @@ class NetioSimulator(HTTPSimulator):
             {"Name": "2 OFFafter10Sec", "Enabled": False, "Result": None},
         ]
         return doc
+
+    # ── Web login ──
+
+    async def _handle_http_request(self, request):
+        """The web login's socket on the same port as the JSON API, as on a unit."""
+        if request.path == WEB_PATH and request.headers.get("Upgrade", "").lower() == "websocket":
+            return await self._serve_web_login(request)
+        return await super()._handle_http_request(request)
+
+    async def _serve_web_login(self, request):
+        from aiohttp import WSMsgType, web
+
+        if not self.get_state("web_login_api", True):
+            self.log_protocol("in", f"GET {WEB_PATH} (no web login on this firmware)")
+            return web.Response(status=404, text="Not Found")
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        session = NetioWebSession(self)
+        self.log_protocol("in", f"GET {WEB_PATH} (web login opened)")
+
+        async def push():
+            while not ws.closed:
+                await asyncio.sleep(WEB_PUSH_S)
+                if self._silenced:
+                    continue
+                try:
+                    for frame in session.events():
+                        await ws.send_str(json.dumps(frame))
+                except (ConnectionError, RuntimeError):
+                    return
+
+        pusher = asyncio.create_task(push())
+        try:
+            async for msg in ws:
+                if msg.type != WSMsgType.TEXT or self._silenced:
+                    continue
+                self.log_protocol("in", msg.data[:300])
+                for frame in session.handle(msg.data):
+                    text = json.dumps(frame)
+                    self.log_protocol("out", text[:300])
+                    await ws.send_str(text)
+        finally:
+            pusher.cancel()
+        return ws
+
+    def _brand(self):
+        model = str(self.get_state("model", "4KS"))
+        return model, f"{FAMILY.get(model, 'PowerPDU')} {model}"
+
+    def web_device(self):
+        _model, brand = self._brand()
+        return {
+            "fwVersion": f"{self.get_state('firmware', '5.3.1')} - 1.57(1.53) - 0  4k",
+            "devtype": brand,
+            "deviceSN": "24A42C000001",
+        }
+
+    @staticmethod
+    def _epoch(text):
+        """An EnergyStart string as the web login's timestamp; 0 for never."""
+        try:
+            stamp = int(datetime.strptime(str(text), "%Y-%m-%dT%H:%M:%S%z").timestamp())
+        except ValueError:
+            return 0
+        return max(stamp, 0)
+
+    def _web_output_measure(self, n, voltage):
+        load = self._load(n)
+        return {
+            "voltage": round(voltage, 2),
+            "power": round(load, 3),
+            "current": round(load / voltage, 3) if voltage else 0.0,
+            "energy": round(float(self.get_state(f"out{n}_energy_wh", 0.0)), 1),
+            "reverseEnergy": 0.0,
+            "energyNR": round(float(self.get_state(f"out{n}_energy_nr_wh", 0.0)), 1),
+            "reverseEnergyNR": 0.0,
+            "frequency": 50.0,
+            "phase": 0.0,
+            "powerFactor": 0.95 if load else 1.0,
+            "timestamp": self._epoch(self.get_state(f"out{n}_energy_start")),
+        }
+
+    def web_topic(self, topic):
+        """A topic's data as the web login answers it, or None for a topic
+        this firmware does not have."""
+        self._settle()
+        self._meter()
+        outputs, inputs, metering = self._model()
+        fw = _version(self.get_state("firmware", "5.3.1"))
+        voltage = float(self.get_state("voltage", 230.0))
+        if topic == "system/info":
+            model, brand = self._brand()
+            return {
+                "fwVersion": self.web_device()["fwVersion"],
+                "fwRevision": "00000000",
+                "fwBuildDate": "2026-09-09",
+                "versionNote": "",
+                "brandModel": model,
+                "brandName": brand,
+                "deviceSN": "24A42C000001",
+                "deviceName": str(self.get_state("device_name", "PowerPDU-SIM")),
+                "inputCount": inputs,
+                "outputCount": outputs,
+                "measureMask": sum(1 << (n - 1) for n in range(1, outputs + 1) if self._output_metered(n)),
+                "supportedProtocols": {"json": True, "xml": True, "url": True, "mqtt": True},
+                "wifiSupport": False,
+                "ethSupport": True,
+                "installed": True,
+            }
+        if topic == "system/uptime":
+            return {"uptime": int(time.monotonic() - self._started)}
+        if topic == "system/datetime":
+            return {"ntpEnabled": True, "ntpServer": "pool.ntp.org", "timezone": "UTC",
+                    "time": int(time.time())}
+        if topic == "outputs/list":
+            return {"items": [
+                {
+                    "id": n, "socketType": "S",
+                    "name": str(self.get_state(f"out{n}_name", f"Power output {n}")),
+                    "scheduleId": 1 if n == 1 else 0,
+                    "scheduleName": "Workdays" if n == 1 else "N/A",
+                    "scheduleOn": False,
+                }
+                for n in range(1, outputs + 1)
+            ]}
+        if topic == "outputs/measure":
+            items = []
+            for n in range(1, outputs + 1):
+                item = {"id": n}
+                # From 5.4 the states are in outputs/state (PyNetioConf).
+                if fw < (5, 4, 0):
+                    item["state"] = "on" if self.get_state(f"out{n}_on") else "off"
+                item["isScheduleActive"] = bool(self.get_state(f"out{n}_schedule"))
+                if self._output_metered(n):
+                    item["measure"] = self._web_output_measure(n, voltage)
+                items.append(item)
+            return {"items": items}
+        if topic == "outputs/state":
+            if fw < (5, 4, 0):
+                return None
+            return {"items": [
+                {"id": n, "state": "on" if self.get_state(f"out{n}_on") else "off"}
+                for n in range(1, outputs + 1)
+            ]}
+        if topic == "outputs/globalmeasure":
+            if metering == "none":
+                # An unmetered unit (the 4PS demo) answers with zeros.
+                return {"measure": {
+                    "voltage": 0.0, "power": 0.0, "current": 0.0, "energy": 0.0,
+                    "reverseEnergy": 0.0, "energyNR": 0.0, "reverseEnergyNR": 0.0,
+                    "frequency": 0.0, "phase": SENTINEL, "powerFactor": SENTINEL, "timestamp": 0,
+                }}
+            metered = [n for n in range(1, outputs + 1) if self._output_metered(n)]
+            counted = range(1, outputs + 1) if metering == "q" else metered
+            total = sum(self._load(n) for n in counted)
+            return {"measure": {
+                "voltage": round(voltage, 2),
+                "power": round(total, 3),
+                "current": round(total / voltage, 3) if voltage else 0.0,
+                "energy": round(sum(float(self.get_state(f"out{n}_energy_wh", 0.0)) for n in metered), 1),
+                "reverseEnergy": 0.0,
+                "energyNR": round(sum(float(self.get_state(f"out{n}_energy_nr_wh", 0.0)) for n in metered), 1),
+                "reverseEnergyNR": 0.0,
+                "frequency": 50.0,
+                "phase": 0.0 if total else SENTINEL,
+                "powerFactor": 0.95 if total else SENTINEL,
+                "timestamp": 0,
+            }}
+        if topic == "inputs/list":
+            items = []
+            for n in range(1, inputs + 1):
+                sensor = n == 1 and bool(self.get_state("sensor_connected"))
+                items.append({
+                    "id": n,
+                    "name": f"Input {n}",
+                    "s0Counter": int(self.get_state(f"in{n}_s0", 0)),
+                    "state": "on" if self.get_state(f"in{n}_closed") else "off",
+                    "temperature": round(float(self.get_state("in1_temperature_c", 22.5)), 1)
+                    if sensor else SENTINEL,
+                    "temperatureUnit": "C",
+                    "humidity": int(self.get_state("in1_humidity", 40.0)) if sensor else 999,
+                })
+            return {"items": items}
+        if topic == "wdtpingers/list":
+            return {"items": [{"name": "google_pinger", "enabled": True},
+                              {"name": "CR01_WDT", "enabled": False}]}
+        if topic == "rules/list":
+            return {"items": [{"name": "CR01_RULE", "enabled": True},
+                              {"name": "CR02_RULE", "enabled": False},
+                              {"name": "2 OFFafter10Sec", "enabled": False}]}
+        if topic == "pab/list":
+            return {"items": [{"name": "CR03_PAB", "enabled": True},
+                              {"name": "Falcon", "enabled": False}]}
+        match = re.fullmatch(r"outputs/id/(\d+)/config", topic)
+        if match and 1 <= int(match.group(1)) <= outputs:
+            n = int(match.group(1))
+            return {
+                "name": str(self.get_state(f"out{n}_name", f"Power output {n}")),
+                "default": "last",
+                "resetDelay": int(self.get_state(f"out{n}_delay_ms", 5000)),
+                "powerUpInterval": 1000,
+                "isScheduleActive": bool(self.get_state(f"out{n}_schedule")),
+                "scheduleId": 1 if n == 1 else 0,
+            }
+        return None
+
+    def web_set(self, topic, data, ok, error):
+        match = re.fullmatch(r"outputs/id/(\d+)/(ctrl|config|resetOutputConsumption)", topic)
+        if not match:
+            return error("TopicNotFonud", "Topic not found")
+        n, what = int(match.group(1)), match.group(2)
+        if not 1 <= n <= self._model()[0]:
+            # As the 4KS demo answered a ctrl for its output 9.
+            return error("MissingParameter", "Missing request parameter")
+        data = data if isinstance(data, dict) else {}
+        self._settle()
+        if what == "ctrl":
+            request = data.get("request")
+            if request not in WEB_REQUESTS:
+                return error("MissingParameter", "Missing request parameter")
+            self._apply(n, WEB_REQUESTS[request], None, {})
+            return ok()
+        if not self.get_state("web_settings_allowed", True):
+            # As the demo units answer a user without the right.
+            return error("Unauthorized", "Client is not authorized to perform this operation.")
+        if what == "resetOutputConsumption":
+            self._apply(n, 5, None, {"ResetEnergyCounter": True})
+            return ok()
+        if str(data.get("name", "")).strip():
+            self.set_state(f"out{n}_name", str(data["name"]))
+        if "isScheduleActive" in data:
+            self.set_state(f"out{n}_schedule", bool(data["isScheduleActive"]))
+        delay = data.get("resetDelay")
+        if isinstance(delay, int) and not isinstance(delay, bool) and delay > 0:
+            self.set_state(f"out{n}_delay_ms", delay)
+        return ok()

@@ -1,0 +1,25 @@
+{"type":"REPLY","reqId":6,"data":{
+  "items":[
+      {
+       "id":1,
+       "state":"on",
+       "isScheduleActive":false
+    },
+      {
+       "id":2,
+       "state":"on",
+       "isScheduleActive":false
+    },
+      {
+       "id":3,
+       "state":"on",
+       "isScheduleActive":false
+    },
+      {
+       "id":4,
+       "state":"on",
+       "isScheduleActive":false
+    }
+  ]
+},"status":"OK"}
+

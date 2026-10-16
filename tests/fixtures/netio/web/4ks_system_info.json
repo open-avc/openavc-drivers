@@ -1,0 +1,28 @@
+{"type":"REPLY","reqId":2,"data":{
+ "fwVersion":"5.3.2 - 1.57(1.53) - 0  4k",
+ "fwRevision":"29f4e889",
+ "fwBuildDate":"2026-09-09",
+ "versionNote":"",
+ "brandModel":"4KS",
+ "brandName":"PowerPDU 4KS",
+ "deviceSN":"24A42C3A392B",
+ "deviceName":"PowerPDU-2B",
+ "inputCount":1,
+ "outputCount":4,
+ "measureMask":15,
+  "supportedProtocols":{
+    "xml":true,
+    "json":true,
+    "url":true,
+    "kshell":true,
+    "modbus":true,
+    "mqtt":true,
+    "push":true,
+    "snmp":true,
+    "cloud":true
+  },
+ "wifiSupport":false,
+ "ethSupport":true,
+ "installed":true
+},"status":"OK"}
+

@@ -1,0 +1,9 @@
+{"type":"REPLY","reqId":18,"data":{
+ "name":"Dream Machine",
+ "default":"last",
+ "resetDelay":5000,
+ "powerUpInterval":500,
+ "isScheduleActive":false,
+ "scheduleId":0
+},"status":"OK"}
+

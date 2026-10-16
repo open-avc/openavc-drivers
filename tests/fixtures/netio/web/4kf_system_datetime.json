@@ -1,0 +1,7 @@
+{"type":"REPLY","reqId":20,"data":{
+ "ntpEnabled":true,
+ "ntpServer":"pool.ntp.org",
+ "timezone":"Europe/Prague",
+ "time":1792180762
+},"status":"OK"}
+

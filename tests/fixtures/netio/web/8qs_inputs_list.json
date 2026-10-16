@@ -1,0 +1,14 @@
+{"type":"REPLY","reqId":10,"data":{
+  "items":[
+      {
+       "id":1,
+       "name":"Input 1",
+       "s0Counter":1246811,
+       "state":"on",
+       "temperature":999.0,
+       "temperatureUnit":"C",
+       "humidity":999
+    }
+  ]
+},"status":"OK"}
+

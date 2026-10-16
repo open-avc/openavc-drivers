@@ -1,0 +1,17 @@
+{"type":"REPLY","reqId":14,"data":{
+  "items":[
+      {
+       "name":"CR01_RULE",
+       "enabled":true
+    },
+      {
+       "name":"CR02_RULE",
+       "enabled":false
+    },
+      {
+       "name":"CR03_RULE",
+       "enabled":false
+    }
+  ]
+},"status":"OK"}
+

@@ -1,17 +1,19 @@
-"""Driver + simulator tests for netio (NETIO JSON M2M API).
+"""Driver + simulator tests for netio (NETIO JSON M2M API and web login).
 
 Two kinds of evidence:
 
-  - The status documents NETIO's public demo units served on 2026-10-13
-    (tests/fixtures/netio/), parsed byte for byte: a PowerPDU 8QS, 4PS and 4KS,
-    a PowerDIN 4PZ, a PowerCable 2PZ and a PowerBOX 4KF on firmware 5.3.1 and
-    5.3.2, the shorter answer the 4KS gave to a switch, and the error body it
-    gave to a refused write.
-  - A dual-proof round trip: the real driver wired to the real simulator over
-    an in-memory httpx transport, every command, both logins, every refusal.
+  - What NETIO's public demo units sent, parsed byte for byte: the JSON status
+    documents of 2026-10-13 (tests/fixtures/netio/: a PowerPDU 8QS, 4PS and
+    4KS, a PowerDIN 4PZ, a PowerCable 2PZ and a PowerBOX 4KF on firmware 5.3.1
+    and 5.3.2, the shorter answer the 4KS gave to a switch, and the error body
+    it gave to a refused write), and the web login's replies of 2026-10-16
+    (tests/fixtures/netio/web/: the 4KS, 4KF, 8QS and 4PS).
+  - A dual-proof round trip: the real driver wired to the real simulator, over
+    an in-memory httpx transport for the JSON API and an in-memory WebSocket
+    for the web login; every command, every login, every refusal.
 
-The driver is loaded with the ``openavc.*`` imports stubbed so the community
-CI stays self-contained (conftest.py rolls the stubs back).
+The driver is loaded with the ``openavc.*`` and ``websockets`` imports stubbed
+so the community CI stays self-contained (conftest.py rolls the stubs back).
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ import base64
 import json
 import re
 from pathlib import Path
+from types import ModuleType, SimpleNamespace
 
 import httpx
 import pytest
@@ -38,11 +41,18 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "power" / "netio.py"
 SIM_PATH = REPO_ROOT / "power" / "netio_sim.py"
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "netio"
+WEB_FIXTURES = FIXTURES / "web"
 
 
 class _FakeBaseDriver(LifecycleFake, StubBaseDriver):
     """The platform's hook-driven connect lifecycle for a driver that owns its
     session; state and children come from the shared stubs."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.traffic: list[tuple[str, str]] = []
+        self.redacted: list[str] = []
+        self.dropped = 0
 
     async def _verify_reachable(self, host, port, timeout=3.0):
         return True
@@ -64,8 +74,46 @@ class _FakeBaseDriver(LifecycleFake, StubBaseDriver):
         self._connected = False
         self.set_state("connected", False)
 
+    def redact_in_log(self, value):
+        self.redacted.append(value)
 
-install_stubs(base_driver=_FakeBaseDriver)
+    def record_traffic(self, direction, data, *, meta=None):
+        self.traffic.append((direction, data if isinstance(data, str) else data.decode()))
+
+    def _handle_transport_disconnect(self):
+        self.dropped += 1
+        self._connected = False
+        self.set_state("connected", False)
+
+
+class _FakeConnectionClosed(Exception):
+    """websockets.exceptions.ConnectionClosed."""
+
+
+class _FakeInvalidHandshake(Exception):
+    """websockets.exceptions.InvalidHandshake."""
+
+
+class _FakeInvalidStatus(_FakeInvalidHandshake):
+    """websockets.exceptions.InvalidStatus: carries the HTTP answer."""
+
+    def __init__(self, status):
+        super().__init__(f"server rejected WebSocket connection: HTTP {status}")
+        self.response = SimpleNamespace(status_code=status)
+
+
+_WS_EXC = ModuleType("websockets.exceptions")
+_WS_EXC.ConnectionClosed = _FakeConnectionClosed
+_WS_EXC.InvalidHandshake = _FakeInvalidHandshake
+_WS_EXC.InvalidStatus = _FakeInvalidStatus
+
+install_stubs(
+    {"websockets": {"connect": None, "exceptions": _WS_EXC},
+     "websockets.exceptions": {"ConnectionClosed": _FakeConnectionClosed,
+                               "InvalidHandshake": _FakeInvalidHandshake,
+                               "InvalidStatus": _FakeInvalidStatus}},
+    base_driver=_FakeBaseDriver,
+)
 DRV = load_module("netio_under_test", DRIVER_PATH)
 SIM = load_module("netio_sim_under_test", SIM_PATH)
 INFO = DRV.NetioDriver.DRIVER_INFO
@@ -547,3 +595,450 @@ def test_a_poll_after_the_login_changed_drops_the_connection_typed():
             await h.driver.poll()
         assert info.value.fault_code == "auth_failed"
     _run(scenario())
+
+
+# ── Web login: the demo units' replies ───────────────────────────────────────
+
+
+def _web_fixture(name: str) -> dict:
+    return json.loads((WEB_FIXTURES / f"{name}.json").read_text(encoding="utf-8"))
+
+
+def _data(name: str):
+    return _web_fixture(name)["data"]
+
+
+def test_sign_in_token_is_salted_and_tied_to_the_units_clock():
+    args = ("admin", "secret", "KEY", 1792179315)
+    token = DRV.web_login_token(*args, salt="ab")
+    assert token == SIM._token(*args, "ab")
+    assert token.startswith("ab.") and "secret" not in token
+    # The same ten-second window gives the same token; the next one does not.
+    assert DRV.web_login_token("admin", "secret", "KEY", 1792179319, salt="ab") == token
+    assert DRV.web_login_token("admin", "secret", "KEY", 1792179320, salt="ab") != token
+    assert DRV.web_login_token(*args) != DRV.web_login_token(*args)
+
+
+def test_firmware_version_from_the_units_string():
+    assert DRV.firmware_version("5.3.2 - 1.57(1.53) - 0  4k") == (5, 3, 2)
+    assert DRV._firmware_text("5.3.2 - 1.57(1.53) - 0  4k") == "5.3.2"
+    assert DRV.firmware_version("") is None
+
+
+def test_identity_from_system_info_and_from_the_greeting_alone():
+    hello = _data("4ks_helo")["device"]
+    info = _data("4ks_system_info")
+    dev = DRV.web_identity(info, hello)
+    assert dev == {
+        "model": "4KS", "device_name": "PowerPDU-2B", "serial_number": "24A42C3A392B",
+        "firmware": "5.3.2", "output_count": 4, "input_count": 1,
+    }
+    # A user who may not read system/info still gets the greeting's identity.
+    assert DRV.web_identity(None, hello) == {
+        "model": "4KS", "device_name": None, "serial_number": "24A42C3A392B", "firmware": "5.3.2",
+    }
+    assert DRV.web_measure_mask(info) == 15
+    assert DRV.web_measure_mask(_data("8qs_system_info")) == 1
+    assert DRV.web_measure_mask(_data("4ps_system_info")) == 0
+
+
+def test_metering_in_the_units_the_json_api_state_uses():
+    items = DRV.web_numbered(_data("4kf_outputs_measure")["items"], 24, lambda i: i)
+    out2 = DRV.web_output_metering(items[2])
+    # Current comes in amps and power in watts with decimals (the JSON API
+    # read beside it said Current 7 mA, Load 0 W).
+    assert out2["metered"] is True and out2["current_a"] == 0.007 and out2["load_w"] == 0.154
+    assert out2["energy_wh"] == 344 and out2["phase_deg"] == 269.54
+    assert out2["energy_start"] == "2025-09-17T00:18:50"
+    assert DRV.web_output_metering(items[3])["energy_start"] is None   # 0: never reset
+    # Output 1 of the 4KF was off with its schedule on.
+    assert DRV.web_output_live(items[1]) == {"state": False, "schedule_enabled": True}
+
+
+def test_an_unmetered_unit_answers_zeros_and_reads_as_unmetered():
+    zeros = _data("4ps_outputs_globalmeasure")["measure"]
+    assert zeros["voltage"] == 0 and zeros["powerFactor"] == 999
+    glob = DRV.web_global(zeros, metered=False)
+    assert glob["metered"] is False and all(v is None for k, v in glob.items() if k != "metered")
+    for item in _data("4ps_outputs_measure")["items"]:
+        assert DRV.web_output_metering(item)["metered"] is False
+    # The 8QS meters output 1 only, and the whole unit.
+    items = DRV.web_numbered(_data("8qs_outputs_measure")["items"], 24, DRV.web_output_metering)
+    assert [n for n, v in items.items() if v["metered"]] == [1]
+    assert DRV.web_global(_data("8qs_outputs_globalmeasure")["measure"], metered=True)["voltage_v"] > 200
+
+
+def test_lists_inputs_and_an_outputs_settings():
+    listed = DRV.web_numbered(_data("4ks_outputs_list")["items"], 24, DRV.web_output_listed)
+    assert listed[1] == {"name": "Power output 1", "schedule_name": None}
+    inputs = DRV.web_numbered(_data("4ks_inputs_list")["items"], 8, DRV.web_input)
+    assert inputs[1]["closed"] is False and inputs[1]["temperature_c"] is None
+    assert inputs[1]["humidity"] is None
+    config = DRV.web_output_config(_data("4ks_outputs_id_1_config"))
+    assert config["delay_ms"] == 5000 and config["schedule_enabled"] is False
+    watchdogs = DRV.web_named(_data("4ks_wdtpingers_list")["items"], DRV.WEB_BLANK["watchdog"])
+    assert watchdogs["google_pinger"]["name"] == "google_pinger"
+    assert watchdogs["google_pinger"]["failed"] is None
+    assert watchdogs["google_pinger"]["last_check"] is None
+    rules = DRV.web_named(_data("4ks_rules_list")["items"], DRV.WEB_BLANK["rule"])
+    assert rules["CR01_RULE"] == {"name": "CR01_RULE", "enabled": True, "result": None}
+
+
+def test_a_fahrenheit_sensor_is_reported_in_both_units():
+    values = DRV.web_input({"id": 1, "name": "Input 1", "state": "on", "s0Counter": 3,
+                            "temperature": 72.5, "temperatureUnit": "F", "humidity": 40})
+    assert values["closed"] is True and values["temperature_f"] == 72.5
+    assert values["temperature_c"] == 22.5 and values["humidity"] == 40
+
+
+# ── Web login: the round trip ────────────────────────────────────────────────
+
+
+class _FakeSocket:
+    """An in-memory WebSocket wired to the simulator's web-login session. Every
+    frame the driver sends is answered by NetioWebSession.handle, and a push
+    task sends its events every few milliseconds (a unit: every 0.3 s)."""
+
+    def __init__(self, session, push_s=0.01):
+        self.session = session
+        self.sent: list[dict] = []
+        self.sent_at: list[float] = []
+        self.silent = False
+        self.state = SimpleNamespace(name="OPEN")
+        self._queue: asyncio.Queue = asyncio.Queue()
+        self._pusher = asyncio.get_running_loop().create_task(self._push(push_s))
+
+    async def _push(self, period):
+        while self.state.name == "OPEN":
+            await asyncio.sleep(period)
+            if not self.silent:
+                for frame in self.session.events():
+                    self._queue.put_nowait(json.dumps(frame))
+
+    async def send(self, text):
+        if self.state.name != "OPEN":
+            raise _FakeConnectionClosed()
+        self.sent.append(json.loads(text))
+        self.sent_at.append(asyncio.get_running_loop().time())
+        if not self.silent:
+            for reply in self.session.handle(text):
+                self._queue.put_nowait(json.dumps(reply))
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        item = await self._queue.get()
+        if item is None:
+            raise StopAsyncIteration
+        return item
+
+    def _end(self):
+        if self.state.name == "OPEN":
+            self.state = SimpleNamespace(name="CLOSED")
+            self._pusher.cancel()
+            self._queue.put_nowait(None)
+
+    async def close(self):
+        self._end()
+
+    def drop(self):
+        """The unit goes away."""
+        self._end()
+
+    def kinds(self):
+        return [(f.get("type"), f.get("topic")) for f in self.sent]
+
+
+class _WebHarness:
+    def __init__(self, sim_state=None, driver_config=None):
+        self.sim = SIM.NetioSimulator("netio-sim", {})
+        for key, value in (sim_state or {}).items():
+            self.sim.set_state(key, value)
+        self.sockets: list[_FakeSocket] = []
+        self.opened: list[tuple[str, dict]] = []
+        cfg = {
+            "connection": "web", "host": "10.0.0.30", "port": 80, "ssl": False,
+            "verify_ssl": False, "username": "admin", "password": "secret",
+            "write_username": "", "write_password": "", "poll_interval": 0,
+        }
+        cfg.update(driver_config or {})
+        self.driver = DRV.NetioDriver("pdu1", cfg, StubState(), StubEvents())
+
+    async def fake_connect(self, url, **kwargs):
+        self.opened.append((url, kwargs))
+        if not self.sim.get_state("web_login_api", True):
+            raise _FakeInvalidStatus(404)
+        sock = _FakeSocket(SIM.NetioWebSession(self.sim))
+        self.sockets.append(sock)
+        return sock
+
+    async def connect(self):
+        DRV.websockets.connect = self.fake_connect
+        await self.driver.connect()
+
+    @property
+    def sock(self) -> _FakeSocket:
+        return self.sockets[-1]
+
+    def st(self, key):
+        return self.driver.state.get(f"device.{self.driver.device_id}.{key}")
+
+    def out(self, n, key):
+        return self.st(f"output.{n}.{key}")
+
+    async def settle(self, seconds=0.05):
+        await asyncio.sleep(seconds)
+
+
+def _web(scenario, sim_state=None, driver_config=None, connect=True):
+    """Run a scenario against a connected driver, and close it after."""
+    async def run():
+        h = _WebHarness(sim_state, driver_config)
+        if connect:
+            await h.connect()
+        try:
+            await scenario(h)
+        finally:
+            await h.driver.disconnect()
+    asyncio.run(asyncio.wait_for(run(), timeout=20))
+
+
+def test_web_connect_reads_everything_and_holds_the_pushed_topics():
+    async def scenario(h):
+        assert h.opened[0][0] == "ws://10.0.0.30:80/emweb"
+        assert "ssl" not in h.opened[0][1] and h.opened[0][1]["ping_interval"] is None
+        auth = h.sock.sent[1]
+        assert h.sock.sent[0]["type"] == "HELO" and auth["type"] == "AUTH"
+        assert auth["username"] == "admin" and "secret" not in auth["token"]
+        assert auth["token"] in h.driver.redacted
+        assert h.st("model") == "4KS" and h.st("firmware") == "5.3.1"
+        assert h.st("serial_number") == "24A42C000001" and h.st("output_count") == 4
+        assert h.st("metered") is True and h.st("voltage_v") == 230.0
+        assert h.st("mac_address") is None and h.st("json_version") is None
+        assert h.out(1, "name") == "Power output 1" and h.out(1, "state") is True
+        assert h.out(1, "schedule_name") == "Workdays" and h.out(1, "schedule_enabled") is False
+        assert h.out(2, "schedule_name") is None and h.out(1, "delay_ms") == 5000
+        assert h.out(1, "load_w") == 40.0 and h.out(1, "current_a") == round(40 / 230, 3)
+        assert h.st("input.1.closed") is False
+        assert h.st("watchdog.google_pinger.enabled") is True
+        assert h.st("watchdog.google_pinger.failed") is None
+        assert h.st("rule.2_OFFafter10Sec.name") == "2 OFFafter10Sec"
+        assert h.st("pab.CR03_PAB.in_range") is None
+        assert h.sock.session.subscribed == {
+            "outputs/measure", "outputs/globalmeasure", "outputs/list", "inputs/list",
+        }
+        # Every frame is reported to the traffic recorder.
+        assert ("tx", json.dumps(h.sock.sent[0], ensure_ascii=False)) in h.driver.traffic
+        assert any(d == "rx" and '"REPLY"' in t for d, t in h.driver.traffic)
+    _web(scenario)
+
+
+def test_web_switching_reads_back_from_the_pushed_state():
+    async def scenario(h):
+        await h.driver.send_command("output_off", {"output": 2})
+        assert h.out(2, "state") is False and h.sim.get_state("out2_on") is False
+        assert h.sock.sent[-1]["data"] == {"request": "off"}
+        assert h.sock.sent[-1]["topic"] == "outputs/id/2/ctrl"
+        await h.driver.send_command("output_on", {"output": 2})
+        assert h.out(2, "state") is True
+        await h.driver.send_command("output_toggle", {"output": 2})
+        assert h.out(2, "state") is False
+        await h.driver.send_command("all_outputs_off", {})
+        assert [h.out(n, "state") for n in range(1, 5)] == [False] * 4
+        await h.driver.send_command("all_outputs_on", {})
+        assert [h.out(n, "state") for n in range(1, 5)] == [True] * 4
+    _web(scenario)
+
+
+def test_web_a_change_at_the_unit_is_pushed_without_a_poll():
+    async def scenario(h):
+        h.sim.set_state("out3_on", False)
+        await h.settle(0.1)
+        assert h.out(3, "state") is False
+        h.sim.set_state("out3_schedule", True)
+        await h.settle(0.1)
+        assert h.out(3, "schedule_enabled") is True
+    _web(scenario)
+
+
+def test_web_metering_waits_for_the_interval_and_switching_does_not():
+    async def scenario(h):
+        h.sim.set_state("out1_load_w", 100.0)
+        await h.settle(0.1)
+        assert h.out(1, "load_w") == 40.0                    # held to the poll interval
+        h.driver._web_meter_next.clear()                     # the interval is up
+        await h.settle(0.1)
+        assert h.out(1, "load_w") == 100.0
+    _web(scenario, driver_config={"poll_interval": 60})
+
+
+def test_web_reboot_uses_the_outputs_own_time_and_refuses_one_of_its_own():
+    async def scenario(h):
+        await h.driver.send_command("output_reboot", {"output": 2})
+        assert h.out(2, "state") is False and h.sock.sent[-1]["data"] == {"request": "soff"}
+        await h.settle(0.4)
+        assert h.out(2, "state") is True
+        await h.driver.send_command("output_off", {"output": 3})
+        await h.driver.send_command("output_on_for", {"output": 3})
+        assert h.out(3, "state") is True
+        await h.settle(0.4)
+        assert h.out(3, "state") is False
+        sent = len(h.sock.sent)
+        with pytest.raises(DRV.NetioCommandError, match="own short on/off time"):
+            await h.driver.send_command("output_reboot", {"output": 2, "seconds": 5})
+        assert len(h.sock.sent) == sent
+    _web(scenario, sim_state={"out2_delay_ms": 200, "out3_delay_ms": 200})
+
+
+def test_web_rename_schedule_and_energy_reset_write_the_outputs_settings():
+    async def scenario(h):
+        await h.driver.send_command("rename_output", {"output": 1, "name": "Codec"})
+        assert h.out(1, "name") == "Codec" and h.sim.get_state("out1_name") == "Codec"
+        written = [f for f in h.sock.sent
+                   if f.get("type") == "SET" and f["topic"] == "outputs/id/1/config"]
+        assert set(written[-1]["data"]) == set(DRV.WEB_OUTPUT_CONFIG_KEYS)
+        assert written[-1]["data"]["resetDelay"] == 5000                  # the rest written back
+        await h.driver.send_command("enable_output_schedule", {"output": 1})
+        assert h.out(1, "schedule_enabled") is True and h.sim.get_state("out1_schedule") is True
+        await h.driver.send_command("disable_output_schedule", {"output": 1})
+        assert h.out(1, "schedule_enabled") is False
+        h.sim.set_state("out1_energy_wh", 50.0)
+        await h.driver.send_command("reset_output_energy", {"output": 1})
+        assert h.sim.get_state("out1_energy_wh") == 0.0
+        await h.settle(0.1)
+        assert h.out(1, "energy_start") is not None
+    _web(scenario)
+
+
+def test_web_settings_refused_for_this_user_fail_the_command_and_stay_connected():
+    async def scenario(h):
+        with pytest.raises(DRV.NetioCommandError, match="not allowed"):
+            await h.driver.send_command("rename_output", {"output": 1, "name": "Codec"})
+        assert "rename the output" in h.st("last_error")
+        with pytest.raises(DRV.NetioCommandError, match="not allowed"):
+            await h.driver.send_command("reset_output_energy", {"output": 1})
+        assert h.sim.get_state("out1_name") == "Power output 1"
+        assert h.driver._link_alive() is True
+        await h.driver.send_command("output_off", {"output": 1})     # switching still works
+        assert h.out(1, "state") is False
+    _web(scenario, sim_state={"web_settings_allowed": False})
+
+
+@pytest.mark.parametrize("login", [{"password": "invalid"}, {"username": "invalid"}])
+def test_web_refused_sign_ins_are_auth_failed(login):
+    async def scenario(h):
+        with pytest.raises(ConnectionFaultError) as info:
+            await h.connect()
+        assert info.value.fault_code == "auth_failed"
+        assert "refused the web login" in str(info.value)
+    _web(scenario, driver_config=login, connect=False)
+
+
+def test_web_no_password_is_never_sent():
+    async def scenario(h):
+        with pytest.raises(ConnectionFaultError) as info:
+            await h.connect()
+        assert info.value.fault_code == "auth_failed" and h.opened == []
+    _web(scenario, driver_config={"password": ""}, connect=False)
+
+
+def test_web_login_missing_is_invalid_config():
+    async def scenario(h):
+        with pytest.raises(ConnectionFaultError) as info:
+            await h.connect()
+        assert info.value.fault_code == "invalid_config" and "5.1.3" in str(info.value)
+    _web(scenario, sim_state={"web_login_api": False}, connect=False)
+
+
+def test_web_firmware_too_old_is_invalid_config_before_signing_in():
+    async def scenario(h):
+        with pytest.raises(ConnectionFaultError) as info:
+            await h.connect()
+        assert info.value.fault_code == "invalid_config" and "5.1.2" in str(info.value)
+        assert [f["type"] for f in h.sock.sent] == ["HELO"]
+    _web(scenario, sim_state={"firmware": "5.1.2"}, connect=False)
+
+
+def test_web_firmware_5_4_reads_with_get_and_takes_states_from_outputs_state():
+    async def scenario(h):
+        assert "outputs/state" in h.sock.session.subscribed
+        assert h.out(2, "state") is True
+        start = len(h.sock.sent)
+        await h.driver.poll()
+        assert {kind for kind, _topic in h.sock.kinds()[start:]} == {"GET"}
+        await h.driver.send_command("output_off", {"output": 2})
+        assert h.out(2, "state") is False
+    _web(scenario, sim_state={"firmware": "5.4.0"})
+
+
+def test_web_liveness_pings_from_5_2():
+    async def scenario(h):
+        await h.driver._liveness_probe()
+        assert h.sock.kinds()[-1] == ("PING", None)
+    _web(scenario)
+
+
+def test_web_liveness_reads_the_uptime_before_5_2():
+    async def scenario(h):
+        await h.driver._liveness_probe()
+        assert h.sock.kinds()[-2:] == [
+            ("SUBSCRIBE", "system/uptime"), ("UNSUBSCRIBE", "system/uptime"),
+        ]
+    _web(scenario, sim_state={"firmware": "5.1.3"})
+
+
+def test_web_a_silent_unit_fails_the_probe(monkeypatch):
+    async def scenario(h):
+        monkeypatch.setattr(DRV, "WEB_REPLY_TIMEOUT_S", 0.2)
+        h.sock.silent = True
+        with pytest.raises(ConnectionError, match="did not answer PING"):
+            await h.driver._liveness_probe()
+    _web(scenario)
+
+
+def test_web_a_dropped_socket_takes_the_unit_offline():
+    async def scenario(h):
+        h.sock.drop()
+        await h.settle(0.05)
+        assert h.driver.dropped == 1 and h.st("connected") is False
+        assert h.driver.stashed_fault[0] == "transport_disconnected"
+        assert h.driver._link_alive() is False
+        with pytest.raises(ConnectionError):
+            await h.driver.send_command("output_on", {"output": 1})
+    _web(scenario)
+
+
+def test_web_a_refused_read_is_named_and_identity_comes_from_the_greeting():
+    async def scenario(h):
+        original = h.sim.web_topic
+        h.sim.web_topic = lambda topic: None if topic == "system/info" else original(topic)
+        await h.connect()
+        assert h.st("model") == "4KS" and h.st("device_name") is None
+        assert "system/info (TopicNotFonud)" in h.st("last_error")
+    _web(scenario, connect=False)
+
+
+def test_web_no_outputs_over_the_web_login_at_connect_is_invalid_config():
+    async def scenario(h):
+        original = h.sim.web_topic
+        h.sim.web_topic = lambda topic: None if topic == "outputs/measure" else original(topic)
+        with pytest.raises(ConnectionFaultError) as info:
+            await h.connect()
+        assert info.value.fault_code == "invalid_config"
+    _web(scenario, connect=False)
+
+
+def test_web_frames_are_paced():
+    async def scenario(h):
+        gaps = [b - a for a, b in zip(h.sock.sent_at, h.sock.sent_at[1:])]
+        assert gaps and min(gaps) >= DRV.WEB_SEND_GAP_S * 0.9
+    _web(scenario)
+
+
+def test_web_https_uses_wss_with_the_units_own_certificate():
+    async def scenario(h):
+        url, kwargs = h.opened[0]
+        assert url == "wss://10.0.0.30:443/emweb"
+        assert kwargs["ssl"].verify_mode == DRV.ssl.CERT_NONE
+    _web(scenario, driver_config={"ssl": True, "port": 443})

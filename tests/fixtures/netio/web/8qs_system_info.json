@@ -1,0 +1,28 @@
+{"type":"REPLY","reqId":2,"data":{
+ "fwVersion":"5.3.1 - 1.57(1.45) - 0  4k",
+ "fwRevision":"dc97cd74",
+ "fwBuildDate":"2026-06-19",
+ "versionNote":"",
+ "brandModel":"8QS",
+ "brandName":"PowerPDU 8QS",
+ "deviceSN":"24A42C3992EB",
+ "deviceName":"PowerPDU-EB",
+ "inputCount":1,
+ "outputCount":8,
+ "measureMask":1,
+  "supportedProtocols":{
+    "xml":true,
+    "json":true,
+    "url":true,
+    "kshell":true,
+    "modbus":true,
+    "mqtt":true,
+    "push":true,
+    "snmp":true,
+    "cloud":true
+  },
+ "wifiSupport":false,
+ "ethSupport":true,
+ "installed":true
+},"status":"OK"}
+

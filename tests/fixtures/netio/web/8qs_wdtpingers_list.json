@@ -1,0 +1,13 @@
+{"type":"REPLY","reqId":12,"data":{
+  "items":[
+      {
+       "name":"google_pinger",
+       "enabled":false
+    },
+      {
+       "name":"CR01_WDT",
+       "enabled":false
+    }
+  ]
+},"status":"OK"}
+

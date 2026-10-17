@@ -38,6 +38,16 @@ schedule (whether it is on, and its name). Its watchdog, rule and power
 analysis block lists carry each entry's name and whether it is enabled, but not
 its result, so those results are reported over the JSON API only.
 
+Over the web login the unit also checks NETIO's update server for newer
+firmware and installs it, as "Check for update", "Update device firmware" and
+"Update incl. low-level system" do in its web interface. One command checks;
+two install the newest firmware offered, one with the outlet controller's own
+firmware (every output switches off for a few seconds) and one without it. The
+unit downloads the firmware itself and restarts, and tries again after a failed
+download, three attempts in all; the driver follows it through the restarts and
+reports how the update went. Firmware from a file and certificates are not part
+of this driver.
+
 **Push and polling.** Over the JSON API the driver polls: NETIO's push
 protocols do not report an output switching (Netio Push sends this same
 document on a fixed period, 60 s by default, and at once only when current
@@ -130,6 +140,34 @@ WEB_AUTH_REFUSALS = ("InvalidCredentials", "TooManyFailLogin", "Unauthorized")
 WEB_OUTPUT_CONFIG_KEYS = (
     "default", "isScheduleActive", "name", "powerUpInterval", "resetDelay", "scheduleId",
 )
+
+# ── Online firmware update (web login) ──
+# The timings are PyNetioConf's (get_firmware_updates_list and
+# update_firmware_online). A check: SET system/firmwarelist with
+# getFirmwareList, then the unit asks NETIO's update server (a few seconds),
+# holding system/lock locked meanwhile, and rebuilds fwupdate/list about 0.4 s
+# after it unlocks.
+FW_LIST_TIMEOUT_S = 60.0
+FW_LIST_INTERVAL_S = 0.2
+# A list that did not change counts as the answer once it stayed the same this
+# long after the unlock.
+FW_LIST_SETTLE_S = 2.0
+# An update right after a check reuses its answer rather than asking again.
+FW_LIST_REUSE_S = 120.0
+FW_LIST_FIELDS = ("name", "version", "downloadUrl", "downloadUrlNoMcu", "releaseNoteEn")
+# An update: SET system/firmwarelist with updateFw set to an offer's link. The
+# unit locks system/lock, downloads, and restarts when the download ends, a
+# failed one included; it tries three times in all, but PyNetioConf saw a 5.4.0
+# unit with NETIO Cloud off not try again, so a unit that does not start the
+# next attempt within FW_RETRY_WAIT_S of coming back has failed.
+FW_START_TIMEOUT_S = 10.0
+FW_UPDATE_TIMEOUT_S = 900.0
+FW_ATTEMPTS = 3
+FW_RETRY_WAIT_S = 60.0
+FW_RETRY_INTERVAL_S = 1.0
+# A restart shows as a boot time (now minus the uptime) that moved; a busy unit
+# reports its uptime a few seconds late, so it has to move by more than this.
+FW_RESTART_SLACK_S = 10.0
 
 # "Not available": a sensor that is not connected, a figure the unit does not
 # measure (a power factor with no load on a 4KS reads 999.00).
@@ -783,6 +821,44 @@ def _items(data: Any) -> Any:
     return data.get("items") if isinstance(data, dict) else None
 
 
+def firmware_list_answered(items: Any) -> bool:
+    """Whether fwupdate/list holds an answer from NETIO's update server.
+
+    Until the first check since the unit started, it holds one item with every
+    field empty (every demo unit, 2026-10-17). An answer names each item;
+    with nothing newer it is one item named "No new firmware available" with
+    no version or links (PyNetioConf).
+    """
+    if not isinstance(items, list) or not items:
+        return False
+    return all(
+        isinstance(item, dict) and all(field in item for field in FW_LIST_FIELDS) and item.get("name")
+        for item in items
+    )
+
+
+def firmware_offers(items: Any) -> list[dict[str, str]]:
+    """The firmware an answer offers, newest first (the server lists it so).
+    ``full`` is the link with the outlet controller's firmware, ``app`` the
+    one without it."""
+    offers = []
+    for item in items if isinstance(items, list) else []:
+        if not isinstance(item, dict):
+            continue
+        version = str(item.get("version") or "").split()
+        full = str(item.get("downloadUrl") or "").strip()
+        app = str(item.get("downloadUrlNoMcu") or "").strip()
+        if not version and not full and not app:
+            continue
+        offers.append({
+            "name": str(item.get("name") or "").strip(),
+            "version": version[0] if version else "",
+            "full": full,
+            "app": app,
+        })
+    return offers
+
+
 # ── Driver ───────────────────────────────────────────────────────────────────
 
 
@@ -798,9 +874,10 @@ class NetioDriver(BaseDriver):
         "name": "NETIO PowerPDU, PowerBOX, PowerCable and PowerDIN",
         "manufacturer": "NETIO",
         "category": "power",
-        "version": "1.1.1",
+        "version": "1.2.0",
         "author": "OpenAVC",
-        # confirm on the commands that reset or switch everything needs 0.36.0.
+        # confirm on the commands that reset, switch everything or update the
+        # firmware needs 0.36.0; restarts_device_for on the updates, 0.34.0.
         # The web login follows Reach devices through where the platform can
         # (0.37.0 and later; see _open_web) and runs without it before that.
         "min_platform_version": "0.36.0",
@@ -810,7 +887,8 @@ class NetioDriver(BaseDriver):
             "output on or off, toggle it, reboot it or turn it on for a set time, and read each "
             "output's load, current, power factor and energy on metered models. Digital inputs, "
             "NETIO temperature and humidity sensors, each output's schedule and the unit's own "
-            "watchdogs, rules and power analysis blocks are reported as live values."
+            "watchdogs, rules and power analysis blocks are reported as live values. Over the web "
+            "login the unit's firmware can be checked and updated from NETIO's update server."
         ),
         "source_url": "https://www.netio-products.com/files/M2M-HTTP-JSON_NETIO-API-protocol_v2-6_.pdf",
         "tags": ["pdu", "power", "outlet-control", "metering", "energy", "rack", "power-strip", "din-rail"],
@@ -854,8 +932,10 @@ class NetioDriver(BaseDriver):
                     "Web login: the same reads, each output's schedule, and the outputs' switching "
                     "pushed as it happened; outputs switched, toggled, rebooted and switched on for "
                     "a time (the demo login may not rename outputs, change their schedules or reset "
-                    "energy counters, so those were not run over the web login). Uploading "
-                    "certificates and firmware is not part of this driver."
+                    "energy counters, so those were not run over the web login). Checking for and "
+                    "installing firmware updates was run in the simulator only: the demo login may "
+                    "not change settings. Firmware from a file and certificates are not part of "
+                    "this driver."
                 ),
             },
             {
@@ -887,7 +967,8 @@ class NetioDriver(BaseDriver):
                 "one output, reboot a frozen device, or switch an output on for a set time. On "
                 "metered models each output's load and energy are reported too. Connected with the "
                 "web login, an output switching shows the moment it happens and each output's "
-                "schedule is reported. The results of the unit's own IP watchdogs, rules and power "
+                "schedule is reported, and the unit's firmware can be checked and updated from "
+                "NETIO's update server. The results of the unit's own IP watchdogs, rules and power "
                 "analysis blocks are reported with the JSON API only."
             ),
             "setup": (
@@ -895,7 +976,8 @@ class NetioDriver(BaseDriver):
                 "turned on: enter a user from the NETIO's web interface as Username and Password. A "
                 "user allowed to control outputs can switch them. Renaming an output, turning its "
                 "schedule on or off and resetting its energy counter need a user that may change "
-                "output settings, such as an administrator.\n"
+                "output settings, and checking for and installing firmware updates a user that may "
+                "change the unit's settings, such as an administrator.\n"
                 "2. For the JSON API instead, open M2M API Protocols in the NETIO's web interface, "
                 "then the JSON API tab. Turn on Enable JSON API, Enable READ-ONLY and Enable WRITE, "
                 "and save. The unit restarts its web server, so it answers errors for a few "
@@ -1029,6 +1111,21 @@ class NetioDriver(BaseDriver):
                 "cloud_priority": "low",
             },
             "energy_start": {"type": "string", "label": "Energy Counted Since", "cloud_priority": "low"},
+            "firmware_update_available": {
+                "type": "boolean", "label": "Firmware Update Available", "cloud_priority": "low",
+                "help": "Whether NETIO's update server offered newer firmware at the last Check "
+                        "for Firmware Update.",
+            },
+            "firmware_update_version": {
+                "type": "string", "label": "Firmware Update Offered", "cloud_priority": "low",
+                "help": "The newest firmware NETIO's update server offered at the last check. "
+                        "Blank when it offered nothing newer.",
+            },
+            "firmware_update_status": {
+                "type": "string", "label": "Firmware Update Status", "cloud_priority": "low",
+                "help": "How the last firmware update went: still updating, updated, or why it "
+                        "failed.",
+            },
             "last_error": {"type": "string", "label": "Last Error"},
         },
         "child_entity_types": {
@@ -1272,6 +1369,46 @@ class NetioDriver(BaseDriver):
                 "help": "Turns off the schedule assigned to this output, so the output stays as it "
                         "is until it is switched by hand or by OpenAVC.",
             },
+            "check_firmware_update": {
+                "label": "Check for Firmware Update",
+                "params": {},
+                "help": "Has the NETIO ask NETIO's update server whether newer firmware is "
+                        "available, and shows the answer in Firmware Update Available. Takes a "
+                        "few seconds. Web login only, with a user that may change the NETIO's "
+                        "settings.",
+            },
+            # Two commands rather than one with a choice, so nothing is chosen
+            # for the person: each says what happens to the outputs.
+            #
+            # restarts_device_for is not measured on a unit yet. It comes from
+            # NETIO's library, which allows 900 s for three attempts and calls
+            # an update "a few minutes"; the window opens when the update
+            # starts, so it covers the download as well as the restart.
+            "update_firmware_full": {
+                "label": "Update Firmware: Full (Outlets Off Briefly)",
+                "params": {},
+                "confirm": "Installs the newest firmware from NETIO's update server, the outlet "
+                           "controller's included. Every output switches off for a few seconds, "
+                           "and the NETIO restarts and cannot be controlled for a few minutes.",
+                "restarts_device_for": 300,
+                "help": "Installs the newest firmware NETIO's update server offers, the outlet "
+                        "controller's included, as Update incl. low-level system does in the "
+                        "NETIO's web interface. Every output switches off for a few seconds. "
+                        "NETIO recommends this update unless something plugged in cannot lose "
+                        "power. Web login only, with a user that may change the NETIO's settings.",
+            },
+            "update_firmware_keep_outlets": {
+                "label": "Update Firmware: Keep Outlets On",
+                "params": {},
+                "confirm": "Installs the newest firmware from NETIO's update server without the "
+                           "outlet controller's, so the outputs stay as they are. The NETIO "
+                           "restarts and cannot be controlled for a few minutes.",
+                "restarts_device_for": 300,
+                "help": "Installs the newest firmware NETIO's update server offers without the "
+                        "outlet controller's, as Update device firmware does in the NETIO's web "
+                        "interface, so the outputs stay as they are. Web login only, with a user "
+                        "that may change the NETIO's settings.",
+            },
         },
     }
 
@@ -1313,6 +1450,13 @@ class NetioDriver(BaseDriver):
         # topic -> when its pushed metering is next written.
         self._web_meter_next: dict[str, float] = {}
         self._web_connect: dict[str, Any] | None = None
+        # The online firmware update: the last check's offers and when they
+        # were read, the update in progress (it outlives the restarts it
+        # causes), and the wait for the unit's next attempt after a failed one.
+        self._fw_offers: list[dict[str, str]] | None = None
+        self._fw_offers_at = 0.0
+        self._fw_update: dict[str, Any] | None = None
+        self._fw_retry_watch: asyncio.Task | None = None
 
     # ── Config ──
 
@@ -1472,6 +1616,7 @@ class NetioDriver(BaseDriver):
             snapshot, self._web_connect = self._web_connect, None
             if snapshot is not None:
                 self._apply_web(snapshot)
+                self._fw_follow(snapshot)
             return
         doc, self._connect_doc = self._connect_doc, None
         if doc is not None:
@@ -1486,6 +1631,7 @@ class NetioDriver(BaseDriver):
         client, self._client = self._client, None
         if client is not None:
             await client.aclose()
+        await self._fw_stop_retry_watch()
         await self._close_web()
 
     async def _liveness_probe(self) -> None:
@@ -1719,6 +1865,10 @@ class NetioDriver(BaseDriver):
             raise ConnectionError(f"{self._where()} did not answer {what}.") from exc
         finally:
             self._ws_pending.pop(req_id, None)
+            # A drop while the frame waited its turn fails the reply too, and
+            # the send's own error is the one raised.
+            if fut.done() and not fut.cancelled():
+                fut.exception()
         if check and str(reply.get("status") or "OK") != "OK":
             error = reply.get("error") if isinstance(reply.get("error"), dict) else {}
             raise NetioWebError(
@@ -1996,7 +2146,15 @@ class NetioDriver(BaseDriver):
     async def _web_poll(self) -> None:
         if self._ws is None:
             return
-        self._apply_web(await self._web_snapshot())
+        if self._fw_update is not None:
+            # Updating: the unit is left to it between restarts, as NETIO's
+            # library leaves it, and read in full when it reconnects. Outputs
+            # switching are still pushed.
+            self._fw_follow({})
+            return
+        snapshot = await self._web_snapshot()
+        self._apply_web(snapshot)
+        self._fw_follow(snapshot)
 
     # ── State ──
 
@@ -2081,6 +2239,235 @@ class NetioDriver(BaseDriver):
             raise self._not_responding(exc) from exc
         self._apply(doc)
         return {t: list(ids) for t, ids in self._rosters.items()}
+
+    # ── Web login: online firmware update ──
+
+    def _fw_running(self) -> str:
+        return _firmware_text(self._hello_device.get("fwVersion")) or "an unknown version"
+
+    def _fw_need_web(self) -> None:
+        if not self._web:
+            raise NetioCommandError(
+                "Checking for and installing firmware updates needs the web login: set Connect "
+                "With to Web login, with a user that may change the NETIO's settings."
+            )
+        pending = self._fw_update
+        if pending is not None:
+            raise NetioCommandError(f"The NETIO is updating to firmware {pending['target']}.")
+
+    async def _fw_lock(self) -> str:
+        data = await self._web_read("system/lock")
+        return str(data.get("op") or "") if isinstance(data, dict) else ""
+
+    async def _fw_list(self) -> Any:
+        return _items(await self._web_read("fwupdate/list"))
+
+    async def _fw_check(self, *, reuse: bool) -> list[dict[str, str]]:
+        """Have the unit ask NETIO's update server for newer firmware, wait
+        for the answer, and write it to state. ``reuse`` takes an answer from
+        the last FW_LIST_REUSE_S instead of asking again."""
+        if reuse and self._fw_offers is not None and time.monotonic() - self._fw_offers_at < FW_LIST_REUSE_S:
+            return self._fw_offers
+        try:
+            before = await self._fw_list()
+            await self._web_call(
+                "SET", "system/firmwarelist", {"getFirmwareList": True, "updateFw": ""},
+            )
+            items = await self._fw_wait_for_answer(before)
+        except NetioWebError as exc:
+            raise self._web_refused(exc, "check for a firmware update") from exc
+        offers = firmware_offers(items)
+        self._fw_offers, self._fw_offers_at = offers, time.monotonic()
+        self.set_states({
+            "firmware_update_available": bool(offers),
+            "firmware_update_version": offers[0]["version"] if offers else "",
+        })
+        return offers
+
+    async def _fw_wait_for_answer(self, before: Any) -> Any:
+        """fwupdate/list once it holds the update server's answer.
+
+        The unit rebuilds the list about 0.4 s after it unlocks, so a read
+        around the unlock can get the old list or part of the new one. A list
+        that differs from ``before`` counts once two reads in a row agree; one
+        that does not differ counts once it stayed so for FW_LIST_SETTLE_S
+        after the unlock (PyNetioConf).
+        """
+        deadline = time.monotonic() + FW_LIST_TIMEOUT_S
+        locked = False
+        unlocked_at: float | None = None
+        previous: Any = None
+        while time.monotonic() < deadline:
+            await asyncio.sleep(FW_LIST_INTERVAL_S)
+            if await self._fw_lock() == "lock":
+                locked = True
+            elif locked and unlocked_at is None:
+                unlocked_at = time.monotonic()
+            items = await self._fw_list()
+            answered = firmware_list_answered(items)
+            if answered and items != before:
+                if items == previous:
+                    return items
+                previous = items
+                continue
+            previous = None
+            if unlocked_at is not None and time.monotonic() - unlocked_at >= FW_LIST_SETTLE_S:
+                if answered:
+                    return items
+                raise NetioCommandError(
+                    "The NETIO asked NETIO's update server and got no answer. Check that the NETIO "
+                    "can reach the internet, then check again."
+                )
+        raise NetioCommandError(
+            f"The NETIO had no answer from NETIO's update server within {int(FW_LIST_TIMEOUT_S)} "
+            f"seconds. Check that the NETIO can reach the internet, then check again."
+        )
+
+    async def _fw_install(self, full: bool) -> None:
+        """Start the update to the newest firmware offered. It returns once
+        the unit has started it; the unit then downloads and restarts, and
+        _fw_follow takes it from there."""
+        self._fw_need_web()
+        offers = await self._fw_check(reuse=True)
+        running = self._fw_running()
+        if not offers:
+            raise NetioCommandError(
+                f"NETIO's update server offers nothing newer than the firmware this NETIO runs "
+                f"({running}), so nothing was installed."
+            )
+        offer = offers[0]
+        link = offer["full"] if full else offer["app"]
+        if not link:
+            raise NetioCommandError(
+                f"NETIO's update server lists firmware {offer['version']} without a download for "
+                f"this kind of update, so nothing was installed. Try the other Update Firmware "
+                f"command."
+            )
+        try:
+            uptime = await self._web_read("system/uptime")
+            await self._web_call(
+                "SET", "system/firmwarelist", {"getFirmwareList": False, "updateFw": link},
+            )
+            await self._fw_wait_for_start()
+        except NetioWebError as exc:
+            raise self._web_refused(exc, "update its firmware") from exc
+        now = time.monotonic()
+        seconds = _as_int(uptime.get("uptime")) if isinstance(uptime, dict) else None
+        self._fw_update = {
+            "target": offer["version"],
+            "target_v": firmware_version(offer["version"]),
+            "started": now,
+            # When the unit last started, to tell its restarts apart from a
+            # dropped connection.
+            "booted": now - (seconds or 0),
+            "restarts": 0,
+        }
+        # They offered an update to the firmware being replaced.
+        self._fw_offers = None
+        self.set_state("firmware_update_status", f"Updating to {offer['version']}")
+        log.info(
+            f"[{self.device_id}] Updating the NETIO from firmware {running} to {offer['version']}, "
+            f"{'with' if full else 'without'} the outlet controller's"
+        )
+
+    async def _fw_wait_for_start(self) -> None:
+        """The unit locks system/lock once it starts the update. One that is
+        gone before it does has started it and is restarting."""
+        deadline = time.monotonic() + FW_START_TIMEOUT_S
+        try:
+            while await self._fw_lock() != "lock":
+                if time.monotonic() >= deadline:
+                    raise NetioCommandError("The NETIO did not start the firmware update.")
+                await asyncio.sleep(FW_LIST_INTERVAL_S)
+        except ConnectionError:
+            return
+
+    def _fw_follow(self, snap: dict[str, Any]) -> None:
+        """How the update in progress is going, on every connect and poll.
+        Updated once the unit runs the new firmware. Back on the old one, it
+        restarted after a failed attempt: failed after the last attempt, else
+        watched for the next one. Failed if it has not finished
+        FW_UPDATE_TIMEOUT_S after it started."""
+        pending = self._fw_update
+        if pending is None:
+            return
+        target = pending["target"]
+        running = self._fw_running()
+        target_v = pending["target_v"]
+        if (self._fw is not None and target_v is not None and self._fw >= target_v) or running == target:
+            self._fw_finish()
+            self.set_states({
+                "firmware_update_status": f"Updated to {target}",
+                "firmware_update_available": False,
+                "firmware_update_version": "",
+            })
+            log.info(f"[{self.device_id}] The NETIO runs firmware {target} now")
+            return
+        now = time.monotonic()
+        uptime = snap.get("system/uptime")
+        seconds = _as_int(uptime.get("uptime")) if isinstance(uptime, dict) else None
+        if seconds is not None and now - seconds - pending["booted"] > FW_RESTART_SLACK_S:
+            pending["booted"] = now - seconds
+            pending["restarts"] += 1
+            if pending["restarts"] >= FW_ATTEMPTS:
+                self._fw_failed(
+                    f"The update to {target} failed: the NETIO restarted on firmware {running} "
+                    f"after {pending['restarts']} attempts."
+                )
+                return
+            self._fw_stop_watch_now()
+            self._fw_retry_watch = asyncio.create_task(self._fw_watch_retry(pending))
+            return
+        if now - pending["started"] > FW_UPDATE_TIMEOUT_S:
+            self._fw_failed(
+                f"The update to {target} did not finish: the NETIO still runs firmware {running} "
+                f"{int(FW_UPDATE_TIMEOUT_S // 60)} minutes after it started."
+            )
+
+    async def _fw_watch_retry(self, pending: dict[str, Any]) -> None:
+        """After a failed attempt, whether the unit starts the next one within
+        FW_RETRY_WAIT_S."""
+        attempt = pending["restarts"] + 1
+        deadline = time.monotonic() + FW_RETRY_WAIT_S
+        try:
+            while time.monotonic() < deadline:
+                await asyncio.sleep(FW_RETRY_INTERVAL_S)
+                if self._fw_update is not pending:
+                    return
+                if await self._fw_lock() == "lock":
+                    self.set_state(
+                        "firmware_update_status",
+                        f"Updating to {pending['target']}: attempt {attempt} of {FW_ATTEMPTS}",
+                    )
+                    return
+        except (ConnectionError, NetioWebError):
+            # Gone again, so restarting: the next connect follows it.
+            return
+        if self._fw_update is pending:
+            self._fw_failed(
+                f"The update to {pending['target']} failed: the NETIO restarted on firmware "
+                f"{self._fw_running()} and did not try again."
+            )
+
+    def _fw_finish(self) -> None:
+        self._fw_update = None
+        self._fw_stop_watch_now()
+
+    def _fw_failed(self, message: str) -> None:
+        self._fw_finish()
+        self.set_states({"firmware_update_status": message, "last_error": message})
+        log.warning(f"[{self.device_id}] {message}")
+
+    def _fw_stop_watch_now(self) -> None:
+        watch, self._fw_retry_watch = self._fw_retry_watch, None
+        if watch is not None and watch is not asyncio.current_task():
+            watch.cancel()
+
+    async def _fw_stop_retry_watch(self) -> None:
+        watch, self._fw_retry_watch = self._fw_retry_watch, None
+        if watch is not None and watch is not asyncio.current_task():
+            watch.cancel()
+            await asyncio.wait({watch})
 
     # ── Commands ──
 
@@ -2268,6 +2655,16 @@ class NetioDriver(BaseDriver):
     async def _cmd_disable_output_schedule(self, params: dict[str, Any]) -> None:
         await self._set_action(params, ACTION_SCHEDULE_OFF)
 
+    async def _cmd_check_firmware_update(self, params: dict[str, Any]) -> None:
+        self._fw_need_web()
+        await self._fw_check(reuse=False)
+
+    async def _cmd_update_firmware_full(self, params: dict[str, Any]) -> None:
+        await self._fw_install(full=True)
+
+    async def _cmd_update_firmware_keep_outlets(self, params: dict[str, Any]) -> None:
+        await self._fw_install(full=False)
+
     _DISPATCH = {
         "refresh": _cmd_refresh,
         "output_on": _cmd_output_on,
@@ -2282,6 +2679,9 @@ class NetioDriver(BaseDriver):
         "reset_output_energy": _cmd_reset_output_energy,
         "enable_output_schedule": _cmd_enable_output_schedule,
         "disable_output_schedule": _cmd_disable_output_schedule,
+        "check_firmware_update": _cmd_check_firmware_update,
+        "update_firmware_full": _cmd_update_firmware_full,
+        "update_firmware_keep_outlets": _cmd_update_firmware_keep_outlets,
     }
 
     async def send_command(self, command: str, params: dict[str, Any] | None = None) -> Any:

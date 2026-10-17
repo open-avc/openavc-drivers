@@ -711,11 +711,16 @@ class _FakeSocket:
     async def _push(self, period):
         while self.state.name == "OPEN":
             await asyncio.sleep(period)
+            if self.session.ended():
+                self.drop()                       # the unit restarted
+                return
             if not self.silent:
                 for frame in self.session.events():
                     self._queue.put_nowait(json.dumps(frame))
 
     async def send(self, text):
+        if self.state.name == "OPEN" and self.session.ended():
+            self.drop()
         if self.state.name != "OPEN":
             raise _FakeConnectionClosed()
         self.sent.append(json.loads(text))
@@ -767,6 +772,8 @@ class _WebHarness:
 
     async def fake_connect(self, url, **kwargs):
         self.opened.append((url, kwargs))
+        if self.sim.restarting():
+            raise _FakeInvalidStatus(503)
         if not self.sim.get_state("web_login_api", True):
             raise _FakeInvalidStatus(404)
         sock = _FakeSocket(SIM.NetioWebSession(self.sim))
@@ -789,6 +796,26 @@ class _WebHarness:
 
     async def settle(self, seconds=0.05):
         await asyncio.sleep(seconds)
+
+    async def until(self, check, timeout=5.0):
+        loop = asyncio.get_running_loop()
+        end = loop.time() + timeout
+        while not check():
+            assert loop.time() < end, "timed out"
+            await asyncio.sleep(0.01)
+
+    async def reconnect(self, timeout=5.0):
+        """What the platform does after a drop: dial again until the unit
+        answers."""
+        loop = asyncio.get_running_loop()
+        end = loop.time() + timeout
+        while True:
+            try:
+                await self.driver.connect()
+                return
+            except ConnectionError:
+                assert loop.time() < end, "the unit never came back"
+                await asyncio.sleep(0.02)
 
 
 def _web(scenario, sim_state=None, driver_config=None, connect=True):
@@ -905,7 +932,9 @@ def test_web_rename_schedule_and_energy_reset_write_the_outputs_settings():
         assert h.out(1, "schedule_enabled") is False
         h.sim.set_state("out1_energy_wh", 50.0)
         await h.driver.send_command("reset_output_energy", {"output": 1})
-        assert h.sim.get_state("out1_energy_wh") == 0.0
+        # Zeroed; the simulated output keeps drawing 40 W, so a push between
+        # the reset and this read may already have counted a fraction of a mWh.
+        assert h.sim.get_state("out1_energy_wh") < 0.001
         await h.settle(0.1)
         assert h.out(1, "energy_start") is not None
     _web(scenario)
@@ -1063,3 +1092,189 @@ def test_web_login_follows_reach_devices_through_where_the_platform_has_it():
 
 def test_the_web_login_needs_nothing_newer_than_0_36_0():
     assert INFO["min_platform_version"] == "0.36.0"
+
+
+# ── Web login: online firmware update ────────────────────────────────────────
+
+
+def _fast(monkeypatch):
+    """The update's clocks, shortened: the simulated unit's, and the driver's
+    waits and message spacing to match (on a unit an attempt takes minutes,
+    far longer than a reconnect's reads)."""
+    for name, value in {"FW_CHECK_S": 0.1, "FW_REBUILD_S": 0.02, "FW_DOWNLOAD_S": 0.5,
+                        "FW_RESTART_S": 0.2, "FW_RETRY_DELAY_S": 0.05}.items():
+        monkeypatch.setattr(SIM, name, value)
+    for name, value in {"FW_LIST_INTERVAL_S": 0.01, "FW_LIST_SETTLE_S": 0.15,
+                        "FW_RETRY_INTERVAL_S": 0.01, "FW_RETRY_WAIT_S": 1.0,
+                        "FW_RESTART_SLACK_S": 0.1, "WEB_SEND_GAP_S": 0.001}.items():
+        monkeypatch.setattr(DRV, name, value)
+
+
+def _sets(h, topic="system/firmwarelist"):
+    return [f["data"] for s in h.sockets for f in s.sent if f.get("type") == "SET" and f["topic"] == topic]
+
+
+def test_the_update_list_before_any_check_and_the_answers_it_can_hold():
+    blank = _data("4ks_fwupdate_list")["items"]        # never checked since the unit started
+    assert _data("8qs_fwupdate_list")["items"] == blank
+    assert DRV.firmware_list_answered(blank) is False and DRV.firmware_offers(blank) == []
+    nothing = [{**blank[0], "name": "No new firmware available"}]
+    assert DRV.firmware_list_answered(nothing) is True and DRV.firmware_offers(nothing) == []
+    offered = [{"name": "Firmware 5.4.0", "version": "5.4.0 beta", "downloadUrl": "https://f/full",
+                "downloadUrlNoMcu": "https://f/app", "releaseNoteEn": ""}]
+    assert DRV.firmware_offers(offered) == [
+        {"name": "Firmware 5.4.0", "version": "5.4.0", "full": "https://f/full", "app": "https://f/app"},
+    ]
+    assert _data("4ks_system_lock")["op"] == "unlock"
+
+
+def test_firmware_commands_ask_first_and_hold_the_offline_fault_back():
+    commands = INFO["commands"]
+    assert "confirm" not in commands["check_firmware_update"]
+    assert "restarts_device_for" not in commands["check_firmware_update"]
+    for name in ("update_firmware_full", "update_firmware_keep_outlets"):
+        assert commands[name]["params"] == {}                 # nothing is chosen for the person
+        assert commands[name]["confirm"] and commands[name]["restarts_device_for"] == 300
+    assert "switches off" in commands["update_firmware_full"]["confirm"]
+    assert "stay as they are" in commands["update_firmware_keep_outlets"]["confirm"]
+
+
+def test_firmware_needs_the_web_login():
+    async def scenario():
+        h = await _connected()
+        sent = len(h.requests)
+        for command in ("check_firmware_update", "update_firmware_full", "update_firmware_keep_outlets"):
+            with pytest.raises(DRV.NetioCommandError, match="needs the web login"):
+                await h.driver.send_command(command, {})
+        assert len(h.requests) == sent
+        await h.driver.disconnect()
+    _run(scenario())
+
+
+def test_web_check_for_a_firmware_update(monkeypatch):
+    _fast(monkeypatch)
+
+    async def scenario(h):
+        h.sim.set_state("update_server", SIM.UPDATE_SERVER[2])
+        with pytest.raises(DRV.NetioCommandError, match="got no answer"):
+            await h.driver.send_command("check_firmware_update", {})
+        h.sim.set_state("update_server", SIM.UPDATE_SERVER[0])
+        await h.driver.send_command("check_firmware_update", {})
+        assert h.st("firmware_update_available") is True and h.st("firmware_update_version") == "5.4.0"
+        h.sim.set_state("update_server", SIM.UPDATE_SERVER[1])
+        await h.driver.send_command("check_firmware_update", {})      # asked again, not reused
+        assert h.st("firmware_update_available") is False and h.st("firmware_update_version") == ""
+        assert _sets(h) == [{"getFirmwareList": True, "updateFw": ""}] * 3
+        assert h.driver._link_alive() is True
+    _web(scenario)
+
+
+def test_web_firmware_needs_a_login_that_may_change_settings(monkeypatch):
+    _fast(monkeypatch)
+
+    async def scenario(h):
+        for command in ("check_firmware_update", "update_firmware_full"):
+            with pytest.raises(DRV.NetioCommandError, match="not allowed"):
+                await h.driver.send_command(command, {})
+        assert "check for a firmware update" in h.st("last_error")
+        assert h.sim.get_state("last_update") == "" and h.driver._link_alive() is True
+    _web(scenario, sim_state={"web_settings_allowed": False})
+
+
+def test_web_full_update_follows_the_unit_through_its_restart(monkeypatch):
+    _fast(monkeypatch)
+
+    async def scenario(h):
+        await h.driver.send_command("update_firmware_full", {})
+        # It returns once the unit has started; one check, then the full link.
+        assert h.sim.get_state("last_update") == "full"
+        assert _sets(h) == [
+            {"getFirmwareList": True, "updateFw": ""},
+            {"getFirmwareList": False, "updateFw": "https://firmware.invalid/netio/5.4.0/full.package"},
+        ]
+        assert h.st("firmware_update_status") == "Updating to 5.4.0"
+        reads = len(h.sock.sent)
+        await h.driver.poll()                          # the unit is left to its download
+        assert len(h.sock.sent) == reads
+        with pytest.raises(DRV.NetioCommandError, match="updating to firmware 5.4.0"):
+            await h.driver.send_command("check_firmware_update", {})
+        await h.until(lambda: h.driver.dropped == 1)   # the unit restarts
+        await h.reconnect()
+        assert h.st("firmware") == "5.4.0" and h.st("firmware_update_status") == "Updated to 5.4.0"
+        assert h.st("firmware_update_available") is False and h.driver._fw_update is None
+    _web(scenario)
+
+
+def test_web_keep_outlets_on_sends_the_link_without_the_outlet_controller(monkeypatch):
+    _fast(monkeypatch)
+
+    async def scenario(h):
+        await h.driver.send_command("check_firmware_update", {})
+        await h.driver.send_command("update_firmware_keep_outlets", {})
+        assert h.sim.get_state("last_update") == "keep outlets on"
+        # The check a moment ago is the answer used; nothing is asked twice.
+        assert _sets(h)[1:] == [
+            {"getFirmwareList": False, "updateFw": "https://firmware.invalid/netio/5.4.0/app.package"},
+        ]
+        await h.until(lambda: h.driver.dropped == 1)
+        await h.reconnect()
+        assert h.st("firmware_update_status") == "Updated to 5.4.0"
+    _web(scenario)
+
+
+def test_web_nothing_newer_installs_nothing(monkeypatch):
+    _fast(monkeypatch)
+
+    async def scenario(h):
+        with pytest.raises(DRV.NetioCommandError, match=r"nothing newer than .* \(5\.4\.0\)"):
+            await h.driver.send_command("update_firmware_full", {})
+        assert _sets(h) == [{"getFirmwareList": True, "updateFw": ""}]
+        assert h.sim.get_state("last_update") == "" and h.st("firmware_update_status") is None
+    _web(scenario, sim_state={"firmware": "5.4.0"})
+
+
+def test_web_a_download_that_keeps_failing_ends_after_three_attempts(monkeypatch):
+    _fast(monkeypatch)
+
+    async def scenario(h):
+        await h.driver.send_command("update_firmware_full", {})
+        for attempt in (1, 2):
+            await h.until(lambda: h.driver.dropped == attempt)
+            await h.reconnect()                        # back on the old firmware
+            want = f"Updating to 5.4.0: attempt {attempt + 1} of 3"
+            await h.until(lambda: h.st("firmware_update_status") == want)
+        await h.until(lambda: h.driver.dropped == 3)
+        await h.reconnect()
+        failed = "The update to 5.4.0 failed: the NETIO restarted on firmware 5.3.1 after 3 attempts."
+        assert h.st("firmware_update_status") == failed and h.st("last_error") == failed
+        assert h.st("firmware") == "5.3.1" and h.driver._fw_update is None
+    _web(scenario, sim_state={"update_download_fails": True})
+
+
+def test_web_a_unit_that_does_not_try_again_has_failed(monkeypatch):
+    _fast(monkeypatch)
+
+    async def scenario(h):
+        await h.driver.send_command("update_firmware_keep_outlets", {})
+        await h.until(lambda: h.driver.dropped == 1)
+        await h.reconnect()
+        await h.until(lambda: h.driver._fw_update is None)
+        assert h.st("firmware_update_status") == (
+            "The update to 5.4.0 failed: the NETIO restarted on firmware 5.3.1 and did not try again."
+        )
+    _web(scenario, sim_state={"update_download_fails": True, "update_retries": False})
+
+
+def test_web_an_update_that_never_finishes_fails_in_time(monkeypatch):
+    _fast(monkeypatch)
+    monkeypatch.setattr(SIM, "FW_DOWNLOAD_S", 60.0)
+
+    async def scenario(h):
+        await h.driver.send_command("update_firmware_full", {})
+        monkeypatch.setattr(DRV, "FW_UPDATE_TIMEOUT_S", 0.0)
+        await h.driver.poll()
+        assert h.st("firmware_update_status").startswith(
+            "The update to 5.4.0 did not finish: the NETIO still runs firmware 5.3.1"
+        )
+        assert h.driver._fw_update is None
+    _web(scenario)

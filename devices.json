@@ -7245,7 +7245,7 @@
         {
           "id": "netio",
           "confidence": "partial",
-          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2. JSON API: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Web login: the same reads, each output's schedule, and the outputs' switching pushed as it happened; outputs switched, toggled, rebooted and switched on for a time (the demo login may not rename outputs, change their schedules or reset energy counters, so those were not run over the web login). Uploading certificates and firmware is not part of this driver."
+          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2. JSON API: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Web login: the same reads, each output's schedule, and the outputs' switching pushed as it happened; outputs switched, toggled, rebooted and switched on for a time (the demo login may not rename outputs, change their schedules or reset energy counters, so those were not run over the web login). Checking for and installing firmware updates was run in the simulator only: the demo login may not change settings. Firmware from a file and certificates are not part of this driver."
         }
       ]
     },
@@ -7413,7 +7413,7 @@
         {
           "id": "netio",
           "confidence": "partial",
-          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2. JSON API: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Web login: the same reads, each output's schedule, and the outputs' switching pushed as it happened; outputs switched, toggled, rebooted and switched on for a time (the demo login may not rename outputs, change their schedules or reset energy counters, so those were not run over the web login). Uploading certificates and firmware is not part of this driver."
+          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2. JSON API: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Web login: the same reads, each output's schedule, and the outputs' switching pushed as it happened; outputs switched, toggled, rebooted and switched on for a time (the demo login may not rename outputs, change their schedules or reset energy counters, so those were not run over the web login). Checking for and installing firmware updates was run in the simulator only: the demo login may not change settings. Firmware from a file and certificates are not part of this driver."
         }
       ]
     },
@@ -7437,7 +7437,7 @@
         {
           "id": "netio",
           "confidence": "partial",
-          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2. JSON API: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Web login: the same reads, each output's schedule, and the outputs' switching pushed as it happened; outputs switched, toggled, rebooted and switched on for a time (the demo login may not rename outputs, change their schedules or reset energy counters, so those were not run over the web login). Uploading certificates and firmware is not part of this driver."
+          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2. JSON API: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Web login: the same reads, each output's schedule, and the outputs' switching pushed as it happened; outputs switched, toggled, rebooted and switched on for a time (the demo login may not rename outputs, change their schedules or reset energy counters, so those were not run over the web login). Checking for and installing firmware updates was run in the simulator only: the demo login may not change settings. Firmware from a file and certificates are not part of this driver."
         }
       ]
     },
@@ -7485,7 +7485,7 @@
         {
           "id": "netio",
           "confidence": "partial",
-          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2. JSON API: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Web login: the same reads, each output's schedule, and the outputs' switching pushed as it happened; outputs switched, toggled, rebooted and switched on for a time (the demo login may not rename outputs, change their schedules or reset energy counters, so those were not run over the web login). Uploading certificates and firmware is not part of this driver."
+          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2. JSON API: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Web login: the same reads, each output's schedule, and the outputs' switching pushed as it happened; outputs switched, toggled, rebooted and switched on for a time (the demo login may not rename outputs, change their schedules or reset energy counters, so those were not run over the web login). Checking for and installing firmware updates was run in the simulator only: the demo login may not change settings. Firmware from a file and certificates are not part of this driver."
         }
       ]
     },
@@ -7509,7 +7509,7 @@
         {
           "id": "netio",
           "confidence": "partial",
-          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2. JSON API: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Web login: the same reads, each output's schedule, and the outputs' switching pushed as it happened; outputs switched, toggled, rebooted and switched on for a time (the demo login may not rename outputs, change their schedules or reset energy counters, so those were not run over the web login). Uploading certificates and firmware is not part of this driver."
+          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2. JSON API: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Web login: the same reads, each output's schedule, and the outputs' switching pushed as it happened; outputs switched, toggled, rebooted and switched on for a time (the demo login may not rename outputs, change their schedules or reset energy counters, so those were not run over the web login). Checking for and installing firmware updates was run in the simulator only: the demo login may not change settings. Firmware from a file and certificates are not part of this driver."
         }
       ]
     },
@@ -7581,7 +7581,7 @@
         {
           "id": "netio",
           "confidence": "partial",
-          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2. JSON API: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Web login: the same reads, each output's schedule, and the outputs' switching pushed as it happened; outputs switched, toggled, rebooted and switched on for a time (the demo login may not rename outputs, change their schedules or reset energy counters, so those were not run over the web login). Uploading certificates and firmware is not part of this driver."
+          "notes": "Run against NETIO's public demo units on firmware 5.3.1 and 5.3.2. JSON API: identity, outputs, inputs, metering, watchdogs, rules and power analysis blocks read; outputs switched, toggled, rebooted, switched on for a time and renamed. Web login: the same reads, each output's schedule, and the outputs' switching pushed as it happened; outputs switched, toggled, rebooted and switched on for a time (the demo login may not rename outputs, change their schedules or reset energy counters, so those were not run over the web login). Checking for and installing firmware updates was run in the simulator only: the demo login may not change settings. Firmware from a file and certificates are not part of this driver."
         }
       ]
     },

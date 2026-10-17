@@ -1,0 +1,11 @@
+{"type":"REPLY","reqId":2,"data":{
+  "items":[
+      {
+       "name":"",
+       "version":"",
+       "downloadUrl":"",
+       "downloadUrlNoMcu":"",
+       "releaseNoteEn":""
+    }
+  ]
+},"status":"OK"}

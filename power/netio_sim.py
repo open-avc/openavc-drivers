@@ -35,6 +35,18 @@ answers 404; a malformed or impossible write answers 400 with the error list
 and no enclosing braces, as the demo units do. The web server restart that
 follows saving the JSON API settings is the ``web_server_restarting`` error
 mode (500 to everything).
+
+The online firmware update, over the web login, follows PyNetioConf: a check
+(SET system/firmwarelist with getFirmwareList) holds system/lock locked while
+the unit asks NETIO's update server, then fills fwupdate/list; an update (SET
+with updateFw set to an offered link) locks it while the firmware downloads,
+then the unit restarts. NETIO's update server is not reached: what it answers
+is a choice in the Simulator UI, and the download takes about ten seconds.
+While the unit restarts every web login is closed and it answers 503 to
+everything. A failed download restarts it on the old firmware and, unless
+"Unit tries a failed download again" is off, it tries again, three attempts in
+all. Until its first check since it started, fwupdate/list holds one item with
+every field empty, as every demo unit's did.
 """
 
 import asyncio
@@ -87,6 +99,20 @@ WEB_REQUESTS = {"off": 0, "on": 1, "soff": 2, "son": 3, "toggle": 4}
 WEB_LIST_TOPICS = ("outputs/list", "inputs/list")
 WEB_PUSHED_TOPICS = ("outputs/measure", "outputs/globalmeasure", "outputs/state")
 
+# The online firmware update. The unit rebuilds fwupdate/list about 0.4 s after
+# a check unlocks system/lock (PyNetioConf).
+FW_NEWER = "5.4.0"
+FW_CHECK_S = 1.0
+FW_REBUILD_S = 0.4
+# Long enough that two restarts in a row are further apart than a driver can
+# mistake for one, as on a unit, where each attempt takes minutes.
+FW_DOWNLOAD_S = 12.0
+FW_RESTART_S = 3.0
+FW_RETRY_DELAY_S = 1.0
+FW_ATTEMPTS = 3
+UPDATE_SERVER = ["offers newer firmware", "offers nothing newer", "does not answer"]
+FW_BLANK_ITEM = {"name": "", "version": "", "downloadUrl": "", "downloadUrlNoMcu": "", "releaseNoteEn": ""}
+
 
 def _version(text):
     match = re.search(r"(\d+)\.(\d+)\.(\d+)", str(text or ""))
@@ -113,9 +139,15 @@ class NetioWebSession:
         self.stamp = None
         self.subscribed = set()
         self._sent_lists = {}
+        self._generation = sim.generation
 
     def _fw(self):
         return _version(self.sim.get_state("firmware", "5.3.1"))
+
+    def ended(self):
+        """Whether the unit restarted since this connection opened."""
+        self.sim.fw_tick()
+        return self.sim.generation != self._generation
 
     def handle(self, text):
         try:
@@ -246,6 +278,11 @@ class NetioSimulator(HTTPSimulator):
             "write_enabled": True,
             "web_login_api": True,
             "web_settings_allowed": True,
+            "update_server": UPDATE_SERVER[0],
+            "update_download_fails": False,
+            "update_retries": True,
+            # Which update was last started: "full" or "keep outlets on".
+            "last_update": "",
             "sensor_connected": False,
             "in1_temperature_c": 22.5,
             "in1_humidity": 40.0,
@@ -336,7 +373,18 @@ class NetioSimulator(HTTPSimulator):
             {"type": "toggle", "key": "write_login_required", "label": "Login required to write"},
             {"type": "toggle", "key": "web_login_api", "label": "Web login available"},
             {"type": "toggle", "key": "web_settings_allowed",
-             "label": "Web login may change output settings"},
+             "label": "Web login may change settings"},
+            {
+                "type": "group",
+                "label": "Firmware update",
+                "controls": [
+                    {"type": "select", "key": "update_server", "label": "NETIO's update server",
+                     "options": UPDATE_SERVER},
+                    {"type": "toggle", "key": "update_download_fails", "label": "Firmware download fails"},
+                    {"type": "toggle", "key": "update_retries",
+                     "label": "Unit tries a failed download again"},
+                ],
+            },
             {
                 "type": "group",
                 "label": "Inputs",
@@ -365,10 +413,20 @@ class NetioSimulator(HTTPSimulator):
 
     def __init__(self, device_id, config=None):
         super().__init__(device_id, config)
-        self._started = time.monotonic()
+        # A unit that has been up for a while, as a real one in a rack has.
+        self._started = time.monotonic() - 3 * 86400
         self._metered_at = time.monotonic()
         # output -> (monotonic deadline, on afterwards) for a short on/off in progress
         self._pending = {}
+        # The online firmware update: fwupdate/list, a check in progress (when
+        # it answers, and the list it answers with or None for no answer), the
+        # update in progress, and the restart that ends a download (every web
+        # login opened before it is closed; 503 until it is over).
+        self._fw_list = [dict(FW_BLANK_ITEM)]
+        self._fw_check = None
+        self._fw_job = None
+        self._down_until = 0.0
+        self.generation = 0
 
     # ── Model ──
 
@@ -388,6 +446,8 @@ class NetioSimulator(HTTPSimulator):
     # ── Requests ──
 
     def handle_request(self, method, path, headers, body):
+        if self.restarting():
+            return 503, "Service Unavailable"
         if "web_server_restarting" in self.active_errors:
             return 500, '"errors":[{"code":500,"message":"Internal Server Error"}]'
         clean = path.split("?")[0]
@@ -669,6 +729,9 @@ class NetioSimulator(HTTPSimulator):
     async def _serve_web_login(self, request):
         from aiohttp import WSMsgType, web
 
+        if self.restarting():
+            self.log_protocol("in", f"GET {WEB_PATH} (restarting)")
+            return web.Response(status=503, text="Service Unavailable")
         if not self.get_state("web_login_api", True):
             self.log_protocol("in", f"GET {WEB_PATH} (no web login on this firmware)")
             return web.Response(status=404, text="Not Found")
@@ -680,6 +743,10 @@ class NetioSimulator(HTTPSimulator):
         async def push():
             while not ws.closed:
                 await asyncio.sleep(WEB_PUSH_S)
+                if session.ended():
+                    self.log_protocol("out", f"{WEB_PATH} closed (the unit restarts)")
+                    await ws.close()
+                    return
                 if self.has_error_behavior("no_response"):
                     continue
                 try:
@@ -693,6 +760,9 @@ class NetioSimulator(HTTPSimulator):
             async for msg in ws:
                 if msg.type != WSMsgType.TEXT or self.has_error_behavior("no_response"):
                     continue
+                if session.ended():
+                    await ws.close()
+                    break
                 self.log_protocol("in", msg.data[:300])
                 for frame in session.handle(msg.data):
                     text = json.dumps(frame)
@@ -701,6 +771,86 @@ class NetioSimulator(HTTPSimulator):
         finally:
             pusher.cancel()
         return ws
+
+    # ── Online firmware update ──
+
+    def restarting(self):
+        """Whether the unit is restarting after a firmware download."""
+        self.fw_tick()
+        return time.monotonic() < self._down_until
+
+    def fw_tick(self):
+        """Move a check or an update on to where the clock says it is."""
+        now = time.monotonic()
+        check = self._fw_check
+        if check is not None and now >= check[0] + FW_REBUILD_S:
+            if check[1] is not None:
+                self._fw_list = check[1]
+            self._fw_check = None
+        job = self._fw_job
+        if job is None or now < job["restart_at"]:
+            return
+        # The download ended, and the unit restarts with whatever it got.
+        self.generation += 1
+        self._down_until = job["restart_at"] + FW_RESTART_S
+        self._started = self._down_until
+        self._fw_list = [dict(FW_BLANK_ITEM)]
+        self._fw_check = None
+        if not self.get_state("update_download_fails", False):
+            self.set_state("firmware", job["target"])
+            self._fw_job = None
+            return
+        job["attempt"] += 1
+        if job["attempt"] > FW_ATTEMPTS or not self.get_state("update_retries", True):
+            self._fw_job = None
+            return
+        job["download_from"] = self._down_until + FW_RETRY_DELAY_S
+        job["restart_at"] = job["download_from"] + FW_DOWNLOAD_S
+
+    def _fw_locked(self):
+        now = time.monotonic()
+        if self._fw_check is not None and now < self._fw_check[0]:
+            return True
+        job = self._fw_job
+        return job is not None and job["download_from"] <= now < job["restart_at"]
+
+    def _fw_offer(self):
+        return {
+            "name": f"NETIO firmware {FW_NEWER}",
+            "version": FW_NEWER,
+            "downloadUrl": f"https://firmware.invalid/netio/{FW_NEWER}/full.package",
+            "downloadUrlNoMcu": f"https://firmware.invalid/netio/{FW_NEWER}/app.package",
+            "releaseNoteEn": "Simulated release.",
+        }
+
+    def _fw_set(self, data, ok, error):
+        if not self.get_state("web_settings_allowed", True):
+            return error("Unauthorized", "Client is not authorized to perform this operation.")
+        data = data if isinstance(data, dict) else {}
+        self.fw_tick()
+        now = time.monotonic()
+        if data.get("getFirmwareList"):
+            server = str(self.get_state("update_server", UPDATE_SERVER[0]))
+            if server == UPDATE_SERVER[2]:
+                answer = None
+            elif server == UPDATE_SERVER[0] and _version(self.get_state("firmware")) < _version(FW_NEWER):
+                answer = [self._fw_offer()]
+            else:
+                answer = [{**FW_BLANK_ITEM, "name": "No new firmware available"}]
+            self._fw_check = (now + FW_CHECK_S, answer)
+            return ok()
+        link = str(data.get("updateFw") or "")
+        for item in self._fw_list:
+            if link and link in (item.get("downloadUrl"), item.get("downloadUrlNoMcu")):
+                self.set_state("last_update", "full" if link == item["downloadUrl"] else "keep outlets on")
+                self._fw_job = {
+                    "target": str(item["version"]).split()[0],
+                    "attempt": 1,
+                    "download_from": now,
+                    "restart_at": now + FW_DOWNLOAD_S,
+                }
+                return ok()
+        return error("MissingParameter", "Missing request parameter")
 
     def _brand(self):
         model = str(self.get_state("model", "4KS"))
@@ -744,9 +894,16 @@ class NetioSimulator(HTTPSimulator):
         this firmware does not have."""
         self._settle()
         self._meter()
+        self.fw_tick()
         outputs, inputs, metering = self._model()
         fw = _version(self.get_state("firmware", "5.3.1"))
         voltage = float(self.get_state("voltage", 230.0))
+        if topic == "system/lock":
+            # The demo units' reason, read while unlocked.
+            return {"op": "lock" if self._fw_locked() else "unlock",
+                    "reason": "Communicating with cloud server", "timeoutMs": 30000}
+        if topic == "fwupdate/list":
+            return {"items": [dict(item) for item in self._fw_list]}
         if topic == "system/info":
             model, brand = self._brand()
             return {
@@ -864,6 +1021,8 @@ class NetioSimulator(HTTPSimulator):
         return None
 
     def web_set(self, topic, data, ok, error):
+        if topic == "system/firmwarelist":
+            return self._fw_set(data, ok, error)
         match = re.fullmatch(r"outputs/id/(\d+)/(ctrl|config|resetOutputConsumption)", topic)
         if not match:
             return error("TopicNotFonud", "Topic not found")

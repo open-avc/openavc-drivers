@@ -416,6 +416,23 @@ def test_aspect_device_setting_round_trip():
     asyncio.run(go())
 
 
+def test_auto_aspect_round_trips_through_the_simulator():
+    async def go():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            await driver.set_device_setting("aspect", "Auto")
+            assert sim.get_state("ASPECT") == "30"
+            assert sim.handle_command(b"ASPECT?\r") == b"ASPECT=00 30\r:"
+            driver.state.data.pop("aspect_name", None)
+            await driver.poll()
+            assert driver.get_state("aspect_name") == "Auto"
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
 def test_an_aspect_reported_with_auto_selected_reads_as_auto():
     # An EB-L530U set to Auto answers ASPECT? with the aspect it applies and a
     # fixed 30; with any other setting it answers one code.

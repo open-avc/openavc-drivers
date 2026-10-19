@@ -202,7 +202,10 @@ class EpsonEscVpSimulator(TCPSimulator):
         if key == "FREEZE":
             return self._respond_kv("FREEZE", state.get("FREEZE", "OFF"))
         if key == "ASPECT":
-            return self._respond_kv("ASPECT", state.get("ASPECT", "00"))
+            aspect = state.get("ASPECT", "00")
+            # With Auto selected a projector reports the aspect it applies
+            # and a fixed 30 (an EB-L530U answers ASPECT=00 30).
+            return self._respond_kv("ASPECT", "00 30" if aspect == "30" else aspect)
         if key == "CMODE":
             return self._respond_kv("CMODE", state.get("CMODE", "04"))
         if key == "LAMP":

@@ -254,7 +254,7 @@
       "format": "python",
       "files": {
         "projectors/epson_escvp.py": "a96efb9b1915d51ac8cfd0534baeaf75456a4b542f78515b60cae27262bf458e",
-        "projectors/epson_escvp_sim.py": "db3f5d48ce2159a02a40378d72328979a00d12dca141a6bb8559ffdd8b17337d"
+        "projectors/epson_escvp_sim.py": "34ada5c7c11d03834772a94fdf0002ca20b042515c4291b1381e6094bff345b0"
       },
       "ports": [
         3629

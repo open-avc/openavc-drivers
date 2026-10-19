@@ -145,6 +145,9 @@
               "required": true,
               "nullable": false
             }
+          ],
+          "runtime_surfaces": [
+            "commands"
           ]
         }
       ]
@@ -535,6 +538,11 @@
               "required": true,
               "nullable": false
             }
+          ],
+          "runtime_surfaces": [
+            "commands",
+            "state_variables",
+            "actions"
           ]
         }
       ]
@@ -603,7 +611,13 @@
             "success": "success",
             "message": "message"
           },
-          "diagnostics": []
+          "diagnostics": [],
+          "runtime_surfaces": [
+            "commands",
+            "state_variables",
+            "device_settings",
+            "child_entity_types"
+          ]
         }
       ]
     },

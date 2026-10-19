@@ -469,6 +469,9 @@ ship with it, run under this repo's suite — see
 Python sources. Each entry pins a historical Git commit, file path and
 SHA-256, driver ID/version and any legacy setup result mappings. Keep existing
 entries when updating a driver; installed copies may still use those bytes.
+Add and qualify an entry for each changed current Python driver before updating
+the platform resource. The catalog coverage check names sources without an exact
+input entry; adding an entry does not itself qualify the source or its dependencies.
 An action's optional `runtime_surfaces` lists qualified per-instance control
 sections from the compatibility schema. Test the actual configured instance and
 role changes. Setup entries remain exact; an `actions` exception permits only

@@ -3,6 +3,7 @@
 These synthetic values pin each mapping's field names/types. They do not replace
 handler execution, platform-loader identity or installed-upgrade qualification.
 """
+import hashlib
 import json
 from pathlib import Path
 
@@ -44,6 +45,20 @@ RESULTS = {
     "poly_studio": {"reachable": True, "auth_ok": True, "saved": False, "message": "Accepted"},
     "tvone_coriomaster": {"success": True, "message": "Logged in"},
 }
+
+
+def test_current_catalog_python_sources_have_exact_coverage_inputs():
+    inputs = {(entry['path'], entry['source_sha256'], entry['driver_id'], entry['driver_version'])
+              for entry in SOURCES}
+    catalog = json.loads((ROOT / 'index.json').read_text())['drivers']
+    missing = []
+    for entry in catalog:
+        path = entry['file']
+        if path.endswith('.py'):
+            digest = hashlib.sha256((ROOT / path).read_bytes()).hexdigest()
+            if (path, digest, entry['id'], entry['version']) not in inputs:
+                missing.append(path)
+    assert not missing, f'Qualify and retain current source coverage inputs: {missing}'
 
 
 def descriptor(entry):

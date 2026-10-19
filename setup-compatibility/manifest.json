@@ -1151,6 +1151,14 @@
       "driver_id": "vmix",
       "driver_version": "2.3.6",
       "actions": []
+    },
+    {
+      "revision": "f4d5fcff2402ca789b8445b6cc6112e0b3b24f61",
+      "path": "audio/dante_ddm.py",
+      "source_sha256": "2a756d5c9e3e3e9a4c6ad8ea2e5a88fa417cd174869d18d9940ff09504a1a33a",
+      "driver_id": "dante_ddm",
+      "driver_version": "1.7.7",
+      "actions": []
     }
   ]
 }

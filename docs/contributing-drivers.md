@@ -43,7 +43,7 @@ Guide for contributing device drivers to the OpenAVC community library.
    python -m openavc.drivers.check path/to/my_driver.py
    ```
    See [Checking one driver file](#checking-one-driver-file) below.
-   Both print the platform's warnings as well. A warning never fails the
+   Both print the platform's warnings for a YAML driver as well. A warning never fails the
    build, except one: CI fails a YAML driver whose poll would take longer than
    its poll interval, at its default config or at the largest roster it
    accepts.
@@ -163,7 +163,7 @@ When fingerprints from two drivers both match one device, the Discovery card off
 
 When you bump a driver to use a field your platform target may lack, set `min_platform_version` so older OpenAVC instances grey out the driver instead of trying to parse fields they don't understand.
 
-You don't have to work that version out by hand. Fields added in a particular release say so in their schema description ("Requires platform 0.23.0"), and `build_index.py` reads the same annotation: it computes the highest floor your driver reaches and fails the build when `min_platform_version` is lower — or missing — naming the field responsible. Don't pad the number to be safe, either. That version is exactly what decides who can install the driver, so an inflated floor shuts out people whose platform would have run it fine.
+You don't have to work that version out by hand. Fields added in a particular release say so in their schema description ("Requires platform 0.23.0"), and `build_index.py` reads the same annotation: it computes the highest floor your driver reaches and fails the build when `min_platform_version` is lower, or missing, naming the field responsible. It reads only what a driver declares, so set the floor yourself for what it cannot see: a Python driver that calls `self.local_address()`, or a simulator notice that uses `{state.<key>}` (both 0.37.0). Don't pad the number to be safe, either. That version is exactly what decides who can install the driver, so an inflated floor shuts out people whose platform would have run it fine.
 
 When the device's protocol fits none of these patterns, leave the `discovery:` block empty (or off) and open an issue describing the wire format — or contribute the listener / probe upstream as a generic core capability.
 
@@ -174,6 +174,7 @@ Drivers should include help text to assist users and the AI assistant:
 - **Driver-level help** (`help.overview` and `help.setup`): What the driver controls and step-by-step connection instructions. Shown in the Add Device dialog.
 - **Command help** (`help` field on each command): What the command does. Shown when selecting commands in the Programmer IDE.
 - **Parameter help** (`help` field on each parameter): What values are expected. Shown below parameter input fields.
+- **Parameter labels** (`label` on each command parameter): the field's name on every form that sends the command. A parameter with no label shows its key made readable (`input_id` reads "Input ID") and gets a validation warning.
 
 Example for a `.avcdriver` file:
 

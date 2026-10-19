@@ -179,7 +179,7 @@ The handler code has access to:
 | Variable | Description |
 |----------|-------------|
 | `match` | The regex match object (use `match.group(1)`, etc.) |
-| `state` | Mutable state dict. Writes trigger UI updates. |
+| `state` | Mutable state dict, in real values (after `scale` / `offset`). Writes trigger UI updates. |
 | `config` | Device config from the project file |
 | `respond(text)` | Send a response to the driver. Include the protocol delimiter. |
 | `reply(key)` | The text the device sends to report a state key's current value: the same reply a query of that key gets, in the device's own numbers (converted, padded to the width its rule reads), without the delimiter. `None` when no response rule describes the key. For a handler answering a "report everything" request, so it never repeats a conversion: `respond("".join(reply(k) + ">" for k in keys))`. TCP, serial and UDP handlers; needs platform 0.37.0. |
@@ -295,9 +295,9 @@ In a Python simulator, the same mapping goes in `SIMULATOR_INFO["capacity"]`.
 |-------|---------|
 | `rx_buffer` | Bytes the device holds before it reads them. What arrives while they are all in use is lost. Required. |
 | `process_ms` | Milliseconds the device spends on each message before it takes the next. Required. Not `delays.command_response`, which is how long a reply takes: the simulator answers one message at a time, so a message takes the longer of the two. |
-| `on_overflow` | `discard` (the default): the device carries on with what it kept. `silence`: it stops answering until the connection closes; over UDP, until Capacity is switched off. |
+| `on_overflow` | `discard` (the default): the device carries on with what it kept. `silence`: it stops answering until the connection closes; over UDP or OSC, until Capacity is switched off. |
 
-Capacity is off until it is switched on for a device in the Simulator UI, so declaring it changes nothing in an ordinary simulator run. Switched on, a driver that sends a burst faster than the device can take it loses part of it, the way it does on the device. A driver that declares nothing gets the simulator's own numbers, which are not any device's. A message is what the simulator reads as one: a line, a frame ending in its `delimiter`, or one `send_frame` packet. TCP, serial and UDP devices have the setting; HTTP devices do not. In a YAML driver it raises the driver's `min_platform_version` to 0.37.0 when the catalog is built.
+Capacity is off until **Limit what this device can take in** is ticked under Capacity on the device's card in the Simulator UI, so declaring it changes nothing in an ordinary simulator run. Switched on, a driver that sends a burst faster than the device can take it loses part of it, the way it does on the device. A driver that declares nothing gets the simulator's own numbers, which are not any device's. A message is what the simulator reads as one: a line, a frame ending in its `delimiter`, or one `send_frame` packet. HTTP, MQTT and WebSocket devices have no Capacity setting; every other device does. In a YAML driver it raises the driver's `min_platform_version` to 0.37.0 when the catalog is built.
 
 ### Complete Example
 
@@ -486,10 +486,10 @@ simulator:
 When a `notifications` entry exists for a state variable, it takes priority over the auto-generated push for that variable. Variables without a `notifications` entry still use the automatic format.
 
 **Template variables:**
-- `{value}` is replaced with the new state value
+- `{value}` is replaced with the new state value, as the device's own number when the variable declares `scale` or `offset`
 - `{key}` is replaced with the state variable name
 - An optional format spec renders the value like Python's `format()`: `{value:d}` turns a boolean into `0`/`1` (handy for protocols whose frames carry numeric flags), `{value:04X}` hex-pads, and so on. Values that can't take the spec fall back to plain text.
-- `{state.<key>}` is replaced with another simulator state key's current value, and takes the same format specs. Use it when one notice reports several fields and only one of them changed: `'In {state.in1_gain},{value},{state.in1_mute:d}'` for a level change (openavc 0.37.0).
+- `{state.<key>}` is replaced with another simulator state key's current value, also as the device's own number, and takes the same format specs. The catalog build cannot see it, so set `min_platform_version: "0.37.0"` yourself. Use it when one notice reports several fields and only one of them changed: `'In {state.in1_gain},{value},{state.in1_mute:d}'` for a level change (openavc 0.37.0).
 
 **Multicast push drivers.** When the driver declares a multicast `push:` block (a device whose notifications go to a multicast group instead of the control connection), the simulator emits every `notifications` template to that group and port — and does **not** send them to connected control clients, matching the real device. `push_state` is not required for this path; just author the `notifications` map so its output matches the driver's response rules. The group and port resolve from the driver's config fields the same way the live driver resolves them. One note for multi-device testing: simulated devices all emit from the same host, so two simulated units of the same driver will see each other's frames — real devices are told apart by their source address, which simulation can't reproduce.
 
@@ -1046,11 +1046,11 @@ telnet 127.0.0.1 19000
 ### Test with OpenAVC
 
 1. Start OpenAVC with a project that uses your driver
-2. Click the **Simulate** button in the Programmer IDE sidebar
+2. Click **Simulate Devices** in the Programmer's sidebar, then **Start Simulation**
 3. The simulator starts and your driver reconnects to the simulated device
-4. Open the Simulator UI (auto-opens in a new tab) to see state and protocol traffic
+4. The Simulator UI opens in a new tab to show state and protocol traffic; **Open Simulator UI**, above the simulation button, opens it again
 5. Use the Simulator UI controls to change device state and verify the driver reacts correctly
-6. Click Simulate again to stop and restore real connections
+6. Click **Stop Simulation** to restore real connections
 
 ### What to Verify
 
@@ -1058,6 +1058,7 @@ telnet 127.0.0.1 19000
 - State updates are reflected in the Simulator UI
 - Polling queries return current state
 - Error injection (timeout, corrupt data) works as expected
+- With **Device stops responding** on, the device goes offline in OpenAVC, and comes back once it is turned off
 - If you have state machines, verify the timing and transitions
 
 ---

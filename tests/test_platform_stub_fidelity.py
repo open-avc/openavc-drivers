@@ -655,6 +655,22 @@ def test_redact_in_log_accepts_the_same_values(monkeypatch):
         registry.forget("widget_1")
 
 
+def test_setup_secret_registration_uses_explicit_context_on_both(monkeypatch):
+    from types import SimpleNamespace
+    stub, _, real, _ = _make_pair(monkeypatch)
+    for driver in (stub, real):
+        with pytest.raises(RuntimeError):
+            driver.register_setup_secret({"app_key": "fixture-generated"})
+        seen = []
+        driver._setup_context = SimpleNamespace(register_secret=lambda values: seen.append(values) or 7)
+        with pytest.raises(ValueError):
+            driver.register_setup_secret({"app_key": 123})
+        assert seen == []
+        assert driver.register_setup_secret({"app_key": "fixture-generated"}) == 7
+        assert seen == [{"app_key": "fixture-generated"}]
+        driver._setup_context = None
+
+
 def test_undeclared_state_raises_in_strict_mode_on_both(monkeypatch):
     """Strict mode is the external author's gate. If the stub did not carry it,
     turning it on in this repo -- where driver authors actually run tests --

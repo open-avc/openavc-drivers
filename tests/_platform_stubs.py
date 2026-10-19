@@ -496,6 +496,7 @@ class StubBaseDriver:
         # keeps these in a process-wide registry the transport formatter reads;
         # here they are just recorded so a test can assert on them.
         self.redacted_secrets: set[str] = set()
+        self._setup_context = None
         # Datagrams the driver sent beside its transport through send_udp() /
         # wake_on_lan(): (payload, host, port). The platform opens a socket
         # per send; here the bytes are recorded so a test can assert on them.
@@ -639,6 +640,16 @@ class StubBaseDriver:
         raise NotImplementedError(
             f"{type(self).__name__} has no setup action {action_id!r}"
         )
+
+    def register_setup_secret(self, values: dict[str, str]) -> int:
+        """Use the fixture's explicit setup context, as the real driver does."""
+        if self._setup_context is None:
+            raise RuntimeError("register_setup_secret is only available during a setup action")
+        if not isinstance(values, dict) or not all(isinstance(v, str) for v in values.values()):
+            raise ValueError("Setup credential values must be strings")
+        for value in values.values():
+            self.redact_in_log(value)
+        return self._setup_context.register_secret(values)
 
     def redact_in_log(self, value: str) -> None:
         """Mask a runtime secret (a session token) in this device's log.

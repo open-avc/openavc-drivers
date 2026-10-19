@@ -13,8 +13,15 @@ Covers the v1.4.0 additions:
     (brightness / contrast deliberately excluded — ESC/VP21 has no query verb,
     so no read-back);
   - quick actions;
-  - the connection-fault fix: a handshake timeout now words as no_response and
-    a rejected handshake (password set / version mismatch) as auth_failed.
+  - the connection-fault fix: a handshake timeout is typed no_response.
+
+And the v1.5.0 additions:
+  - the Monitor Password, sent in the handshake's 18-byte password header,
+    checked by the simulator (0x20 / 0x41 / 0x43);
+  - each refusal status typed to its own offline reason and sentence;
+  - the refusal judged while the reply is parsed, so it is the offline reason
+    even when the projector's close is seen first (the EB-L530U answers 0x45
+    and closes at once).
 
 Loads the driver + simulator with the ``openavc.*`` imports
 stubbed so the community CI stays self-contained (conftest.py rolls the stubs
@@ -35,6 +42,7 @@ import pytest
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
     CallableFrameParser as _CallableFrameParser,
+    ConnectionFaultError as _ConnectionFaultError,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -51,19 +59,23 @@ _ORIG_WAIT_FOR = asyncio.wait_for
 # Harness knobs set per test.
 _CURRENT_SIM: object | None = None
 _DROP_HANDSHAKE = False   # projector never answers -> connect timeout
-_REJECT_HANDSHAKE = False  # projector answers with a non-ok status byte
+# When set, the raw handshake reply sent instead of the simulator's verdict.
+_HANDSHAKE_REPLY: bytes | None = None
 # When a list, replies are held here instead of delivered, until _flush():
 # a projector that answers after later lines have already gone out.
 _HELD: list | None = None
+# Every transport the harness built, newest last.
+_TRANSPORTS: list = []
 
 
 class _FakeTCPTransport:
     """Stand-in for TCPTransport that speaks ESC/VP.net to the live sim.
 
-    The driver sends the 16-byte handshake first; this answers it (or drops /
-    rejects it per the harness knobs), then routes ESC/VP21 lines to the sim's
-    handle_command. Replies are fed through the driver's own frame parser so the
-    handshake->colon framing state machine is exercised for real.
+    The driver sends the handshake first; the simulator judges it (its
+    password check, its error modes) unless a harness knob drops it or forces
+    a reply, then ESC/VP21 lines go to the sim's handle_command. Replies are
+    fed through the driver's own frame parser so the handshake->colon framing
+    state machine is exercised for real.
     """
 
     def __init__(self) -> None:
@@ -72,6 +84,7 @@ class _FakeTCPTransport:
         self._sim = None
         self._parser = None
         self.lines: list[bytes] = []
+        self.handshake: bytes | None = None
 
     @classmethod
     async def create(cls, *, host, port, on_data, on_disconnect, delimiter=None,
@@ -82,20 +95,21 @@ class _FakeTCPTransport:
         t.connected = True
         t._sim = _CURRENT_SIM
         t._parser = frame_parser
+        _TRANSPORTS.append(t)
         return t
 
     async def send(self, data):
         if not self.connected:
             raise ConnectionError("transport closed")
         data = bytes(data)
-        if data == DRV.HANDSHAKE_REQUEST:
+        if self.handshake is None and data.startswith(b"ESC/VP.net"):
+            self.handshake = data
             if _DROP_HANDSHAKE:
                 return
-            raw = (
-                b"ESC/VP.net\x10\x03\x00\x00\x00\x00"  # status 0x00 = not ok
-                if _REJECT_HANDSHAKE
-                else DRV.HANDSHAKE_REPLY_OK
-            )
+            raw = _HANDSHAKE_REPLY
+            if raw is None:
+                status = self._sim._handshake_status(data[DRV.HANDSHAKE_LEN:])
+                raw = SIM._handshake_reply(status)
         else:
             raw = self._sim.handle_command(data)
             self.lines.append(data)
@@ -243,6 +257,7 @@ class _FakeTCPSimulator:
         self.device_id = device_id
         self.config = config or {}
         self.state = dict(self.SIMULATOR_INFO.get("initial_state", {}))
+        self.active_errors: set[str] = set()
 
     def set_state(self, key, value) -> None:
         self.state[key] = value
@@ -261,6 +276,7 @@ def _load(name: str, path: Path) -> ModuleType:
         sys.modules[f"openavc.{sub}"] = m
     base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
+    base.ConnectionFaultError = _ConnectionFaultError
     sys.modules["openavc.drivers.base"] = base
     tcp = ModuleType("openavc.transport.tcp")
     tcp.TCPTransport = _FakeTCPTransport
@@ -292,11 +308,12 @@ SIM = _load("epson_escvp_sim_under_test", SIM_PATH)
 
 # ── Pairing harness ─────────────────────────────────────────────────────────
 
-async def _make_pair(driver_overrides=None):
-    global _CURRENT_SIM, _DROP_HANDSHAKE, _REJECT_HANDSHAKE
+async def _make_pair(driver_overrides=None, sim_config=None):
+    global _CURRENT_SIM, _DROP_HANDSHAKE, _HANDSHAKE_REPLY
     _DROP_HANDSHAKE = False
-    _REJECT_HANDSHAKE = False
-    sim = SIM.EpsonEscVpSimulator("sim1", {})
+    _HANDSHAKE_REPLY = None
+    _TRANSPORTS.clear()
+    sim = SIM.EpsonEscVpSimulator("sim1", sim_config or {})
     _CURRENT_SIM = sim
 
     cfg = {"host": "10.0.0.9", "port": 3629, "poll_interval": 0}
@@ -308,7 +325,17 @@ async def _make_pair(driver_overrides=None):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.EpsonEscVpDriver.DRIVER_INFO["version"] == "1.4.3"
+    assert DRV.EpsonEscVpDriver.DRIVER_INFO["version"] == "1.5.0"
+
+
+def test_monitor_password_field_is_secret_with_no_default():
+    info = DRV.EpsonEscVpDriver.DRIVER_INFO
+    field = info["config_schema"]["password"]
+    assert field["type"] == "string"
+    assert field["secret"] is True
+    assert field["label"] == "Monitor Password"
+    assert "default" not in field
+    assert "password" not in info["default_config"]
 
 
 def test_device_settings_declared():
@@ -416,19 +443,127 @@ def test_unknown_device_setting_raises():
     asyncio.run(go())
 
 
-# ── Connection-fault fix: handshake failures are classifier-worded ──────────
+# ── The handshake: password header and refusals ─────────────────────────────
 
-def test_handshake_rejected_is_auth_failed():
+def test_handshake_bytes_without_and_with_a_password():
+    assert DRV.handshake_request("") == bytes.fromhex(
+        "4553432f56502e6e6574100300000000"
+    )
+    # Header count 1, then identifier 0x01 (Password), attribute 0x01 (plain
+    # text) and the password NUL-padded to 16 bytes: 34 bytes in all.
+    assert DRV.handshake_request("abc12345") == bytes.fromhex(
+        "4553432f56502e6e6574100300000001"
+        "0101" "6162633132333435" "0000000000000000"
+    )
+
+
+def _connect_error(driver_overrides=None, sim_config=None, before=None):
+    """Connect a fresh pair that is expected to fail; ``before(sim)`` runs
+    after the harness knobs are reset and before the connect."""
     async def go():
-        global _REJECT_HANDSHAKE
-        driver, sim = await _make_pair()
-        _REJECT_HANDSHAKE = True
-        with pytest.raises(ConnectionError) as ei:
+        driver, sim = await _make_pair(driver_overrides, sim_config)
+        if before is not None:
+            before(sim)
+        with pytest.raises(_ConnectionFaultError) as ei:
             await driver.connect()
-        # The classifier maps "authentication failed" -> auth_failed.
-        assert "authentication failed" in str(ei.value).lower()
+        assert driver._connected is False
+        return ei.value
+
+    return asyncio.run(go())
+
+
+def _reply_with(raw: bytes):
+    def before(sim) -> None:
+        global _HANDSHAKE_REPLY
+        _HANDSHAKE_REPLY = raw
+
+    return before
+
+
+def test_a_matching_password_connects_and_is_sent_in_the_handshake():
+    async def go():
+        driver, sim = await _make_pair(
+            {"password": "abc12345"}, sim_config={"password": "abc12345"},
+        )
+        await driver.connect()
+        try:
+            assert driver._connected is True
+            assert driver.get_state("power_state") == "on"
+            assert _TRANSPORTS[-1].handshake == DRV.handshake_request("abc12345")
+        finally:
+            await driver.disconnect()
 
     asyncio.run(go())
+
+
+def test_no_password_on_a_projector_that_has_one_is_auth_failed():
+    err = _connect_error(sim_config={"password": "abc12345"})
+    assert err.fault_code == "auth_failed"
+    assert str(err) == DRV.HANDSHAKE_REFUSALS[0x41][1]
+
+
+def test_a_wrong_password_is_auth_failed():
+    err = _connect_error(
+        {"password": "wrong123"}, sim_config={"password": "abc12345"},
+    )
+    assert err.fault_code == "auth_failed"
+    assert str(err) == DRV.HANDSHAKE_REFUSALS[0x43][1]
+
+
+def test_the_invalid_sentinel_is_refused_by_a_projector_with_no_password():
+    assert _connect_error({"password": "invalid"}).fault_code == "auth_failed"
+
+
+def test_network_control_off_is_connection_refused():
+    err = _connect_error(
+        before=lambda sim: sim.active_errors.add("control_refused"),
+    )
+    # Retried, not paused: the integrator fixes it on the projector.
+    assert err.fault_code == "connection_refused"
+    assert "Command Communication to Compatible" in str(err)
+
+
+def test_every_documented_refusal_has_its_own_sentence():
+    codes = {status: code for status, (code, _) in DRV.HANDSHAKE_REFUSALS.items()}
+    assert codes == {
+        0x41: "auth_failed",
+        0x43: "auth_failed",
+        0x45: "connection_refused",
+        0x53: "connection_refused",
+        0x55: "connection_refused",
+    }
+    sentences = [message for _, message in DRV.HANDSHAKE_REFUSALS.values()]
+    assert len(set(sentences)) == len(sentences)
+    help_block = DRV.EpsonEscVpDriver.DRIVER_INFO["help"]
+    field = DRV.EpsonEscVpDriver.DRIVER_INFO["config_schema"]["password"]
+    shown = sentences + [
+        DRV.PASSWORD_INVALID_MESSAGE,
+        help_block["overview"], help_block["setup"], help_block["connection"],
+        field["description"], field["help"],
+    ]
+    for text in shown:
+        assert "—" not in text, text
+
+
+def test_an_unlisted_status_is_reported_in_hex():
+    err = _connect_error(
+        before=_reply_with(b"ESC/VP.net\x10\x03\x00\x00\x40\x00"),
+    )
+    assert err.fault_code == "connection_refused"
+    assert "0x40" in str(err)
+
+
+def test_a_reply_that_is_not_esc_vp_net_is_no_response():
+    err = _connect_error(before=_reply_with(b"HTTP/1.1 400 Bad"))
+    assert err.fault_code == "no_response"
+
+
+@pytest.mark.parametrize("password", ["a" * 17, "cafépass"])
+def test_a_password_the_header_cannot_hold_is_refused_before_dialing(password):
+    err = _connect_error({"password": password})
+    assert err.fault_code == "invalid_config"
+    assert str(err) == DRV.PASSWORD_INVALID_MESSAGE
+    assert _TRANSPORTS == []
 
 
 def test_handshake_timeout_is_no_response(monkeypatch):
@@ -438,16 +573,44 @@ def test_handshake_timeout_is_no_response(monkeypatch):
 
     monkeypatch.setattr(DRV.asyncio, "wait_for", _fast)
 
-    async def go():
+    def drop(sim) -> None:
         global _DROP_HANDSHAKE
-        driver, sim = await _make_pair()
         _DROP_HANDSHAKE = True
-        with pytest.raises(ConnectionError) as ei:
-            await driver.connect()
-        # The classifier maps "not responding" -> no_response.
-        assert "not responding" in str(ei.value).lower()
 
-    asyncio.run(go())
+    err = _connect_error(before=drop)
+    assert err.fault_code == "no_response"
+    assert "not responding" in str(err)
+
+
+@pytest.mark.parametrize("status", sorted(DRV.HANDSHAKE_REFUSALS))
+def test_a_refusal_is_stashed_while_the_reply_is_parsed(status):
+    # An EB-L530U closes right after answering 0x41 or 0x45. When the reply
+    # and the close arrive in one read, the transport reports the close
+    # before an on_data_received task for the reply has run, so the verdict
+    # has to exist once the parser has read the reply, with nothing else run.
+    driver, _ = asyncio.run(_make_pair())
+    parser = driver._create_frame_parser()
+    frames = parser.feed(b"ESC/VP.net\x10\x03\x00\x00" + bytes([status, 0]))
+    assert len(frames) == 1
+    assert driver.stashed_fault == DRV.HANDSHAKE_REFUSALS[status]
+
+
+def test_an_accepted_handshake_stashes_nothing():
+    driver, _ = asyncio.run(_make_pair())
+    parser = driver._create_frame_parser()
+    parser.feed(DRV.HANDSHAKE_REPLY_OK)
+    assert getattr(driver, "stashed_fault", None) is None
+
+
+def test_headers_on_the_reply_are_not_read_as_esc_vp21():
+    driver, _ = asyncio.run(_make_pair())
+    parser = driver._create_frame_parser()
+    header = b"\x03\x00" + b"PROJ1".ljust(16, b"\x00")   # a projector name
+    frames = parser.feed(
+        b"ESC/VP.net\x10\x03\x00\x00\x20\x01" + header + b"PWR=01\r:"
+    )
+    assert frames[0] == b"ESC/VP.net\x10\x03\x00\x00\x20\x01" + header
+    assert frames[1] == b"PWR=01\r"
 
 
 # ── Replies: one per line, values routed by the key they name ───────────────

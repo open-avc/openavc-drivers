@@ -1,6 +1,6 @@
 """Driver + simulator tests for epson_escvp (Epson ESC/VP21 over ESC/VP.net).
 
-No Epson projector on hand, so correctness is proven two ways: metadata/shape
+Correctness is proven two ways: metadata/shape
 assertions, and a **dual-proof round trip** wiring the real driver to the real
 simulator over an in-memory TCP transport that mimics ESC/VP.net — the fake
 transport answers the 16-byte binary handshake and then pipes ESC/VP21 replies
@@ -21,7 +21,10 @@ And the v1.5.0 additions:
   - each refusal status typed to its own offline reason and sentence;
   - the refusal judged while the reply is parsed, so it is the offline reason
     even when the projector's close is seen first (the EB-L530U answers 0x45
-    and closes at once).
+    and closes at once);
+  - from an EB-L530U: Auto aspect reported as two codes, and replies a
+    projector switching inputs never sends, which must not hold polls after
+    PWR ON.
 
 Loads the driver + simulator with the ``openavc.*`` imports
 stubbed so the community CI stays self-contained (conftest.py rolls the stubs
@@ -413,6 +416,21 @@ def test_aspect_device_setting_round_trip():
     asyncio.run(go())
 
 
+def test_an_aspect_reported_with_auto_selected_reads_as_auto():
+    # An EB-L530U set to Auto answers ASPECT? with the aspect it applies and a
+    # fixed 30; with any other setting it answers one code.
+    driver = DRV.EpsonEscVpDriver("proj1", {"host": "10.0.0.9"}, _FakeState(), _FakeEvents())
+    for line, code, name in (
+        ("ASPECT=00 30", "30", "Auto"),
+        ("ASPECT=30 30", "30", "Auto"),
+        ("ASPECT=A0", "A0", "V-Zoom"),
+        ("ASPECT=40", "40", "Full"),
+    ):
+        driver._dispatch_response(line)
+        assert driver.get_state("aspect") == code, line
+        assert driver.get_state("aspect_name") == name, line
+
+
 def test_color_mode_device_setting_round_trip():
     async def go():
         driver, sim = await _make_pair()
@@ -667,6 +685,43 @@ def test_polls_hold_while_power_on_waits_for_its_colon():
             assert driver.get_state("power_state") == "on"
             await driver.poll()
             assert len(driver.transport.lines) > sent
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_a_reply_that_never_came_does_not_hold_polls_after_power_on():
+    # A projector switching inputs answers none of the lines that reach it
+    # meanwhile; a line left waiting must not take PWR ON's colon.
+    async def go():
+        driver, sim = await _make_pair()
+        sim.set_state("PWR", "00")
+        await driver.connect()
+        try:
+            driver._pending.extend(["CMODE?", "LAMP?"])
+            _hold()
+            await driver.send_command("power_on", {})
+            await driver.transport.flush()     # PWR ON's colon
+            for _ in range(5):
+                await asyncio.sleep(0)
+            assert driver._power_on_sent_at is None
+            assert driver.get_state("power_state") == "on"
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_lines_whose_replies_never_come_do_not_pile_up():
+    async def go():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            _hold()                            # no reply ever arrives
+            for _ in range(DRV.PENDING_MAX * 3):
+                await driver.send_command("raw_command", {"command": "PWR?"})
+            assert len(driver._pending) == DRV.PENDING_MAX
         finally:
             await driver.disconnect()
 

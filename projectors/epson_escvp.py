@@ -198,6 +198,12 @@ POWER_STATES = sorted({*POWER_STATE_MAP.values(), "unknown"})
 # for the colon of one command before the next is sent.
 POWER_ON_MAX_S = 100.0
 
+# The most lines kept waiting for a reply. A projector switching inputs
+# answers none of the lines that reach it meanwhile (measured on an
+# EB-L530U: the commands run, their replies never come), so entries can
+# be left behind; a poll sends nine lines.
+PENDING_MAX = 32
+
 # Said with the platform's "stopped answering" verdict. In an abnormal
 # state (lamp failure, abnormally high temperature) the projector executes
 # nothing and returns no colon (ESC/VP21 guide, section 5.3), so silence
@@ -222,14 +228,15 @@ REPLY_KEYS = {
 }
 
 
-# Common Epson source codes. The full list is model-dependent (see
-# Epson's "ESC/VP21 all commands list" attached to the protocol PDF);
-# this set covers HDMI / HDBaseT / Computer / USB / LAN inputs found
-# on the vast majority of currently-shipping units. Users can pick a
-# code outside this list with the raw_command escape hatch.
+# Common Epson source codes. The full list is model-dependent; Computer1,
+# Computer2, HDMI1, HDMI2, USB, LAN and Screen Mirroring follow the
+# command lists in Epson's current Specifications (EB-L735U series,
+# EB-992F series), which agree on them, and were measured on an
+# EB-L530U. Users can pick a code outside this list with the raw_command
+# escape hatch.
 SOURCE_CODES = {
-    "Computer1": "11",
-    "Computer2": "21",
+    "Computer1": "10",
+    "Computer2": "20",
     "DVI": "A0",
     "HDMI1": "30",
     "HDMI2": "A0",
@@ -237,13 +244,15 @@ SOURCE_CODES = {
     "Component": "14",
     "S-Video": "42",
     "Video": "41",
-    "USB Display": "53",
     "USB-A": "52",
-    "LAN": "56",
+    "LAN": "53",
+    "Screen Mirroring": "56",
+    "Screen Mirroring 2": "59",
     "Wireless LAN": "57",
 }
 
-# Aspect codes (subset of values that are widely supported).
+# Aspect codes (the union across models; each model takes a subset and
+# answers ERR to the rest).
 ASPECT_CODES = {
     "Normal": "00",
     "4:3": "10",
@@ -252,19 +261,24 @@ ASPECT_CODES = {
     "Full": "40",
     "Zoom": "50",
     "Native": "60",
+    "V-Zoom": "A0",
 }
+ASPECT_AUTO = "30"
 
-# Color modes.
+# Color modes (the union across models, as for aspect).
 COLOR_MODES = {
     "sRGB": "01",
     "Presentation": "04",
     "Theatre": "05",
     "Dynamic": "06",
     "Sports": "08",
+    "DICOM SIM": "0F",
     "Custom": "10",
     "Black Board": "11",
     "White Board": "12",
     "Photo": "14",
+    "Cinema": "15",
+    "Multi-Projection": "1A",
 }
 
 # Reverse maps (hex code -> friendly name) for the device-settings read-back.
@@ -275,27 +289,29 @@ COLOR_MODES = {
 ASPECT_NAMES = {code: name for name, code in ASPECT_CODES.items()}
 COLOR_MODE_NAMES = {code: name for name, code in COLOR_MODES.items()}
 
-# Common KEY codes (decimal-as-hex on the wire — Epson encodes the
-# remote IR scancode as a two-digit hex number). These are the keys
-# universally available across business and installation projectors.
+# KEY codes: the remote-control and control-panel key codes from the
+# command list in Epson's EB-L735U series Specifications, each measured
+# on an EB-L530U. The arrows and Enter are control-panel codes, the rest
+# remote-control codes. Older models may number some keys differently.
+# Power is the power_on / power_off commands, not a key: in standby the
+# projector refuses key presses, and the remote's Off key asks for a
+# second press.
 KEY_CODES = {
-    "Power On": "04",
-    "Power Off": "05",
-    "Menu": "1B",
+    "Menu": "3C",
     "Up": "35",
     "Down": "36",
     "Left": "37",
     "Right": "38",
     "Enter": "16",
-    "Esc": "05",
-    "Source Search": "31",
+    "Esc": "3D",
+    "Source Search": "67",
     "Mute": "3E",
-    "Freeze": "32",
-    "Aspect": "F4",
-    "Color Mode": "F5",
+    "Freeze": "47",
+    "Aspect": "20",
+    "Color Mode": "3F",
     "Volume Up": "56",
     "Volume Down": "57",
-    "Auto": "C7",
+    "Auto": "4A",
 }
 
 
@@ -343,6 +359,21 @@ class EpsonEscVpDriver(BaseDriver):
             "manufacturer_alias": ["EPSON", "Seiko Epson"],
         },
         "compatible_models": [
+            {
+                "manufacturer": "Epson",
+                "models": ["EB-L530U"],
+                "confidence": "full",
+                "notes": (
+                    "Tested on the projector with Command Communication set "
+                    "to Compatible. It takes the Auto, Full, Zoom, Native and "
+                    "V-Zoom aspect ratios; the sRGB, Presentation, Dynamic, "
+                    "DICOM SIM, Cinema and Multi-Projection color modes; and "
+                    "the Computer1, HDMI1, HDMI2, HDBaseT, USB-A, LAN and "
+                    "Screen Mirroring inputs. Freeze needs a picture on the "
+                    "input. Lamp Hours reads 0 and Error Status stays empty "
+                    "on this laser model."
+                ),
+            },
             {
                 "manufacturer": "Epson",
                 "models": [
@@ -787,6 +818,8 @@ class EpsonEscVpDriver(BaseDriver):
 
     async def _send_tracked(self, line: str) -> None:
         # Queued before it is sent, so its reply always finds it.
+        if len(self._pending) >= PENDING_MAX:
+            del self._pending[0]
         self._pending.append(line)
         await self._send_line(line)
 
@@ -813,6 +846,11 @@ class EpsonEscVpDriver(BaseDriver):
         if command == "power_on":
             # Its colon comes once the lamp has lit; the power read-back
             # goes out then (on_data_received), and polls hold until it.
+            # Nothing else goes out meanwhile, so the next reply is its own:
+            # lines whose replies never came are dropped first, or one of
+            # them would take PWR ON's colon and polls would hold for
+            # POWER_ON_MAX_S with the projector already warming up.
+            self._pending.clear()
             self._power_on_sent_at = asyncio.get_running_loop().time()
             await self._send_tracked("PWR ON")
         elif command == "power_off":
@@ -1006,8 +1044,13 @@ class EpsonEscVpDriver(BaseDriver):
         elif pending == "freeze":
             self.set_state("freeze", value.upper() == "ON")
         elif pending == "aspect":
-            self.set_state("aspect", value)
-            self.set_state("aspect_name", ASPECT_NAMES.get(value, value))
+            # With Auto selected the projector reports two codes, the aspect
+            # it is applying and a fixed 30 (``ASPECT=00 30``); the setting
+            # is Auto.
+            parts = value.split()
+            code = ASPECT_AUTO if parts[1:] == [ASPECT_AUTO] else (parts[0] if parts else value)
+            self.set_state("aspect", code)
+            self.set_state("aspect_name", ASPECT_NAMES.get(code, code))
         elif pending == "color_mode":
             self.set_state("color_mode", value)
             self.set_state(

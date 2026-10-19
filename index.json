@@ -3120,7 +3120,7 @@
       "file": "projectors/epson_escvp.py",
       "format": "python",
       "files": {
-        "projectors/epson_escvp.py": "0e1be4a56d31bdb0821d1b18c4b598a40b99c70cd7172e71f6d95e6d53e385b1",
+        "projectors/epson_escvp.py": "a96efb9b1915d51ac8cfd0534baeaf75456a4b542f78515b60cae27262bf458e",
         "projectors/epson_escvp_sim.py": "db3f5d48ce2159a02a40378d72328979a00d12dca141a6bb8559ffdd8b17337d"
       },
       "ports": [
@@ -3145,6 +3145,14 @@
         "connection": "If the projector goes offline only while it is off, set Standby Mode to Communication On (Network Standby on some models) on the projector."
       },
       "compatible_models": [
+        {
+          "manufacturer": "Epson",
+          "models": [
+            "EB-L530U"
+          ],
+          "confidence": "full",
+          "notes": "Tested on the projector with Command Communication set to Compatible. It takes the Auto, Full, Zoom, Native and V-Zoom aspect ratios; the sRGB, Presentation, Dynamic, DICOM SIM, Cinema and Multi-Projection color modes; and the Computer1, HDMI1, HDMI2, HDBaseT, USB-A, LAN and Screen Mirroring inputs. Freeze needs a picture on the input. Lamp Hours reads 0 and Error Status stays empty on this laser model."
+        },
         {
           "manufacturer": "Epson",
           "models": [

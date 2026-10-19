@@ -1159,6 +1159,30 @@
       "driver_id": "dante_ddm",
       "driver_version": "1.7.7",
       "actions": []
+    },
+    {
+      "revision": "175505665482b7cef9a14034a652bd90130a6b8f",
+      "path": "projectors/epson_escvp.py",
+      "source_sha256": "0e1be4a56d31bdb0821d1b18c4b598a40b99c70cd7172e71f6d95e6d53e385b1",
+      "driver_id": "epson_escvp",
+      "driver_version": "1.5.0",
+      "actions": []
+    },
+    {
+      "revision": "10837d7f216857d16f03964530bd1ad7fa85d4ce",
+      "path": "projectors/epson_escvp.py",
+      "source_sha256": "a96efb9b1915d51ac8cfd0534baeaf75456a4b542f78515b60cae27262bf458e",
+      "driver_id": "epson_escvp",
+      "driver_version": "1.5.0",
+      "actions": []
+    },
+    {
+      "revision": "512a9e6d6b44ca66002b86c8b6b8cad20ad07a34",
+      "path": "projectors/epson_escvp.py",
+      "source_sha256": "18d695cec41e26d401124b8b33a3091f7242bf4299a46443d78b0768e46cda29",
+      "driver_id": "epson_escvp",
+      "driver_version": "1.5.0",
+      "actions": []
     }
   ]
 }

@@ -39,7 +39,8 @@ from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
-# The server answers 401 when it does not accept the API key. A 403 is not
+# The server answers 401 when it does not accept the API key (Dante Director:
+# a 200 whose GraphQL error has the code UNAUTHENTICATED). A 403 is not
 # taken for a refused key: the Managed API gives a key its user's permissions,
 # so a 403 is read as a key that works but may not do what was asked. In the
 # poll that stays in last_error with the device connected; at connect, where
@@ -603,6 +604,12 @@ class DanteDDMDriver(BaseDriver):
 
             # Check for GraphQL-level errors
             if "errors" in result:
+                # Dante Director refuses a key it does not know with a 200 and
+                # this code rather than a 401: the same typed fault.
+                if any((err.get("extensions") or {}).get("code") == "UNAUTHENTICATED"
+                       for err in result["errors"]):
+                    self.set_state("last_error", _KEY_REFUSED_MESSAGE)
+                    raise ConnectionFaultError(_KEY_REFUSED_MESSAGE, code="auth_failed")
                 error_msg = result["errors"][0].get("message", "Unknown GraphQL error")
                 log.warning(f"[{self.device_id}] GraphQL error: {error_msg}")
                 self.set_state("last_error", error_msg)

@@ -551,6 +551,38 @@ def test_connect_surfaces_auth_failure(monkeypatch):
     asyncio.run(go())
 
 
+# What Dante Director answers a key it does not know: HTTP 200, no data.
+_UNAUTHENTICATED = {
+    "errors": [{
+        "message": "Unauthenticated user or user not found",
+        "locations": [{"line": 1, "column": 3}],
+        "path": ["domains"],
+        "extensions": {"code": "UNAUTHENTICATED"},
+    }],
+    "data": None,
+}
+
+
+def test_a_key_the_server_does_not_know_is_auth_failed(monkeypatch):
+    # Not a 401: the refusal comes back as a GraphQL error. The card says the
+    # key was refused, not that the server cannot be reached.
+    async def go():
+        def make(**kw):
+            kw.pop("verify", None)
+            kw["transport"] = httpx.MockTransport(
+                lambda request: httpx.Response(200, json=_UNAUTHENTICATED))
+            return _REAL_ASYNC_CLIENT(**kw)
+
+        monkeypatch.setattr(DRV.httpx, "AsyncClient", make)
+        driver = DRV.DanteDDMDriver("dante1", dict(_CFG), _FakeState(), _FakeEvents())
+        with pytest.raises(ConnectionFaultError) as ei:
+            await driver.connect()
+        assert ei.value.fault_code == "auth_failed"
+        assert str(ei.value) == DRV._KEY_REFUSED_MESSAGE
+
+    asyncio.run(go())
+
+
 def test_a_403_at_connect_is_auth_failed_with_its_own_sentence(monkeypatch):
     # At connect the domain query is the whole point: a key whose user may
     # not read the domains cannot run the driver, and retrying cannot help.

@@ -3,6 +3,62 @@
   "sources": [
     {
       "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "audio/algo_ip_endpoint.py",
+      "source_sha256": "b9d5f73d9747a5ae6fe622f79682600d7a7b5a783ce37508a8ede154989a445a",
+      "driver_id": "algo_ip_endpoint",
+      "driver_version": "1.1.0",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "audio/allenheath_avantis.py",
+      "source_sha256": "0cb29eef33826a7b26e491d2ec16f4aaa583aadb64044d5031aea3dc206a966b",
+      "driver_id": "allenheath_avantis",
+      "driver_version": "2.0.5",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "audio/allenheath_dlive.py",
+      "source_sha256": "a4b1383b1a020ad69e6fe29ef5d93e7f0b3b89c46ed74ce16c49b4ae3877e95e",
+      "driver_id": "allenheath_dlive",
+      "driver_version": "2.1.2",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "audio/allenheath_qu.py",
+      "source_sha256": "765620788ba1529a1e0503d15eca5e29937fc067050567b5be7490d9fd5cbce5",
+      "driver_id": "allenheath_qu",
+      "driver_version": "1.3.1",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "audio/allenheath_qu567.py",
+      "source_sha256": "daf4d7f3eeda52a8d9a68aa4ba3591e8796a3566fc124e5f1156bd9aafb3dff1",
+      "driver_id": "allenheath_qu567",
+      "driver_version": "1.1.1",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "audio/allenheath_sq.py",
+      "source_sha256": "c0f77d8c70fda3a5a1b8a687b3ad89427c718160960caa58894569fa0136322b",
+      "driver_id": "allenheath_sq",
+      "driver_version": "2.1.2",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "audio/atlasied_atmosphere.py",
+      "source_sha256": "87ceb8c5837ad6e5824315fdc429c77e25fd583f90eacf4529cffa42d7226f8c",
+      "driver_id": "atlasied_atmosphere",
+      "driver_version": "2.0.5",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
       "path": "audio/biamp_tesira_ttp.py",
       "source_sha256": "79176aab88ca65abf513f648345cd417d59e8cd38319415b895bc84251562840",
       "driver_id": "biamp_tesira_ttp",
@@ -110,6 +166,22 @@
     },
     {
       "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "audio/dante_ddm.py",
+      "source_sha256": "180281fe7498182c15ec82cdc25d3b3e3f1ea9afb277f7e4487211b8e5c0dd64",
+      "driver_id": "dante_ddm",
+      "driver_version": "1.7.6",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "audio/nureva_hdl310_hdl410.py",
+      "source_sha256": "1746503a1f4ea5cf416449329cc59a0ebae42a83252c4825d46f2f3d8fcffed0",
+      "driver_id": "nureva_hdl310_hdl410",
+      "driver_version": "1.0.0",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
       "path": "audio/qsc_qrc.py",
       "source_sha256": "22bae254e58945d82ab3ce1c4f96b180aff1fe538cc94f5e7e9804fd0cd5d588",
       "driver_id": "qsc_qrc",
@@ -154,6 +226,118 @@
     },
     {
       "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "audio/sennheiser_tccm.py",
+      "source_sha256": "e71a20509ec07cd4749d26ec5aa50970b7de920c072e1f1c4fe236b0e2d19a4b",
+      "driver_id": "sennheiser_tccm",
+      "driver_version": "1.0.2",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "audio/shure_axient_digital.py",
+      "source_sha256": "1ccbfee82b5136287ff510ea2b6db04d6acfbdd1495c30a312960df61034ad8c",
+      "driver_id": "shure_axient_digital",
+      "driver_version": "1.1.2",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "audio/shure_network.py",
+      "source_sha256": "0cf05db6a9ed2ead8fee73f542a3844e663b6cc0ea1b39aa7d6cd84f43ef1c08",
+      "driver_id": "shure_network",
+      "driver_version": "2.2.0",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "audio/sonos.py",
+      "source_sha256": "38be91ef6b40ed8ed4b667335bdf789b4675ad51ea1866749aab2a38836facab",
+      "driver_id": "sonos",
+      "driver_version": "2.0.3",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "audio/soundcorehero.py",
+      "source_sha256": "38e79ba84a139bce610e8849163d3cc71b65851aacebbf95261b588d3b19d4e6",
+      "driver_id": "soundcorehero",
+      "driver_version": "1.0.7",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "audio/symetrix_composer.py",
+      "source_sha256": "11487746e83967b8929193e6404aa85c0422eb9bb4b4ce1d7abb1d5892204bdf",
+      "driver_id": "symetrix_composer",
+      "driver_version": "1.3.6",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "audio/toa_9000m2.py",
+      "source_sha256": "891f97e08d342620e465c1bc290daf3e6c0f7e0ad2dd2c419128457fe0ca76fa",
+      "driver_id": "toa_9000m2",
+      "driver_version": "1.0.4",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "cameras/aver_ptz.py",
+      "source_sha256": "9543eb420ef283f862afb67bba5862ad20ddbe35f05ea8ab38e995bd2795b6da",
+      "driver_id": "aver_ptz",
+      "driver_version": "1.3.8",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "cameras/axis_vapix.py",
+      "source_sha256": "7ed73329859a903723c0c4914ce058edbd1ca4d53641e950d401528d6c59bca4",
+      "driver_id": "axis_vapix",
+      "driver_version": "1.1.7",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "cameras/birddog_ptz.py",
+      "source_sha256": "a0be26ad985d7d8f118a6b9ece0f9f47b108bb3f2c8b2e4005071978754c9d7c",
+      "driver_id": "birddog_ptz",
+      "driver_version": "1.5.5",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "cameras/crestron_1beyond_camera.py",
+      "source_sha256": "530930cd0945dbb7c39f882b2f9df9a879f09cf1cf37d8eab0091f0ae50cae14",
+      "driver_id": "crestron_1beyond_camera",
+      "driver_version": "1.0.2",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "cameras/onvif_camera.py",
+      "source_sha256": "b0e6aa847ebfc6c3d2c05166524b8d89452a5544deaca324018810e444b60871",
+      "driver_id": "onvif_camera",
+      "driver_version": "2.0.10",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "cameras/ptzoptics.py",
+      "source_sha256": "3bd0ee013f8cd5db389abf2953c325a32ac2dd6649a36a7d887e439ba7b590c3",
+      "driver_id": "ptzoptics",
+      "driver_version": "1.3.4",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "cameras/sony_visca.py",
+      "source_sha256": "1741902d0a5827172d5b77fd2154a66aa1166a83612db913a07520adf627b9b6",
+      "driver_id": "sony_visca",
+      "driver_version": "1.3.4",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
       "path": "cameras/vaddio_conferenceshot_av.py",
       "source_sha256": "427e4d4b6f1c1eabeece0e2f398a8681684fb82a6e755f67186331e34fa5bf9d",
       "driver_id": "vaddio_conferenceshot_av",
@@ -169,6 +353,46 @@
           "diagnostics": []
         }
       ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "cameras/visca_ip.py",
+      "source_sha256": "65272a1b5f1693ae92553bd1f5b705fb0831db74a079c7ff2a6aad8625e4aa49",
+      "driver_id": "visca_ip",
+      "driver_version": "1.3.4",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "displays/benq_display.py",
+      "source_sha256": "60149358f3258be13824d6bc2f46dd91e53784d36ae0f8df3efe8aa5436c5d00",
+      "driver_id": "benq_display",
+      "driver_version": "1.2.0",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "displays/hisense_vidaa.py",
+      "source_sha256": "b15e3c6dae110a3f74579d0556964dfb7a71df18fa6d6ffc0b250361160a994f",
+      "driver_id": "hisense_vidaa",
+      "driver_version": "1.0.6",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "displays/lg_sicp.py",
+      "source_sha256": "b60993473ec3715f79eca1575a5934b6e4d2f3e674118b3861011871d1e2de12",
+      "driver_id": "lg_sicp",
+      "driver_version": "2.0.8",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "displays/lg_webos.py",
+      "source_sha256": "f7b6a16d52e3ad73d60c7778d147f882ba7ac2c5309bd9283a73b43c57b2da35",
+      "driver_id": "lg_webos",
+      "driver_version": "4.2.6",
+      "actions": []
     },
     {
       "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
@@ -213,6 +437,30 @@
     },
     {
       "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "displays/samsung_mdc.py",
+      "source_sha256": "baef4cf831ef3a312abd4df3ba32dbc06523c9dfcf766cd43347993ee550cc2a",
+      "driver_id": "samsung_mdc",
+      "driver_version": "1.7.5",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "displays/sharp_nec_display.py",
+      "source_sha256": "e28a0e595db26e1baa6c35a85a5d404a69069ddeabc3d16d8ce3d1f70f9ad5c4",
+      "driver_id": "sharp_nec_display",
+      "driver_version": "1.0.4",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "displays/sharp_pn_display.py",
+      "source_sha256": "e48ada50319b52c1e84ce00ad19862c88fdf9a0a6388d61b8f65a12aee833b48",
+      "driver_id": "sharp_pn_display",
+      "driver_version": "1.0.3",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
       "path": "displays/sony_bravia.py",
       "source_sha256": "19b675e84b2a16e1f9f6b7d94c067c02a54a294033cd26740cceb201258e9eef",
       "driver_id": "sony_bravia",
@@ -250,6 +498,14 @@
           ]
         }
       ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "lighting/artnet_dmx.py",
+      "source_sha256": "190f763c88875e85e53ba67e6ef497bc85016bd863c52c5bcc92d9da8e6d8bf4",
+      "driver_id": "artnet_dmx",
+      "driver_version": "1.4.3",
+      "actions": []
     },
     {
       "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
@@ -293,6 +549,14 @@
     },
     {
       "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "lighting/sacn_e131.py",
+      "source_sha256": "99ed669a4406d4634746b34059ea1b3364edfc54f9aaa7619bbe0cbec1a8a26f",
+      "driver_id": "sacn_e131",
+      "driver_version": "1.0.5",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
       "path": "power/apc_rack_pdu.py",
       "source_sha256": "d41dba8e83f9b2c97f358aa940d26bdcdc59b39b4baf063e8d0f9026a01a76ed",
       "driver_id": "apc_rack_pdu",
@@ -308,6 +572,30 @@
           "diagnostics": []
         }
       ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "power/netio.py",
+      "source_sha256": "ad4ca63251b667ed734462829be4aa1db88f21997c0c1379f519e3dbbf29a9bc",
+      "driver_id": "netio",
+      "driver_version": "1.2.0",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "power/racklink_rlnk.py",
+      "source_sha256": "08317348be827e02e105b7de57eb8cc532dbc5210ab2b4ea97da7802f0a4b47e",
+      "driver_id": "racklink_rlnk",
+      "driver_version": "1.3.11",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "power/wattbox_ip.py",
+      "source_sha256": "5746a8f85b6256339f1c6b774ec5a7215f938e9778c79b1f9e18d9357ef99063",
+      "driver_id": "wattbox_ip",
+      "driver_version": "1.3.10",
+      "actions": []
     },
     {
       "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
@@ -357,6 +645,22 @@
     },
     {
       "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "projectors/epson_escvp.py",
+      "source_sha256": "27ddbc9446c281162c5ffa6fe2be9c44019e100e2951b03979bc29c954688a89",
+      "driver_id": "epson_escvp",
+      "driver_version": "1.4.3",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "projectors/optoma_projector.py",
+      "source_sha256": "9c93eef6a98af4c3eee73e61375f9e07ea02db8d3dd872787b25b94365319e1a",
+      "driver_id": "optoma_projector",
+      "driver_version": "1.0.2",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
       "path": "projectors/panasonic_pt.py",
       "source_sha256": "d0cc65faf157b2252af06c92fa959ac852f5ba6c69cef0d34a25e1e32e0705d5",
       "driver_id": "panasonic_pt",
@@ -391,6 +695,22 @@
     },
     {
       "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "projectors/pjlink_class1.py",
+      "source_sha256": "3ae5b6c3e5ac71a2b52d11cb5c2dfb8f39977c13acff4d12bdad2b16986dacbf",
+      "driver_id": "pjlink_class1",
+      "driver_version": "2.6.4",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "projectors/sharp_nec_projector.py",
+      "source_sha256": "5678b3732b01be784e58ef8347008262a27498feb4566ec1e15759caa39da5e1",
+      "driver_id": "sharp_nec_projector",
+      "driver_version": "2.5.4",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
       "path": "projectors/sony_vpl.py",
       "source_sha256": "33f295ec6a712c4c40dd046165c78059196d6078ae4b162ea1c6158621f352e9",
       "driver_id": "sony_vpl",
@@ -422,6 +742,30 @@
           ]
         }
       ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "streaming/brightsign_player.py",
+      "source_sha256": "d1bbed7a55861c22624641defe3f52bad40e463cac08401d1e0f3c1bfdc93bd0",
+      "driver_id": "brightsign_player",
+      "driver_version": "1.0.8",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "streaming/crestron_airmedia3.py",
+      "source_sha256": "f87859aa65b29c89cd8745a0be7174d69ba1f4771bab1120a4451f8cd88b285f",
+      "driver_id": "crestron_airmedia3",
+      "driver_version": "1.0.1",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "streaming/epiphan_pearl.py",
+      "source_sha256": "c8335d479bd9418c8a5a5d6e1cc8ea4c88d617265cb4892aacf61651b74ca9c1",
+      "driver_id": "epiphan_pearl",
+      "driver_version": "1.0.6",
+      "actions": []
     },
     {
       "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
@@ -462,6 +806,22 @@
           ]
         }
       ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "streaming/roku_ecp.py",
+      "source_sha256": "8acab024024a8f83982c95981b3e99b1c3dbec9dff84afce830c6b82a21ed602",
+      "driver_id": "roku_ecp",
+      "driver_version": "1.0.4",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "switchers/atlona_ome_ms.py",
+      "source_sha256": "d4ca433d275c72ada8cb0f3a132d1bf7f998813b622a20de9d45083ac0cabf1b",
+      "driver_id": "atlona_ome_ms",
+      "driver_version": "1.4.3",
+      "actions": []
     },
     {
       "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
@@ -519,6 +879,22 @@
     },
     {
       "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "switchers/chazy_control.py",
+      "source_sha256": "11433daff57098afcc7d885dc76b26390046fdfd9450bc648298c99408c2811d",
+      "driver_id": "chazy_control",
+      "driver_version": "1.4.2",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "switchers/chazy_control_pro.py",
+      "source_sha256": "cfb0ff2e2acb7c647be8013d4ce666236d4042182d4ed4653be3a487596a5ba8",
+      "driver_id": "chazy_control_pro",
+      "driver_version": "1.6.4",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
       "path": "switchers/crestron_nvx.py",
       "source_sha256": "e9455818fc48c6a1802d5d283b5159c89d4ab926273cd08bd2395fbf2ab86271",
       "driver_id": "crestron_nvx",
@@ -549,6 +925,22 @@
     },
     {
       "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "switchers/darwin_control.py",
+      "source_sha256": "3db299920cde16787215b476bb4b888e5afa8b61853af737f93d514d9b46d52f",
+      "driver_id": "darwin_control",
+      "driver_version": "1.2.2",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "switchers/extron_nav.py",
+      "source_sha256": "67e62086411af4c8fe724a6722dda17dc3f5e8771da84c491dc188f15966f4f0",
+      "driver_id": "extron_nav",
+      "driver_version": "1.1.3",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
       "path": "switchers/tvone_coriomatrix.py",
       "source_sha256": "af150ce2d73525e14d4f6c63ab6d6c0791065895fb3679c26a8595af319f8a6b",
       "driver_id": "tvone_coriomatrix",
@@ -564,6 +956,54 @@
           "diagnostics": []
         }
       ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "switchers/wyrestorm_networkhd.py",
+      "source_sha256": "aece22862625c6cb27525de23c23faddd15b8e7e185d9a5630b278094db90186",
+      "driver_id": "wyrestorm_networkhd",
+      "driver_version": "1.1.0",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "utility/avproedge_mxnet_switch.py",
+      "source_sha256": "73c96476ec7c38160160a4896ff8bc3fe8b7acb53e951c4c51af561b73478236",
+      "driver_id": "avproedge_mxnet_switch",
+      "driver_version": "1.2.3",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "utility/globalcache_itach_ip2cc.py",
+      "source_sha256": "38666195734280bea12917eac6a4097b27b758741f3aca98ab16c3348225495e",
+      "driver_id": "globalcache_itach_ip2cc",
+      "driver_version": "1.0.1",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "utility/globalcache_itach_ip2ir.py",
+      "source_sha256": "a25534f64534631b150d4e0e129cad77acccd3c2f8f114d9e6ef5cc19065f047",
+      "driver_id": "globalcache_itach_ip2ir",
+      "driver_version": "1.0.3",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "utility/globalcache_itach_ip2sl.py",
+      "source_sha256": "605a1298455c1f0484520d65c7015c3b66878bdd276fb5a2cafe167effce345a",
+      "driver_id": "globalcache_itach_ip2sl",
+      "driver_version": "1.0.3",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "utility/modbus_tcp.py",
+      "source_sha256": "1261975662d82da2761c0ab3ecdb5d4a6b12515a0cf2b445fe0c9a048de1af1e",
+      "driver_id": "modbus_tcp",
+      "driver_version": "1.0.3",
+      "actions": []
     },
     {
       "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
@@ -623,6 +1063,30 @@
     },
     {
       "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "utility/wake_on_lan.py",
+      "source_sha256": "784dc11c6b62412bdcf529f872aa77ab1a6c2a195ada8650a790cc423472e7aa",
+      "driver_id": "wake_on_lan",
+      "driver_version": "1.3.6",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "video/birddog_codec.py",
+      "source_sha256": "18a27167ff364209187055f6830a31fa2ce2e713d2e9c052645bbd7f8d82e1b1",
+      "driver_id": "birddog_codec",
+      "driver_version": "1.5.4",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "video/obs_studio.py",
+      "source_sha256": "39468d4d40da55b20225ed47aeb3dad29d3c9c1224e91875d5f5134130e5bc01",
+      "driver_id": "obs_studio",
+      "driver_version": "1.0.3",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
       "path": "video/poly_studio.py",
       "source_sha256": "7ef104b14535c1e74719deee3e1e7af118669787fac79c2b656b50726c1b93c6",
       "driver_id": "poly_studio",
@@ -656,6 +1120,14 @@
     },
     {
       "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "video/qlab.py",
+      "source_sha256": "d467fa34581c7f94cc644b05434f906322ad3d420058aa8933a7417d016283de",
+      "driver_id": "qlab",
+      "driver_version": "2.0.3",
+      "actions": []
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
       "path": "video/tvone_coriomaster.py",
       "source_sha256": "9f54049b2bfcfd64cd88ea1cf2fb54ac919545ccacb9a78ac57134e4e7737cd7",
       "driver_id": "tvone_coriomaster",
@@ -671,6 +1143,14 @@
           "diagnostics": []
         }
       ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "video/vmix.py",
+      "source_sha256": "67fed70fa2b47abddc61e8390cc9b773349869a9b8a5d3c1dfed87a182916ae8",
+      "driver_id": "vmix",
+      "driver_version": "2.3.6",
+      "actions": []
     }
   ]
 }

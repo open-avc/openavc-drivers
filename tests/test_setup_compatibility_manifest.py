@@ -12,6 +12,7 @@ from scripts._vendor.setup_compatibility import SetupCompatibility
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCES = json.loads((ROOT / "setup-compatibility/manifest.json").read_text())["sources"]
+MAPPINGS = [entry for entry in SOURCES if entry["actions"]]
 
 RESULTS = {
     "biamp_tesira_ttp": {"firmware": "", "blocks_checked": 0, "blocks_ok": [], "blocks_failed": []},
@@ -54,10 +55,10 @@ def descriptor(entry):
 
 
 def test_every_maintained_mapping_has_a_driver_owned_result_case():
-    assert {item["driver_id"] for item in SOURCES} == set(RESULTS)
+    assert {item["driver_id"] for item in MAPPINGS} == set(RESULTS)
 
 
-@pytest.mark.parametrize("entry", SOURCES, ids=lambda entry: entry["driver_id"])
+@pytest.mark.parametrize("entry", MAPPINGS, ids=lambda entry: entry["driver_id"])
 def test_result_fields_match_the_exact_declared_mapping(entry):
     selected = descriptor(entry)
     raw = RESULTS[entry["driver_id"]]
@@ -70,7 +71,7 @@ def test_result_fields_match_the_exact_declared_mapping(entry):
 
 
 def test_provisioning_claims_and_pairing_keys_have_distinct_roles():
-    mappings = {entry["driver_id"]: descriptor(entry) for entry in SOURCES}
+    mappings = {entry["driver_id"]: descriptor(entry) for entry in MAPPINGS}
     for name in ("vaddio_conferenceshot_av", "crestron_nvx", "netgear_m4250_m4350"):
         assert mappings[name].profile == "provisioning-claim/v1"
         assert mappings[name].generated_secret is None

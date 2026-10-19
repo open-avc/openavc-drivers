@@ -466,13 +466,18 @@ ship with it, run under this repo's suite — see
 ## Historical setup results
 
 `setup-compatibility/manifest.json` contains maintained mappings for exact older
-Python setup handlers. Each entry pins a historical Git commit, file path and
-SHA-256, driver ID/version, action and finite result profile. Keep existing
+Python sources. Each entry pins a historical Git commit, file path and
+SHA-256, driver ID/version and any legacy setup result mappings. Keep existing
 entries when updating a driver; installed copies may still use those bytes.
 An action's optional `runtime_surfaces` lists qualified per-instance control
 sections from the compatibility schema. Test the actual configured instance and
 role changes. Setup entries remain exact; an `actions` exception permits only
 removal of original non-setup entries in their original order.
+
+Sources without legacy setup mappings use `"actions": []`. The generator still
+loads their complete declarations and records every setup action; an empty
+mapping list is not evidence that setup is absent. Qualify these sources and
+their dependencies in an isolated build environment before shipping the resource.
 
 The platform owns the [compatibility schema](../setup-compatibility.schema.json)
 and generator. Follow [Creating Drivers](https://github.com/open-avc/openavc/blob/main/docs/creating-drivers.md#setup-actions-provisioning-wizards)

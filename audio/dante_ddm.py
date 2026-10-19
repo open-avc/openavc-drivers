@@ -130,7 +130,7 @@ class DanteDDMDriver(BaseDriver):
         "name": "Dante DDM / Director",
         "manufacturer": "Audinate",
         "category": "audio",
-        "version": "1.7.6",
+        "version": "1.7.7",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # local_address() (keeping the Dante Director cloud off the adapter
         # chosen for device traffic) in 0.37.0, set by hand because the
@@ -421,11 +421,17 @@ class DanteDDMDriver(BaseDriver):
         # left alone, and the transport carries verify_ssl itself because
         # httpx then ignores the client's. Only while an adapter is chosen:
         # with none, the client is exactly the one httpx builds (proxy
-        # settings from the environment included). An on-site Domain Manager
-        # follows the chosen adapter like any device.
+        # settings from the environment included). A chosen adapter with no
+        # address is still a chosen adapter: the cloud keeps its usual way out
+        # rather than failing with the adapter's sentence. An on-site Domain
+        # Manager follows the chosen adapter like any device.
         hostname = urlsplit(self._base_url).hostname or ""
-        cloud = (hostname == "dante.cloud" or hostname.endswith(".dante.cloud")) \
-            and self.local_address() is not None
+        cloud = hostname == "dante.cloud" or hostname.endswith(".dante.cloud")
+        if cloud:
+            try:
+                cloud = self.local_address() is not None
+            except ConnectionError:
+                cloud = True
         self._client = httpx.AsyncClient(
             base_url=self._base_url,
             verify=verify_ssl,

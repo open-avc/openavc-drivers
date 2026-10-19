@@ -321,7 +321,7 @@ async def _close(driver):
 
 def test_version_and_min_platform():
     info = DRV.DanteDDMDriver.DRIVER_INFO
-    assert info["version"] == "1.7.6"
+    assert info["version"] == "1.7.7"
     assert info["min_platform_version"] == "0.37.0"
 
 
@@ -716,6 +716,55 @@ def test_the_dante_director_cloud_keeps_off_the_reach_devices_adapter(
             assert ctx.check_hostname is verify_ssl
             assert ctx.verify_mode == (ssl.CERT_REQUIRED if verify_ssl else ssl.CERT_NONE)
             assert kw["verify"] is verify_ssl
+        finally:
+            await _close(driver)
+
+    asyncio.run(go())
+
+
+def _adapter_without_an_address(driver) -> None:
+    """Reach devices through names an adapter that has no address, which the
+    platform's local_address() answers by raising."""
+    def refuse(host=None):
+        raise ConnectionFaultError(
+            "Can't reach the device. The adapter chosen has no address.",
+            code="unreachable",
+        )
+
+    driver.local_address = refuse
+
+
+def test_the_cloud_still_connects_when_the_chosen_adapter_has_no_address(monkeypatch):
+    # The adapter is for equipment on site; the cloud is reached the usual
+    # way whatever state it is in, through a transport of its own.
+    async def go():
+        built = _record_clients(monkeypatch)
+        cfg = dict(_CFG, host="https://api.director.dante.cloud")
+        driver = DRV.DanteDDMDriver("dante1", cfg, _FakeState(), _FakeEvents())
+        _adapter_without_an_address(driver)
+        try:
+            await driver._create_transport("http")
+            [kw] = built
+            assert isinstance(kw["transport"], httpx.AsyncHTTPTransport)
+            assert driver._client._transport is kw["transport"]
+        finally:
+            await _close(driver)
+
+    asyncio.run(go())
+
+
+def test_an_on_site_domain_manager_never_asks_for_the_adapter(monkeypatch):
+    # An on-site Domain Manager's client is left to the platform, which
+    # refuses each of its requests while the adapter has no address.
+    async def go():
+        built = _record_clients(monkeypatch)
+        cfg = dict(_CFG, host="https://ddm.local")
+        driver = DRV.DanteDDMDriver("dante1", cfg, _FakeState(), _FakeEvents())
+        _adapter_without_an_address(driver)
+        try:
+            await driver._create_transport("http")
+            [kw] = built
+            assert kw.get("transport") is None
         finally:
             await _close(driver)
 

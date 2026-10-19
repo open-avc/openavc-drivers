@@ -335,7 +335,7 @@ class EpsonEscVpDriver(BaseDriver):
         ),
         "source_url": "https://files.support.epson.com/pdf/pl600p/pl600pcm.pdf",
         "tags": ["projector", "epson", "esc-vp21", "esc-vp-net", "pro-l", "eb"],
-        "verified": False,
+        "verified": True,
         "simulated": True,
         "protocols": ["esc_vp_net"],
         "ports": [3629],

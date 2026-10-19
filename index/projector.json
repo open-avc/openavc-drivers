@@ -253,7 +253,7 @@
       "file": "projectors/epson_escvp.py",
       "format": "python",
       "files": {
-        "projectors/epson_escvp.py": "a96efb9b1915d51ac8cfd0534baeaf75456a4b542f78515b60cae27262bf458e",
+        "projectors/epson_escvp.py": "18d695cec41e26d401124b8b33a3091f7242bf4299a46443d78b0768e46cda29",
         "projectors/epson_escvp_sim.py": "34ada5c7c11d03834772a94fdf0002ca20b042515c4291b1381e6094bff345b0"
       },
       "ports": [
@@ -263,6 +263,7 @@
         "esc_vp_net"
       ],
       "simulated": true,
+      "verified": true,
       "min_platform_version": "0.25.0",
       "tags": [
         "projector",

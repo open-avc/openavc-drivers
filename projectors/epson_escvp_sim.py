@@ -4,8 +4,15 @@ Epson ESC/VP21 Projector Simulator.
 Server side of ESC/VP.net on TCP 3629:
 
   - On client connect, reads the 16-byte ``ESC/VP.net\\x10\\x03\\x00\\x00\\x00\\x00``
-    handshake preamble and replies with the 16-byte success frame
+    handshake preamble (plus the 18-byte headers its last byte counts) and
+    replies with the 16-byte success frame
     ``ESC/VP.net\\x10\\x03\\x00\\x00\\x20\\x00``.
+  - A ``password`` in the simulator's config is the Monitor Password: a
+    handshake without the password header is answered 0x41 and a wrong one
+    0x43. A password of ``invalid`` is always the wrong one; with no password
+    configured any other password, or none, is accepted. The
+    ``control_refused`` error mode answers 0x45, as a projector does while
+    network control is off. A refusal closes the connection after the reply.
   - Switches the read loop to CR-delimited (``\\r``) ESC/VP21 commands.
   - Replies with ``:`` for set commands, ``KEY=VAL\\r:`` for queries,
     and ``ERR\\r:`` for unknown / invalid commands.
@@ -27,6 +34,17 @@ logger = logging.getLogger(__name__)
 HANDSHAKE_REQUEST = b"ESC/VP.net\x10\x03\x00\x00\x00\x00"
 HANDSHAKE_REPLY_OK = b"ESC/VP.net\x10\x03\x00\x00\x20\x00"
 HANDSHAKE_LEN = 16
+HEADER_LEN = 18
+PASSWORD_HEADER_ID = 0x01
+
+STATUS_OK = 0x20
+STATUS_PASSWORD_REQUIRED = 0x41
+STATUS_WRONG_PASSWORD = 0x43
+STATUS_NOT_ALLOWED = 0x45
+
+
+def _handshake_reply(status: int) -> bytes:
+    return HANDSHAKE_REQUEST[:14] + bytes([status, 0])
 
 
 # Set commands of the form ``KEY VALUE`` — value can be a fixed token
@@ -82,6 +100,12 @@ class EpsonEscVpSimulator(TCPSimulator):
                 "description": "High internal temperature",
                 "set_state": {"ERR": "04"},
             },
+            "control_refused": {
+                "description": (
+                    "Network control off (Command Communication not set to "
+                    "Compatible)"
+                ),
+            },
         },
     }
 
@@ -102,11 +126,16 @@ class EpsonEscVpSimulator(TCPSimulator):
             preamble = await asyncio.wait_for(
                 reader.readexactly(HANDSHAKE_LEN), timeout=5.0
             )
+            headers = b""
+            if preamble[:15] == HANDSHAKE_REQUEST[:15] and preamble[15]:
+                headers = await asyncio.wait_for(
+                    reader.readexactly(HEADER_LEN * preamble[15]), timeout=5.0
+                )
         except (asyncio.TimeoutError, asyncio.IncompleteReadError):
             logger.warning("%s: client %s never sent handshake", self.name, client_id)
             return False
 
-        if preamble != HANDSHAKE_REQUEST:
+        if preamble[:15] != HANDSHAKE_REQUEST[:15]:
             logger.warning(
                 "%s: client %s sent bad handshake: %s",
                 self.name,
@@ -115,10 +144,29 @@ class EpsonEscVpSimulator(TCPSimulator):
             )
             return False
 
-        writer.write(HANDSHAKE_REPLY_OK)
+        self.log_protocol("in", preamble + headers, client_id)
+        status = self._handshake_status(headers)
+        reply = _handshake_reply(status)
+        writer.write(reply)
         await writer.drain()
-        self.log_protocol("out", HANDSHAKE_REPLY_OK, client_id)
-        return True
+        self.log_protocol("out", reply, client_id)
+        return status == STATUS_OK
+
+    def _handshake_status(self, headers: bytes) -> int:
+        """The status a projector set up like this one answers."""
+        if "control_refused" in self.active_errors:
+            return STATUS_NOT_ALLOWED
+        sent = None
+        for i in range(0, len(headers), HEADER_LEN):
+            header = headers[i:i + HEADER_LEN]
+            if header[0] == PASSWORD_HEADER_ID:
+                sent = header[2:].rstrip(b"\x00").decode("ascii", errors="replace")
+        expected = str(self.config.get("password") or "")
+        if sent is None:
+            return STATUS_PASSWORD_REQUIRED if expected else STATUS_OK
+        if sent == "invalid" or (expected and sent != expected):
+            return STATUS_WRONG_PASSWORD
+        return STATUS_OK
 
     # ── Command dispatch ──
 
@@ -154,7 +202,10 @@ class EpsonEscVpSimulator(TCPSimulator):
         if key == "FREEZE":
             return self._respond_kv("FREEZE", state.get("FREEZE", "OFF"))
         if key == "ASPECT":
-            return self._respond_kv("ASPECT", state.get("ASPECT", "00"))
+            aspect = state.get("ASPECT", "00")
+            # With Auto selected a projector reports the aspect it applies
+            # and a fixed 30 (an EB-L530U answers ASPECT=00 30).
+            return self._respond_kv("ASPECT", "00 30" if aspect == "30" else aspect)
         if key == "CMODE":
             return self._respond_kv("CMODE", state.get("CMODE", "04"))
         if key == "LAMP":

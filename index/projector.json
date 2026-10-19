@@ -245,7 +245,7 @@
       "name": "Epson Projector (ESC/VP21)",
       "manufacturer": "Epson",
       "category": "projector",
-      "version": "1.4.3",
+      "version": "1.5.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Epson business and installation projectors over ESC/VP21 wrapped in ESC/VP.net on TCP port 3629. Power, input, A/V mute, freeze, aspect ratio, color mode, lamp hours, and remote-key passthrough.",
@@ -253,8 +253,8 @@
       "file": "projectors/epson_escvp.py",
       "format": "python",
       "files": {
-        "projectors/epson_escvp.py": "27ddbc9446c281162c5ffa6fe2be9c44019e100e2951b03979bc29c954688a89",
-        "projectors/epson_escvp_sim.py": "5d20fd678d357c75591ab17d4b3c00c9b1c20c2594e89b4b5694389e9cb21ed9"
+        "projectors/epson_escvp.py": "18d695cec41e26d401124b8b33a3091f7242bf4299a46443d78b0768e46cda29",
+        "projectors/epson_escvp_sim.py": "34ada5c7c11d03834772a94fdf0002ca20b042515c4291b1381e6094bff345b0"
       },
       "ports": [
         3629
@@ -263,6 +263,7 @@
         "esc_vp_net"
       ],
       "simulated": true,
+      "verified": true,
       "min_platform_version": "0.25.0",
       "tags": [
         "projector",
@@ -273,10 +274,19 @@
         "eb"
       ],
       "help": {
-        "overview": "ESC/VP21 is Epson's text-based projector control protocol. Over the network it runs inside ESC/VP.net on TCP port 3629 \u2014 the driver handles the binary handshake transparently. Most modern Epson projectors respond to PJLink as well, but the native ESC/VP21 surface gives access to color mode, aspect ratio, freeze, image-quality numerics, and the full virtual remote keypad \u2014 none of which PJLink covers.",
-        "setup": "1. Connect the projector to the network and assign a static IP.\n2. In the projector's network menu, enable 'Network Standby' (or 'Standby Mode = Communication On' on older units) so the projector responds to network commands while powered off.\n3. Confirm 'Control Communications' (some menus call this 'PJLink' or 'ESC/VP.net') is enabled.\n4. Optional: if the projector has an ESC/VP.net password set in the web setup, this driver does not currently send a password \u2014 disable it for control use, or use the device's web UI for one-off setup."
+        "overview": "ESC/VP21 is Epson's text-based projector control protocol. Over the network it runs inside ESC/VP.net on TCP port 3629, and the driver handles its binary handshake. Most modern Epson projectors respond to PJLink as well, but the native ESC/VP21 surface gives access to color mode, aspect ratio, freeze, image-quality numerics, and the full virtual remote keypad, none of which PJLink covers. Recent Epson firmware keeps network control off until passwords are set on the projector. The steps appear when you add the device.",
+        "setup": "1. On the projector, open Network > Network Settings > Projector Control and set Command Communication to Compatible (on some models it is under Network > Network Configuration > Others). Create the Monitor Password it asks for.\n2. Go back to Network Settings and choose Set. Create the Web Control Password too if it asks for one: network control stays off until one exists.\n3. Enter the Monitor Password below.\nProjectors on older firmware with no Command Communication setting need no password: leave it blank. Command Communication set to Protected is not supported.",
+        "connection": "If the projector goes offline only while it is off, set Standby Mode to Communication On (Network Standby on some models) on the projector."
       },
       "compatible_models": [
+        {
+          "manufacturer": "Epson",
+          "models": [
+            "EB-L530U"
+          ],
+          "confidence": "full",
+          "notes": "Tested on the projector with Command Communication set to Compatible. It takes the Auto, Full, Zoom, Native and V-Zoom aspect ratios; the sRGB, Presentation, Dynamic, DICOM SIM, Cinema and Multi-Projection color modes; and the Computer1, HDMI1, HDMI2, HDBaseT, USB-A, LAN and Screen Mirroring inputs. Freeze needs a picture on the input. Lamp Hours reads 0 and Error Status stays empty on this laser model."
+        },
         {
           "manufacturer": "Epson",
           "models": [

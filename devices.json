@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1024,
+    "total_devices": 1025,
     "shards": null
   },
   "devices": [
@@ -5403,6 +5403,18 @@
           "id": "pjlink_class1",
           "confidence": "full",
           "notes": "JBMIA-registered as Class 2. Modern Epson commercial laser/lamp models. The dedicated `epson_escvp` driver covers more (ESC/VP command set, faster, brand-specific picture modes)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epson",
+      "model": "EB-L530U",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "epson_escvp",
+          "confidence": "full",
+          "notes": "Tested on the projector with Command Communication set to Compatible. It takes the Auto, Full, Zoom, Native and V-Zoom aspect ratios; the sRGB, Presentation, Dynamic, DICOM SIM, Cinema and Multi-Projection color modes; and the Computer1, HDMI1, HDMI2, HDBaseT, USB-A, LAN and Screen Mirroring inputs. Freeze needs a picture on the input. Lamp Hours reads 0 and Error Status stays empty on this laser model."
         }
       ]
     },

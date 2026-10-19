@@ -122,13 +122,13 @@ _CONFIG: dict[str, dict] = {
 _KNOWN_GAPS: dict[str, str] = {}
 
 
-# Budget for a single connect(). Matched to what the platform itself allows a
-# driver (DeviceManager waits 30 s), because a device whose protocol mandates
-# pacing between commands legitimately spends seconds in its handshake and
-# initial sync — the Atlona MS-series requires 500 ms per command, so its
-# identity read alone is ~9 s. A tighter budget here reports healthy drivers as
-# broken rather than measuring anything the product cares about.
+# Test budgets include a driver's paced handshake and full initial sync.
+# These are smoke-test bounds, not a DeviceManager connection deadline.
 _CONNECT_TIMEOUT = 30
+# dLive sends 2,412 queries at 10 ms intervals. The intentional 24.12 s of
+# pacing plus scheduling and parsing exceeded 30 s in the isolated lifecycle
+# run. Keep the entire sweep and its pacing; allow startup overhead here only.
+_CONNECT_TIMEOUTS = {"allenheath_dlive": 60}
 
 
 def _discover() -> list[tuple[str, str]]:
@@ -290,7 +290,7 @@ async def _run_smoke(driver_id: str, driver_rel: str) -> None:
     driver.udp_redirect = ("127.0.0.1", bound)
 
     try:
-        await asyncio.wait_for(driver.connect(), timeout=_CONNECT_TIMEOUT)
+        await asyncio.wait_for(driver.connect(), timeout=_CONNECT_TIMEOUTS.get(driver_id, _CONNECT_TIMEOUT))
         await asyncio.sleep(0.25)  # let any on-connect sync / first push settle
 
         assert "device.connected.smoke" in seen, f"{driver_id}: no device.connected event"

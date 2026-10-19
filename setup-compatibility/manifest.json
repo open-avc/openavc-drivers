@@ -1,0 +1,662 @@
+{
+  "schema": "setup-compatibility-input/v1",
+  "sources": [
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "audio/biamp_tesira_ttp.py",
+      "source_sha256": "79176aab88ca65abf513f648345cd417d59e8cd38319415b895bc84251562840",
+      "driver_id": "biamp_tesira_ttp",
+      "driver_version": "3.1.6",
+      "actions": [
+        {
+          "action_id": "test_connection",
+          "profile": "block-check/v1",
+          "roles": {
+            "count": "blocks_checked",
+            "answered": "blocks_ok",
+            "failed": "blocks_failed"
+          },
+          "diagnostics": [
+            {
+              "key": "firmware",
+              "label": "Firmware",
+              "type": "string",
+              "required": true,
+              "nullable": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "audio/bose_controlspace.py",
+      "source_sha256": "f7add21d6038722faaf18cdbc574289aae561f29887a4a976e14c8c74b36fb8f",
+      "driver_id": "bose_controlspace",
+      "driver_version": "1.0.6",
+      "actions": [
+        {
+          "action_id": "test_connection",
+          "profile": "probe-check/v1",
+          "roles": {
+            "answered": "answered",
+            "silent": "silent",
+            "problems": "problems",
+            "message": "message",
+            "success": "ok",
+            "rejected": "rejected"
+          },
+          "diagnostics": [
+            {
+              "key": "push_supported",
+              "label": "Push supported",
+              "type": "boolean",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "key": "parameter_set",
+              "label": "Parameter set",
+              "type": "integer",
+              "required": true,
+              "nullable": true
+            },
+            {
+              "key": "ip_address",
+              "label": "IP address",
+              "type": "string",
+              "required": true,
+              "nullable": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "audio/bss_soundweb_london.py",
+      "source_sha256": "b59aaeef3cd74aa72655ea2565ee033da0286009c03daf86320b91c76fad7c1f",
+      "driver_id": "bss_soundweb_london",
+      "driver_version": "1.1.8",
+      "actions": [
+        {
+          "action_id": "test_connection",
+          "profile": "probe-check/v1",
+          "roles": {
+            "answered": "answered",
+            "silent": "silent",
+            "problems": "problems",
+            "message": "message",
+            "success": "ok"
+          },
+          "diagnostics": [
+            {
+              "key": "unit_node",
+              "label": "Unit node",
+              "type": "string",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "key": "nodes_seen",
+              "label": "Reported node",
+              "type": "strings",
+              "required": true,
+              "nullable": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "audio/qsc_qrc.py",
+      "source_sha256": "22bae254e58945d82ab3ce1c4f96b180aff1fe538cc94f5e7e9804fd0cd5d588",
+      "driver_id": "qsc_qrc",
+      "driver_version": "4.3.4",
+      "actions": [
+        {
+          "action_id": "test_connection",
+          "profile": "inventory-check/v1",
+          "roles": {
+            "reachable": "reachable",
+            "count": "component_count",
+            "items": "components"
+          },
+          "diagnostics": [
+            {
+              "key": "platform",
+              "label": "Platform",
+              "type": "string",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "key": "design",
+              "label": "Design",
+              "type": "string",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "key": "hint",
+              "label": "Guidance",
+              "type": "string",
+              "required": true,
+              "nullable": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "cameras/vaddio_conferenceshot_av.py",
+      "source_sha256": "427e4d4b6f1c1eabeece0e2f398a8681684fb82a6e755f67186331e34fa5bf9d",
+      "driver_id": "vaddio_conferenceshot_av",
+      "driver_version": "1.1.3",
+      "actions": [
+        {
+          "action_id": "enable_telnet",
+          "profile": "provisioning-claim/v1",
+          "roles": {
+            "accepted": "success",
+            "message": "message"
+          },
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "displays/panasonic_display.py",
+      "source_sha256": "c23b9e26f1df2339eda74127cffaa38dd57a107f1669359d658e4e0079e428a4",
+      "driver_id": "panasonic_display",
+      "driver_version": "1.0.5",
+      "actions": [
+        {
+          "action_id": "test_credentials",
+          "profile": "credential-check/v1",
+          "roles": {
+            "success": "auth_ok",
+            "message": "message",
+            "enabled": "auth_enabled"
+          },
+          "diagnostics": [
+            {
+              "key": "reachable",
+              "label": "Reachable",
+              "type": "boolean",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "key": "saved",
+              "label": "Driver reported saved",
+              "type": "boolean",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "key": "protocol",
+              "label": "Protocol",
+              "type": "string",
+              "required": true,
+              "nullable": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "displays/sony_bravia.py",
+      "source_sha256": "19b675e84b2a16e1f9f6b7d94c067c02a54a294033cd26740cceb201258e9eef",
+      "driver_id": "sony_bravia",
+      "driver_version": "1.5.8",
+      "actions": [
+        {
+          "action_id": "test_psk",
+          "profile": "credential-check/v1",
+          "roles": {
+            "success": "auth_ok",
+            "message": "message"
+          },
+          "diagnostics": [
+            {
+              "key": "reachable",
+              "label": "Reachable",
+              "type": "boolean",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "key": "saved",
+              "label": "Driver reported saved",
+              "type": "boolean",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "key": "model",
+              "label": "Model",
+              "type": "string",
+              "required": true,
+              "nullable": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "lighting/philips_hue.py",
+      "source_sha256": "5669ae050c5634aa8fa116a51ed533606f8481e3d18ad398efe19ce2866aa9e9",
+      "driver_id": "philips_hue",
+      "driver_version": "3.0.3",
+      "actions": [
+        {
+          "action_id": "pair_bridge",
+          "profile": "pairing/v1",
+          "roles": {
+            "paired": "paired"
+          },
+          "diagnostics": [
+            {
+              "key": "bridge_name",
+              "label": "Bridge name",
+              "type": "string",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "key": "bridge_id",
+              "label": "Bridge ID",
+              "type": "string",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "key": "saved",
+              "label": "Driver reported saved",
+              "type": "boolean",
+              "required": true,
+              "nullable": false
+            }
+          ],
+          "generated_secret": "app_key"
+        }
+      ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "power/apc_rack_pdu.py",
+      "source_sha256": "d41dba8e83f9b2c97f358aa940d26bdcdc59b39b4baf063e8d0f9026a01a76ed",
+      "driver_id": "apc_rack_pdu",
+      "driver_version": "1.0.2",
+      "actions": [
+        {
+          "action_id": "test_connection",
+          "profile": "boolean-check/v1",
+          "roles": {
+            "success": "success",
+            "message": "message"
+          },
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "projectors/barco_pulse.py",
+      "source_sha256": "68058535a905ce7141fe4315b34167a07069d8c38e5eff2340ab270afd711f77",
+      "driver_id": "barco_pulse",
+      "driver_version": "1.1.2",
+      "actions": [
+        {
+          "action_id": "test_pulse",
+          "profile": "session-check/v1",
+          "roles": {
+            "authenticated": "authenticated"
+          },
+          "diagnostics": [
+            {
+              "key": "model",
+              "label": "Model",
+              "type": "string",
+              "required": true,
+              "nullable": true
+            },
+            {
+              "key": "serial",
+              "label": "Serial",
+              "type": "string",
+              "required": true,
+              "nullable": true
+            },
+            {
+              "key": "firmware",
+              "label": "Firmware",
+              "type": "string",
+              "required": true,
+              "nullable": true
+            },
+            {
+              "key": "state",
+              "label": "State",
+              "type": "string",
+              "required": true,
+              "nullable": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "projectors/panasonic_pt.py",
+      "source_sha256": "d0cc65faf157b2252af06c92fa959ac852f5ba6c69cef0d34a25e1e32e0705d5",
+      "driver_id": "panasonic_pt",
+      "driver_version": "1.4.7",
+      "actions": [
+        {
+          "action_id": "test_ntcontrol",
+          "profile": "credential-check/v1",
+          "roles": {
+            "success": "auth_ok",
+            "message": "message",
+            "enabled": "auth_enabled"
+          },
+          "diagnostics": [
+            {
+              "key": "reachable",
+              "label": "Reachable",
+              "type": "boolean",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "key": "saved",
+              "label": "Driver reported saved",
+              "type": "boolean",
+              "required": true,
+              "nullable": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "projectors/sony_vpl.py",
+      "source_sha256": "33f295ec6a712c4c40dd046165c78059196d6078ae4b162ea1c6158621f352e9",
+      "driver_id": "sony_vpl",
+      "driver_version": "1.4.4",
+      "actions": [
+        {
+          "action_id": "test_adcp",
+          "profile": "credential-check/v1",
+          "roles": {
+            "success": "auth_ok",
+            "message": "message",
+            "enabled": "auth_enabled"
+          },
+          "diagnostics": [
+            {
+              "key": "reachable",
+              "label": "Reachable",
+              "type": "boolean",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "key": "saved",
+              "label": "Driver reported saved",
+              "type": "boolean",
+              "required": true,
+              "nullable": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "streaming/mersive_solstice.py",
+      "source_sha256": "a6ef82c584f49c50206941dd69531da4c00bec63bba9829a6a1754af9fce1727",
+      "driver_id": "mersive_solstice",
+      "driver_version": "1.4.4",
+      "actions": [
+        {
+          "action_id": "test_password",
+          "profile": "credential-check/v1",
+          "roles": {
+            "success": "auth_ok",
+            "message": "message"
+          },
+          "diagnostics": [
+            {
+              "key": "reachable",
+              "label": "Reachable",
+              "type": "boolean",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "key": "saved",
+              "label": "Driver reported saved",
+              "type": "boolean",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "key": "display_name",
+              "label": "Display name",
+              "type": "string",
+              "required": true,
+              "nullable": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "switchers/avproedge_mxnet_10g.py",
+      "source_sha256": "4e15f693ac30d58ec43ba933b9dfb6ea766d5b38bb02c0a91acbcd554a1ee3d9",
+      "driver_id": "avproedge_mxnet_10g",
+      "driver_version": "1.0.1",
+      "actions": [
+        {
+          "action_id": "test_connection",
+          "profile": "boolean-check/v1",
+          "roles": {
+            "success": "success",
+            "message": "message"
+          },
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "switchers/avproedge_mxnet_1g.py",
+      "source_sha256": "172f930deb759f1ae63181dc19d4e8c03594d353c357afd249fdc46cd4d9b10d",
+      "driver_id": "avproedge_mxnet_1g",
+      "driver_version": "1.4.3",
+      "actions": [
+        {
+          "action_id": "test_connection",
+          "profile": "boolean-check/v1",
+          "roles": {
+            "success": "success",
+            "message": "message"
+          },
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "switchers/blackmagic_videohub.py",
+      "source_sha256": "4dc68dccfc73cbf9f09077c694b84751767a28c2e729885fd7973955e14fd879",
+      "driver_id": "blackmagic_videohub",
+      "driver_version": "1.3.6",
+      "actions": [
+        {
+          "action_id": "test_connection",
+          "profile": "boolean-check/v1",
+          "roles": {
+            "success": "success",
+            "message": "message"
+          },
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "switchers/crestron_nvx.py",
+      "source_sha256": "e9455818fc48c6a1802d5d283b5159c89d4ab926273cd08bd2395fbf2ab86271",
+      "driver_id": "crestron_nvx",
+      "driver_version": "2.2.0",
+      "actions": [
+        {
+          "action_id": "set_up_nvx",
+          "profile": "provisioning-claim/v1",
+          "roles": {
+            "accepted": "provisioned"
+          },
+          "diagnostics": [
+            {
+              "key": "username",
+              "label": "Username",
+              "type": "string",
+              "required": true,
+              "nullable": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "switchers/tvone_coriomatrix.py",
+      "source_sha256": "af150ce2d73525e14d4f6c63ab6d6c0791065895fb3679c26a8595af319f8a6b",
+      "driver_id": "tvone_coriomatrix",
+      "driver_version": "1.0.4",
+      "actions": [
+        {
+          "action_id": "test_login",
+          "profile": "boolean-check/v1",
+          "roles": {
+            "success": "success",
+            "message": "message"
+          },
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "utility/netgear_m4250_m4350.py",
+      "source_sha256": "7169c800269725a68654e71acc0ffb24281ce25e4501641ee81d85c2652f95e4",
+      "driver_id": "netgear_m4250_m4350",
+      "driver_version": "1.4.10",
+      "actions": [
+        {
+          "action_id": "enable_ssh",
+          "profile": "provisioning-claim/v1",
+          "roles": {
+            "accepted": "ssh_enabled"
+          },
+          "diagnostics": [
+            {
+              "key": "transport",
+              "label": "Transport",
+              "type": "string",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "key": "port",
+              "label": "Port",
+              "type": "integer",
+              "required": true,
+              "nullable": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "utility/snmp_v2c.py",
+      "source_sha256": "189dd5f287ca7c6beb4836f4b895badfee15cf4335b1f22da6b7ab17d80c6791",
+      "driver_id": "snmp_v2c",
+      "driver_version": "1.0.0",
+      "actions": [
+        {
+          "action_id": "test_connection",
+          "profile": "boolean-check/v1",
+          "roles": {
+            "success": "success",
+            "message": "message"
+          },
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "video/poly_studio.py",
+      "source_sha256": "7ef104b14535c1e74719deee3e1e7af118669787fac79c2b656b50726c1b93c6",
+      "driver_id": "poly_studio",
+      "driver_version": "1.4.4",
+      "actions": [
+        {
+          "action_id": "test_login",
+          "profile": "credential-check/v1",
+          "roles": {
+            "success": "auth_ok",
+            "message": "message"
+          },
+          "diagnostics": [
+            {
+              "key": "reachable",
+              "label": "Reachable",
+              "type": "boolean",
+              "required": true,
+              "nullable": false
+            },
+            {
+              "key": "saved",
+              "label": "Driver reported saved",
+              "type": "boolean",
+              "required": true,
+              "nullable": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "revision": "777d152e96573ce4bf6d2d3690023bd160cd7086",
+      "path": "video/tvone_coriomaster.py",
+      "source_sha256": "9f54049b2bfcfd64cd88ea1cf2fb54ac919545ccacb9a78ac57134e4e7737cd7",
+      "driver_id": "tvone_coriomaster",
+      "driver_version": "1.0.4",
+      "actions": [
+        {
+          "action_id": "test_login",
+          "profile": "boolean-check/v1",
+          "roles": {
+            "success": "success",
+            "message": "message"
+          },
+          "diagnostics": []
+        }
+      ]
+    }
+  ]
+}

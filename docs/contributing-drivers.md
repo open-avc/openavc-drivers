@@ -463,6 +463,26 @@ ship with it, run under this repo's suite — see
 [Writing a driver test](#writing-a-driver-test), and in particular
 [Undeclared state fails your tests](#undeclared-state-fails-your-tests).
 
+## Historical setup results
+
+`setup-compatibility/manifest.json` contains maintained mappings for exact older
+Python setup handlers. Each entry pins a historical Git commit, file path and
+SHA-256, driver ID/version, action and finite result profile. Keep existing
+entries when updating a driver; installed copies may still use those bytes.
+
+The platform owns the [compatibility schema](../setup-compatibility.schema.json)
+and generator. Follow [Creating Drivers](https://github.com/open-avc/openavc/blob/main/docs/creating-drivers.md#setup-actions-provisioning-wizards)
+to generate the runtime resource from a committed manifest and full local Git
+history. The generator imports trusted historical modules in the actual platform
+environment. Stub-based driver tests cannot supply the loaded-source identity.
+
+Add result cases beside the driver tests. Preserve diagnostic fields, optional
+authentication, zero checks and partial effects. Generated credentials have a
+separate declared role; submitted passwords are not generated credentials. A
+mapping needs handler execution, dependency and offline upgrade qualification
+before inclusion in a runtime distribution. Passing the manifest's shape tests
+alone does not provide that qualification.
+
 ## Using an AI Assistant
 
 If you use an AI coding assistant, point it to [`AGENTS.md`](../AGENTS.md) in the root of this repository. It covers naming conventions, driver metadata, validation, worked examples and the runtime gotchas, and it points at the two things that define the driver contract itself: the generated [`avcdriver.schema.json`](../avcdriver.schema.json) and [`pythondriver.schema.json`](../pythondriver.schema.json) in the repository root, and the [Creating Drivers](https://docs.openavc.com/creating-drivers/) guide. Have your assistant run `python scripts/build_index.py --check` on its output to catch errors before you submit.

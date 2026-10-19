@@ -92,6 +92,11 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         ),
     ),
     (
+        "openavc/drivers/setup_compatibility.py",
+        "scripts/_vendor/setup_compatibility.py",
+        (("from openavc.drivers.spec import", "from .spec import"),),
+    ),
+    (
         "tests/fixtures/driver_validation_cases.json",
         "scripts/_vendor/driver_validation_cases.json",
         (),
@@ -109,6 +114,11 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
     (
         "openavc/drivers/pythondriver.schema.json",
         "pythondriver.schema.json",
+        (),
+    ),
+    (
+        "openavc/drivers/setup-compatibility.schema.json",
+        "setup-compatibility.schema.json",
         (),
     ),
 )

@@ -489,7 +489,7 @@ When a `notifications` entry exists for a state variable, it takes priority over
 - `{value}` is replaced with the new state value, as the device's own number when the variable declares `scale` or `offset`
 - `{key}` is replaced with the state variable name
 - An optional format spec renders the value like Python's `format()`: `{value:d}` turns a boolean into `0`/`1` (handy for protocols whose frames carry numeric flags), `{value:04X}` hex-pads, and so on. Values that can't take the spec fall back to plain text.
-- `{state.<key>}` is replaced with another simulator state key's current value, also as the device's own number, and takes the same format specs. The catalog build cannot see it, so set `min_platform_version: "0.37.0"` yourself. Use it when one notice reports several fields and only one of them changed: `'In {state.in1_gain},{value},{state.in1_mute:d}'` for a level change (openavc 0.37.0).
+- `{state.<key>}` is replaced with another simulator state key's current value, also as the device's own number, and takes the same format specs. The catalog build does not raise `min_platform_version` for it, so set `min_platform_version: "0.37.0"` yourself. Use it when one notice reports several fields and only one of them changed: `'In {state.in1_gain},{value},{state.in1_mute:d}'` for a level change (openavc 0.37.0).
 
 **Multicast push drivers.** When the driver declares a multicast `push:` block (a device whose notifications go to a multicast group instead of the control connection), the simulator emits every `notifications` template to that group and port — and does **not** send them to connected control clients, matching the real device. `push_state` is not required for this path; just author the `notifications` map so its output matches the driver's response rules. The group and port resolve from the driver's config fields the same way the live driver resolves them. One note for multi-device testing: simulated devices all emit from the same host, so two simulated units of the same driver will see each other's frames — real devices are told apart by their source address, which simulation can't reproduce.
 
@@ -1058,7 +1058,7 @@ telnet 127.0.0.1 19000
 - State updates are reflected in the Simulator UI
 - Polling queries return current state
 - Error injection (timeout, corrupt data) works as expected
-- With **Device stops responding** on, the device goes offline in OpenAVC, and comes back once it is turned off
+- With **Device stops responding** on, a driver that polls (or declares `liveness`) takes the device offline in OpenAVC, and the device comes back once the setting is off
 - If you have state machines, verify the timing and transitions
 
 ---

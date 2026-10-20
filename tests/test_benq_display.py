@@ -44,6 +44,7 @@ from _platform_stubs import (
     StubBaseDriver,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
+    WakeAddressError,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -128,7 +129,9 @@ class _FakeTCPSimulator:
         return self._state.get(key, default)
 
 
-def _load(name: str, path: Path) -> ModuleType:
+def _load(name: str, path: Path, *, typed_refusal: bool = True) -> ModuleType:
+    """``typed_refusal=False`` loads it as OpenAVC before 0.37.1 would, whose
+    base module has no ``WakeAddressError``."""
     server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
     sys.modules["openavc"] = server
@@ -138,6 +141,8 @@ def _load(name: str, path: Path) -> ModuleType:
         sys.modules[f"openavc.{sub}"] = m
     base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
+    if typed_refusal:
+        base.WakeAddressError = WakeAddressError
     sys.modules["openavc.drivers.base"] = base
     logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
@@ -198,7 +203,7 @@ def pair():
 
 def test_metadata_shape():
     info = DRV.BenqDisplayDriver.DRIVER_INFO
-    assert info["version"] == "1.2.0"
+    assert info["version"] == "1.2.1"
     assert info["min_platform_version"] == "0.37.0"
     assert info["config_schema"]["mac_address"]["learned_from"] == "mac_address"
     assert info["ports"] == [4660]
@@ -460,13 +465,14 @@ def test_power_on_offline_wakes_with_a_known_mac_and_refuses_without_one():
     driver.transport = None  # offline: no control link at all
 
     async def run():
-        # Offline and no MAC anywhere -> a clear error, nothing sent.
-        with pytest.raises(ValueError, match="no MAC address is known"):
+        # Offline and no MAC anywhere -> a clear error, nothing sent. Typed,
+        # so a panel says the display's setup is not finished instead.
+        with pytest.raises(WakeAddressError, match="no MAC address is known"):
             await driver.send_command("power_on")
         assert driver.udp_sent == []
         # A malformed MAC is skipped with a warning, so still nothing to send.
         driver.config["mac_address"] = "not-a-mac"
-        with pytest.raises(ValueError, match="no MAC address is known"):
+        with pytest.raises(WakeAddressError, match="no MAC address is known"):
             await driver.send_command("power_on")
         assert driver.udp_sent == []
         # Learned state beats the config field.
@@ -477,3 +483,10 @@ def test_power_on_offline_wakes_with_a_known_mac_and_refuses_without_one():
         assert [h for _, h, _ in driver.udp_sent] == ["255.255.255.255", "10.0.0.60"]
 
     _run(run())
+
+
+def test_on_an_older_platform_the_wake_refusal_is_a_plain_value_error():
+    """OpenAVC 0.37.0 has no WakeAddressError: the driver still loads and
+    raises the same sentence as a ValueError."""
+    older = _load("benq_display_older", DRIVER_PATH, typed_refusal=False)
+    assert older.WakeAddressError is ValueError

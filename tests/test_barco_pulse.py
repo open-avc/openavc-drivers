@@ -47,6 +47,7 @@ from _platform_stubs import (
     FrameParser as _FrameParserBase,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
+    WakeAddressError,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -308,7 +309,9 @@ class _FakeTCPSimulator:
             await _CURRENT_TRANSPORT.deliver(data)
 
 
-def _build_stub_modules() -> dict[str, ModuleType]:
+def _build_stub_modules(*, typed_refusal: bool = True) -> dict[str, ModuleType]:
+    """``typed_refusal=False`` builds the base module as OpenAVC before
+    0.37.1 has it, with no ``WakeAddressError``."""
     modules: dict[str, ModuleType] = {}
     server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
@@ -320,6 +323,8 @@ def _build_stub_modules() -> dict[str, ModuleType]:
     base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
     base.ConnectionFaultError = _FakeConnectionFaultError
+    if typed_refusal:
+        base.WakeAddressError = WakeAddressError
     modules["openavc.drivers.base"] = base
     tcp = ModuleType("openavc.transport.tcp")
     tcp.TCPTransport = _FakeTCPTransport
@@ -346,8 +351,9 @@ def _build_stub_modules() -> dict[str, ModuleType]:
 _STUB_MODULES = _build_stub_modules()
 
 
-def _load(name: str, path: Path) -> ModuleType:
-    for mod_name, mod in _STUB_MODULES.items():
+def _load(name: str, path: Path, *, typed_refusal: bool = True) -> ModuleType:
+    stubs = _STUB_MODULES if typed_refusal else _build_stub_modules(typed_refusal=False)
+    for mod_name, mod in stubs.items():
         sys.modules[mod_name] = mod
     spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)
@@ -405,7 +411,7 @@ async def _settle(n: int = 4) -> None:
 
 def test_version_and_platform_gate():
     info = DRV.BarcoPulseDriver.DRIVER_INFO
-    assert info["version"] == "1.1.2"
+    assert info["version"] == "1.1.3"
     # learned_from on the MAC address setting ships in 0.37.0, and so does
     # the local_address() the Test Pulse socket binds to.
     assert info["min_platform_version"] == "0.37.0"
@@ -822,11 +828,20 @@ def test_offline_power_on_with_no_mac_says_where_to_enter_it():
             await driver.send_command("power_on")
         except ValueError as exc:
             assert "Edit Device" in str(exc)
+            # Typed, so a panel says the projector's setup is not finished.
+            assert isinstance(exc, WakeAddressError)
         else:
             raise AssertionError("Power On with no MAC should be refused")
         assert driver.udp_sent == []
 
     asyncio.run(go())
+
+
+def test_on_an_older_platform_the_wake_refusal_is_a_plain_value_error():
+    """OpenAVC 0.37.0 has no WakeAddressError: the driver still loads and
+    raises the same sentence as a ValueError."""
+    older = _load("barco_pulse_older", DRIVER_PATH, typed_refusal=False)
+    assert older.WakeAddressError is ValueError
 
 
 # ── Authentication ──────────────────────────────────────────────────────────

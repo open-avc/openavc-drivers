@@ -84,6 +84,11 @@ from openavc.drivers.base import BaseDriver, ConnectionFaultError
 from openavc.transport.frame_parsers import FrameParser
 from openavc.utils.logger import get_logger
 
+try:
+    from openavc.drivers.base import WakeAddressError
+except ImportError:  # OpenAVC before 0.37.1 has no typed wake refusal
+    WakeAddressError = ValueError
+
 log = get_logger(__name__)
 
 
@@ -251,7 +256,7 @@ class BarcoPulseDriver(BaseDriver):
         "name": "Barco Pulse Projector",
         "manufacturer": "Barco",
         "category": "projector",
-        "version": "1.1.2",
+        "version": "1.1.3",
         # learned_from on the MAC address setting landed in 0.37.0, and so
         # did BaseDriver.local_address(), which the Test Pulse socket binds
         # to (a method call the contract check cannot see).
@@ -1389,7 +1394,7 @@ class BarcoPulseDriver(BaseDriver):
         if connected:
             return await self._send_jsonrpc("system.poweron")
         if not woke:
-            raise ValueError(
+            raise WakeAddressError(
                 "The projector is offline and no MAC address is known, so "
                 "it cannot be woken. The MAC is filled in automatically on "
                 "the first connection; until then, enter it under Edit "

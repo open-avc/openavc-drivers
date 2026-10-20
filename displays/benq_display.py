@@ -67,6 +67,11 @@ from typing import Any
 from openavc.drivers.base import BaseDriver
 from openavc.utils.logger import get_logger
 
+try:
+    from openavc.drivers.base import WakeAddressError
+except ImportError:  # OpenAVC before 0.37.1 has no typed wake refusal
+    WakeAddressError = ValueError
+
 log = get_logger(__name__)
 
 # ── Wire tables (RM6503 RS232 & LAN guide; generic signage guide) ──────────
@@ -239,7 +244,7 @@ class BenqDisplayDriver(BaseDriver):
         "name": "BenQ Display",
         "manufacturer": "BenQ",
         "category": "display",
-        "version": "1.2.0",
+        "version": "1.2.1",
         "author": "OpenAVC",
         "description": (
             "Controls BenQ interactive flat panels (BenQ Boards: RM, RP, RE, "
@@ -1047,7 +1052,7 @@ class BenqDisplayDriver(BaseDriver):
             await self._set(SET_POWER, "001")
             return True
         if not woke:
-            raise ValueError(
+            raise WakeAddressError(
                 "The display is offline and no MAC address is known, so it "
                 "cannot be woken. The MAC is learned automatically on the "
                 "first connection; until then, enter it under Edit Device, "

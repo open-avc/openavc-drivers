@@ -1753,7 +1753,7 @@
       "name": "Barco Pulse Projector",
       "manufacturer": "Barco",
       "category": "projector",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Barco Pulse-platform laser projectors (F70 / F80 / F90, UDX, UDM, HDX 4K, I600, G62 / G100, XDL and other Pulse models) over the Pulse JSON-RPC API on TCP 9090. Live push updates for power, source, shutter, laser power and picture settings; source picker built from the projector's own input list; lens shift / zoom / focus; test patterns; environment temperatures; and a raw property/method escape hatch for the full Pulse API.",
@@ -1761,7 +1761,7 @@
       "file": "projectors/barco_pulse.py",
       "format": "python",
       "files": {
-        "projectors/barco_pulse.py": "68058535a905ce7141fe4315b34167a07069d8c38e5eff2340ab270afd711f77",
+        "projectors/barco_pulse.py": "4a7dc3201d7dc4a7cafaa43128a8a77871b1b7e696459a2125c5d44628b75280",
         "projectors/barco_pulse_sim.py": "4f87820c7c9d18294a059a3f25b163334ef66a126e8d52a52592908090c6d0fa"
       },
       "ports": [
@@ -1900,7 +1900,7 @@
       "name": "BenQ Display",
       "manufacturer": "BenQ",
       "category": "display",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls BenQ interactive flat panels (BenQ Boards: RM, RP, RE, CP, CM series) and BenQ Smart Signage using BenQ's RS232 & LAN protocol on TCP port 4660 or direct RS-232. Power and screen off, source select, volume, mute and audio EQ, picture values and modes, backlight, color temperature, aspect, remote-key navigation, IR and keypad locks, power save, and a Power On that wakes a standby display over Wake-on-LAN. Polls for status.",
@@ -1908,7 +1908,7 @@
       "file": "displays/benq_display.py",
       "format": "python",
       "files": {
-        "displays/benq_display.py": "60149358f3258be13824d6bc2f46dd91e53784d36ae0f8df3efe8aa5436c5d00",
+        "displays/benq_display.py": "a11e451637a9ced011f75637cc5f51a7b1545129dd8e3302fe11103a740a21f4",
         "displays/benq_display_sim.py": "419940ec6fc818136d1d04dca4e53e20bad2ffb31c8a87ae6e34f17527673ffb"
       },
       "ports": [
@@ -4261,7 +4261,7 @@
       "name": "Wake-on-LAN",
       "manufacturer": "Generic",
       "category": "utility",
-      "version": "1.3.6",
+      "version": "1.3.7",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Send Wake-on-LAN magic packets to wake devices on the network. No persistent connection required.",
@@ -4269,7 +4269,7 @@
       "file": "utility/wake_on_lan.py",
       "format": "python",
       "files": {
-        "utility/wake_on_lan.py": "784dc11c6b62412bdcf529f872aa77ab1a6c2a195ada8650a790cc423472e7aa"
+        "utility/wake_on_lan.py": "7cf0b9db3e0ad340ee3483227a7dc6965922ee71c82229f75846159414ece641"
       },
       "min_platform_version": "0.37.0",
       "tags": [
@@ -4809,7 +4809,7 @@
       "name": "LG webOS TV",
       "manufacturer": "LG",
       "category": "display",
-      "version": "4.2.6",
+      "version": "4.2.7",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LG webOS TVs over the SSAP WebSocket protocol with live power/volume/input feedback.",
@@ -4817,7 +4817,7 @@
       "file": "displays/lg_webos.py",
       "format": "python",
       "files": {
-        "displays/lg_webos.py": "f7b6a16d52e3ad73d60c7778d147f882ba7ac2c5309bd9283a73b43c57b2da35",
+        "displays/lg_webos.py": "0d2a5a6a7d1783d61b5185987530da47d99780fc13f2a6383143afd6dc5487eb",
         "displays/lg_webos_sim.py": "bdf3e7d51d6edf5019a79e7bb7ca4016847c1faf44fef8d26ba5cb8db4732f98"
       },
       "ports": [

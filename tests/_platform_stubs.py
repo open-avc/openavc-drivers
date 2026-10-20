@@ -127,6 +127,46 @@ class UndeclaredStateError(ValueError):
     """A driver wrote state it does not declare, under strict mode."""
 
 
+class WakeAddressError(ValueError):
+    """Mirrors ``openavc.drivers.base.WakeAddressError``: a wake refused for a
+    MAC address that is empty or is not one."""
+
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        field_label: str = "",
+        value: str = "",
+        reported: bool = False,
+    ) -> None:
+        self.field_label = field_label or "MAC Address"
+        self.value = str(value or "").strip()
+        self.reported = reported
+        self._message = message
+        super().__init__(message or self.sentence())
+
+    def sentence(self, device: str = "") -> str:
+        if self._message:
+            return self._message
+        subject = device or "The device"
+        if self.value:
+            return (
+                f"{subject} can't be woken: {self.field_label} is "
+                f"'{self.value}', which is not a MAC address (six pairs of hex "
+                f"digits, like aa:bb:cc:dd:ee:ff). Correct it under Edit Device."
+            )
+        if self.reported:
+            return (
+                f"{subject} can't be woken yet: {self.field_label} is empty. It "
+                f"is filled in when {device or 'the device'} connects; until "
+                f"then, enter it under Edit Device."
+            )
+        return (
+            f"{subject} can't be woken: {self.field_label} is empty. Enter it "
+            f"under Edit Device."
+        )
+
+
 # The codes a driver is allowed to raise. Kept in step with the platform's
 # _DRIVER_FAULT_CODES -- the real ConnectionFaultError rejects anything else at
 # construction, so a stub that accepted every string would let a typo'd code
@@ -432,9 +472,10 @@ def magic_packet(mac: str) -> bytes:
     """Mirrors ``openavc.drivers.base.magic_packet``."""
     normalized = normalize_mac(mac)
     if normalized is None:
-        raise ValueError(
+        raise WakeAddressError(
             f"'{mac}' is not a MAC address (expected six hex pairs, "
-            f"like aa:bb:cc:dd:ee:ff)"
+            f"like aa:bb:cc:dd:ee:ff)",
+            value=str(mac),
         )
     return b"\xff" * 6 + bytes.fromhex(normalized.replace(":", "")) * 16
 
@@ -1322,6 +1363,7 @@ def _default_tree() -> dict[str, dict[str, Any]]:
             "CommandParamError": CommandParamError,
             "DeviceSettingValueError": DeviceSettingValueError,
             "UndeclaredStateError": UndeclaredStateError,
+            "WakeAddressError": WakeAddressError,
             "ConnectionFaultError": ConnectionFaultError,
         },
         "openavc.core": {},

@@ -30,6 +30,11 @@ from openavc.drivers.base import BaseDriver, ConnectionFaultError
 from openavc.system_config import get_system_config
 from openavc.utils.logger import get_logger
 
+try:
+    from openavc.drivers.base import WakeAddressError
+except ImportError:  # OpenAVC before 0.37.1 has no typed wake refusal
+    WakeAddressError = ValueError
+
 log = get_logger(__name__)
 
 
@@ -124,7 +129,7 @@ class LgWebosDriver(BaseDriver):
         "name": "LG webOS TV",
         "manufacturer": "LG",
         "category": "display",
-        "version": "4.2.6",
+        "version": "4.2.7",
         "author": "OpenAVC",
         "description": "Controls LG webOS TVs over the SSAP WebSocket protocol "
                        "with live power/volume/input feedback.",
@@ -782,7 +787,7 @@ class LgWebosDriver(BaseDriver):
         """
         mac = str(self.config.get("mac_address", "")).strip()
         if not mac:
-            raise ValueError(
+            raise WakeAddressError(
                 "The TV cannot be woken: no MAC address is set. Discovery "
                 "fills it in when the TV is found by a scan; for a TV added by "
                 "IP address, enter it under Edit Device, and turn on Mobile TV "
@@ -791,7 +796,7 @@ class LgWebosDriver(BaseDriver):
         try:
             await self.wake_on_lan(mac)
         except ValueError:
-            raise ValueError(
+            raise WakeAddressError(
                 f"The TV cannot be woken: '{mac}' is not a MAC address "
                 f"(expected six hex pairs, like 20:3d:bd:12:34:56). Correct it "
                 f"under Edit Device."

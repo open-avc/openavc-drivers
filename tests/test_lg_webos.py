@@ -31,6 +31,7 @@ from _platform_stubs import (
     StubBaseDriver,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
+    WakeAddressError,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -188,12 +189,16 @@ class _FakeBaseDriver:
         self.set_state("connected", False)
 
 
-def _install_stubs() -> None:
+def _install_stubs(*, typed_refusal: bool = True) -> None:
+    """``typed_refusal=False`` installs a base module as OpenAVC before
+    0.37.1 has it, with no ``WakeAddressError``."""
     server = ModuleType("openavc")
     drivers = ModuleType("openavc.drivers")
     base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
     base.ConnectionFaultError = _FakeFault
+    if typed_refusal:
+        base.WakeAddressError = WakeAddressError
     drivers.base = base
     server.drivers = drivers
 
@@ -219,11 +224,11 @@ def _install_stubs() -> None:
         sys.modules[name] = mod
 
 
-def _load_driver():
-    _install_stubs()
-    spec = importlib.util.spec_from_file_location("lg_webos", DRIVER_PATH)
+def _load_driver(name: str = "lg_webos", *, typed_refusal: bool = True):
+    _install_stubs(typed_refusal=typed_refusal)
+    spec = importlib.util.spec_from_file_location(name, DRIVER_PATH)
     module = importlib.util.module_from_spec(spec)
-    sys.modules["lg_webos"] = module
+    sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -375,14 +380,22 @@ def test_wol_packet_bytes():
 def test_wol_refuses_a_bad_or_missing_mac_and_says_where_it_goes():
     # A wake that cannot be sent is refused with the sentence an integrator
     # acts on, not a warning nobody sees from the room.
+    # Typed, so a panel says the TV's setup is not finished instead.
     d = _driver(mac_address="not-a-mac")
-    with pytest.raises(ValueError, match="is not a MAC address"):
+    with pytest.raises(WakeAddressError, match="is not a MAC address"):
         asyncio.run(d._wake_on_lan())
     assert d.udp_sent == []
     d = _driver(mac_address="")
-    with pytest.raises(ValueError, match="no MAC address is set"):
+    with pytest.raises(WakeAddressError, match="no MAC address is set"):
         asyncio.run(d.send_command("power_on"))
     assert d.udp_sent == []
+
+
+def test_on_an_older_platform_the_wake_refusal_is_a_plain_value_error():
+    """OpenAVC 0.37.0 has no WakeAddressError: the driver still loads and
+    raises the same sentence as a ValueError."""
+    older = _load_driver("lg_webos_older", typed_refusal=False)
+    assert older.WakeAddressError is ValueError
 
 
 # ── Offline Power On (available_offline command) ─────────────────────────────

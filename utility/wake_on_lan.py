@@ -17,6 +17,11 @@ from typing import Any
 from openavc.drivers.base import BaseDriver
 from openavc.utils.logger import get_logger
 
+try:
+    from openavc.drivers.base import WakeAddressError
+except ImportError:  # OpenAVC before 0.37.1 has no typed wake refusal
+    WakeAddressError = ValueError
+
 log = get_logger(__name__)
 
 WOL_PORT = 9
@@ -35,12 +40,15 @@ def build_magic_packet(mac_address: str) -> bytes:
         102-byte magic packet (6 * 0xFF + 16 * MAC).
 
     Raises:
-        ValueError: If the MAC address is invalid.
+        WakeAddressError: If the MAC address is invalid (a ValueError).
     """
     # Strip separators and validate
     mac_clean = re.sub(r"[:\-.]", "", mac_address).upper()
     if len(mac_clean) != 12 or not all(c in "0123456789ABCDEF" for c in mac_clean):
-        raise ValueError(f"Invalid MAC address: {mac_address}")
+        raise WakeAddressError(
+            f"'{mac_address}' is not a MAC address (six pairs of hex digits, "
+            f"like AA:BB:CC:DD:EE:FF). Correct it under Edit Device."
+        )
 
     mac_bytes = bytes.fromhex(mac_clean)
     return b"\xFF" * 6 + mac_bytes * 16
@@ -54,7 +62,7 @@ class WakeOnLANDriver(BaseDriver):
         "name": "Wake-on-LAN",
         "manufacturer": "Generic",
         "category": "utility",
-        "version": "1.3.6",
+        "version": "1.3.7",
         # send_udp sends a 255.255.255.255 broadcast through the adapter
         # Reach devices through chose, or through every connected adapter,
         # from 0.37.0.
@@ -137,7 +145,7 @@ class WakeOnLANDriver(BaseDriver):
 
         mac = self.config.get("mac_address", "")
         if not mac:
-            raise ValueError(f"[{self.device_id}] No MAC address configured")
+            raise WakeAddressError("No MAC address is set. Enter it under Edit Device.")
 
         broadcast = self.config.get("broadcast_address", "255.255.255.255")
         port = self.config.get("port", WOL_PORT)

@@ -30,6 +30,7 @@ from _platform_stubs import (
     StubBaseDriver,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
+    WakeAddressError,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -120,7 +121,9 @@ class _FakeBaseDriver:
         await self.events.emit(f"device.disconnected.{self.device_id}")
 
 
-def _load(name: str, path: Path) -> ModuleType:
+def _load(name: str, path: Path, *, typed_refusal: bool = True) -> ModuleType:
+    """``typed_refusal=False`` loads it as OpenAVC before 0.37.1 would, whose
+    base module has no ``WakeAddressError``."""
     server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
     sys.modules["openavc"] = server
@@ -130,6 +133,8 @@ def _load(name: str, path: Path) -> ModuleType:
         sys.modules[f"openavc.{sub}"] = m
     base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
+    if typed_refusal:
+        base.WakeAddressError = WakeAddressError
     sys.modules["openavc.drivers.base"] = base
     logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
@@ -229,17 +234,41 @@ def test_a_wake_that_did_not_go_out_fails_the_command():
     _run(scenario())
 
 
-@pytest.mark.parametrize("mac", ["", "not-a-mac-addr"])
-def test_a_wake_with_no_usable_mac_fails_the_command(mac):
+@pytest.mark.parametrize("mac,sentence", [
+    ("", "No MAC address is set. Enter it under Edit Device."),
+    ("not-a-mac-addr", "'not-a-mac-addr' is not a MAC address (six pairs of hex "
+                       "digits, like AA:BB:CC:DD:EE:FF). Correct it under Edit Device."),
+])
+def test_a_wake_with_no_usable_mac_fails_the_command(mac, sentence):
+    """Typed, so a panel says the device's setup is not finished; the
+    sentence is for whoever can open Edit Device, and names no device id."""
     async def scenario():
         driver = WakeOnLANDriver(
             "wolX", {"mac_address": mac}, _FakeState(), _FakeEvents(),
         )
         await driver.connect()
-        with pytest.raises(ValueError):
+        with pytest.raises(WakeAddressError) as caught:
             await driver.send_command("wake")
+        assert str(caught.value) == sentence
         assert driver.udp_sent == []
         assert driver.state.get("device.wolX.last_wake") is None
+    _run(scenario())
+
+
+def test_on_an_older_platform_the_refusal_is_a_plain_value_error():
+    """OpenAVC 0.37.0 has no WakeAddressError: the driver still loads, and
+    refuses with the same sentence."""
+    older = _load("_wake_on_lan_driver_older", DRIVER_PATH, typed_refusal=False)
+    assert older.WakeAddressError is ValueError
+
+    async def scenario():
+        driver = older.WakeOnLANDriver(
+            "wolX", {"mac_address": ""}, _FakeState(), _FakeEvents(),
+        )
+        await driver.connect()
+        with pytest.raises(ValueError, match="No MAC address is set") as caught:
+            await driver.send_command("wake")
+        assert type(caught.value) is ValueError
     _run(scenario())
 
 
@@ -264,5 +293,5 @@ def test_magic_packet_accepts_common_mac_formats(mac):
 
 @pytest.mark.parametrize("mac", ["", "AA:BB:CC:DD:EE", "not-a-mac-addr", "GG:BB:CC:DD:EE:FF"])
 def test_magic_packet_rejects_invalid_mac(mac):
-    with pytest.raises(ValueError):
+    with pytest.raises(WakeAddressError):
         build_magic_packet(mac)

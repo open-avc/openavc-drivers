@@ -458,7 +458,7 @@ Many AV devices push unsolicited messages to connected clients when state change
 
 **Simulators with `push_state: true` push state changes to connected drivers.** When state changes (from a simulator UI control, a command handler, or the API), the simulator formats the update using the driver's existing `responses:` patterns (the `StateResponse` format) and broadcasts it to all connected clients. The driver's response matchers handle these messages the same way they handle polled responses, so state updates in OpenAVC are instant.
 
-Without `push_state: true`, the simulator is poll-only, matching real devices that don't send unsolicited updates. Only set this flag for devices that actually push state changes in their protocol (e.g., Extron verbose mode, Shure subscription updates).
+Without `push_state: true` or a `notifications` section (below), the simulator is poll-only, matching real devices that don't send unsolicited updates. A `notifications` template is sent whether `push_state` is set or not, and the device's card in the Simulator UI reads **Pushes state changes** when either can reach the driver. Only set this flag for devices that actually push state changes in their protocol (e.g., Extron verbose mode, Shure subscription updates).
 
 HTTP simulators are always poll-based regardless of the flag. State changes from the simulator UI are visible to the driver on its next poll cycle.
 

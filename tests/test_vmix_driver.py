@@ -364,7 +364,7 @@ async def _run_scenario(scenario, *, subscribe_acts=True, poll_interval=0, confi
     be passed explicitly by a test that depends on it.
     """
     sim = VmixSimulator("vmix_sim")
-    await sim.start(18099)
+    await sim.start(0)
     state = StateStore()
     events = EventBus()
     state.set_event_bus(events)
@@ -372,7 +372,7 @@ async def _run_scenario(scenario, *, subscribe_acts=True, poll_interval=0, confi
         device_id="vmix_test",
         config={
             "host": "127.0.0.1",
-            "port": 18099,
+            "port": sim.port,
             "poll_interval": poll_interval,
             "subscribe_tally": True,
             "subscribe_acts": subscribe_acts,
@@ -458,13 +458,13 @@ def test_program_and_preview_arrive_without_any_subscription():
 
 async def _run_scenario_no_subs(scenario):
     sim = VmixSimulator("vmix_sim")
-    await sim.start(18099)
+    await sim.start(0)
     state = StateStore()
     events = EventBus()
     state.set_event_bus(events)
     d = VMixDriver(
         device_id="vmix_test",
-        config={"host": "127.0.0.1", "port": 18099, "poll_interval": 0,
+        config={"host": "127.0.0.1", "port": sim.port, "poll_interval": 0,
                 "subscribe_tally": False, "subscribe_acts": False},
         state=state, events=events,
     )

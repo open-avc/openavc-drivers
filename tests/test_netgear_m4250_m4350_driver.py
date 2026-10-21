@@ -53,7 +53,6 @@ except ModuleNotFoundError:
 NetgearDriver = _driver_mod.NetgearM4250M4350Driver
 NetgearSimulator = _sim_mod.NetgearM4250M4350Simulator
 
-PORT = 18097
 DEV = "netgear_test"
 
 
@@ -67,7 +66,7 @@ def _port_k(iface_id: int, prop: str) -> str:
 
 async def _run_scenario(scenario):
     sim = NetgearSimulator("netgear_sim", {})
-    await sim.start(PORT)
+    await sim.start(0)
     state = StateStore()
     events = EventBus()
     state.set_event_bus(events)
@@ -75,7 +74,7 @@ async def _run_scenario(scenario):
         device_id=DEV,
         config={
             "host": "127.0.0.1",
-            "port": PORT,
+            "port": sim.port,
             "transport": "tcp",   # telnet path to the simulator
             "poll_interval": 0,   # drive poll() manually
             "verify_timeout": 0,

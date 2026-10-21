@@ -18,6 +18,13 @@ This brackets each test module's import with a snapshot/restore of those
 back once it's collected. Each module captures the driver class it needs at its
 own import time, so removing the stubs afterward doesn't affect it — it only
 stops the leak from reaching the next module.
+
+Some tests install stubs while they RUN, too: an "on an older platform" test
+reloads its driver against a base module that lacks a newer name, and a corpus
+sweep loads every driver against the shared stubs. The same snapshot/restore
+brackets each module's run, so a stub installed by a test is gone before the
+next module's tests start, whatever order they run in (a subset of files, or
+``pytest -n``, puts a different module after it).
 """
 
 import os
@@ -52,23 +59,46 @@ def _is_platform_module(name: str) -> bool:
     return name.split(".", 1)[0] in _BRACKETED_ROOTS
 
 
+def _snapshot() -> dict:
+    return {n: m for n, m in sys.modules.items() if _is_platform_module(n)}
+
+
+def _roll_back(before: dict) -> None:
+    # Drop platform modules added since the snapshot (the leaked stubs)...
+    for name in list(sys.modules):
+        if _is_platform_module(name) and name not in before:
+            del sys.modules[name]
+    # ...and restore any real/original entries overwritten in place.
+    for name, module in before.items():
+        sys.modules[name] = module
+
+
 @pytest.hookimpl(hookwrapper=True)
 def pytest_make_collect_report(collector):
-    # Only bracket module imports — that's where the stubs get installed. The
-    # module's import runs inside collector.collect(), i.e. during the yield.
+    # Bracket module imports. The module's import runs inside
+    # collector.collect(), i.e. during the yield.
     if not isinstance(collector, pytest.Module):
         yield
         return
 
-    before = {n: m for n, m in sys.modules.items() if _is_platform_module(n)}
-    before_keys = set(sys.modules)
-
+    before = _snapshot()
     yield  # <-- the test module is imported here
+    _roll_back(before)
 
-    # Drop platform modules this import added (the leaked stubs)...
-    for name in list(sys.modules):
-        if _is_platform_module(name) and name not in before_keys:
-            del sys.modules[name]
-    # ...and restore any real/original entries the import overwrote in place.
-    for name, module in before.items():
-        sys.modules[name] = module
+
+@pytest.fixture(autouse=True, scope="module")
+def _platform_modules_rolled_back_after_the_module():
+    # Bracket each module's run: set up before its first test, torn down after
+    # its last (pytest ends a module's fixtures whenever the next test belongs
+    # to another module, so under ``-n`` this is each unbroken run of the
+    # module's tests on one worker). Being the outermost module fixture, it
+    # rolls back after a module's own stub fixtures have restored theirs.
+    #
+    # Module scope, not per test: the rollback also drops the real platform a
+    # test imported, so the next test imports it again, and every fresh import
+    # of openavc.utils.logger adds another console handler. Per test, a
+    # module's later tests would print each log line dozens of times. The cost
+    # is that a stub one test installs still reaches the rest of its module.
+    before = _snapshot()
+    yield
+    _roll_back(before)

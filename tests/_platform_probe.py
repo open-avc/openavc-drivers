@@ -105,7 +105,7 @@ def platform_on_path():
     # contributor's checkout just for running the suite.
     os.environ.setdefault(
         "OPENAVC_DATA_DIR",
-        str(pathlib.Path(tempfile.gettempdir()) / "openavc-stub-fidelity"),
+        str(pathlib.Path(tempfile.gettempdir()) / "openavc-drivers-tests"),
     )
     try:
         yield root

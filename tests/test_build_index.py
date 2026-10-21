@@ -524,6 +524,39 @@ def test_hand_authored_older_requires_raised_to_gate(tmp_path: Path) -> None:
     assert _index_discovery(tmp_path)["requires"] == "0.23.0"
 
 
+def test_udp_reply_port_stamps_requires_on_catalog_entry(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    probe = {
+        "port": 40001, "send_hex": "AC 01", "expect_hex": "AC 02",
+        "reply_port": 40002,
+    }
+    _write_yaml_driver(tmp_path, overrides={"discovery": {"udp_probe": probe}})
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+    disc = _index_discovery(tmp_path)
+    assert disc["requires"] == "0.37.2"
+    assert disc["udp_probe"] == probe
+
+
+@pytest.mark.parametrize(("kind", "reply_port", "message"), [
+    ("tcp", 40002, "discovery.tcp_probe.reply_port is only valid on a udp_probe"),
+    ("udp", 0, "discovery.udp_probe.reply_port must be an integer in [1, 65535]"),
+    ("udp", "40002", "discovery.udp_probe.reply_port must be an integer in [1, 65535]"),
+])
+def test_reply_port_refused_where_the_platform_refuses_it(
+    tmp_path: Path, kind: str, reply_port: object, message: str,
+) -> None:
+    _write_manufacturers(tmp_path)
+    probe = {
+        "port": 40001, "send_hex": "AC 01", "expect_hex": "AC 02",
+        "reply_port": reply_port,
+    }
+    _write_yaml_driver(tmp_path, overrides={"discovery": {f"{kind}_probe": probe}})
+    rc, _, err = _run(tmp_path)
+    assert rc != 0
+    assert message in err
+
+
 def test_unparseable_requires_rejected(tmp_path: Path) -> None:
     _write_manufacturers(tmp_path)
     _write_yaml_driver(

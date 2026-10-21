@@ -422,7 +422,7 @@ _KNOWN_PROBE_KEYS: frozenset[str] = frozenset({
     "port", "send_hex", "send_ascii",
     "expect", "expect_regex", "expect_hex",
     "cross_vendor", "timeout_ms", "tls", "cert_subject",
-    "extract", "extract_manufacturer", "then",
+    "extract", "extract_manufacturer", "then", "reply_port",
 })
 
 # Keys inside a probe's `then:` follow-up step.
@@ -660,6 +660,22 @@ def _validate_probe_block(file: str, kind: str, raw: Any) -> list[str]:
         elif raw["tls"] and kind != "tcp":
             errors.append(
                 f"{file}: discovery.{where}.tls is only valid on a tcp_probe"
+            )
+
+    if raw.get("reply_port") is not None:
+        reply_port = raw["reply_port"]
+        if kind != "udp":
+            errors.append(
+                f"{file}: discovery.{where}.reply_port is only valid on a "
+                "udp_probe (a tcp_probe's answer comes back on its own connection)"
+            )
+        elif (
+            not isinstance(reply_port, int) or isinstance(reply_port, bool)
+            or reply_port < 1 or reply_port > 65535
+        ):
+            errors.append(
+                f"{file}: discovery.{where}.reply_port must be an integer in "
+                "[1, 65535]"
             )
 
     errors.extend(_validate_extract_block(file, where, raw.get("extract")))
@@ -1270,12 +1286,22 @@ def _probe_has_follow_up(discovery: dict[str, Any]) -> bool:
     return isinstance(probe, dict) and probe.get("then") is not None
 
 
+def _udp_probe_has_reply_port(discovery: dict[str, Any]) -> bool:
+    probe = discovery.get("udp_probe")
+    return isinstance(probe, dict) and probe.get("reply_port") is not None
+
+
 _DISCOVERY_FEATURE_GATES: tuple[tuple[Any, str], ...] = (
     (_ssdp_has_description_filters, "0.23.0"),
     # A `then:` step needs the 0.32.0 probe runner. An older platform rejects
     # the `requires` key and skips this driver's hints rather than mis-reading
     # the probe as a plain one-shot — which would match every SQ as well.
     (_probe_has_follow_up, "0.32.0"),
+    # A `reply_port` needs the 0.37.2 probe runner. Without the gate an older
+    # parser refuses the unknown key, and with it this driver's whole block,
+    # as a malformed one; with it, the block is skipped as written for a newer
+    # platform. Either way an older platform uses none of this driver's hints.
+    (_udp_probe_has_reply_port, "0.37.2"),
 )
 
 

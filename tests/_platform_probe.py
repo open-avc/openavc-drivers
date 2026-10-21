@@ -145,9 +145,9 @@ def _require_platform(what: str) -> None:
         if platform_required():
             raise AssertionError(
                 f"{REQUIRE_PLATFORM_ENV}=1 promised the openavc platform, but it is "
-                f"not importable, so {what} was not checked."
+                f"not importable. Not checked: {what}."
             ) from None
-        pytest.skip(f"Needs the openavc platform; {what} was NOT checked.",
+        pytest.skip(f"Needs the openavc platform. NOT checked: {what}.",
                     allow_module_level=True)
 
 
@@ -173,7 +173,7 @@ def driver_info(module: ModuleType) -> dict | None:
 def python_drivers() -> tuple[tuple[Path, ModuleType | Exception], ...]:
     """Every Python driver loaded once on the real platform: (path, module or why not)."""
     with platform_on_path():
-        _require_platform("no Python driver's class")
+        _require_platform("every Python driver's class")
         loaded = []
         for path in python_driver_files():
             try:

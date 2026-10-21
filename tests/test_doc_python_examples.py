@@ -37,7 +37,7 @@ So this file asserts three things about every ```python fence:
 
 **The resolution half needs the real platform**, which this repo deliberately
 does not install — so it skips when there is none and fails when a CI job
-promised one, exactly like ``test_platform_stub_fidelity.py`` (they share
+promised one, like every check here that needs the platform (they share
 ``_platform_probe``). The parse / coroutine / connect checks are stdlib-only
 and always run, including in the contributor-shaped job that installs nothing
 but ``requirements-dev.txt``.
@@ -518,15 +518,16 @@ def test_the_sweep_still_reaches_the_documents() -> None:
     still see, per document, so one guide going quiet cannot hide behind the
     others.
     """
-    # AGENTS.md's floor is low on purpose. It used to carry the whole Python
-    # driver API inline; that reference now lives in the platform's own guide
-    # and its generated schema, and what is left here is the worked binary
-    # driver in §9.2 plus the test-writing snippets in §8.1. Those are still
+    # The driver guides' floors are low on purpose. AGENTS.md used to carry the
+    # whole Python driver API inline; that reference now lives in the
+    # platform's own guide and its generated schema, and what is left here is
+    # the worked binary driver in §9.2. Contributors no longer write tests, so
+    # neither guide carries test-writing snippets. What is left is still
     # copied verbatim, which is what this file is for.
     floors = {
-        "AGENTS.md": 3,
+        "AGENTS.md": 1,
         "docs/writing-simulators.md": 5,
-        "docs/contributing-drivers.md": 2,
+        "docs/contributing-drivers.md": 1,
     }
     for rel, floor in floors.items():
         blocks = _blocks(rel)

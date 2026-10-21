@@ -1,104 +1,17 @@
-"""Test isolation for stubbed modules in ``sys.modules``.
+"""Suite-wide settings.
 
-Most driver / simulator / discovery tests in this repo load their driver by
-importing it with the real ``openavc`` packages (and the odd
-third-party lib such as ``websockets``) replaced by lightweight stubs in
-``sys.modules`` — the community CI has no ``openavc`` install, so the drivers'
-``from openavc.* import ...`` lines need something to resolve against. Those
-stubs are installed at module-import time and never removed, so they leak into
-the shared ``sys.modules`` table and shadow the real module for any later test
-module that needs it (e.g. ``test_vmix_driver.py`` / ``test_connect_lifecycle.py``,
-which run the real driver against a simulator when ``openavc`` *is* installed —
-a leaked partial ``openavc.transport`` stub with no ``__path__`` hides the real
-``openavc.transport.frame_parsers`` it imports; a leaked ``websockets`` stub with
-``connect = None`` breaks a real WebSocket driver's ``connect()``).
+Strict driver state, on for the whole suite.
 
-This brackets each test module's import with a snapshot/restore of those
-``sys.modules`` entries: whatever a module installs while importing is rolled
-back once it's collected. Each module captures the driver class it needs at its
-own import time, so removing the stubs afterward doesn't affect it — it only
-stops the leak from reaching the next module.
-
-Some tests install stubs while they RUN, too: an "on an older platform" test
-reloads its driver against a base module that lacks a newer name, and a corpus
-sweep loads every driver against the shared stubs. The same snapshot/restore
-brackets each module's run, so a stub installed by a test is gone before the
-next module's tests start, whatever order they run in (a subset of files, or
-``pytest -n``, puts a different module after it).
+The platform reports a write to a state variable the driver never declared in
+DRIVER_INFO["state_variables"]: a warning at runtime, a raise under this
+variable. openavc's own conftest sets it so the platform suite runs strict.
+It is set HERE too because the checks that load a driver on the real platform
+(the connect/disconnect run over every simulator, the protocol-math tests)
+are where an undeclared write in a driver gets caught before it ships.
+``setdefault``, so a deliberate OPENAVC_STRICT_DRIVER_STATE=0 on the command
+line still wins.
 """
 
 import os
-import sys
 
-import pytest
-
-# Strict driver state, on for the whole suite.
-#
-# The platform reports a write to a state variable the driver never declared in
-# DRIVER_INFO["state_variables"]: a warning at runtime, a raise under this
-# variable. openavc's own conftest sets it so the platform suite runs strict.
-# It has to be set HERE too, because this is where driver authors actually run
-# tests -- a driver's own suite is the loop where an undeclared write is
-# actionable, and leaving it unset makes strict mode a no-op in the one repo
-# that matters most for it. ``setdefault``, so a deliberate
-# OPENAVC_STRICT_DRIVER_STATE=0 on the command line still wins.
-#
-# It bites for any test whose fake inherits ``_platform_stubs.StubBaseDriver``,
-# which carries the platform's check. A fake that still writes state its own
-# way is unaffected until it moves onto the shared stub.
 os.environ.setdefault("OPENAVC_STRICT_DRIVER_STATE", "1")
-
-# Package roots the tests stub: the platform packages, plus the third-party
-# libraries a driver imports at module load and its fake-based test replaces
-# (``websockets`` for the WebSocket drivers). Bracketing these keeps a stub from
-# outliving the module that installed it.
-_BRACKETED_ROOTS = ("openavc", "websockets")
-
-
-def _is_platform_module(name: str) -> bool:
-    return name.split(".", 1)[0] in _BRACKETED_ROOTS
-
-
-def _snapshot() -> dict:
-    return {n: m for n, m in sys.modules.items() if _is_platform_module(n)}
-
-
-def _roll_back(before: dict) -> None:
-    # Drop platform modules added since the snapshot (the leaked stubs)...
-    for name in list(sys.modules):
-        if _is_platform_module(name) and name not in before:
-            del sys.modules[name]
-    # ...and restore any real/original entries overwritten in place.
-    for name, module in before.items():
-        sys.modules[name] = module
-
-
-@pytest.hookimpl(hookwrapper=True)
-def pytest_make_collect_report(collector):
-    # Bracket module imports. The module's import runs inside
-    # collector.collect(), i.e. during the yield.
-    if not isinstance(collector, pytest.Module):
-        yield
-        return
-
-    before = _snapshot()
-    yield  # <-- the test module is imported here
-    _roll_back(before)
-
-
-@pytest.fixture(autouse=True, scope="module")
-def _platform_modules_rolled_back_after_the_module():
-    # Bracket each module's run: set up before its first test, torn down after
-    # its last (pytest ends a module's fixtures whenever the next test belongs
-    # to another module, so under ``-n`` this is each unbroken run of the
-    # module's tests on one worker). Being the outermost module fixture, it
-    # rolls back after a module's own stub fixtures have restored theirs.
-    #
-    # Module scope, not per test: the rollback also drops the real platform a
-    # test imported, so the next test imports it again, and every fresh import
-    # of openavc.utils.logger adds another console handler. Per test, a
-    # module's later tests would print each log line dozens of times. The cost
-    # is that a stub one test installs still reaches the rest of its module.
-    before = _snapshot()
-    yield
-    _roll_back(before)

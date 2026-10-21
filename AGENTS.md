@@ -84,7 +84,7 @@ A Python driver is a class that subclasses the platform's `BaseDriver`, carries 
 
 A `DRIVER_INFO` dict gets none of the live editor feedback a `.avcdriver` gets from its schema line, so a misspelled key there is invisible until the block it belongs to silently does nothing at runtime. Check it explicitly with `python -m openavc.drivers.check path/to/my_driver.py` from an OpenAVC checkout — see section 8.
 
-Every Python driver ships a test (section 8.1) and a companion simulator (section 5). Section 9.2 is a complete worked example of a binary protocol.
+Every Python driver ships a companion simulator (section 5); CI connects the driver to it (section 8.1). Section 9.2 is a complete worked example of a binary protocol.
 
 ---
 
@@ -163,7 +163,7 @@ openavc-drivers/
 │   └── _vendor/         # Generated copies of the platform's validation rules — never edit
 ├── index/               # Generated per-category index shards
 ├── devices/             # Generated per-category device shards
-├── tests/               # Driver tests
+├── tests/               # Catalog and contract checks, captured device replies
 ├── index.json           # Generated driver catalog
 ├── devices.json         # Generated device catalog
 ├── manufacturers.json   # Manufacturer registry
@@ -301,8 +301,10 @@ releases, so an inflated floor locks out users who could have run it, and a low
 one installs on a release that reads the file, ignores the fields it doesn't
 know, and runs the driver wrong.
 
-Those are all checks of what the driver **declares**. Nothing above reads a
-Python driver's code. That half is covered by the test you ship with it.
+Those are all checks of what the driver **declares**. What a Python driver's
+code does is checked by running it: CI loads every Python driver on the real
+platform, and connects every one that ships a simulator (section 8.1). The
+rest is proven on the equipment.
 
 `build_index.py` also prints the platform's **warnings** for a `.avcdriver`, the
 same ones the Driver Builder shows, as `warning: <file>: <message>` lines. A
@@ -389,96 +391,57 @@ Catalog CI treats these as **errors**; the runtime loader logs them as
 **warnings**, so a driver already installed keeps working and reports the
 problem rather than vanishing and taking its devices offline with it.
 
-### 8.1 Writing the test
+### 8.1 What else CI checks
 
-`tests/` is a pytest suite and CI runs it (`python -m pytest tests/ -v`). Ship
-a test with every Python driver. A YAML driver has no code of its own to
-unit-test — the platform that interprets it is tested in the OpenAVC repo — so
-it normally needs none.
+You do not write tests to contribute a driver. Prove it on the equipment, or
+against its simulator when you have no unit, and CI runs the same checks over
+your driver that it runs over every other one:
 
-**CI installs `requirements-dev.txt` and nothing else, so there is no `openavc`
-package in this repo.** A driver's `from openavc.drivers.base import BaseDriver`
-has nothing to resolve against, and every test here puts stand-ins into
-`sys.modules` before loading the driver.
+- **The catalog and the contract**: `build_index.py --check`, above.
+- **Connect, command, disconnect.** A Python driver that ships a `_sim.py` is
+  loaded on the real platform, connected to its simulator, sent its first
+  command that takes no parameters, and disconnected. If your simulator needs a
+  setting before it accepts the connection (a password, a model), add it to
+  `_CONFIG` in `tests/test_connect_lifecycle.py`.
+- **Commands that erase ask first**, **offline sentences**, **poll timing**:
+  the rows in section 11.
+- **Defaults agree**: a field's `default_config` value and its `config_schema`
+  default are the same, so the Add Device form and a one-click install agree.
+- **Discovery captures**: a probe reply captured from a real unit, under
+  `tests/fixtures/discovery/`, matches your driver's probe and no other's.
 
-**Do not write those stand-ins.** Import them from `tests/_platform_stubs.py`:
-
-```python
-from pathlib import Path
-
-from _platform_stubs import (
-    StubBaseDriver, StubEvents, StubState, install_stubs, load_module,
-)
-
-REPO_ROOT = Path(__file__).resolve().parent.parent
-
-
-class _FakeBaseDriver(StubBaseDriver):
-    """Only this driver's connect() ceremony. State handling — the
-    device.<id>. namespace, the undeclared-state check, the whole
-    child-entity registry — comes from StubBaseDriver."""
-
-    async def connect(self):
-        self.transport = _FakeTransport(self)
-        self.set_state("connected", True)
-
-
-install_stubs(base_driver=_FakeBaseDriver)
-DRV = load_module("acme_under_test", REPO_ROOT / "devices" / "acme_widget.py")
-```
-
-What the module exports: `StubBaseDriver`, `StubState`, `StubEvents`,
-`ConnectionFaultError`, `CommandParamError`, `UndeclaredStateError`, `WakeAddressError`,
-`CommandRefusedError`, `FrameParser`, `CallableFrameParser`, `DelimiterFrameParser`,
-`StubBaseSimulator`, `StubTCPSimulator`, `StubHTTPSimulator`,
-`StubUDPSimulator`, `StubSNMPSimulator`, `SnmpError`, `StubProbeContext`,
-plus `install_stubs()`,
-`stub_modules()` and `load_module()`.
-
-`install_stubs()` takes per-module overrides for anything else the driver
-imports. `stub_modules()` returns the same tree without installing it, for a
-driver that resolves a transport lazily at call time and so needs the stubs
-re-installed per test:
-
-```python
-install_stubs(
-    {"openavc.transport.ir_codec": {"IRCode": _FakeIRCode}},
-    base_driver=_FakeBaseDriver,
-)
-```
-
-`tests/_lifecycle_fake.py` carries the connect/disconnect/liveness half that
-several fakes share; inherit from both when a driver uses the platform's
-lifecycle hooks.
-
-### 8.2 Why the stand-ins are shared
-
-A stand-in cannot disagree with whoever wrote it — it *is* their belief about
-the platform, so a test passing against it confirms the belief, not the
-platform. Drivers shipped that way: a resync path tested against a frame parser
-that in reality wedged after one corrupt frame, and connection-fault tests
-asserting an attribute the platform does not have.
-
-`tests/test_platform_stub_fidelity.py` is what stops that. It signature-compares
-every stubbed method against the real class and replays behaviour side by side,
-whenever the OpenAVC checkout is present:
+`python -m pytest tests/ -v` runs the checks that need nothing but
+`requirements-dev.txt`. The ones that load a Python driver need an OpenAVC
+checkout:
 
 ```bash
 OPENAVC_PLATFORM_ROOT=../openavc OPENAVC_REQUIRE_PLATFORM=1 \
-    python -m pytest tests/test_platform_stub_fidelity.py -v
+    python -m pytest tests/test_connect_lifecycle.py -k my_driver -v
 ```
 
-It skips when the platform is absent, so a run with only this repo cloned stays
-green, and fails loudly when `OPENAVC_REQUIRE_PLATFORM=1` promised it. If you
-need a stand-in the shared module lacks, add it there **and** to that test's
-`PAIRS` list. Never write a private one.
+A bug you find on the hardware and fix is recorded as a comment at the line
+the fix lives on: what went wrong, and on which unit and firmware, so nobody
+"simplifies" it back. The bytes the unit sent are worth keeping too, under
+`tests/fixtures/<driver_id>/`.
+
+### 8.2 Protocol math
+
+One kind of test is welcome for a single driver: the arithmetic a Python driver
+does on the wire, checked against the manufacturer's own worked example. A
+checksum, a binary frame and its length field, a level or address encoding. It
+goes in `tests/protocol_math/test_<driver_id>.py`, loads the driver on the real
+platform with `load_driver("<category>/<driver_id>.py")` from
+`tests/_platform_probe.py`, and names the document and the example each
+expected value comes from. `tests/protocol_math/README.md` has the rule. A
+value your own code or your simulator works out does not belong there: it
+agrees with the driver by construction.
 
 ### 8.3 Strict driver state is on
 
-`tests/conftest.py` sets `OPENAVC_STRICT_DRIVER_STATE=1`, so a write to a state
-variable the driver never declared (see section 3) is a test failure, not a runtime
-warning. It applies to any fake that inherits `StubBaseDriver`. Declare the
-variable or stop writing it — a key built in a loop is the usual culprit.
+`tests/conftest.py` sets `OPENAVC_STRICT_DRIVER_STATE=1`, so when CI connects
+your driver, a write to a state variable it never declared (see section 3) is a
+failure, not a runtime warning. Declare the variable or stop writing it: a key
+built in a loop is the usual culprit.
 
 ---
 

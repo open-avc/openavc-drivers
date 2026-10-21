@@ -1,14 +1,13 @@
 """Real-platform connect/disconnect lifecycle smoke for every Python driver that
 ships a simulator.
 
-Unlike the per-driver unit tests (which stand in a *fake* BaseDriver so the
-community CI can run without an ``openavc`` install), this drives the REAL
-platform end to end: a real ``StateStore`` / ``EventBus``, the driver's own
-``BaseDriver`` subclass, and the driver's own simulator, connected over a real
-loopback socket. It is the one thing the fake-based suite structurally cannot
-check — that a driver's ``connect()`` actually runs the platform's connection
-hooks and emits the canonical ``device.connected.<id>`` /
-``device.disconnected.<id>`` lifecycle.
+This drives the REAL platform end to end: a real ``StateStore`` /
+``EventBus``, the driver's own ``BaseDriver`` subclass, and the driver's own
+simulator, connected over a real loopback socket. It checks that a driver's
+``connect()`` actually runs the platform's connection hooks and emits the
+canonical ``device.connected.<id>`` / ``device.disconnected.<id>`` lifecycle,
+for every Python driver, the same way; the rest of a driver is proven on the
+equipment.
 
 For each driver it asserts the whole arc:
     connect  -> ``device.connected.<id>`` event + ``connected`` state True
@@ -167,7 +166,7 @@ try:
     # the install exposes. This used to need the checkout root added to
     # ``sys.path`` by hand, because ``simulator`` was a second top-level package
     # that no install carried.
-    import openavc  # noqa: F401  (real platform; not the conftest stub)
+    import openavc  # noqa: F401  (the real platform)
 
     from openavc.core.event_bus import EventBus
     from openavc.core.state_store import StateStore
@@ -180,9 +179,9 @@ except ModuleNotFoundError:
     # And when a run PROMISED the platform, saying the number is not enough:
     # the CI job that installs the platform to get this coverage would still
     # report green having run none of it, which is the same false green one
-    # level up. Same carve-out, same env var, same helper as
-    # ``test_platform_stub_fidelity.py`` -- two files answering "is the
-    # platform here" differently is how they would come to disagree.
+    # level up. Same carve-out, same env var, same helper as every other
+    # check that needs the platform -- two files answering "is the platform
+    # here" differently is how they would come to disagree.
     from _platform_probe import (  # noqa: E402
         REQUIRE_PLATFORM_ENV,
         platform_required,

@@ -22,22 +22,16 @@ unasked that way); it runs in the platform job and skips without a platform.
 
 from __future__ import annotations
 
-import importlib.util
 import re
 import sys
 from pathlib import Path
 
-import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-from _platform_probe import (  # noqa: E402
-    REQUIRE_PLATFORM_ENV,
-    platform_on_path,
-    platform_required,
-)
+from _platform_probe import driver_info, python_drivers  # noqa: E402
 from _vendor.python_info import extract_python_driver_info_full  # noqa: E402
 
 CATEGORIES = (
@@ -134,57 +128,23 @@ def test_every_command_that_erases_asks_first_read_from_source():
     assert not stale, f"SENDS_WITHOUT_ASKING names commands that no longer exist: {stale}"
 
 
-def _load(path: Path):
-    name = f"_erase_sweep_{path.stem}"
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-def _driver_info(module) -> dict | None:
-    for value in vars(module).values():
-        info = getattr(value, "DRIVER_INFO", None)
-        if isinstance(value, type) and isinstance(info, dict) and value.__module__ == module.__name__:
-            return info
-    return None
-
-
 def test_every_command_that_erases_asks_first_with_the_class_loaded():
-    with platform_on_path() as root:
-        try:
-            import openavc.drivers.base  # noqa: F401
-        except ModuleNotFoundError:
-            if platform_required():
-                raise AssertionError(
-                    f"{REQUIRE_PLATFORM_ENV}=1 promised the openavc platform, but it is "
-                    "not importable, so no Python driver's built command table was read."
-                ) from None
-            pytest.skip(
-                "Needs the openavc platform to load each Python driver; the "
-                "commands a driver builds in code were NOT checked."
-            )
-
-        unasked: list[str] = []
-        seen: set[tuple[str, str]] = set()
-        failed: list[str] = []
-        for path in _driver_files():
-            if path.suffix != ".py":
-                continue
-            try:
-                info = _driver_info(_load(path))
-            except Exception as exc:  # noqa: BLE001 - name the driver, whatever broke
-                failed.append(f"{path.name}: {exc!r}")
-                continue
-            if info is None:
-                failed.append(f"{path.name}: no class with DRIVER_INFO")
-                continue
-            driver_id = info.get("id", path.stem)
-            commands = info.get("commands")
-            if isinstance(commands, dict):
-                seen.update((driver_id, c) for c in commands)
-            unasked.extend(_unasked(driver_id, commands))
+    unasked: list[str] = []
+    seen: set[tuple[str, str]] = set()
+    failed: list[str] = []
+    for path, module in python_drivers():
+        if isinstance(module, Exception):
+            failed.append(f"{path.name}: {module!r}")
+            continue
+        info = driver_info(module)
+        if info is None:
+            failed.append(f"{path.name}: no class with DRIVER_INFO")
+            continue
+        driver_id = info.get("id", path.stem)
+        commands = info.get("commands")
+        if isinstance(commands, dict):
+            seen.update((driver_id, c) for c in commands)
+        unasked.extend(_unasked(driver_id, commands))
 
     assert not failed, f"Could not load: {failed}"
     assert not unasked, f"{len(unasked)} send unasked: {unasked}. {_REMEDY}"

@@ -33,7 +33,9 @@ jobs:
       - name: Vendored platform contract is in sync
         run: python scripts/vendor_platform_contract.py --check
 
-      - name: Run driver, simulator, and build_index tests
+      # The catalog, contract and repo-tooling checks. The checks that load a
+      # Python driver skip here (no platform installed) and run in the job below.
+      - name: Run the catalog and contract checks
         run: python -m pytest tests/ -v
 
       # Also fails when the committed catalog no longer matches the driver
@@ -43,31 +45,19 @@ jobs:
       - name: Validate drivers and the catalog they generate
         run: python scripts/build_index.py --check
 
-  # Every test in the job above runs against tests/_platform_stubs.py, because
-  # that job installs requirements-dev.txt and nothing else — which is the
-  # point: it proves the suite really is self-contained. But a stand-in cannot
-  # disagree with whoever wrote it, so a suite that is green against the stubs
-  # has confirmed the stubs, not the platform. This job is what gives the
-  # platform a vote: it brings in the real one and pins every stubbed method
-  # against it.
-  #
-  # It is deliberately a separate job. The suite above must keep running with
-  # no platform installed, and this one must not be able to relax that.
+  # The checks that load a Python driver run it on the real platform: the
+  # connect/disconnect run over every driver with a simulator, the commands and
+  # defaults read from each loaded class, the guides' Python examples, and the
+  # protocol-math tests in tests/protocol_math/. This job clones the platform
+  # for them. It is a separate job so the one above keeps proving the catalog
+  # checks need nothing but requirements-dev.txt.
   #
   # OPENAVC_REQUIRE_PLATFORM=1 turns "the platform is missing" from a skip into
   # a failure — a job that meant to provide it and did not would otherwise pass
   # while testing nothing. This mirrors the openavc repo, whose CI clones this
-  # library and sets OPENAVC_REQUIRE_DRIVER_CORPUS=1 for the sweeps that need
-  # it. Only the two tests that ask the platform something run here: the rest
-  # of the suite is written for the stubbed environment.
-  #
-  # The guides are the second of those. AGENTS.md and writing-simulators.md
-  # both name platform functions and methods in their examples, and resolving
-  # those names needs the real modules — the same reason, and the same gate.
-  # (Their parse / dropped-coroutine checks are stdlib-only and run in the job
-  # above, where a contributor will actually see them.)
-  stub-fidelity:
-    name: Platform stubs and driver lifecycle match the platform
+  # library and sets OPENAVC_REQUIRE_DRIVER_CORPUS=1 for the sweeps that need it.
+  platform:
+    name: Drivers on the real platform
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -80,16 +70,15 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
 
-      # Track main rather than a pin: a genuine disagreement between the
-      # platform and the stand-ins these tests run against should go red here,
-      # on the day it appears.
+      # Track main rather than a pin: a platform change that breaks a driver
+      # should go red here, on the day it appears.
       - name: Clone the OpenAVC platform
         run: git clone --depth 1 https://github.com/open-avc/openavc.git "$RUNNER_TEMP/openavc"
 
       - name: Install the platform's runtime dependencies
         run: pip install -e "$RUNNER_TEMP/openavc"
 
-      - name: Pin the stubs, the guides and the driver lifecycle against the platform
+      - name: Load and run the drivers on the platform
         env:
           # PYTHONPATH resolves the platform from the same checkout the probe
           # points at, so a module the editable install does not expose is still
@@ -100,7 +89,8 @@ jobs:
           OPENAVC_DATA_DIR: ${{ runner.temp }}/openavc-data
         run: |
           python -m pytest \
-            tests/test_platform_stub_fidelity.py \
-            tests/test_doc_python_examples.py \
+            tests/test_connect_lifecycle.py \
             tests/test_commands_that_erase_ask_first.py \
-            tests/test_connect_lifecycle.py -v
+            tests/test_driver_defaults_agree.py \
+            tests/test_doc_python_examples.py \
+            tests/protocol_math -v

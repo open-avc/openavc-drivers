@@ -1,20 +1,16 @@
 """Locating the real OpenAVC platform, for the tests that need it.
 
-Most of this suite runs against the stand-ins in ``_platform_stubs.py``, with
-no ``openavc`` package installed — that is deliberate, and CI proves it by
-installing nothing but ``requirements-dev.txt``. A couple of tests are the
-exception: they exist precisely to ask the platform whether what this repo
-believes about it is true (``test_platform_stub_fidelity.py`` for the stubs,
-``test_doc_python_examples.py`` for the guides). Both need to find a real
-checkout, both must skip cleanly when there isn't one, and both must go loud
-when a CI job *promised* one and failed to provide it — otherwise a job that
-meant to check something passes while checking nothing.
+The catalog and contract checks in this suite read driver files and need
+nothing but ``requirements-dev.txt``; CI's first job proves it by installing
+nothing else. The checks that load a Python driver run it on the real
+platform instead (CI's second job clones it): the connect/disconnect run, the
+commands loaded from each class, the defaults read from each class, the
+guides' examples and the protocol-math tests. They all need to find a real
+checkout, skip cleanly when there isn't one, and go loud when a CI job
+*promised* one and failed to provide it — otherwise a job that meant to check
+something passes while checking nothing.
 
-That resolution was written once, for the fidelity test. This module is it,
-lifted out so the second caller shares it rather than growing a second copy —
-the same reason ``_platform_stubs.py`` exists.
-
-Two entry points:
+Entry points:
 
 * :func:`platform_required` — did the caller promise a platform
   (``OPENAVC_REQUIRE_PLATFORM``)? If so, "not found" is a failure, not a skip.
@@ -24,16 +20,26 @@ Two entry points:
   platform is not importable; an entry left on ``sys.path`` silently un-skips
   them depending on collection order, which is how a "green" run once started
   including 27 tests nobody meant to run there.
+* :func:`load_driver` — import one driver file against the real platform, or
+  skip (fail when promised) without one.
+* :func:`python_drivers` — every Python driver in the catalog, loaded once per
+  run and shared by the checks that read each class, so a second check costs
+  no second load.
 """
 
 from __future__ import annotations
 
 import contextlib
+import functools
+import importlib.util
 import os
 import pathlib
 import sys
 import tempfile
 from pathlib import Path
+from types import ModuleType
+
+import pytest
 
 REQUIRE_PLATFORM_ENV = "OPENAVC_REQUIRE_PLATFORM"
 PLATFORM_ROOT_ENV = "OPENAVC_PLATFORM_ROOT"
@@ -76,9 +82,9 @@ def platform_on_path():
     """Put a located platform checkout on ``sys.path`` for this block.
 
     Yields the root it found, or None. ``sys.path`` is always restored, and
-    any partially-stubbed ``openavc`` entries another module leaked into
-    ``sys.modules`` are dropped first, so the import below can never resolve
-    against a stand-in. One root covers the simulator too now.
+    any ``openavc`` entry in ``sys.modules`` with no file behind it (a
+    namespace left by a failed import) is dropped first, so the import below
+    resolves against the real package. One root covers the simulator too.
     """
     path_before = list(sys.path)
     root = platform_root()
@@ -105,3 +111,73 @@ def platform_on_path():
         yield root
     finally:
         sys.path[:] = path_before
+
+
+CATEGORIES = (
+    "projectors", "displays", "switchers", "audio", "cameras", "video",
+    "lighting", "power", "streaming", "utility",
+)
+
+
+def python_driver_files() -> list[Path]:
+    """Every Python driver in the catalog's folders (not simulators or companions)."""
+    files = []
+    for category in CATEGORIES:
+        for path in sorted((REPO_ROOT / category).glob("*.py")):
+            if not path.stem.startswith("_") and not path.stem.endswith(("_sim", "_discovery")):
+                files.append(path)
+    return files
+
+
+def _import_file(path: Path, name: str) -> ModuleType:
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _require_platform(what: str) -> None:
+    """Import the platform, or skip (fail when a job promised it)."""
+    try:
+        import openavc.drivers.base  # noqa: F401
+    except ModuleNotFoundError:
+        if platform_required():
+            raise AssertionError(
+                f"{REQUIRE_PLATFORM_ENV}=1 promised the openavc platform, but it is "
+                f"not importable, so {what} was not checked."
+            ) from None
+        pytest.skip(f"Needs the openavc platform; {what} was NOT checked.",
+                    allow_module_level=True)
+
+
+def load_driver(relative_path: str) -> ModuleType:
+    """Import one file of this repo (``"audio/toa_9000m2.py"``) on the real platform."""
+    path = REPO_ROOT / relative_path
+    with platform_on_path():
+        _require_platform(path.name)
+        return _import_file(path, f"_driver_{path.stem}")
+
+
+def driver_info(module: ModuleType) -> dict | None:
+    """The DRIVER_INFO of the driver class the module itself defines."""
+    for value in vars(module).values():
+        info = getattr(value, "DRIVER_INFO", None)
+        if (isinstance(value, type) and isinstance(info, dict)
+                and value.__module__ == module.__name__):
+            return info
+    return None
+
+
+@functools.lru_cache(maxsize=None)
+def python_drivers() -> tuple[tuple[Path, ModuleType | Exception], ...]:
+    """Every Python driver loaded once on the real platform: (path, module or why not)."""
+    with platform_on_path():
+        _require_platform("no Python driver's class")
+        loaded = []
+        for path in python_driver_files():
+            try:
+                loaded.append((path, _import_file(path, f"_driver_{path.stem}")))
+            except Exception as exc:  # noqa: BLE001 - each caller names the driver
+                loaded.append((path, exc))
+        return tuple(loaded)

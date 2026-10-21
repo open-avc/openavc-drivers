@@ -13,7 +13,7 @@ Guide for contributing device drivers to the OpenAVC community library.
 
 3. **Add simulation support** so your driver works without real hardware (YAML drivers get this automatically, Python drivers need a `_sim.py` companion file) — see [Writing Simulators](writing-simulators.md)
 
-4. **Write a test and run it** against real hardware or the [OpenAVC Simulator](https://github.com/open-avc/openavc) (included in the main repo at `openavc/simulator/`). `tests/` in this repo is a pytest suite and CI runs it — see [Writing a driver test](#writing-a-driver-test)
+4. **Run it** against real hardware or the [OpenAVC Simulator](https://github.com/open-avc/openavc) (included in the main repo at `openavc/simulator/`). You do not need to write tests: CI checks every driver the same way (see [What CI checks](#what-ci-checks))
 
 5. **Fork this repo** and add your driver to the appropriate category folder:
    - `projectors/` — Projectors
@@ -250,106 +250,58 @@ Add your own `log.info(f"[{self.device_id}] ...")` calls only for semantic event
 - Test connection and disconnection behavior
 - For polled drivers, verify polling works at the configured interval
 
-## Writing a driver test
+## What CI checks
 
-`tests/` in this repository is a pytest suite, and CI runs it on every pull
-request (`python -m pytest tests/ -v`). A Python driver should arrive with one.
-A YAML driver usually should not: it has no code of its own to unit-test, and
-the platform that interprets it is tested in the OpenAVC repo.
+You do not need to write tests to contribute a driver. Run it against real
+hardware, or against the simulator if you have no unit, and CI runs the same
+checks over your driver that it runs over every other driver in the library:
+
+- **The catalog and the contract.** `scripts/build_index.py --check` (see
+  [Validation](#validation)).
+- **Connect, command, disconnect.** A Python driver that ships a `_sim.py` is
+  loaded on the real OpenAVC platform, connected to its simulator, sent its
+  first command that takes no parameters, and disconnected. If your simulator
+  needs a setting before it accepts the connection (a password, a model), add
+  it to `_CONFIG` in `tests/test_connect_lifecycle.py`.
+- **Commands that erase ask first.** See step 7 of the checklist.
+- **The two default blocks agree.** A field's `default_config` value and its
+  `config_schema` default must be the same, or the Add Device form shows one
+  value and an install writes the other.
+- **Offline sentences.** The sentence a device card shows under **Offline**
+  says what the device stopped doing, never "Connected, but".
+- **Poll timing.** A YAML driver's poll fits inside its poll interval.
+- **Discovery captures.** A probe reply captured from a real unit, under
+  `tests/fixtures/discovery/`, matches your driver's probe and no other
+  driver's (see [Cross-vendor anchors](#cross-vendor-anchors)).
+
+To run the checks yourself:
 
 ```bash
 pip install -r requirements-dev.txt
 python -m pytest tests/ -v
 ```
 
-### The one rule that is not obvious
-
-**CI installs `requirements-dev.txt` and nothing else, so there is no `openavc`
-package here.** Your driver's `from openavc.drivers.base import BaseDriver` has
-nothing to resolve against. Every test in this repo therefore puts stand-ins
-into `sys.modules` before loading the driver.
-
-Do not write those stand-ins yourself. Use the shared ones:
-
-```python
-from pathlib import Path
-
-from _platform_stubs import (
-    StubBaseDriver, StubEvents, StubState, install_stubs, load_module,
-)
-
-REPO_ROOT = Path(__file__).resolve().parent.parent
-
-
-class _FakeBaseDriver(StubBaseDriver):
-    """Whatever this driver's connect() ceremony needs. State handling,
-    including the device.<id>. namespace and the child-entity registry,
-    comes from StubBaseDriver."""
-
-    async def connect(self):
-        self.transport = _FakeTransport(self)
-        self.set_state("connected", True)
-
-
-install_stubs(base_driver=_FakeBaseDriver)
-DRV = load_module("acme_under_test", REPO_ROOT / "devices" / "acme_widget.py")
-
-
-def test_power_on_bytes():
-    driver = DRV.AcmeWidgetDriver(
-        "widget_1", {"host": "10.0.0.5"}, StubState(), StubEvents())
-    ...
-```
-
-`install_stubs()` takes overrides for anything else the driver imports:
-
-```python
-install_stubs(
-    {"openavc.transport.ir_codec": {"IRCode": _FakeIRCode}},
-    base_driver=_FakeBaseDriver,
-)
-```
-
-`tests/_lifecycle_fake.py` carries the connect/disconnect/liveness half if your
-driver uses the platform's lifecycle hooks; inherit from both.
-
-### Why the stand-ins are shared, and why that matters to you
-
-A stand-in you write yourself cannot disagree with you. It is your belief about
-the platform, so a test that passes against it has confirmed the belief — not
-the platform. Real drivers shipped that way: one whose resync path was tested
-against a frame parser that in reality wedged after a single corrupt frame, and
-several whose connection-fault tests asserted an attribute the platform does
-not have.
-
-So `tests/test_platform_stub_fidelity.py` pins the shared stand-ins against the
-real platform: it compares every stubbed method's signature to the real class
-and replays behaviour side by side. It skips when the OpenAVC checkout is not
-present, so your run stays green with only this repo cloned. If you have both,
-run it:
+The checks that load a Python driver need an OpenAVC checkout beside this one:
 
 ```bash
 OPENAVC_PLATFORM_ROOT=../openavc OPENAVC_REQUIRE_PLATFORM=1 \
-    python -m pytest tests/test_platform_stub_fidelity.py -v
+    python -m pytest tests/test_connect_lifecycle.py -k my_driver -v
 ```
 
-If you genuinely need a stand-in the shared module does not have, add it there
-and to that test's `PAIRS` list rather than writing a private one — the point
-is that the platform gets a vote.
+When you fix something you found on the hardware, leave a comment at the line
+the fix is on: what went wrong, and on which model and firmware. That keeps
+the next person from undoing it. The bytes the device sent are worth keeping
+too, under `tests/fixtures/<driver_id>/`.
 
-### Undeclared state fails your tests
+### Checksums and binary framing
 
-The suite runs with `OPENAVC_STRICT_DRIVER_STATE=1` (set in `tests/conftest.py`),
-so a driver that writes a state variable it never declared in
-`DRIVER_INFO["state_variables"]` fails instead of passing quietly. That is the
-usual way Python driver code goes wrong, and it is usually a key built in a
-loop: the value lands and looks right, but nothing knows its type and no
-binding picker offers it, so nobody can build a panel against it.
-
-Declare it, or stop writing it. On a running instance the same condition is
-logged once per key instead, naming the driver and the variable — it stays a
-warning there on purpose, because taking a room offline over a missing
-declaration would punish the user rather than the author.
+If your Python driver computes a checksum, builds a binary frame or encodes a
+level into bytes, you may add a test that checks that arithmetic against the
+manufacturer's own worked example. It goes in
+`tests/protocol_math/test_<driver_id>.py` and names the document and the
+example each expected value comes from; `tests/protocol_math/README.md` shows
+the shape. That is the only kind of test this library keeps for a single
+driver.
 
 ## Reporting Test Results
 
@@ -459,10 +411,10 @@ not a pass; it tells you which of your declarations went unverified.
 ### Python drivers: the validators above only see what you declare
 
 Everything in this section checks a driver's **declarations**. A Python driver
-is also code, and nothing here reads it. What covers that half is the test you
-ship with it, run under this repo's suite — see
-[Writing a driver test](#writing-a-driver-test), and in particular
-[Undeclared state fails your tests](#undeclared-state-fails-your-tests).
+is also code, and nothing here reads it. CI covers that half by running it: it
+loads every Python driver on the real platform and connects each one that
+ships a simulator (see [What CI checks](#what-ci-checks)). The rest is proven
+on the equipment.
 
 ## Using an AI Assistant
 

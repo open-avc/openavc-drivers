@@ -81,6 +81,20 @@ class TestParsePJLinkAckn:
         assert reply is not None
         assert reply.mac == "001122aabbcc"
 
+    def test_colon_separated_mac_as_a_real_projector_sends_it(self):
+        # Captured byte for byte from an Epson EB-L530U answering %2SRCH.
+        data = bytes.fromhex("253241434b4e3d35383a30353a64393a31633a35623a37340d")
+        assert data == b"%2ACKN=58:05:d9:1c:5b:74\r"
+        reply = _pjlink.parse_pjlink_ackn(data, "192.168.1.93")
+        assert reply is not None
+        assert reply.mac == "5805d91c5b74"
+        assert _pjlink.format_mac(reply.mac) == "58:05:d9:1c:5b:74"
+
+    def test_hyphen_separated_mac(self):
+        reply = _pjlink.parse_pjlink_ackn(b"%2ACKN=00-11-22-AA-BB-CC\r", "10.0.0.50")
+        assert reply is not None
+        assert reply.mac == "001122aabbcc"
+
     def test_invalid_payload_returns_none(self):
         for bogus in (
             b"",
@@ -88,8 +102,40 @@ class TestParsePJLinkAckn:
             b"%1ACKN=001122aabbcc",       # Class 1 has no SRCH
             b"%2ACKN=GGGGGGGGGGGG",       # non-hex
             b"%2ACKN=00112233",           # too short
+            b"%2ACKN=58:05:d9:1c:5b\r",   # five pairs
+            b"%2ACKN=001122aabbccdd\r",   # seven pairs
         ):
             assert _pjlink.parse_pjlink_ackn(bogus, "10.0.0.50") is None
+
+
+class TestSearchSocket:
+    """A projector sends its %2ACKN to UDP 4352 on the asking computer, not
+    to the port the search came from, so the search goes out from 4352."""
+
+    def test_search_socket_listens_on_the_pjlink_port(self):
+        sock = _pjlink._make_broadcast_socket("127.0.0.1")
+        try:
+            assert sock is not None
+            assert sock.getsockname()[1] == _pjlink.PJLINK_PORT == 4352
+        finally:
+            sock.close()
+
+    def test_any_port_when_the_pjlink_port_is_taken(self, monkeypatch):
+        real_socket = _pjlink.socket.socket
+
+        class _Taken(real_socket):
+            def bind(self, address):
+                if address[1] == 4352:
+                    raise OSError("address in use")
+                return super().bind(address)
+
+        monkeypatch.setattr(_pjlink.socket, "socket", _Taken)
+        sock = _pjlink._make_broadcast_socket("127.0.0.1")
+        try:
+            assert sock is not None
+            assert sock.getsockname()[1] not in (0, 4352)
+        finally:
+            sock.close()
 
 
 class TestFormatMac:

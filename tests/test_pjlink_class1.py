@@ -309,8 +309,25 @@ async def _make_pair(driver_overrides=None, sim_password=""):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.PJLinkDriver.DRIVER_INFO["version"] == "2.6.4"
+    assert DRV.PJLinkDriver.DRIVER_INFO["version"] == "2.6.5"
     assert DRV.PJLinkDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
+
+
+def test_catalog_fingerprint_reads_the_connection_greeting():
+    """An uninstalled PJLink projector is identified from the catalog by the
+    greeting it sends on connect; the companion only runs once installed."""
+    import re
+
+    probe = DRV.PJLinkDriver.DRIVER_INFO["discovery"]["tcp_probe"]
+    assert probe["port"] == 4352
+    assert probe["cross_vendor"] is True
+    assert "send_ascii" not in probe and "send_hex" not in probe
+    pattern = re.compile(probe["expect_regex"])
+    # The second is captured from an Epson EB-L530U with a PJLink password.
+    for greeting in ("PJLINK 0\r", "PJLINK 1 4dacc5b1\r"):
+        assert pattern.search(greeting), greeting
+    for other in ("PJLINK ERRA\r", "PJLINK ERR3\r", "%1POWR=1\r", "Welcome PJLINK 1\r"):
+        assert not pattern.search(other), other
 
 
 def test_no_device_settings():

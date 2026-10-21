@@ -321,7 +321,7 @@
       "name": "PJLink Class 1 Projector",
       "manufacturer": "Generic",
       "category": "projector",
-      "version": "2.6.4",
+      "version": "2.6.5",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls any PJLink Class 1 compatible projector.",
@@ -329,8 +329,8 @@
       "file": "projectors/pjlink_class1.py",
       "format": "python",
       "files": {
-        "projectors/pjlink_class1.py": "3ae5b6c3e5ac71a2b52d11cb5c2dfb8f39977c13acff4d12bdad2b16986dacbf",
-        "projectors/pjlink_class1_discovery.py": "a8e65922160cfd5e615bd0cf43344df54ad69d2b6b1df82581854cbfa2be11a5",
+        "projectors/pjlink_class1.py": "2e7067812d64770a63ea2489d00a8a68a66e63b1dcd4b735753f94d8dd3f7b13",
+        "projectors/pjlink_class1_discovery.py": "7b15f6239b8c7cec2b313076237e2eff66f951d24998473b1fee397a13732a35",
         "projectors/pjlink_class1_sim.py": "6adb58362f8a4d72f9301784697598d81a0b73d4922314ea30f7945ef83dcc5e"
       },
       "ports": [
@@ -500,6 +500,12 @@
         }
       ],
       "discovery": {
+        "tcp_probe": {
+          "port": 4352,
+          "expect_regex": "^PJLINK [01]\\b",
+          "timeout_ms": 3000,
+          "cross_vendor": true
+        },
         "python": {
           "file": "./pjlink_class1_discovery.py",
           "cross_vendor": true

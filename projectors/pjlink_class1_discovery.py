@@ -8,7 +8,10 @@ This companion implements both halves of PJLink discovery:
 
   1. Class 2 SRCH (UDP 4352) — broadcast a single ``%2SRCH\\r`` packet
      to each scan subnet's directed broadcast address; collect
-     ``%2ACKN=<MAC>\\r`` replies.
+     ``%2ACKN=<MAC>\\r`` replies. A projector answers to UDP 4352 on the
+     asking computer, not to the port the search came from, and writes
+     the MAC with colons (an Epson EB-L530U: ``%2ACKN=58:05:d9:1c:5b:74``),
+     so the search is sent from 4352 and both MAC forms are read.
   2. Class 1 INFO query (TCP 4352) — for every ACKN responder, open a
      TCP connection, read the PJLINK greeting, then send the five
      read-only INFO queries (CLSS / INF1 / INF2 / NAME / LAMP) and
@@ -50,9 +53,12 @@ from openavc.discovery.companion import ProbeContext
 PJLINK_PORT = 4352
 PJLINK_SRCH_REQUEST = b"%2SRCH\r"
 
-# Spec response: %2ACKN=<12 hex chars>\r — case-insensitive, some
+# Response: %2ACKN=<MAC>\r, the MAC as six hex pairs with colons (what a
+# real projector sends) or with no separator; case-insensitive, some
 # firmware emits trailing whitespace.
-_PJLINK_ACKN_RE = re.compile(rb"%2ACKN=([0-9a-fA-F]{12})\b")
+_PJLINK_ACKN_RE = re.compile(
+    rb"%2ACKN=([0-9a-fA-F]{2}(?:[:-]?[0-9a-fA-F]{2}){5})(?![0-9a-fA-F:-])"
+)
 
 # Class 1 INFO queries we send per ACKN responder. Order matters for
 # parse_pjlink_info_responses — keep CLSS / INF1 / INF2 / NAME / LAMP.
@@ -95,7 +101,7 @@ def parse_pjlink_ackn(data: bytes, sender_ip: str) -> PJLinkClass2Reply | None:
     match = _PJLINK_ACKN_RE.search(data)
     if not match:
         return None
-    mac_hex = match.group(1).decode("ascii", errors="replace").lower()
+    mac_hex = re.sub(rb"[:-]", b"", match.group(1)).decode("ascii").lower()
     if len(mac_hex) != 12:
         return None
     return PJLinkClass2Reply(ip=sender_ip, mac=mac_hex)
@@ -193,16 +199,27 @@ def _broadcast_addresses_for(subnets: tuple[str, ...] | list[str]) -> list[str]:
 
 
 def _make_broadcast_socket(source_ip: str) -> socket.socket | None:
-    """UDP socket with broadcast on, bound to ``source_ip``."""
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        sock.bind((source_ip or "", 0))
-        sock.setblocking(False)
-        return sock
-    except OSError:
-        return None
+    """UDP socket with broadcast on, bound to ``source_ip``.
+
+    Bound to port 4352 when it is free, because that is where a projector
+    sends its ``%2ACKN`` reply; any port otherwise, which hears a projector
+    that answers the sending port.
+    """
+    for port in (PJLINK_PORT, 0):
+        sock = None
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            if port and hasattr(socket, "SO_REUSEPORT"):
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            sock.bind((source_ip or "", port))
+            sock.setblocking(False)
+            return sock
+        except OSError:
+            if sock is not None:
+                sock.close()
+    return None
 
 
 async def _srch_class2(

@@ -47,7 +47,7 @@ class PJLinkDriver(BaseDriver):
         "name": "PJLink Class 1 Projector",
         "manufacturer": "Generic",
         "category": "projector",
-        "version": "2.6.4",
+        "version": "2.6.5",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -59,16 +59,26 @@ class PJLinkDriver(BaseDriver):
         "protocols": ["pjlink"],
         "ports": [4352],
         "transport": "tcp",
-        # PJLink Class 1 + Class 2 discovery is hosted by the sibling
-        # pjlink_class1_discovery.py companion. ``cross_vendor: true``
-        # marks this as the cross-vendor anchor so vendor-specific
-        # projector drivers (sharp_nec_projector, epson_escvp, sony_vpl,
-        # panasonic_pt, ...) demote this entry to an alternative
-        # whenever they match via manufacturer_alias / OUI / hostname.
-        # ``port_open: [4352]`` adds a hint for PJLink-Class-1-only
-        # projectors that don't answer the SRCH broadcast — those
-        # surface as `possible (candidate: pjlink_class1)`.
+        # ``cross_vendor: true`` marks this as the cross-vendor anchor, so
+        # vendor-specific projector drivers (sharp_nec_projector,
+        # epson_escvp, sony_vpl, panasonic_pt, ...) demote this entry to an
+        # alternative whenever they match the same projector.
+        #
+        # The tcp_probe identifies a PJLink projector straight from the
+        # catalog, before this driver is installed: every PJLink projector
+        # greets a new connection on 4352 with "PJLINK 0" (no password) or
+        # "PJLINK 1 <random>" (password set) before anything is sent. The
+        # sibling pjlink_class1_discovery.py companion (Class 2 search, then
+        # the Class 1 INFO queries) runs only once the driver is installed,
+        # and adds the MAC, manufacturer and model. ``port_open: [4352]``
+        # is the weakest hint, for a projector whose greeting never arrives.
         "discovery": {
+            "tcp_probe": {
+                "port": 4352,
+                "expect_regex": r"^PJLINK [01]\b",
+                "timeout_ms": 3000,
+                "cross_vendor": True,
+            },
             "python": {
                 "file": "./pjlink_class1_discovery.py",
                 "cross_vendor": True,

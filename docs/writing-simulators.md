@@ -143,8 +143,8 @@ simulator:
 | Field | Description |
 |-------|-------------|
 | `receive` | Regex pattern to match incoming data (anchored to full line) |
-| `respond` | Response template. `{1}`, `{2}` are regex capture groups. `{state.key}` inserts current state. |
-| `set_state` | Dict of state changes to apply when matched |
+| `respond` | Response template. `{1}`, `{2}` are regex capture groups. `{state.key}` inserts current state, as the device's own number when the variable declares `scale` or `offset` (openavc 0.37.1). |
+| `set_state` | Dict of state changes to apply when matched. A value made from a capture (`{1}`) or `{state.key}` is read as the device's own number and stored in real units when the variable declares `scale` or `offset` (openavc 0.37.1); a value with neither is stored as written. |
 
 **Regex escaping in YAML:** Use single quotes for patterns. Within single quotes, backslashes are literal, so `'\d+'` is the regex `\d+`. If you need a literal backslash in the regex, use `'\\'`. Do NOT double-escape: `'\\d+'` would be the regex `\\d+` (literal backslash followed by d), which is wrong.
 

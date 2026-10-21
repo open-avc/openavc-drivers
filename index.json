@@ -5234,7 +5234,7 @@
       "name": "NETIO PowerPDU, PowerBOX, PowerCable and PowerDIN",
       "manufacturer": "NETIO",
       "category": "power",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls NETIO rack PDUs, smart power strips, power cables and DIN-rail units over the unit's web login (firmware 5.1.3 and later) or NETIO's JSON API: switch each output on or off, toggle it, reboot it or turn it on for a set time, and read each output's load, current, power factor and energy on metered models. Digital inputs, NETIO temperature and humidity sensors, each output's schedule and the unit's own watchdogs, rules and power analysis blocks are reported as live values. Over the web login the unit's firmware can be checked and updated from NETIO's update server.",
@@ -5242,8 +5242,8 @@
       "file": "power/netio.py",
       "format": "python",
       "files": {
-        "power/netio.py": "ad4ca63251b667ed734462829be4aa1db88f21997c0c1379f519e3dbbf29a9bc",
-        "power/netio_sim.py": "e873d8e2bc924af8b35ac9f33fb5e0bdff9491f6cd4435642a7a8887033fc493"
+        "power/netio.py": "2227b0c46f17ea70dc6e33db9efcce696eee2206ec0b1a2c3146ee6694b6e3f0",
+        "power/netio_sim.py": "312e7e1560591aef30a5a47fff6a59b46805601c3c7c216721a853df10b328a3"
       },
       "ports": [
         80
@@ -5253,6 +5253,7 @@
         "netio-websocket"
       ],
       "simulated": true,
+      "verified": true,
       "min_platform_version": "0.36.0",
       "tags": [
         "pdu",
@@ -5266,9 +5267,17 @@
       ],
       "help": {
         "overview": "NETIO makes networked rack PDUs, power strips, power cables and DIN-rail units. Each output is a child entity here, so a macro, schedule or panel button can switch one output, reboot a frozen device, or switch an output on for a set time. On metered models each output's load and energy are reported too. Connected with the web login, an output switching shows the moment it happens and each output's schedule is reported, and the unit's firmware can be checked and updated from NETIO's update server. The results of the unit's own IP watchdogs, rules and power analysis blocks are reported with the JSON API only.",
-        "setup": "1. Choose Connect With. The web login (firmware 5.1.3 and later) needs nothing turned on: enter a user from the NETIO's web interface as Username and Password. A user allowed to control outputs can switch them. Renaming an output, turning its schedule on or off and resetting its energy counter need a user that may change output settings, and checking for and installing firmware updates a user that may change the unit's settings, such as an administrator.\n2. For the JSON API instead, open M2M API Protocols in the NETIO's web interface, then the JSON API tab. Turn on Enable JSON API, Enable READ-ONLY and Enable WRITE, and save. The unit restarts its web server, so it answers errors for a few seconds. The tab has a username and password for reading and another pair for writing; NETIO ships both as netio / netio. Enter the reading login as Username and Password here, and the writing login under Advanced only when it is different.\n3. Port: for the web login, the port the web interface answers on (80, or 443 with Use HTTPS on); for the JSON API, the port on its tab (80 unless it was changed). The JSON API serves HTTPS from firmware 5.0.3.\n4. Outputs, inputs, watchdogs, rules and power analysis blocks appear as children once connected."
+        "setup": "1. Choose Connect With. The web login (firmware 5.1.3 and later) needs nothing turned on: enter a user from the NETIO's web interface as Username and Password. A user allowed to control outputs can switch them. Renaming an output, turning its schedule on or off and resetting its energy counter need a user that may change output settings, and checking for and installing firmware updates a user that may change the unit's settings, such as an administrator.\n2. For the JSON API instead, open M2M API Protocols in the NETIO's web interface, then the JSON API tab. Turn on Enable JSON API, Enable READ-ONLY and Enable WRITE, and save. The unit restarts its web server, so it answers errors for a few seconds. The tab has a username and password for reading and another pair for writing; NETIO ships both as netio / netio. Enter the reading login as Username and Password here, and the writing login under Advanced only when it is different.\n3. Port: for the web login, the port the web interface answers on (80, or 443 with Use HTTPS on); for the JSON API, the port on its tab (80 unless it was changed). The JSON API serves HTTPS from firmware 5.0.3, but slowly: the NETIO takes about 4 seconds to open each secure connection and the JSON API opens one per request, so with HTTPS on, use the web login.\n4. Outputs, inputs, watchdogs, rules and power analysis blocks appear as children once connected."
       },
       "compatible_models": [
+        {
+          "manufacturer": "NETIO",
+          "models": [
+            "PowerPDU 4KB"
+          ],
+          "confidence": "full",
+          "notes": "Tested on a unit on firmware 5.2.4 and 5.3.2, over both the web login and the JSON API, HTTP and HTTPS: every command, metering with a load plugged in, a NETIO temperature and humidity sensor, outputs switched from elsewhere showing at once over the web login, and the full firmware update from 5.2.4 to 5.3.2. Over HTTPS the JSON API answers each request in about 4 seconds; the web login is quick. Resetting an output's energy counter over the JSON API needs firmware 5.3; on 5.2.4 use the web login. Turning an output's schedule on or off needs a schedule assigned to it in the NETIO's web interface. The first firmware check after the NETIO starts sometimes gets no answer from NETIO's server; the driver asks once more."
+        },
         {
           "manufacturer": "NETIO",
           "models": [
@@ -5285,7 +5294,6 @@
         {
           "manufacturer": "NETIO",
           "models": [
-            "PowerPDU 4KB",
             "PowerPDU 4PB",
             "PowerPDU 4QV",
             "PowerPDU 8QB",
@@ -5321,23 +5329,26 @@
         }
       ],
       "discovery": {
+        "requires": "0.32.0",
         "tcp_probe": {
           "port": 80,
-          "send_ascii": "GET /netio.json HTTP/1.0\r\n\r\n",
-          "expect_regex": "\"Agent\"\\s*:\\s*\\{\\s*\"Model\"\\s*:",
-          "timeout_ms": 1500,
+          "send_ascii": "GET /emweb HTTP/1.1\r\nHost: netio\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+          "expect_regex": "^HTTP/1\\.1 101",
+          "timeout_ms": 2000,
+          "then": {
+            "send_hex": "81 99 00 00 00 00 7B 22 74 79 70 65 22 3A 22 48 45 4C 4F 22 2C 22 72 65 71 49 64 22 3A 31 7D",
+            "expect_regex": "\"devtype\"\\s*:\\s*\"[^\"]+\"",
+            "timeout_ms": 2000
+          },
           "extract": {
             "model": {
-              "regex": "\"Model\"\\s*:\\s*\"([^\"]+)\""
-            },
-            "device_name": {
-              "regex": "\"DeviceName\"\\s*:\\s*\"([^\"]+)\""
+              "regex": "\"devtype\"\\s*:\\s*\"([^\"]+)\""
             },
             "firmware": {
-              "regex": "\"Version\"\\s*:\\s*\"([^\"]+)\""
+              "regex": "\"fwVersion\"\\s*:\\s*\"(\\d+\\.\\d+\\.\\d+)"
             },
-            "serial": {
-              "regex": "\"SerialNumber\"\\s*:\\s*\"([^\"]+)\""
+            "serial_number": {
+              "regex": "\"deviceSN\"\\s*:\\s*\"([^\"]+)\""
             }
           }
         },

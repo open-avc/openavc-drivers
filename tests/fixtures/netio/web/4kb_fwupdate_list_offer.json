@@ -1,0 +1,1 @@
+{"items": [{"name": "Firmware 5.3.2", "version": "5.3.2 29f4e889 (1.57)", "downloadUrl": "https://titan.netio.eu/ic/fw/Firmware%205.3.2", "downloadUrlNoMcu": "https://titan.netio.eu/ic/fw/Firmware%205.3.2?variant=no_mcu", "releaseNoteEn": "- Add Cooldown functionality into Condition and Rules - Fix M2M MQTT event behaviour - Fix Digital Input S0 counter improvement"}]}

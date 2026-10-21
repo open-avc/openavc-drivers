@@ -8,6 +8,11 @@ Two kinds of evidence:
     and 5.3.2, the shorter answer the 4KS gave to a switch, and the error body
     it gave to a refused write), and the web login's replies of 2026-10-16
     (tests/fixtures/netio/web/: the 4KS, 4KF, 8QS and 4PS).
+  - What a PowerPDU 4KB on the bench sent on 2026-10-21 (``*4kb*``): its status
+    document on 5.2.4 and 5.3.2, its own 401 and 400 answers, the WebSocket
+    upgrade and greeting the discovery probe reads, the firmware offer, and its
+    NETIO Discover datagram. Text with line endings normalized; the greeting
+    frame and the datagram as hex.
   - A dual-proof round trip: the real driver wired to the real simulator, over
     an in-memory httpx transport for the JSON API and an in-memory WebSocket
     for the web login; every command, every login, every refusal.
@@ -224,16 +229,108 @@ def test_whole_unit_commands_ask_first_and_quick_actions_do_not():
         assert "confirm" not in commands[name], name
 
 
-def test_discovery_probe_and_mac_block():
+def _hex_fixture(name: str) -> bytes:
+    return bytes.fromhex((FIXTURES / name).read_text(encoding="ascii").strip())
+
+
+def test_discovery_probe_is_the_web_logins_greeting():
     disc = INFO["discovery"]
     assert disc["oui"] == ["24:a4:2c"]
     probe = disc["tcp_probe"]
-    assert probe["port"] == 80 and probe["send_ascii"].startswith("GET /netio.json ")
-    # The probe's pattern matches what a live unit sends, and the extracts read it.
-    text = (FIXTURES / "powerpdu_4ks.json").read_text(encoding="utf-8")
-    assert re.search(probe["expect_regex"], text)
-    assert re.search(probe["extract"]["model"]["regex"], text).group(1) == "4KS"
-    assert re.search(probe["extract"]["serial"]["regex"], text).group(1) == "24A42C3A392B"
+    assert probe["port"] == 80 and probe["send_ascii"].startswith("GET /emweb HTTP/1.1\r\n")
+    # The first step matches the bench PowerPDU 4KB's answer to the upgrade.
+    upgrade = (WEB_FIXTURES / "4kb_upgrade_101.txt").read_text(encoding="utf-8")
+    assert re.search(probe["expect_regex"], upgrade)
+    # The second sends a masked text frame with a zero key: its payload is HELO.
+    frame = bytes.fromhex(probe["then"]["send_hex"])
+    assert frame[0] == 0x81 and frame[1] == 0x80 | (len(frame) - 6) and frame[2:6] == b"\0\0\0\0"
+    assert json.loads(frame[6:]) == {"type": "HELO", "reqId": 1}
+    # The unit's greeting frame, as it came off the wire (5.3.2), satisfies it
+    # and names the model, firmware and serial number.
+    greeting = _hex_fixture("web/4kb_helo_frame.hex").decode("latin-1")
+    assert re.search(probe["then"]["expect_regex"], greeting)
+    extract = probe["extract"]
+    assert re.search(extract["model"]["regex"], greeting).group(1) == "PowerPDU 4KB"
+    assert re.search(extract["firmware"]["regex"], greeting).group(1) == "5.3.2"
+    # serial_number, as the scan card reads it.
+    assert re.search(extract["serial_number"]["regex"], greeting).group(1) == "24A42C3B51BD"
+    # Every demo unit's greeting does too.
+    for name in ("4ks_helo.json", "4kf_helo.json", "8qs_helo.json", "4ps_helo.json"):
+        assert re.search(probe["then"]["expect_regex"], (WEB_FIXTURES / name).read_text(encoding="utf-8"))
+    # A status document, which the probe used to ask for, does not.
+    assert not re.search(probe["then"]["expect_regex"], (FIXTURES / "powerpdu_4ks.json").read_text())
+
+
+def test_netio_discover_answer_names_the_unit():
+    # NETIO Discover (UDP 62387, answered by broadcast to 62386), which the scan
+    # cannot hear yet: kept to show what the unit announces, field by field.
+    data = _hex_fixture("powerpdu_4kb_discover_reply.hex")
+    assert data[:3] == bytes.fromhex("02ec00")
+    fields, at = {}, 3
+    while at + 2 <= len(data):
+        kind, length = data[at], data[at + 1]
+        fields[kind] = data[at + 2:at + 2 + length]
+        at += 2 + length
+    assert at == len(data)
+    assert fields[0x09] == b"PowerPDU 4KB" and fields[0x01].startswith(b"5.3.2 ")
+    assert fields[0x02].hex() == "24a42c3b51bd" and bytes(fields[0x03]) == bytes([192, 168, 1, 243])
+    assert fields[0x05] == b"PowerPDU-BD" and fields[0x13] == b"PowerPDU-BD"
+
+
+# ── The bench PowerPDU 4KB's documents (2026-10-21) ──────────────────────────
+
+
+def test_the_bench_4kb_on_5_2_4():
+    s = DRV.summarize(_fixture("powerpdu_4kb_524.json"))
+    dev = s["device"]
+    assert dev["model"] == "4KB" and dev["firmware"] == "5.2.4" and dev["serial_number"] == "24A42C3B51BD"
+    assert dev["metered"] is True and dev["output_count"] == 4 and dev["input_count"] == 1
+    # 5.2.4 reports no frequency, for the unit or an output, and no voltage per
+    # output; 5.3.2 reports all three (below).
+    assert dev["frequency_hz"] is None and s["output"][1]["voltage_v"] is None
+    # A counter never reset reports the start of 1970 in the unit's zone.
+    assert dev["energy_start"] is None and s["output"][1]["energy_start"] is None
+    # The NETIO sensor on its input: humidity in percent.
+    assert s["input"][1]["temperature_c"] == 19.4 and s["input"][1]["humidity"] == 44.0
+
+
+def test_the_bench_4kb_on_5_3_2_with_a_load_on_output_1():
+    s = DRV.summarize(_fixture("powerpdu_4kb_532.json"))
+    dev = s["device"]
+    assert dev["firmware"] == "5.3.2" and dev["frequency_hz"] == 60.01
+    assert dev["total_current_a"] == 0.113 and dev["total_load_w"] == 8
+    out1, out2, out3 = s["output"][1], s["output"][2], s["output"][3]
+    assert out1["current_a"] == 0.113 and out1["power_factor"] == 0.55 and out1["voltage_v"] == 121.52
+    assert out1["frequency_hz"] == 60.0
+    # Outputs 1 and 2 were reset on the bench; 3 never was.
+    assert out1["energy_start"] == "2026-10-21T16:39:45+0100"
+    assert out2["energy_start"] == "2026-10-21T16:39:24+0100" and out3["energy_start"] is None
+
+
+def test_the_bench_4kb_refusals():
+    # Its own 401 (not a proxy's): as the simulator answers it.
+    head, _, body = (FIXTURES / "powerpdu_4kb_write_401.txt").read_text(encoding="utf-8").partition("\n\n")
+    assert head.startswith("HTTP/1.1 401") and 'WWW-Authenticate: Basic realm="Login Required"' in head
+    status, sim_body, sim_headers = SIM.NetioSimulator._unauthorized()
+    assert (status, sim_body, sim_headers["WWW-Authenticate"]) == (401, body, 'Basic realm="Login Required"')
+    # Its 400 leaves the list's closing bracket off, Content-Length included.
+    head, _, body = (FIXTURES / "powerpdu_4kb_schedule_400.txt").read_text(encoding="utf-8").partition("\n\n")
+    assert "Content-Length: 46" in head and len(body) == 46 and not body.endswith("]")
+    assert DRV.parse_error(body) == "Bad request"
+    assert DRV.parse_error((FIXTURES / "write_400_body.txt").read_text(encoding="utf-8")) == "Bad request"
+
+
+def test_the_bench_4kb_greeting_and_firmware_offer():
+    hello = json.loads((WEB_FIXTURES / "4kb_helo.json").read_text(encoding="utf-8"))
+    ident = DRV.web_identity(None, hello["data"]["device"])
+    assert ident == {"model": "4KB", "device_name": None, "serial_number": "24A42C3B51BD", "firmware": "5.3.2"}
+    items = DRV._items(json.loads((WEB_FIXTURES / "4kb_fwupdate_list_offer.json").read_text(encoding="utf-8")))
+    assert DRV.firmware_list_answered(items)
+    offers = DRV.firmware_offers(items)
+    assert [(o["version"], o["full"], o["app"]) for o in offers] == [(
+        "5.3.2", "https://titan.netio.eu/ic/fw/Firmware%205.3.2",
+        "https://titan.netio.eu/ic/fw/Firmware%205.3.2?variant=no_mcu",
+    )]
 
 
 # ── The live demo units' documents ───────────────────────────────────────────
@@ -449,12 +546,39 @@ def test_rename_reset_and_schedules():
         assert json.loads(write.content) == {
             "Outputs": [{"ID": 1, "ResetEnergyCounter": True, "Action": 5}]
         }
-        assert h.out(1, "energy_wh") == 0 and h.out(1, "energy_start") != "1970-01-01T00:00:00+0000"
-        await h.driver.send_command("enable_output_schedule", {"output": 2})
-        assert h.sim.get_state("out2_schedule") is True
-        await h.driver.send_command("disable_output_schedule", {"output": 2})
-        assert h.sim.get_state("out2_schedule") is False
+        assert h.out(1, "energy_wh") == 0 and h.out(1, "energy_start") is not None
+        # Output 1 has a schedule assigned in the simulator; the rest have none.
+        await h.driver.send_command("enable_output_schedule", {"output": 1})
+        assert h.sim.get_state("out1_schedule") is True
+        await h.driver.send_command("disable_output_schedule", {"output": 1})
+        assert h.sim.get_state("out1_schedule") is False
     _run(scenario())
+
+
+def test_a_schedule_action_on_an_output_with_no_schedule_says_so():
+    # A PowerPDU 4KB answers it with 400 (5.2.4, 5.3.2), and the driver says
+    # why rather than relaying "Bad request".
+    async def scenario():
+        h = await _connected()
+        for command in ("enable_output_schedule", "disable_output_schedule"):
+            with pytest.raises(DRV.NetioCommandError, match="Output 2 has no schedule. Assign one"):
+                await h.driver.send_command(command, {"output": 2})
+        assert h.sim.get_state("out2_schedule") is False
+        assert h.st("last_error").startswith("Output 2 has no schedule")
+        assert h.st("connected") is True
+        # Any other refused write still says what the unit said.
+        h.sim.set_state("firmware", "5.2.4")
+        with pytest.raises(DRV.NetioCommandError, match=r"HTTP 400: Internal error"):
+            await h.driver.send_command("reset_output_energy", {"output": 1})
+    _run(scenario())
+
+
+def test_a_refused_command_is_the_platforms_typed_refusal():
+    # Send Command shows a CommandRefusedError's sentence (OpenAVC 0.37.1); the
+    # driver falls back to RuntimeError where the platform has no such type.
+    stub_type = DRV.CommandRefusedError
+    assert issubclass(DRV.NetioCommandError, stub_type) and issubclass(stub_type, RuntimeError)
+    assert issubclass(DRV.NetioFirmwareNoAnswer, DRV.NetioCommandError)
 
 
 def test_an_output_the_unit_does_not_have_is_refused_before_sending():
@@ -835,6 +959,7 @@ def test_web_connect_reads_everything_and_holds_the_pushed_topics():
     async def scenario(h):
         assert h.opened[0][0] == "ws://10.0.0.30:80/emweb"
         assert "ssl" not in h.opened[0][1] and h.opened[0][1]["ping_interval"] is None
+        assert h.opened[0][1]["open_timeout"] == DRV.WEB_OPEN_TIMEOUT_S
         auth = h.sock.sent[1]
         assert h.sock.sent[0]["type"] == "HELO" and auth["type"] == "AUTH"
         assert auth["username"] == "admin" and "secret" not in auth["token"]
@@ -938,6 +1063,33 @@ def test_web_rename_schedule_and_energy_reset_write_the_outputs_settings():
         await h.settle(0.1)
         assert h.out(1, "energy_start") is not None
     _web(scenario)
+
+
+def test_web_schedule_on_for_an_output_with_no_schedule_is_refused_before_sending():
+    # A PowerPDU 4KB takes the flag with no schedule assigned, and then nothing
+    # switches the output; the driver says so instead.
+    async def scenario(h):
+        with pytest.raises(DRV.NetioCommandError, match="Output 2 has no schedule"):
+            await h.driver.send_command("enable_output_schedule", {"output": 2})
+        assert not [f for f in h.sock.sent if f.get("type") == "SET" and f["topic"] == "outputs/id/2/config"]
+        assert h.sim.get_state("out2_schedule") is False and h.st("last_error").startswith("Output 2")
+        # Turning it off is harmless and goes through.
+        await h.driver.send_command("disable_output_schedule", {"output": 2})
+        assert h.out(2, "schedule_enabled") is False
+    _web(scenario)
+
+
+def test_json_api_over_https_waits_for_the_units_slow_handshake():
+    # A PowerPDU 4KB takes 4.0 s over a TLS handshake, and every JSON API
+    # request needs one (the unit closes each connection).
+    async def scenario():
+        h = await _connected(driver_config={"ssl": True, "port": 443})
+        assert h.driver._client.timeout.connect == DRV.HTTPS_CONNECT_S == 15.0
+        await h.driver.disconnect()
+        h = await _connected()
+        assert h.driver._client.timeout.connect == 5.0
+        await h.driver.disconnect()
+    _run(scenario())
 
 
 def test_web_settings_refused_for_this_user_fail_the_command_and_stay_connected():
@@ -1070,6 +1222,8 @@ def test_web_https_uses_wss_with_the_units_own_certificate():
         url, kwargs = h.opened[0]
         assert url == "wss://10.0.0.30:443/emweb"
         assert kwargs["ssl"].verify_mode == DRV.ssl.CERT_NONE
+        # The unit's TLS handshake first: 4 s, 8 to 12 s with another client.
+        assert kwargs["open_timeout"] == DRV.HTTPS_CONNECT_S
     _web(scenario, driver_config={"ssl": True, "port": 443})
 
 
@@ -1134,7 +1288,9 @@ def test_firmware_commands_ask_first_and_hold_the_offline_fault_back():
     assert "restarts_device_for" not in commands["check_firmware_update"]
     for name in ("update_firmware_full", "update_firmware_keep_outlets"):
         assert commands[name]["params"] == {}                 # nothing is chosen for the person
-        assert commands[name]["confirm"] and commands[name]["restarts_device_for"] == 300
+        # Measured on a PowerPDU 4KB: back 298 s after a full update started (most
+        # of it the download); twice that, as the download follows the site's link.
+        assert commands[name]["confirm"] and commands[name]["restarts_device_for"] == 600
     assert "switches off" in commands["update_firmware_full"]["confirm"]
     assert "stay as they are" in commands["update_firmware_keep_outlets"]["confirm"]
 
@@ -1157,14 +1313,14 @@ def test_web_check_for_a_firmware_update(monkeypatch):
     async def scenario(h):
         h.sim.set_state("update_server", SIM.UPDATE_SERVER[2])
         with pytest.raises(DRV.NetioCommandError, match="got no answer"):
-            await h.driver.send_command("check_firmware_update", {})
+            await h.driver.send_command("check_firmware_update", {})   # asked twice
         h.sim.set_state("update_server", SIM.UPDATE_SERVER[0])
         await h.driver.send_command("check_firmware_update", {})
         assert h.st("firmware_update_available") is True and h.st("firmware_update_version") == "5.4.0"
         h.sim.set_state("update_server", SIM.UPDATE_SERVER[1])
         await h.driver.send_command("check_firmware_update", {})      # asked again, not reused
         assert h.st("firmware_update_available") is False and h.st("firmware_update_version") == ""
-        assert _sets(h) == [{"getFirmwareList": True, "updateFw": ""}] * 3
+        assert _sets(h) == [{"getFirmwareList": True, "updateFw": ""}] * 4
         assert h.driver._link_alive() is True
     _web(scenario)
 
@@ -1202,6 +1358,19 @@ def test_web_full_update_follows_the_unit_through_its_restart(monkeypatch):
         await h.reconnect()
         assert h.st("firmware") == "5.4.0" and h.st("firmware_update_status") == "Updated to 5.4.0"
         assert h.st("firmware_update_available") is False and h.driver._fw_update is None
+    _web(scenario, sim_state={"update_first_check_unanswered": False})
+
+
+def test_web_a_check_the_update_server_did_not_answer_is_asked_once_more(monkeypatch):
+    # The first check after a PowerPDU 4KB started got no answer from NETIO's
+    # server in two of three tries, and the next check always did (2026-10-21);
+    # the simulator's first check goes unanswered by default.
+    _fast(monkeypatch)
+
+    async def scenario(h):
+        await h.driver.send_command("check_firmware_update", {})
+        assert _sets(h) == [{"getFirmwareList": True, "updateFw": ""}] * 2
+        assert h.st("firmware_update_available") is True and h.st("firmware_update_version") == "5.4.0"
     _web(scenario)
 
 
@@ -1219,7 +1388,7 @@ def test_web_keep_outlets_on_sends_the_link_without_the_outlet_controller(monkey
         await h.until(lambda: h.driver.dropped == 1)
         await h.reconnect()
         assert h.st("firmware_update_status") == "Updated to 5.4.0"
-    _web(scenario)
+    _web(scenario, sim_state={"update_first_check_unanswered": False})
 
 
 def test_web_nothing_newer_installs_nothing(monkeypatch):
@@ -1230,7 +1399,7 @@ def test_web_nothing_newer_installs_nothing(monkeypatch):
             await h.driver.send_command("update_firmware_full", {})
         assert _sets(h) == [{"getFirmwareList": True, "updateFw": ""}]
         assert h.sim.get_state("last_update") == "" and h.st("firmware_update_status") is None
-    _web(scenario, sim_state={"firmware": "5.4.0"})
+    _web(scenario, sim_state={"firmware": "5.4.0", "update_first_check_unanswered": False})
 
 
 def test_web_a_download_that_keeps_failing_ends_after_three_attempts(monkeypatch):

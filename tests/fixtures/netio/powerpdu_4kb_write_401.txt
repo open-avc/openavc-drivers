@@ -1,0 +1,7 @@
+HTTP/1.1 401
+Content-Type: text/html
+Content-Length: 16
+Connection: close
+WWW-Authenticate: Basic realm="Login Required"
+
+401 Unauthorized

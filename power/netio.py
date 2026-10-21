@@ -68,8 +68,9 @@ interval. The poll re-reads the lists and settings the unit does not push.
   * The unit's own automation is a list of named entries the unit decides
     (watchdogs, rules, power analysis blocks). They are child entities keyed
     by name here; YAML cannot build a roster the device enumerates.
-  * A write with its own short on/off time must end its HTTP connection (see
-    ``_write``), and a refused write's error body is not valid JSON.
+  * A write with its own short on/off time ends its HTTP connection, as the
+    document asks (see ``_write``), and a refused write's error body is not
+    valid JSON.
   * The web login is a WebSocket session with a hashed sign-in, request ids
     and pushed events on the one socket.
 
@@ -80,8 +81,10 @@ protocol document; NETIO's own MIT-licensed library, PyNetioConf (0.3.1,
 API is the one every 5.1.3+ unit's web interface runs on. Both were checked
 against NETIO's public demo units (PowerPDU 8QS, 4PS and 4KS, PowerDIN 4PZ,
 PowerCable 2PZ, PowerBOX 4KF, on firmware 5.3.1 and 5.3.2): the JSON API on
-2026-10-13, the web login on 2026-10-16. Where the units and a source disagree
-the code follows the units, and says so where it reads the value.
+2026-10-13, the web login on 2026-10-16. Then on a PowerPDU 4KB that NETIO sent
+(2026-10-21): both, on firmware 5.2.4 and 5.3.2, over HTTP and HTTPS, and the
+online firmware update between them. Where the units and a source disagree the
+code follows the units, and says so where it reads the value.
 """
 
 from __future__ import annotations
@@ -104,9 +107,17 @@ import websockets
 from openavc.drivers.base import BaseDriver, ConnectionFaultError
 from openavc.utils.logger import get_logger
 
+try:
+    from openavc.drivers.base import CommandRefusedError
+except ImportError:  # OpenAVC before 0.37.1 has no typed command refusal
+    CommandRefusedError = RuntimeError
+
 log = get_logger(__name__)
 
 STATUS_PATH = "/netio.json"
+# How long a connection over HTTPS may take, its TLS handshake included: the
+# JSON API's (see _create_transport) and the web login's over wss (_open_web).
+HTTPS_CONNECT_S = 15.0
 
 CONNECT_JSON = "json"
 CONNECT_WEB = "web"
@@ -145,8 +156,8 @@ WEB_OUTPUT_CONFIG_KEYS = (
 # The timings are PyNetioConf's (get_firmware_updates_list and
 # update_firmware_online). A check: SET system/firmwarelist with
 # getFirmwareList, then the unit asks NETIO's update server (a few seconds),
-# holding system/lock locked meanwhile, and rebuilds fwupdate/list about 0.4 s
-# after it unlocks.
+# holding system/lock locked meanwhile, and rebuilds fwupdate/list after it
+# unlocks (0.84 s on a PowerPDU 4KB; PyNetioConf says about 0.4 s).
 FW_LIST_TIMEOUT_S = 60.0
 FW_LIST_INTERVAL_S = 0.2
 # A list that did not change counts as the answer once it stayed the same this
@@ -154,6 +165,9 @@ FW_LIST_INTERVAL_S = 0.2
 FW_LIST_SETTLE_S = 2.0
 # An update right after a check reuses its answer rather than asking again.
 FW_LIST_REUSE_S = 120.0
+# A check that ends with no answer from the update server is asked this many
+# times in all (see _fw_check).
+FW_CHECK_ATTEMPTS = 2
 FW_LIST_FIELDS = ("name", "version", "downloadUrl", "downloadUrlNoMcu", "releaseNoteEn")
 # An update: SET system/firmwarelist with updateFw set to an offer's link. The
 # unit locks system/lock, downloads, and restarts when the download ends, a
@@ -220,12 +234,18 @@ class NetioReplyError(Exception):
     """The unit answered 200 with something that is not its status document."""
 
 
-class NetioCommandError(RuntimeError):
+class NetioCommandError(CommandRefusedError):
     """A command the unit refused, or one that cannot be sent to this unit.
 
-    A RuntimeError so the platform reports the sentence as the command's
-    failure rather than reading it as a missing device.
+    Every message is a sentence written for the person who sent the command,
+    with no login in it: from OpenAVC 0.37.1 Send Command and a Quick Action
+    show it. Before 0.37.1 this is a plain RuntimeError, which they report as a
+    command that could not run, with the sentence in the server log.
     """
+
+
+class NetioFirmwareNoAnswer(NetioCommandError):
+    """A firmware check the unit finished with no answer from NETIO's server."""
 
 
 class NetioWebError(Exception):
@@ -323,6 +343,22 @@ def _timestamp(value: Any) -> str | None:
     return moment.strftime("%Y-%m-%dT%H:%M:%S")
 
 
+def _energy_start(value: Any) -> str | None:
+    """An EnergyStart as the unit sends it, or None for a counter never reset.
+
+    A counter never reset reports the start of 1970 in the unit's own zone
+    (``1970-01-01T00:00:00+0100`` on a PowerPDU 4KB set to Prague; a unit west
+    of Greenwich reads 1969). The web login reports the same counter as 0.
+    """
+    text = _as_str(value)
+    if text is None:
+        return None
+    match = re.match(r"(\d{4})-", text)
+    if match is not None and int(match.group(1)) <= 1970:
+        return None
+    return text
+
+
 def child_key(name: str, taken: set[str]) -> str:
     """The child id for a named entry: its name with anything a child id cannot
     hold turned into '_', made unique against ``taken``."""
@@ -345,7 +381,9 @@ def parse_error(text: str) -> str:
     The document shows ``{"errors": [{"code", "severity", "message"}]}``. The
     demo units answer a refused write with the same list but no enclosing
     braces (``"errors":[{"code":400,"message":"Bad request"}]``), which is not
-    valid JSON on its own, so both forms are read.
+    valid JSON on its own, and a PowerPDU 4KB (5.2.4 and 5.3.2) leaves the
+    list's closing bracket off too, its Content-Length counting exactly that
+    (``"errors":[{"code":400,"message":"Bad request"}``). All three are read.
     """
     text = (text or "").strip()
     if not text:
@@ -364,6 +402,9 @@ def parse_error(text: str) -> str:
             if isinstance(e, dict) and e.get("message")
         ]
         return "; ".join(m for m in messages if m)
+    found = [m.strip() for m in re.findall(r'"message"\s*:\s*"([^"]*)"', text) if m.strip()]
+    if found:
+        return "; ".join(found)
     # A plain-text refusal ("401 Unauthorized") is short; keep it.
     if len(text) <= 80 and "<" not in text:
         return text
@@ -440,7 +481,7 @@ def parse_global(measure: Any) -> dict[str, Any]:
         "total_energy_nr_wh": _as_int(measure.get("TotalEnergyNR")),
         "total_reverse_energy_wh": _as_int(measure.get("TotalReverseEnergy")),
         "total_reverse_energy_nr_wh": _as_int(measure.get("TotalReverseEnergyNR")),
-        "energy_start": _as_str(measure.get("EnergyStart")),
+        "energy_start": _energy_start(measure.get("EnergyStart")),
     }
 
 
@@ -472,7 +513,7 @@ def parse_output(entry: dict[str, Any]) -> dict[str, Any]:
             "energy_nr_wh": _as_int(entry.get("EnergyNR")),
             "reverse_energy_wh": _as_int(entry.get("ReverseEnergy")),
             "reverse_energy_nr_wh": _as_int(entry.get("ReverseEnergyNR")),
-            "energy_start": _as_str(entry.get("EnergyStart")),
+            "energy_start": _energy_start(entry.get("EnergyStart")),
         })
     return values
 
@@ -874,12 +915,16 @@ class NetioDriver(BaseDriver):
         "name": "NETIO PowerPDU, PowerBOX, PowerCable and PowerDIN",
         "manufacturer": "NETIO",
         "category": "power",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "author": "OpenAVC",
         # confirm on the commands that reset, switch everything or update the
-        # firmware needs 0.36.0; restarts_device_for on the updates, 0.34.0.
-        # The web login follows Reach devices through where the platform can
-        # (0.37.0 and later; see _open_web) and runs without it before that.
+        # firmware needs 0.36.0; restarts_device_for on the updates, 0.34.0;
+        # the discovery probe's then: step, 0.32.0. The web login follows
+        # Reach devices through where the platform can (0.37.0 and later; see
+        # _open_web) and runs without it before that. A refused command's
+        # sentence reaches Send Command from 0.37.1 (NetioCommandError) and the
+        # server log before it. The probe's model, firmware and serial reach
+        # the scan from 0.37.1; before it the unit is identified without them.
         "min_platform_version": "0.36.0",
         "description": (
             "Controls NETIO rack PDUs, smart power strips, power cables and DIN-rail units over "
@@ -892,32 +937,68 @@ class NetioDriver(BaseDriver):
         ),
         "source_url": "https://www.netio-products.com/files/M2M-HTTP-JSON_NETIO-API-protocol_v2-6_.pdf",
         "tags": ["pdu", "power", "outlet-control", "metering", "energy", "rack", "power-strip", "din-rail"],
-        "verified": False,
+        "verified": True,
         "simulated": True,
         "protocols": ["netio-json", "netio-websocket"],
         "ports": [80],
         "transport": "http",
         "discovery": {
-            # Answers only on a unit whose JSON API reads with no login. A unit
-            # with NETIO's factory login (netio / netio for reading) refuses the
-            # probe, and the MAC block below marks it as a possible NETIO.
+            # The web login's greeting. Once the WebSocket upgrade on /emweb is
+            # answered, HELO is answered with the unit's type, firmware and
+            # serial number, with no login and whatever its JSON API is set to
+            # (firmware 5.1.3 and later). A frame the client sends must be
+            # masked; this one's masking key is zero, so its bytes after the
+            # six-byte header are the text {"type":"HELO","reqId":1}. It is the
+            # probe's second step because the unit drops a frame sent together
+            # with the upgrade (a PowerPDU 4KB on 5.2.4). A unit serving HTTPS
+            # only (port 80 closes) or older firmware stays a possible NETIO by
+            # its MAC block below.
             "tcp_probe": {
                 "port": 80,
-                "send_ascii": "GET /netio.json HTTP/1.0\r\n\r\n",
-                "expect_regex": r'"Agent"\s*:\s*\{\s*"Model"\s*:',
-                "timeout_ms": 1500,
+                "send_ascii": (
+                    "GET /emweb HTTP/1.1\r\nHost: netio\r\nUpgrade: websocket\r\n"
+                    "Connection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
+                    "Sec-WebSocket-Version: 13\r\n\r\n"
+                ),
+                "expect_regex": r"^HTTP/1\.1 101",
+                "timeout_ms": 2000,
+                "then": {
+                    "send_hex": (
+                        "81 99 00 00 00 00 7B 22 74 79 70 65 22 3A 22 48 45 4C 4F 22 2C 22 72 65 "
+                        "71 49 64 22 3A 31 7D"
+                    ),
+                    "expect_regex": r'"devtype"\s*:\s*"[^"]+"',
+                    "timeout_ms": 2000,
+                },
                 "extract": {
-                    "model": {"regex": r'"Model"\s*:\s*"([^"]+)"'},
-                    "device_name": {"regex": r'"DeviceName"\s*:\s*"([^"]+)"'},
-                    "firmware": {"regex": r'"Version"\s*:\s*"([^"]+)"'},
-                    "serial": {"regex": r'"SerialNumber"\s*:\s*"([^"]+)"'},
+                    "model": {"regex": r'"devtype"\s*:\s*"([^"]+)"'},
+                    "firmware": {"regex": r'"fwVersion"\s*:\s*"(\d+\.\d+\.\d+)'},
+                    "serial_number": {"regex": r'"deviceSN"\s*:\s*"([^"]+)"'},
                 },
             },
-            # NETIO products a.s. (IEEE MA-L 24A42C). Every demo unit's MAC is in it.
+            # NETIO products a.s. (IEEE MA-L 24A42C). Every demo unit's MAC and
+            # the bench PowerPDU 4KB's are in it.
             "oui": ["24:a4:2c"],
             "manufacturer_alias": ["netio", "netio products", "netio products a.s."],
         },
         "compatible_models": [
+            {
+                "manufacturer": "NETIO",
+                "models": ["PowerPDU 4KB"],
+                "confidence": "full",
+                "notes": (
+                    "Tested on a unit on firmware 5.2.4 and 5.3.2, over both the web login and the "
+                    "JSON API, HTTP and HTTPS: every command, metering with a load plugged in, a "
+                    "NETIO temperature and humidity sensor, outputs switched from elsewhere showing "
+                    "at once over the web login, and the full firmware update from 5.2.4 to 5.3.2. "
+                    "Over HTTPS the JSON API answers each request in about 4 seconds; the web login "
+                    "is quick. Resetting an output's energy counter over the JSON API needs firmware "
+                    "5.3; on 5.2.4 use the web login. Turning an output's schedule on or off needs a "
+                    "schedule assigned to it in the NETIO's web interface. The first firmware check "
+                    "after the NETIO starts sometimes gets no answer from NETIO's server; the driver "
+                    "asks once more."
+                ),
+            },
             {
                 "manufacturer": "NETIO",
                 "models": [
@@ -941,7 +1022,7 @@ class NetioDriver(BaseDriver):
             {
                 "manufacturer": "NETIO",
                 "models": [
-                    "PowerPDU 4KB", "PowerPDU 4PB", "PowerPDU 4QV", "PowerPDU 8QB", "PowerPDU 8QV",
+                    "PowerPDU 4PB", "PowerPDU 4QV", "PowerPDU 8QB", "PowerPDU 8QV",
                     "PowerPDU 8KS", "PowerPDU 8KF", "PowerPDU 8KB", "PowerPDU FK6", "PowerPDU VK6",
                     "PowerBOX 3PF", "PowerBOX 3PE", "PowerBOX 3PG", "PowerBOX 4KE", "PowerBOX 4KG",
                     "PowerCable REST 101x", "PowerCable 1Kx", "PowerCable 2KZ", "PowerCable 2PF",
@@ -986,7 +1067,9 @@ class NetioDriver(BaseDriver):
                 "and Password here, and the writing login under Advanced only when it is different.\n"
                 "3. Port: for the web login, the port the web interface answers on (80, or 443 with "
                 "Use HTTPS on); for the JSON API, the port on its tab (80 unless it was changed). "
-                "The JSON API serves HTTPS from firmware 5.0.3.\n"
+                "The JSON API serves HTTPS from firmware 5.0.3, but slowly: the NETIO takes about 4 "
+                "seconds to open each secure connection and the JSON API opens one per request, so "
+                "with HTTPS on, use the web login.\n"
                 "4. Outputs, inputs, watchdogs, rules and power analysis blocks appear as children "
                 "once connected."
             ),
@@ -1380,17 +1463,21 @@ class NetioDriver(BaseDriver):
             # Two commands rather than one with a choice, so nothing is chosen
             # for the person: each says what happens to the outputs.
             #
-            # restarts_device_for is not measured on a unit yet. It comes from
-            # NETIO's library, which allows 900 s for three attempts and calls
-            # an update "a few minutes"; the window opens when the update
-            # starts, so it covers the download as well as the restart.
+            # restarts_device_for opens when the update starts, so it covers
+            # the download as well as the restarts. Measured on a PowerPDU 4KB,
+            # 5.2.4 to 5.3.2, full update (2026-10-21): it downloaded for 218 s
+            # while still answering, then restarted twice (the outlet
+            # controller's update is the second), and was back 298 s after the
+            # command. The download depends on the site's internet link, so the
+            # window is twice that. It ends as soon as the unit is back.
             "update_firmware_full": {
                 "label": "Update Firmware: Full (Outlets Off Briefly)",
                 "params": {},
                 "confirm": "Installs the newest firmware from NETIO's update server, the outlet "
-                           "controller's included. Every output switches off for a few seconds, "
-                           "and the NETIO restarts and cannot be controlled for a few minutes.",
-                "restarts_device_for": 300,
+                           "controller's included. The NETIO downloads it first, which can take a "
+                           "few minutes, then restarts, and every output switches off for a few "
+                           "seconds.",
+                "restarts_device_for": 600,
                 "help": "Installs the newest firmware NETIO's update server offers, the outlet "
                         "controller's included, as Update incl. low-level system does in the "
                         "NETIO's web interface. Every output switches off for a few seconds. "
@@ -1402,8 +1489,8 @@ class NetioDriver(BaseDriver):
                 "params": {},
                 "confirm": "Installs the newest firmware from NETIO's update server without the "
                            "outlet controller's, so the outputs stay as they are. The NETIO "
-                           "restarts and cannot be controlled for a few minutes.",
-                "restarts_device_for": 300,
+                           "downloads it first, which can take a few minutes, then restarts.",
+                "restarts_device_for": 600,
                 "help": "Installs the newest firmware NETIO's update server offers without the "
                         "outlet controller's, as Update device firmware does in the NETIO's web "
                         "interface, so the outputs stay as they are. Web login only, with a user "
@@ -1572,7 +1659,11 @@ class NetioDriver(BaseDriver):
         self._client = httpx.AsyncClient(
             base_url=f"{self._scheme}://{self._where()}",
             verify=bool(_as_bool(self.config.get("verify_ssl"))),
-            timeout=httpx.Timeout(10.0, connect=5.0),
+            # The unit answers every request with Connection: close, so over
+            # HTTPS each one starts with a TLS handshake, and a PowerPDU 4KB
+            # takes 4.0 s over one (8 of 8 between 3.89 and 4.14 s), longer
+            # while another client is negotiating with it.
+            timeout=httpx.Timeout(10.0, connect=HTTPS_CONNECT_S if self._scheme == "https" else 5.0),
             # A refusal must arrive as itself, never as a page a redirect led to.
             follow_redirects=False,
         )
@@ -1670,15 +1761,21 @@ class NetioDriver(BaseDriver):
         resp = await client.get(STATUS_PATH, auth=self._read_auth())
         return self._status_from(resp)
 
-    async def _write(self, outputs: list[dict[str, Any]], *, end_session: bool = False) -> None:
+    async def _write(
+        self, outputs: list[dict[str, Any]], *, end_session: bool = False, bad_request: str = "",
+    ) -> None:
         """POST the changes and take the status the unit answers with.
 
         ``end_session`` closes the HTTP connection after the answer. A short
         on/off time sent with a command "is valid only for a single protocol
         session", and the unit goes back to each output's own time "when the
-        connection is closed" (document, "Output actions"). This client keeps
-        its connection open between requests, so without the close a later
-        reboot sent with no time would still use the one given here.
+        connection is closed" (document, "Output actions"). On a PowerPDU 4KB
+        (5.2.4) a time did not carry over to the next request on one held
+        connection, and the unit answers every request with Connection: close
+        anyway; the close stays, as the document asks for it.
+
+        ``bad_request`` is the sentence for an HTTP 400, when the command has a
+        likelier reason for one than a malformed request.
         """
         client = self._require_client()
         headers = {"Connection": "close"} if end_session else None
@@ -1688,7 +1785,7 @@ class NetioDriver(BaseDriver):
             )
             doc = self._status_from(resp)
         except NetioHTTPError as exc:
-            message = self._write_refused(exc)
+            message = bad_request if exc.status == 400 and bad_request else self._write_refused(exc)
             self.set_state("last_error", message)
             raise NetioCommandError(message) from exc
         except NetioReplyError as exc:
@@ -1716,7 +1813,9 @@ class NetioDriver(BaseDriver):
 
     async def _open_web(self) -> None:
         kwargs: dict[str, Any] = {
-            "open_timeout": WEB_OPEN_TIMEOUT_S,
+            # Over wss the unit's TLS handshake comes first: 4 s on a PowerPDU
+            # 4KB, 8 to 12 s while another client is negotiating with it.
+            "open_timeout": HTTPS_CONNECT_S if self._scheme == "https" else WEB_OPEN_TIMEOUT_S,
             "close_timeout": 2.0,
             "max_size": None,
             # Liveness is the protocol's own PING (_web_probe).
@@ -2268,14 +2367,26 @@ class NetioDriver(BaseDriver):
         the last FW_LIST_REUSE_S instead of asking again."""
         if reuse and self._fw_offers is not None and time.monotonic() - self._fw_offers_at < FW_LIST_REUSE_S:
             return self._fw_offers
-        try:
-            before = await self._fw_list()
-            await self._web_call(
-                "SET", "system/firmwarelist", {"getFirmwareList": True, "updateFw": ""},
-            )
-            items = await self._fw_wait_for_answer(before)
-        except NetioWebError as exc:
-            raise self._web_refused(exc, "check for a firmware update") from exc
+        # The first check after a PowerPDU 4KB started got nothing from the
+        # update server in two of three tries (2026-10-21; it held the lock
+        # about 7 s and left the list empty), and the next check always got the
+        # answer. So a check that ends with no answer at all asks once more.
+        for attempt in range(1, FW_CHECK_ATTEMPTS + 1):
+            try:
+                before = await self._fw_list()
+                await self._web_call(
+                    "SET", "system/firmwarelist", {"getFirmwareList": True, "updateFw": ""},
+                )
+                items = await self._fw_wait_for_answer(before)
+                break
+            except NetioFirmwareNoAnswer:
+                if attempt == FW_CHECK_ATTEMPTS:
+                    raise
+                log.info(
+                    f"[{self.device_id}] NETIO's update server sent the NETIO no answer; asking again"
+                )
+            except NetioWebError as exc:
+                raise self._web_refused(exc, "check for a firmware update") from exc
         offers = firmware_offers(items)
         self._fw_offers, self._fw_offers_at = offers, time.monotonic()
         self.set_states({
@@ -2287,7 +2398,7 @@ class NetioDriver(BaseDriver):
     async def _fw_wait_for_answer(self, before: Any) -> Any:
         """fwupdate/list once it holds the update server's answer.
 
-        The unit rebuilds the list about 0.4 s after it unlocks, so a read
+        The unit rebuilds the list shortly after it unlocks, so a read
         around the unlock can get the old list or part of the new one. A list
         that differs from ``before`` counts once two reads in a row agree; one
         that does not differ counts once it stayed so for FW_LIST_SETTLE_S
@@ -2314,7 +2425,7 @@ class NetioDriver(BaseDriver):
             if unlocked_at is not None and time.monotonic() - unlocked_at >= FW_LIST_SETTLE_S:
                 if answered:
                     return items
-                raise NetioCommandError(
+                raise NetioFirmwareNoAnswer(
                     "The NETIO asked NETIO's update server and got no answer. Check that the NETIO "
                     "can reach the internet, then check again."
                 )
@@ -2527,9 +2638,16 @@ class NetioDriver(BaseDriver):
                 return
             await asyncio.sleep(0.05)
 
-    async def _web_output_settings(self, local_id: int, changes: dict[str, Any], what: str) -> None:
+    async def _web_output_settings(
+        self, local_id: int, changes: dict[str, Any], what: str, *, needs_schedule: bool = False,
+    ) -> None:
         """Change an output's own settings: read them, write them all back
-        with the changes (PyNetioConf sends all six), read them again."""
+        with the changes (PyNetioConf sends all six), read them again.
+
+        ``needs_schedule`` refuses the change for an output with no schedule
+        assigned: the unit accepts its schedule turned on with none, and
+        nothing then switches it.
+        """
         topic = f"outputs/id/{local_id}/config"
         try:
             current = await self._web_read(topic)
@@ -2537,6 +2655,10 @@ class NetioDriver(BaseDriver):
                 raise NetioCommandError(
                     f"The NETIO sent no settings for output {local_id}, so nothing changed."
                 )
+            if needs_schedule and not _as_int(current.get("scheduleId")):
+                message = self._no_schedule(local_id)
+                self.set_state("last_error", message)
+                raise NetioCommandError(message)
             body = {key: current[key] for key in WEB_OUTPUT_CONFIG_KEYS if key in current}
             body.update(changes)
             await self._web_call("SET", topic, body)
@@ -2550,19 +2672,34 @@ class NetioDriver(BaseDriver):
             self._web_live.setdefault(local_id, {})["schedule_enabled"] = values["schedule_enabled"]
         self.set_child_state_batch("output", local_id, values)
 
+    @staticmethod
+    def _no_schedule(local_id: int) -> str:
+        return (
+            f"Output {local_id} has no schedule. Assign one to it in the NETIO's web interface "
+            f"first."
+        )
+
     async def _set_action(self, params: dict[str, Any], action: int) -> None:
         local_id = self._output_id(params)
+        schedule = action in (ACTION_SCHEDULE_ON, ACTION_SCHEDULE_OFF)
         if self._web:
-            if action in (ACTION_SCHEDULE_ON, ACTION_SCHEDULE_OFF):
+            if schedule:
                 on = action == ACTION_SCHEDULE_ON
                 await self._web_output_settings(
                     local_id, {"isScheduleActive": on},
                     "turn the output's schedule " + ("on" if on else "off"),
+                    needs_schedule=on,
                 )
                 return
             await self._web_switch([local_id], action)
             return
-        await self._write([{"ID": local_id, "Action": action}])
+        # The JSON API answers a schedule action for an output with no schedule
+        # assigned with HTTP 400 (a PowerPDU 4KB on 5.2.4 and 5.3.2; with its
+        # "Always" schedule assigned, 200 and the schedule follows).
+        await self._write(
+            [{"ID": local_id, "Action": action}],
+            bad_request=self._no_schedule(local_id) if schedule else "",
+        )
 
     async def _short(self, params: dict[str, Any], action: int) -> None:
         local_id = self._output_id(params)

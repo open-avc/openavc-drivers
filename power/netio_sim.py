@@ -31,8 +31,8 @@ none). Switch "Login required to read" or "to write" on to model NETIO's
 factory setup; then no login, or the login ``invalid``, is refused with 401.
 
 Refusals: writing switched off answers 403; the JSON API switched off
-answers 404; a malformed or impossible write answers 400 with the error list
-and no enclosing braces, as the demo units do. The web server restart that
+answers 404; a malformed or impossible write answers 400 with the error list,
+no enclosing braces and no closing bracket, as a PowerPDU 4KB does. The web server restart that
 follows saving the JSON API settings is the ``web_server_restarting`` error
 mode (500 to everything).
 
@@ -47,6 +47,14 @@ everything. A failed download restarts it on the old firmware and, unless
 "Unit tries a failed download again" is off, it tries again, three attempts in
 all. Until its first check since it started, fwupdate/list holds one item with
 every field empty, as every demo unit's did.
+
+From a PowerPDU 4KB on the bench (firmware 5.2.4 and 5.3.2, 2026-10-21): the
+first firmware check after the unit starts gets no answer (switch "First check
+after a start gets no answer" off for one that does); the JSON API refuses a
+schedule action with 400 for an output with no schedule assigned (here every
+output but output 1), while the web login takes the flag; and on firmware
+before 5.3 the JSON API answers an energy counter reset with 400 "Internal
+error".
 """
 
 import asyncio
@@ -89,7 +97,10 @@ FAMILY = {
     "FK6": "PowerPDU", "8QS": "PowerPDU", "4PS": "PowerPDU",
     "4KF": "PowerBOX", "2PZ": "PowerCable", "4PZ": "PowerDIN",
 }
-FIRMWARES = ["5.3.1", "5.4.0", "5.1.3"]
+FIRMWARES = ["5.3.1", "5.4.0", "5.2.4", "5.1.3"]
+# A JSON API energy counter reset answers 400 "Internal error" on a PowerPDU 4KB
+# on 5.2.4 and works on 5.3.2 (2026-10-21).
+JSON_RESET_SINCE = (5, 3, 0)
 
 WEB_PATH = "/emweb"
 WEB_PUSH_S = 0.3
@@ -380,6 +391,8 @@ class NetioSimulator(HTTPSimulator):
                 "controls": [
                     {"type": "select", "key": "update_server", "label": "NETIO's update server",
                      "options": UPDATE_SERVER},
+                    {"type": "toggle", "key": "update_first_check_unanswered",
+                     "label": "First check after a start gets no answer"},
                     {"type": "toggle", "key": "update_download_fails", "label": "Firmware download fails"},
                     {"type": "toggle", "key": "update_retries",
                      "label": "Unit tries a failed download again"},
@@ -425,6 +438,7 @@ class NetioSimulator(HTTPSimulator):
         self._fw_list = [dict(FW_BLANK_ITEM)]
         self._fw_check = None
         self._fw_job = None
+        self._fw_asked = False
         self._down_until = 0.0
         self.generation = 0
 
@@ -432,6 +446,12 @@ class NetioSimulator(HTTPSimulator):
 
     def _model(self):
         return MODELS.get(str(self.get_state("model", "4KS")), MODELS["4KS"])
+
+    @staticmethod
+    def _schedule_id(n):
+        """The schedule assigned to an output: output 1 has one, as the 4KF demo
+        unit's did; the rest have none (0)."""
+        return 1 if n == 1 else 0
 
     def _output_metered(self, n):
         outputs, _inputs, metering = self._model()
@@ -494,7 +514,9 @@ class NetioSimulator(HTTPSimulator):
         return user != "invalid" and password != "invalid"
 
     def _write(self, body):
-        bad = (400, '"errors":[{"code":400,"message":"Bad request"}]')
+        # As a PowerPDU 4KB answers (5.2.4, 5.3.2): no enclosing braces, and
+        # the list's closing bracket left off too.
+        bad = (400, '"errors":[{"code":400,"message":"Bad request"}')
         try:
             doc = json.loads(body or "")
         except ValueError:
@@ -513,6 +535,12 @@ class NetioSimulator(HTTPSimulator):
             action = entry.get("Action", 6)
             if isinstance(action, bool) or not isinstance(action, int) or action not in VALID_ACTIONS:
                 return bad
+            # A schedule action for an output with no schedule assigned is
+            # refused (a PowerPDU 4KB, 5.2.4 and 5.3.2).
+            if action in (20, 21) and not self._schedule_id(n):
+                return bad
+            if entry.get("ResetEnergyCounter") is True and _version(self.get_state("firmware")) < JSON_RESET_SINCE:
+                return 400, '"errors":[{"code":400,"message":"Internal error"}'
             delay = entry.get("Delay")
             if delay is not None and (isinstance(delay, bool) or not isinstance(delay, int) or delay <= 0):
                 return bad
@@ -796,6 +824,7 @@ class NetioSimulator(HTTPSimulator):
         self._started = self._down_until
         self._fw_list = [dict(FW_BLANK_ITEM)]
         self._fw_check = None
+        self._fw_asked = False
         if not self.get_state("update_download_fails", False):
             self.set_state("firmware", job["target"])
             self._fw_job = None
@@ -831,7 +860,11 @@ class NetioSimulator(HTTPSimulator):
         now = time.monotonic()
         if data.get("getFirmwareList"):
             server = str(self.get_state("update_server", UPDATE_SERVER[0]))
-            if server == UPDATE_SERVER[2]:
+            # The first check after a PowerPDU 4KB started got no answer in two
+            # of three tries (2026-10-21); the next check always did.
+            first = not self._fw_asked
+            self._fw_asked = True
+            if server == UPDATE_SERVER[2] or (first and self.get_state("update_first_check_unanswered", True)):
                 answer = None
             elif server == UPDATE_SERVER[0] and _version(self.get_state("firmware")) < _version(FW_NEWER):
                 answer = [self._fw_offer()]
@@ -933,7 +966,7 @@ class NetioSimulator(HTTPSimulator):
                 {
                     "id": n, "socketType": "S",
                     "name": str(self.get_state(f"out{n}_name", f"Power output {n}")),
-                    "scheduleId": 1 if n == 1 else 0,
+                    "scheduleId": self._schedule_id(n),
                     "scheduleName": "Workdays" if n == 1 else "N/A",
                     "scheduleOn": False,
                 }
@@ -1016,7 +1049,7 @@ class NetioSimulator(HTTPSimulator):
                 "resetDelay": int(self.get_state(f"out{n}_delay_ms", 5000)),
                 "powerUpInterval": 1000,
                 "isScheduleActive": bool(self.get_state(f"out{n}_schedule")),
-                "scheduleId": 1 if n == 1 else 0,
+                "scheduleId": self._schedule_id(n),
             }
         return None
 

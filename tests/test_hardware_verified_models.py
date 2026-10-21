@@ -34,6 +34,7 @@ RUN_ON_HARDWARE = {
     ("switchers/chazy_control_pro.py", "Chazy Control Pro (TAV-CHAZY-CLTPRO)"): "the bench controller, FW 1.10.11",
     ("switchers/darwin_control.py", "Darwin Control (CTL100AL)"): "the bench controller, FW 1.50.02",
     ("switchers/avproedge_mxnet_1g.py", "AC-MXNET-CBOX-B"): "the bench control box, firmware 4.32",
+    ("power/netio.py", "PowerPDU 4KB"): "the bench unit, firmware 5.2.4 and 5.3.2",
 }
 
 

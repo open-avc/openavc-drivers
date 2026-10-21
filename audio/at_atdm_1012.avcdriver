@@ -108,7 +108,7 @@ id: at_atdm_1012
 name: Audio-Technica ATDM-1012
 manufacturer: Audio-Technica
 category: audio
-version: 2.2.2
+version: 2.2.3
 author: OpenAVC
 min_platform_version: "0.27.0"
 description: >
@@ -3028,7 +3028,10 @@ simulator:
         state[f'grp{match.group(1)}_openmic'] = int(match.group(2))
         respond('NOOM ACK \r')
 
-    # Input gain/level (channels 0-11; the verbose verb excludes sub gain)
+    # Input gain/level (channels 0-11; the verbose verb excludes sub gain).
+    # Mute is the seventh of the ten fields (Table 4-34). This once answered
+    # mute fifth, as the driver misread it, so the round trip agreed; a device
+    # audit of an ATDM-0604a, which shares this answer, showed it.
     - match: 'g_input_gain_level O 0000 00 NC (\d+) ?'
       handler: |
         ch = int(match.group(1))

@@ -153,7 +153,7 @@ class AtlonaOmeMsDriver(BaseDriver):
         "name": "Atlona AT-OME-MS Series Matrix Switcher",
         "manufacturer": "Atlona",
         "category": "switcher",
-        "version": "1.4.3",
+        "version": "1.4.4",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # confirm on factory_reset needs 0.36.0.
         "min_platform_version": "0.36.0",
@@ -273,6 +273,9 @@ class AtlonaOmeMsDriver(BaseDriver):
         },
         "state_variables": _build_state_vars(),
         "child_entity_types": {
+            # Before 1.4.0 routing was flat route_0 / route_1 keys, invisible to
+            # the Matrix control, which reads the source on the destination as
+            # every other switcher reports it (found reviewing the switchers).
             "output": {
                 "label": "Output",
                 "label_plural": "Outputs",

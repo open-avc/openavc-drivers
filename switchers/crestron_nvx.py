@@ -124,7 +124,7 @@ class CrestronNVXDriver(BaseDriver):
         "name": "Crestron DM NVX",
         "manufacturer": "Crestron",
         "category": "switcher",
-        "version": "2.2.0",
+        "version": "2.2.1",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # the routing: block below needs 0.27.0.
@@ -579,7 +579,8 @@ class CrestronNVXDriver(BaseDriver):
         # body. Following it there would turn a clean "no admin" signal into a
         # read timeout, which classifies as a transient connection fault — so
         # the reconnect loop keeps spinning instead of pausing on auth. The
-        # client follows redirects by default, so override it for this probe.
+        # client follows no redirect anyway (_create_transport, since 2.2.0);
+        # this probe says so itself because following this one is what hung.
         r = await self._client.get("/userlogin.html", follow_redirects=False)
         if "createuser" in (r.headers.get("location", "") + " " + str(r.url)).lower():
             raise ConnectionFaultError(

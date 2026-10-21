@@ -16,8 +16,8 @@ controller's telnet API (Controller(h) FW 1.50.02):
 
 Byte-exact ground truth is the real-hardware capture in
 ``tests/fixtures/darwin_control_banners.py`` (one TX + one RX enrolled, both
-ID 001, online). The render functions below are asserted byte-for-byte against
-those fixtures in ``tests/test_darwin_control_sim.py``.
+ID 001, online). The render functions below reproduce those captures byte for
+byte.
 
 Seeded by default with one encoder (001) and one decoder (001), both enrolled
 and online — the state the captures were taken in. ``ADD DEV RESET`` wipes the
@@ -614,12 +614,18 @@ class DarwinControlSimulator(TCPSimulator):
         if rest[:2] == ["OUTPUT", "AUTO"] and len(rest) >= 3:
             dev["auto"] = rest[2] == "ON"
             return f"[SUCCESS]Set dec {n:03d} auto."
+        # The value is the token after the keyword (rest[2]). These two once
+        # read toks[4], the keyword itself, and stored "RESOLUTION" / "ROTATE"
+        # as the decoder's value (found in review).
         if rest[:2] == ["OUTPUT", "RESOLUTION"] and len(rest) >= 3:
             dev["resolution"] = rest[2].zfill(2)
             return f"[SUCCESS]Set dec {n:03d} resolution."
         if rest[:2] == ["OUTPUT", "ROTATE"] and len(rest) >= 3:
             dev["rotate"] = rest[2]
             return f"[SUCCESS]Set dec {n:03d} rotate."
+        # OUTPUT LOST, BUTTON, IR and FPLED change state like every other SET.
+        # Before 1.1.4 the simulator acknowledged them and stored nothing, so a
+        # GET after the SET still showed the old value (found in review).
         if rest[:2] == ["OUTPUT", "LOST"] and len(rest) >= 3 and rest[2].isdigit():
             dev["video_lost_timeout"] = int(rest[2])
             return f"[SUCCESS]Set dec {n:03d} video lost timeout."

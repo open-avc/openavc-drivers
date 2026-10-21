@@ -2,8 +2,8 @@
 
 Software V705R002C013, captured 2026-08-17. Column layout and spacing are
 reproduced exactly as the switch prints them -- that alignment is what the
-driver's table parsers key on, so hand-tidying this file would make the tests
-stop testing anything.
+driver's table parsers key on, so hand-tidying this file would make it
+describe output no switch prints.
 
 The unit's own identifiers (serial number, base MAC, and the MAC addresses of
 the endpoints attached to it) have been replaced with synthetic values of the

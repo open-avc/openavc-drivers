@@ -116,7 +116,7 @@ class WattBoxIPDriver(BaseDriver):
         "name": "WattBox IP-Controlled PDU",
         "manufacturer": "WattBox",
         "category": "power",
-        "version": "1.3.10",
+        "version": "1.3.11",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
@@ -524,6 +524,9 @@ class WattBoxIPDriver(BaseDriver):
         # here lets a bad credential surface as a real auth fault instead
         # of a silent half-connected session. The typed ConnectionFaultError
         # codes map directly to offline_reason (no_response / auth_failed).
+        # Before 1.3.1 the timeout was a plain ConnectionError whose wording
+        # matched no classifier signature, so it read as "connection dropped";
+        # found in review when this driver's faults became typed.
         try:
             ok = await asyncio.wait_for(self._login_future, LOGIN_TIMEOUT_S)
         except asyncio.TimeoutError as e:

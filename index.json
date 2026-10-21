@@ -193,7 +193,7 @@
       "name": "Allen & Heath dLive Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "2.1.2",
+      "version": "2.1.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Allen & Heath dLive digital mixing systems (MixRack + Surface) via MIDI over TCP/IP on port 51325. Every input, group, aux, matrix, FX send/return, main, DCA, mute group and UFX send/return is a child entity with live mute / fader / name / colour state, and all 128 preamp sockets are children with live gain / pad / 48V state \u2014 the console's own channel names become the labels in OpenAVC. Send levels and assigns, per-channel HPF, Scene Recall (MixRack, 1-500), Cue List Recall (Surface, 1-2000), MMC transport and UFX global key / scale, with bidirectional state from console-side moves and a Get-probe watchdog that flips the device offline if the console vanishes.",
@@ -201,7 +201,7 @@
       "file": "audio/allenheath_dlive.py",
       "format": "python",
       "files": {
-        "audio/allenheath_dlive.py": "a4b1383b1a020ad69e6fe29ef5d93e7f0b3b89c46ed74ce16c49b4ae3877e95e",
+        "audio/allenheath_dlive.py": "c5e88d3ae034555e2e0cab80d42eba7b78b6f0fa58201872b2f8503f364b668a",
         "audio/allenheath_dlive_sim.py": "e72466efbac7b258b8ca402c879f8b49d018357f370a00516d424acfb76b651d"
       },
       "ports": [
@@ -267,7 +267,7 @@
       "name": "Allen & Heath Qu Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Allen & Heath Qu family (Qu-16, Qu-24, Qu-32, Qu-Pac, Qu-SB) via MIDI over TCP/IP on port 51325. Auto-identifies the model on connect and registers every input, stereo input, mix, group, matrix, DCA, mute group and FX send/return as a child entity with live mute / fader / pan state and its real channel name. Mute / fader / pan / send / assign / pre-post control, DCA and mute-group masters, PAFL, local preamp gain and 48V, scene recall (1-100), MMC transport, channel naming and remote shutdown, with bidirectional state from console-side moves.",
@@ -275,7 +275,7 @@
       "file": "audio/allenheath_qu.py",
       "format": "python",
       "files": {
-        "audio/allenheath_qu.py": "765620788ba1529a1e0503d15eca5e29937fc067050567b5be7490d9fd5cbce5",
+        "audio/allenheath_qu.py": "b96290be9718b0a016018d8f6caa1a82b3fdb07725d18200f7e997251ec2d203",
         "audio/allenheath_qu_sim.py": "3b6f63570ac8795032c379b79c4c91eb48019cde79ef69816bc99c4388b9d004"
       },
       "ports": [
@@ -347,7 +347,7 @@
       "name": "Allen & Heath Qu-5/6/7 Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the current Allen & Heath Qu generation (Qu-5, Qu-6, Qu-7 and the Dante -5D/-6D/-7D variants) via MIDI over TCP/IP on port 51325. On connect the driver probes the console and registers exactly the channels it really has, so any model and any mix-bus configuration comes up correct with nothing to declare. Every input, stereo input, mix, matrix, FX send/return, DCA and mute group is a child entity with live mute / level / dB / pan state. Mute, fader (position or dB), 1 dB nudges, pan and balance, aux and FX sends, mix assignments, scene recall (1-300) and Soft Key triggers -- with every write confirmed by reading the console back, and a Get-probe watchdog that flips the device offline if the console vanishes.",
@@ -355,7 +355,7 @@
       "file": "audio/allenheath_qu567.py",
       "format": "python",
       "files": {
-        "audio/allenheath_qu567.py": "daf4d7f3eeda52a8d9a68aa4ba3591e8796a3566fc124e5f1156bd9aafb3dff1",
+        "audio/allenheath_qu567.py": "f4371ee9e87005bf84f96bb0ac14f3f8161dcb8c69bd94fd3f0ff4dad8fbc2e7",
         "audio/allenheath_qu567_sim.py": "c1dc8d6a6d28847f6259b73311a08d8063fa4dfc10252ce444f72fbc2311b680"
       },
       "ports": [
@@ -503,7 +503,7 @@
       "name": "APC Switched Rack PDU",
       "manufacturer": "APC",
       "category": "power",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "OpenAVC",
       "transport": "snmp",
       "description": "Controls APC Switched Rack PDUs over SNMP v2c. Outlets, banks, phases and the temperature/humidity sensor are addressable children read off the device, with named on/off/reboot commands, per-outlet delays, load thresholds and energy metering. Covers both the Rack PDU 2G MIB (AP84xx/86xx/88xx/89xx) and the first-generation one (AP79xx), detected on connect.",
@@ -511,7 +511,7 @@
       "file": "power/apc_rack_pdu.py",
       "format": "python",
       "files": {
-        "power/apc_rack_pdu.py": "d41dba8e83f9b2c97f358aa940d26bdcdc59b39b4baf063e8d0f9026a01a76ed",
+        "power/apc_rack_pdu.py": "a95ad60bf1de1dc3f333ed7711cab4a39e17c994adbfdbb0874895fb02fe7879",
         "power/apc_rack_pdu_sim.py": "41db84a0b888b7d67979d15fe21f3964a2d810fc45cd3efe80f6f544ab12462f"
       },
       "ports": [
@@ -601,7 +601,7 @@
       "name": "AtlasIED Atmosphere",
       "manufacturer": "AtlasIED",
       "category": "audio",
-      "version": "2.0.5",
+      "version": "2.0.6",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls AtlasIED Atmosphere AZM4 and AZM8 audio processing and control systems over the third-party JSON-RPC protocol on TCP port 5321. Models sources, zones, mixes, groups, messages, routines, scenes, GPO presets, GPOs, and bell schedules as child entities labelled with the names from the Atmosphere configuration. Covers gain and mute per source / zone / mix / group, zone and group source select, group combine, message / routine / scene / GPO-preset triggers, GPO pin state, and today's bell schedule. Subscribes for state updates on connect.",
@@ -609,7 +609,7 @@
       "file": "audio/atlasied_atmosphere.py",
       "format": "python",
       "files": {
-        "audio/atlasied_atmosphere.py": "87ceb8c5837ad6e5824315fdc429c77e25fd583f90eacf4529cffa42d7226f8c",
+        "audio/atlasied_atmosphere.py": "6b8d5227cd2e583efe2829f071e5154937310ac9231f29d67ebd8af982e33714",
         "audio/atlasied_atmosphere_sim.py": "5abeef1019aa4a3780f6997008c020b9721294d1ea853a3b857dcfdd8d43c9a4"
       },
       "ports": [
@@ -661,7 +661,7 @@
       "name": "Atlona AT-OME-MS Series Matrix Switcher",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.4.3",
+      "version": "1.4.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-OME-MS family of 4K/UHD matrix presentation switchers (MS42 / MS42-HDBT / MS52 / MS52W / MS52W-EU) over Telnet on TCP port 23. Routes any of five inputs (USB-C / DisplayPort / HDMI / HDMI / BYOD) to two outputs (HDBaseT and HDMI), with audio volume / mute (HDMI and analog independently), CEC display control, USB host switching, and per-input signal detection. Use this driver for the Display:Matrix:Set protocol family; the older PS62 with its xNAVxM syntax is covered by atlona_ome_ps62.",
@@ -669,7 +669,7 @@
       "file": "switchers/atlona_ome_ms.py",
       "format": "python",
       "files": {
-        "switchers/atlona_ome_ms.py": "d4ca433d275c72ada8cb0f3a132d1bf7f998813b622a20de9d45083ac0cabf1b",
+        "switchers/atlona_ome_ms.py": "68a1fc4929d80e1189ca723f267d602a8f2829e78a0c506c0e31cc11ddc50da7",
         "switchers/atlona_ome_ms_sim.py": "dbcdaa385c4849e22e10d1f8dcb3a60391c0793e4d1e5250f8ba3069882228ea"
       },
       "ports": [
@@ -1000,7 +1000,7 @@
       "name": "Audio-Technica ATDM-0604a",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "2.4.1",
+      "version": "2.4.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATDM-0604a Digital SmartMixer via TCP with real-time multicast push updates. Inputs and outputs are child entities with fader, mute, preamp gain, source select, phantom power, and live meters, labelled by the mixer's own channel names. Preset recall, SmartMix and AEC configuration, USB output routing, test oscillator, and front-panel lockout. When mixers are chained over Audio-Technica LINK, the unit's role and what is connected on the chain are both reported.\n",
@@ -1008,7 +1008,7 @@
       "file": "audio/at_atdm_0604a.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atdm_0604a.avcdriver": "8ff215a039a85a6489d680c7e96808eef4b561fd2d0cf2fc1fe804d09df7a392"
+        "audio/at_atdm_0604a.avcdriver": "8605976d70822a9975f0526106f1e96d5dac50bc628dae611dd313932b786a27"
       },
       "ports": [
         17300
@@ -1062,7 +1062,7 @@
       "name": "Audio-Technica ATDM-1012",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "2.2.2",
+      "version": "2.2.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers via TCP with real-time multicast push updates. Inputs, sub-inputs, outputs, and SmartMix groups are child entities with fader, mute, gain, source select, bus routing, and live meters, labelled by the mixer's own channel names. Preset recall, operator faders, USB output routing, test oscillator, and front-panel lockout. When mixers are chained over Audio-Technica LINK, the unit's role and what is connected on the chain are both reported.\n",
@@ -1070,7 +1070,7 @@
       "file": "audio/at_atdm_1012.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atdm_1012.avcdriver": "fae576c708cecfa3c871a0f0105eea6dd044c5679e5208648e3aac4bb3c0befe"
+        "audio/at_atdm_1012.avcdriver": "bda2ae158b70fbe747c40571decaf73e4975ef102674ec0f4e8ab5c9c876c18c"
       },
       "ports": [
         17300
@@ -1217,7 +1217,7 @@
       "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
       "manufacturer": "AVer",
       "category": "camera",
-      "version": "1.3.8",
+      "version": "1.3.9",
       "author": "OpenAVC",
       "transport": "http",
       "description": "AVer Pro-AV PTZ310 / PTZ330 family. Combines VISCA-over-IP (UDP 52381) for power, PTZ motion, and position inquiries with AVer's HTTP CGI (port 80, /storks) for image quality (shutter, iris, gain, white balance, color temperature, saturation, contrast, sharpness), AI features (SmartShoot, SmartFraming), bulk status query, RTMP streaming, mirror/flip, and reboot. For other AVer models without a documented HTTP CGI guide, prefer the generic 'visca_ip' driver.",
@@ -1225,7 +1225,7 @@
       "file": "cameras/aver_ptz.py",
       "format": "python",
       "files": {
-        "cameras/aver_ptz.py": "9543eb420ef283f862afb67bba5862ad20ddbe35f05ea8ab38e995bd2795b6da",
+        "cameras/aver_ptz.py": "de76fcefa8600cdcff62854c20fea4b56cfc943f9db03fc0fbe23d0e847e426b",
         "cameras/aver_ptz_sim.py": "af9ade272070341ee27eb402b44d536907f458733ba5ffd8c1bfebf7cc3b9205"
       },
       "ports": [
@@ -1349,7 +1349,7 @@
       "name": "AVPro Edge MXNet 10G",
       "manufacturer": "AVPro Edge",
       "category": "switcher",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls an AVPro Edge MXNet 10G AV-over-IP system through its 10G Control Box. Encoders and decoders appear as child entities with per-plane routing (video, audio, analog audio, USB, IR, RS-232), EDID, CEC/IR/RS-232 passthrough, and video wall, multiview and matrix recall.",
@@ -1357,7 +1357,7 @@
       "file": "switchers/avproedge_mxnet_10g.py",
       "format": "python",
       "files": {
-        "switchers/avproedge_mxnet_10g.py": "4e15f693ac30d58ec43ba933b9dfb6ea766d5b38bb02c0a91acbcd554a1ee3d9",
+        "switchers/avproedge_mxnet_10g.py": "b0e50d6764b5e5ba9ee703c058fd23652211d3cdbb2e8e36012ffefd9f3b55f0",
         "switchers/avproedge_mxnet_10g_sim.py": "bbed39777d338d3ca1724666cc2d43a50d3f1086edc4e72852e7a4746a5f2293"
       },
       "ports": [
@@ -1419,7 +1419,7 @@
       "name": "AVPro Edge MXNet 1G",
       "manufacturer": "AVPro Edge",
       "category": "switcher",
-      "version": "1.4.3",
+      "version": "1.4.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls an AVPro Edge MXNet 1G AV-over-IP system through its MXNet Control Box (CBOX). Encoders and decoders appear as child entities with per-stream routing, EDID, scaling, CEC/IR/RS-232 passthrough, and video wall, scene, KVM and matrix preset recall.",
@@ -1427,7 +1427,7 @@
       "file": "switchers/avproedge_mxnet_1g.py",
       "format": "python",
       "files": {
-        "switchers/avproedge_mxnet_1g.py": "172f930deb759f1ae63181dc19d4e8c03594d353c357afd249fdc46cd4d9b10d",
+        "switchers/avproedge_mxnet_1g.py": "2916d8d8588dd762d7121821c5c25a65db193b09e8e4e8bbcccbe55e69f27881",
         "switchers/avproedge_mxnet_1g_sim.py": "95affbb8da8db55d0397ea543172311a5caf03658573587371cf48b34e47693a"
       },
       "ports": [
@@ -1499,7 +1499,7 @@
       "name": "AVPro Edge MXnet Network Switch",
       "manufacturer": "AVPro Edge",
       "category": "utility",
-      "version": "1.2.3",
+      "version": "1.2.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Monitor and control an AVPro Edge MXnet network switch over its CLI: per-port PoE power-cycling and draw, link state and error counters, IGMP/multicast group membership per port, the endpoint attached to each port, and system health (temperature, CPU, memory, PoE budget). Each physical port is a child entity. This is the switch that carries an MXnet system; video routing lives in the MXnet Control Box driver.",
@@ -1507,7 +1507,7 @@
       "file": "utility/avproedge_mxnet_switch.py",
       "format": "python",
       "files": {
-        "utility/avproedge_mxnet_switch.py": "73c96476ec7c38160160a4896ff8bc3fe8b7acb53e951c4c51af561b73478236",
+        "utility/avproedge_mxnet_switch.py": "79afe53dd156e5e98889fb754e2303cde13264037099c079ba35a4ac5f210350",
         "utility/avproedge_mxnet_switch_sim.py": "80ab22787a9ea7a2bcb01f4bc7023616b0ed39cb4aa969583a8e053e97d8025f"
       },
       "ports": [
@@ -1581,7 +1581,7 @@
       "name": "Axis Camera (VAPIX)",
       "manufacturer": "Axis",
       "category": "camera",
-      "version": "1.1.7",
+      "version": "1.1.8",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Axis network cameras through VAPIX, Axis's own API: remote zoom and focus on fixed cameras, the IR cut filter and day/night switching, image settings, rotation, text and image overlays, the I/O ports, IR illuminators, audio, and the stream and snapshot addresses for the Video Panel. PTZ models add pan, tilt, zoom, presets and guard tours. Port changes, day/night mode, motion, tampering and hardware faults arrive as events.",
@@ -1589,7 +1589,7 @@
       "file": "cameras/axis_vapix.py",
       "format": "python",
       "files": {
-        "cameras/axis_vapix.py": "7ed73329859a903723c0c4914ce058edbd1ca4d53641e950d401528d6c59bca4",
+        "cameras/axis_vapix.py": "3e40649c28d81ebbc5e69c8059c5821210856b303d501db2e2ad3f589e6e4702",
         "cameras/axis_vapix_sim.py": "f42ab97d40d6c76ceab31f9ae97d6d366087440acd97e32f782d8ffeef68113f"
       },
       "ports": [
@@ -1900,7 +1900,7 @@
       "name": "BenQ Display",
       "manufacturer": "BenQ",
       "category": "display",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls BenQ interactive flat panels (BenQ Boards: RM, RP, RE, CP, CM series) and BenQ Smart Signage using BenQ's RS232 & LAN protocol on TCP port 4660 or direct RS-232. Power and screen off, source select, volume, mute and audio EQ, picture values and modes, backlight, color temperature, aspect, remote-key navigation, IR and keypad locks, power save, and a Power On that wakes a standby display over Wake-on-LAN. Polls for status.",
@@ -1908,7 +1908,7 @@
       "file": "displays/benq_display.py",
       "format": "python",
       "files": {
-        "displays/benq_display.py": "a11e451637a9ced011f75637cc5f51a7b1545129dd8e3302fe11103a740a21f4",
+        "displays/benq_display.py": "004d5484ddf43bed653684c6a924d49c89cb0846cce8f8d1688bd16a656d49cf",
         "displays/benq_display_sim.py": "419940ec6fc818136d1d04dca4e53e20bad2ffb31c8a87ae6e34f17527673ffb"
       },
       "ports": [
@@ -2064,7 +2064,7 @@
       "name": "Biamp Tesira TTP",
       "manufacturer": "Biamp",
       "category": "audio",
-      "version": "3.1.6",
+      "version": "3.1.7",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Biamp Tesira and TesiraFORT\u00c9 DSPs over the Tesira Text Protocol on TCP port 23 (Telnet). Supports Mute, Level, Source Selector, Matrix Mixer (crosspoints), Auto Mixer, Router, Logic, AEC, Room Combiner, Audio Meter, Signal Present Meter, Tone Generator, Preset recall, and basic VoIP / Dialer surfaces. Subscribes to push updates instead of polling. Declare your Tesira blocks once in the device config \u2014 each block becomes a child entity whose per-channel controls panel UIs bind to directly.",
@@ -2072,9 +2072,9 @@
       "file": "audio/biamp_tesira_ttp.py",
       "format": "python",
       "files": {
-        "audio/biamp_tesira_ttp.py": "79176aab88ca65abf513f648345cd417d59e8cd38319415b895bc84251562840",
+        "audio/biamp_tesira_ttp.py": "9c9d403723fdccb3b5bda3105ee183c78d6cc456d74e6a959b5eac579b9223f8",
         "audio/biamp_tesira_ttp_discovery.py": "52a9a3d6c365efd4549d6b69b5bab2d385b207ac51da02d197089464a723d66e",
-        "audio/biamp_tesira_ttp_sim.py": "292b470d6c8d8c88d5349b70c4d9f91ab6ac07ca0ce2ee772bb6fea1b2b15e22"
+        "audio/biamp_tesira_ttp_sim.py": "509353c2f05764f91572152a9ed291d301a87f444fbbc719a6d585538a14ab8a"
       },
       "ports": [
         23
@@ -2133,7 +2133,7 @@
       "name": "BirdDog NDI Encoder/Decoder",
       "manufacturer": "BirdDog",
       "category": "video",
-      "version": "1.5.4",
+      "version": "1.5.5",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls BirdDog NDI encoders and decoders via REST API. Select NDI sources on decoders, monitor input/output status, reboot, and refresh source lists.",
@@ -2141,8 +2141,8 @@
       "file": "video/birddog_codec.py",
       "format": "python",
       "files": {
-        "video/birddog_codec.py": "18a27167ff364209187055f6830a31fa2ce2e713d2e9c052645bbd7f8d82e1b1",
-        "video/birddog_codec_sim.py": "1d84d80a44a8744ea5858e8c4302f3a0682d29ff051e1149e49cc24f6838b3b0"
+        "video/birddog_codec.py": "a9f78f6eb22221af8db377081a0d064419b49f4995ddb0de332f045aa9ee1357",
+        "video/birddog_codec_sim.py": "a1c017d42377a8fde076a6f1589a221394a18cd90731a84297c9887912d166d8"
       },
       "ports": [
         8080
@@ -2265,7 +2265,7 @@
       "name": "Blackmagic Videohub",
       "manufacturer": "Blackmagic Design",
       "category": "switcher",
-      "version": "1.3.6",
+      "version": "1.3.7",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Blackmagic Design Videohub routers over the Videohub Ethernet Protocol (TCP 9990). Video and monitoring outputs, inputs, routing, output locks, and labels are modeled as child entities sized to the connected frame \u2014 from a 12\u00d712 Smart Videohub to a 288\u00d7288 Universal Videohub.",
@@ -2273,7 +2273,7 @@
       "file": "switchers/blackmagic_videohub.py",
       "format": "python",
       "files": {
-        "switchers/blackmagic_videohub.py": "4dc68dccfc73cbf9f09077c694b84751767a28c2e729885fd7973955e14fd879",
+        "switchers/blackmagic_videohub.py": "6ea29b9c9c3c465e8fc478e6c261c831dabe478e99ba8c6ca4bb4a08ae56103a",
         "switchers/blackmagic_videohub_sim.py": "d0caa03dd64e36d5b1e02475bc96d21dd6156cdca0c52a48931596a3723b37cd"
       },
       "ports": [
@@ -2350,7 +2350,7 @@
       "name": "Bose Professional ControlSpace (ESP / EX / CSP)",
       "manufacturer": "Bose Professional",
       "category": "audio",
-      "version": "1.0.6",
+      "version": "1.0.7",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Bose Professional ControlSpace EX, ESP and CSP processors through the ControlSpace Serial Control Protocol on TCP port 10055 or the RS-232 port. Declare the modules from your ControlSpace Designer design (gains, inputs, outputs, selectors, routers, mixers, automatic mic mixers, EQs, dynamics, delays, logic, telephone and VoIP lines, signal-level meters, or any parameter by index) and each becomes a child entity whose controls panels bind to. Groups carry master level, mute and source; parameter sets recall by number or name; room combine groups join and split. Every control is subscribed on a processor that supports subscriptions, so changes made from a CC-16 or CC-64 wall controller or from Designer appear at once.",
@@ -2358,7 +2358,7 @@
       "file": "audio/bose_controlspace.py",
       "format": "python",
       "files": {
-        "audio/bose_controlspace.py": "f7add21d6038722faaf18cdbc574289aae561f29887a4a976e14c8c74b36fb8f",
+        "audio/bose_controlspace.py": "2227a94dc882bdc53aedaa51305030fb56219e9e8817be037b7d5a797d034b73",
         "audio/bose_controlspace_sim.py": "80cfe3aed3debec7ed012d979fe33bd27b5d223d62a5bea85cfb3e60fc567166"
       },
       "ports": [
@@ -2472,7 +2472,7 @@
       "name": "BrightSign Player (Local DWS)",
       "manufacturer": "BrightSign",
       "category": "streaming",
-      "version": "1.0.8",
+      "version": "1.0.9",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Monitors and controls BrightSign signage players through the player's Local Diagnostic Web Server API: identity, health, clock, every HDMI output with its display and video mode, HDMI power-save, reboot, snapshot, CEC, registry and log level, plus the Moka display's own panel controls. Drives the presentation with UDP messages and sets its User Variables.",
@@ -2480,8 +2480,8 @@
       "file": "streaming/brightsign_player.py",
       "format": "python",
       "files": {
-        "streaming/brightsign_player.py": "d1bbed7a55861c22624641defe3f52bad40e463cac08401d1e0f3c1bfdc93bd0",
-        "streaming/brightsign_player_sim.py": "03ba64afb47bfaa070da10b1e9247ea3ed1871f40c6e98feae30be7a0bf00c2a"
+        "streaming/brightsign_player.py": "a3062523a5db297224c5331fbe4a9fc9132641ce7256cc74e5b2857b404d6681",
+        "streaming/brightsign_player_sim.py": "f67f3eb95c433fc8006ad7181d2118c34af2885d0b1906b02e62b9b64e5453d4"
       },
       "ports": [
         443,
@@ -2578,7 +2578,7 @@
       "name": "BSS Soundweb London (BLU)",
       "manufacturer": "BSS Audio",
       "category": "audio",
-      "version": "1.1.8",
+      "version": "1.1.9",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls BSS Soundweb London BLU-series processors through the London Direct Inject protocol on TCP port 1023. Declare the processing objects from your Audio Architect design (gains, mixers, automixers, matrices, routers, source selectors, meters, input and output cards, or any single state variable) and each becomes a child entity whose controls panels bind to. Every control is subscribed, so changes made from Architect or a wall controller appear instantly; venue and parameter presets recall by number.",
@@ -2586,7 +2586,7 @@
       "file": "audio/bss_soundweb_london.py",
       "format": "python",
       "files": {
-        "audio/bss_soundweb_london.py": "b59aaeef3cd74aa72655ea2565ee033da0286009c03daf86320b91c76fad7c1f",
+        "audio/bss_soundweb_london.py": "4bcc4f33b99dbe2b3d1c888cae9e671b9ff09616b37bf854001545783de59739",
         "audio/bss_soundweb_london_sim.py": "b5e01e6f1f336639a8431c8d4990e0fd72ff25f5e541d516fdbb350c9beed491"
       },
       "ports": [
@@ -2736,7 +2736,7 @@
       "name": "Cisco Webex Codec / Room Series (xAPI)",
       "manufacturer": "Cisco",
       "category": "video",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Cisco Webex video-conferencing endpoints (Codec Pro / Plus / EQ, Room Bar, Room Kit family, Room 55/70 family, Board Pro, Desk family) via the RoomOS xAPI over HTTPS. Standby, volume, mute, dial / hangup, DND, presentation, camera presets, on-screen messaging, reboot. State changes arrive instantly \u2014 the codec pushes them over HttpFeedback, with polling as the resync baseline.\n",
@@ -2744,7 +2744,7 @@
       "file": "video/cisco_roomos_xapi.avcdriver",
       "format": "avcdriver",
       "files": {
-        "video/cisco_roomos_xapi.avcdriver": "7a88e88bc72a9eb02a83040e0128592327857a0218cd239b45b7c042394fab29"
+        "video/cisco_roomos_xapi.avcdriver": "9cb409d09e31f23ad1311fc89ac3f03b7ce403b5bac0ff491a3865b1d902f92f"
       },
       "ports": [
         443
@@ -2819,7 +2819,7 @@
       "name": "Crestron 1 Beyond Camera",
       "manufacturer": "Crestron",
       "category": "camera",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Crestron 1 Beyond IV-CAM cameras (I12, I20, P12, P20 and I12D-B) over VISCA on TCP 5500 or RS-232 / RS-485. Power and Privacy Mode, pan / tilt / zoom / focus, presets, exposure and white balance, tracking and the intelligent modes through the camera's reserved presets, the lightbar, mount mode, and the Intelligent Switching host commands. Publishes each camera's RTSP feeds for the Video Panel.",
@@ -2827,7 +2827,7 @@
       "file": "cameras/crestron_1beyond_camera.py",
       "format": "python",
       "files": {
-        "cameras/crestron_1beyond_camera.py": "530930cd0945dbb7c39f882b2f9df9a879f09cf1cf37d8eab0091f0ae50cae14",
+        "cameras/crestron_1beyond_camera.py": "28b74bc1ba3b6e2b6da0fcdf08cf3660b220c738a61fd95fa14a1673f68df22e",
         "cameras/crestron_1beyond_camera_sim.py": "aec48243d3da925ed83318c908f5acacc9826c4ca6e45a9a6f5615a931cdb325"
       },
       "ports": [
@@ -2901,7 +2901,7 @@
       "name": "Crestron AirMedia Series 3",
       "manufacturer": "Crestron",
       "category": "streaming",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Crestron AirMedia Series 3 wireless presentation receivers over the receiver's API: who is connected and presenting, the login code, the source on the display, the HDMI output, the USB conferencing peripherals and their volume, the paired AirMedia Connect adaptors, and the presentation settings. Changes arrive as the receiver reports them.",
@@ -2909,7 +2909,7 @@
       "file": "streaming/crestron_airmedia3.py",
       "format": "python",
       "files": {
-        "streaming/crestron_airmedia3.py": "f87859aa65b29c89cd8745a0be7174d69ba1f4771bab1120a4451f8cd88b285f",
+        "streaming/crestron_airmedia3.py": "a10b63f2ed2936a3efed2f2f72bf7a63a49829ad76df7053269e2d6ef66eec24",
         "streaming/crestron_airmedia3_sim.py": "9bad5c032806ff694be0fbcb86813784123c3d5029d6d6da1723bfad6e66adfc"
       },
       "ports": [
@@ -2966,7 +2966,7 @@
       "name": "Crestron DM NVX",
       "manufacturer": "Crestron",
       "category": "switcher",
-      "version": "2.2.0",
+      "version": "2.2.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Crestron DM NVX AV-over-IP encoders and decoders over the CresNext REST API. One driver adapts to the endpoint's role: transmit stream + bitrate + HDMI-in monitoring on encoders, stream routing + scaler output + video wall on decoders. Covers the E20/D20/D200, E30/D30, and combo 35x/36x lines.",
@@ -2974,7 +2974,7 @@
       "file": "switchers/crestron_nvx.py",
       "format": "python",
       "files": {
-        "switchers/crestron_nvx.py": "e9455818fc48c6a1802d5d283b5159c89d4ab926273cd08bd2395fbf2ab86271",
+        "switchers/crestron_nvx.py": "2f3988d803f9aa31ac4cc1d0ae95f062859d85fee3d3fc3475e115203ee6ee83",
         "switchers/crestron_nvx_sim.py": "5bdc8c80d3f6d0a861c8e0d6ec005988a3e0d70fac76579c0eefbf0c18eb10b2"
       },
       "ports": [
@@ -3469,7 +3469,7 @@
       "name": "QLab Show Control",
       "manufacturer": "Figure 53",
       "category": "video",
-      "version": "2.0.3",
+      "version": "2.0.4",
       "author": "OpenAVC",
       "transport": "osc",
       "description": "Controls Figure 53's QLab show-control / playback software (macOS) over OSC. GO, STOP, PANIC, pause/resume/reset, and per-cue start/stop/load/preview by number or unique ID, plus select, playhead, level, arm, color, and load-at. Live feedback: current cue id/number/name, running state, and QLab version. OSC remote control is free in QLab 5. UDP or reliable TCP+SLIP transport.",
@@ -3477,7 +3477,7 @@
       "file": "video/qlab.py",
       "format": "python",
       "files": {
-        "video/qlab.py": "d467fa34581c7f94cc644b05434f906322ad3d420058aa8933a7417d016283de",
+        "video/qlab.py": "79892104222ac9080711317d1c82f6e49634db7a64d9cb10c8bafe0696b4f1c0",
         "video/qlab_sim.py": "4bdfdfae05c5405a7115959182e93a93c88c9cfb07748008f1761766af35cf29"
       },
       "ports": [
@@ -3586,7 +3586,7 @@
       "name": "Art-Net DMX (Generic)",
       "manufacturer": "Generic",
       "category": "lighting",
-      "version": "1.4.3",
+      "version": "1.4.4",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Sends DMX512 lighting data over Art-Net (UDP 6454) to any Art-Net-compatible node, gateway, fixture, or controller. Maintains a 512-byte channel buffer per universe in memory; commands set channels, blackout, or full-on; a periodic keep-alive re-broadcast keeps long-running shows alive on receivers that time out idle universes.",
@@ -3594,7 +3594,7 @@
       "file": "lighting/artnet_dmx.py",
       "format": "python",
       "files": {
-        "lighting/artnet_dmx.py": "190f763c88875e85e53ba67e6ef497bc85016bd863c52c5bcc92d9da8e6d8bf4",
+        "lighting/artnet_dmx.py": "de81fc714af6cf2aa5449fb451e0f3e6962d010d19c3054064632636e67eece0",
         "lighting/artnet_dmx_sim.py": "639d3cd041f3e9af9216b9684cfef064a10f61eef34450f5a85fff0dfb5bfd6f"
       },
       "ports": [
@@ -3778,7 +3778,7 @@
       "name": "Generic VISCA-IP PTZ Camera",
       "manufacturer": "Generic",
       "category": "camera",
-      "version": "1.3.4",
+      "version": "1.3.5",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Generic Sony-specification VISCA-over-IP driver (UDP port 52381). Pan/tilt/zoom/focus, presets, auto-exposure, white balance, backlight, power. Covers Sony SRG/BRC, AVer, Marshall, Lumens and many other pro PTZ cameras that adopt Sony's wire format. PTZOptics uses a different framing on TCP/5678 -- prefer the dedicated `ptzoptics` driver for those.",
@@ -3786,7 +3786,7 @@
       "file": "cameras/visca_ip.py",
       "format": "python",
       "files": {
-        "cameras/visca_ip.py": "65272a1b5f1693ae92553bd1f5b705fb0831db74a079c7ff2a6aad8625e4aa49",
+        "cameras/visca_ip.py": "a1691b742e879aff1ef2f6b65b64481a4b554688df1940cd7a9f42d8c9cfd0b4",
         "cameras/visca_ip_discovery.py": "e303ef39607c842dfc2de68747e4a8c8b98695257db2ccf07434798126558ede",
         "cameras/visca_ip_sim.py": "6828c91c1b8354591b0a0c60c312398f562cee4d303a92855db17b6d1c0905f9"
       },
@@ -4267,7 +4267,7 @@
       "name": "Wake-on-LAN",
       "manufacturer": "Generic",
       "category": "utility",
-      "version": "1.3.7",
+      "version": "1.3.8",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Send Wake-on-LAN magic packets to wake devices on the network. No persistent connection required.",
@@ -4275,7 +4275,7 @@
       "file": "utility/wake_on_lan.py",
       "format": "python",
       "files": {
-        "utility/wake_on_lan.py": "7cf0b9db3e0ad340ee3483227a7dc6965922ee71c82229f75846159414ece641"
+        "utility/wake_on_lan.py": "93c165d2d0ef0cb7f2aea7f5e4f7d5f017ab2709499e0594ccc44a1c4e8f29fb"
       },
       "min_platform_version": "0.37.0",
       "tags": [
@@ -4358,7 +4358,7 @@
       "name": "Global Cache iTach IP2IR (IR Bridge)",
       "manufacturer": "Global Cache",
       "category": "utility",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Network IR bridge with three emitter ports. Bind IR devices (TVs, cable boxes, AVRs) to a port and control them with a learned or database code-set. Learn codes straight from the original remote.",
@@ -4366,7 +4366,7 @@
       "file": "utility/globalcache_itach_ip2ir.py",
       "format": "python",
       "files": {
-        "utility/globalcache_itach_ip2ir.py": "a25534f64534631b150d4e0e129cad77acccd3c2f8f114d9e6ef5cc19065f047",
+        "utility/globalcache_itach_ip2ir.py": "a91706e60737edd3cba912bf7a88d12e370734d71e1599620c8e865c3278c5d7",
         "utility/globalcache_itach_ip2ir_sim.py": "fbcfc93e7fd62bd67bccc21bb20a546cd8a501104c2118fb07d01120c1cad33b"
       },
       "ports": [
@@ -4522,7 +4522,7 @@
       "name": "Hisense VIDAA TV",
       "manufacturer": "Hisense",
       "category": "display",
-      "version": "1.0.6",
+      "version": "1.0.7",
       "author": "OpenAVC",
       "transport": "mqtt",
       "description": "Controls Hisense VIDAA OS TVs over the TV's embedded MQTT broker (the path the RemoteNOW/VIDAA app uses). Power, volume, input, key passthrough, and PIN pairing.",
@@ -4530,7 +4530,7 @@
       "file": "displays/hisense_vidaa.py",
       "format": "python",
       "files": {
-        "displays/hisense_vidaa.py": "b15e3c6dae110a3f74579d0556964dfb7a71df18fa6d6ffc0b250361160a994f",
+        "displays/hisense_vidaa.py": "42302db271985a809ee70c068eb8a79c3e4767dc258f418e48baeb04327e49d4",
         "displays/hisense_vidaa_sim.py": "ba41e4d1077ce9d3cb6cddf4b6071f7fb28e206ab10ff7abd99b886bd69683e5"
       },
       "ports": [
@@ -4566,7 +4566,7 @@
       "name": "Kramer Protocol 3000",
       "manufacturer": "Kramer",
       "category": "switcher",
-      "version": "1.8.0",
+      "version": "1.8.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Kramer products via Protocol 3000 over TCP (port 5000) or RS-232. Covers matrix switchers (VS series), scalers and presentation switchers (VP series), and distribution amplifiers. On matrix models each configured output and input is a child entity with per-output routing, mute, volume, and sink state. Routing commands speak both Protocol 3000 routing dialects (legacy VID/AUD/AV and layer-based ROUTE), so one driver covers the whole family.\n",
@@ -4574,7 +4574,7 @@
       "file": "switchers/kramer_p3000.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/kramer_p3000.avcdriver": "04de62158a9faa6d9e34a93f030750ec051fae4656e7e91c9c66ceabd219a540"
+        "switchers/kramer_p3000.avcdriver": "04ea6749a1255c79e33fa4f2c33a163fea96fc68e985edf4393b33280d168680"
       },
       "ports": [
         5000,
@@ -4637,7 +4637,7 @@
       "name": "LEA Connect Series Amplifier",
       "manufacturer": "LEA Professional",
       "category": "audio",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LEA Professional Connect Series smart amplifiers (Network Connect and Dante Connect) over the LEA Open API on TCP 4321. Each amplifier channel is a child entity with output mute, gain, Hi-Z/Lo-Z mode, input source selection with backup/override, crossover, RMS and peak limiters, load monitoring, and live meters. Amp-wide auto-standby, signal generator, power-supply monitoring, and fault reporting. State is push-driven: the driver subscribes to every element and the amp reports changes as they happen, including changes made from its own web UI.\n",
@@ -4645,7 +4645,7 @@
       "file": "audio/lea_connect.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/lea_connect.avcdriver": "38526a3bb16ea5abea277e97432ba8b3cf9ddffb45d01394381b599a6b930713"
+        "audio/lea_connect.avcdriver": "2558980d7ef44f7a9d9f1409da60920961cc64aa09ab63a3d893dea914242dac"
       },
       "ports": [
         4321
@@ -4743,7 +4743,7 @@
       "name": "LG SICP Display",
       "manufacturer": "LG",
       "category": "display",
-      "version": "2.0.8",
+      "version": "2.0.9",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LG commercial displays via SICP over TCP (port 9761). Each Set ID on an RS-232 daisy chain is a display child entity with power, input, volume, mute, screen-off, signal status, picture settings, and panel health. Covers webOS Signage, LED, and OLED commercial series.",
@@ -4751,8 +4751,8 @@
       "file": "displays/lg_sicp.py",
       "format": "python",
       "files": {
-        "displays/lg_sicp.py": "b60993473ec3715f79eca1575a5934b6e4d2f3e674118b3861011871d1e2de12",
-        "displays/lg_sicp_sim.py": "c648fa2adf7c1463bb1db03414ba9c85609c07cd497ffed728b9431fd483f826"
+        "displays/lg_sicp.py": "b24ac6bba527bded5fba76ea3dfc2f57019e53c90a07060bc984b4a49fe0ae2d",
+        "displays/lg_sicp_sim.py": "3aaa58d5085438f99d893cefd59b4bf3c92a8324aa7531adf5551651c806808c"
       },
       "ports": [
         9761
@@ -5928,7 +5928,7 @@
       "name": "Panasonic Professional Display",
       "manufacturer": "Panasonic",
       "category": "display",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Panasonic TH-series professional displays (SQ / EQ / CQ / VF / SF / BQ lines) over the LAN command channel. Power, input, volume, audio / video mute, aspect, and the picture adjustment surface. Speaks both of Panasonic's LAN control protocols (auto-detected) and supports the MD5 challenge authentication, so the display works whichever way its service menu is set.",
@@ -5936,7 +5936,7 @@
       "file": "displays/panasonic_display.py",
       "format": "python",
       "files": {
-        "displays/panasonic_display.py": "c23b9e26f1df2339eda74127cffaa38dd57a107f1669359d658e4e0079e428a4",
+        "displays/panasonic_display.py": "211d633262f2a5b43b567939f6e0c6428f32f342451f82217dee4eae9dbf0615",
         "displays/panasonic_display_sim.py": "34a023a6571d7dd1b8faa2904c1a95b33c0ae32b4bbfea8403e992127007d184"
       },
       "ports": [
@@ -6093,7 +6093,7 @@
       "name": "Poly Studio (VideoOS)",
       "manufacturer": "Poly",
       "category": "video",
-      "version": "1.4.4",
+      "version": "1.4.5",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Poly (HP) Studio X30, X50, X70, E70, and G7500 video collaboration bars via the public VideoOS REST API. Audio / video mute, volume, camera presets and direction nudges, hangup, reboot \u2014 everything needed to wire Poly bars into a touch panel.",
@@ -6101,8 +6101,8 @@
       "file": "video/poly_studio.py",
       "format": "python",
       "files": {
-        "video/poly_studio.py": "7ef104b14535c1e74719deee3e1e7af118669787fac79c2b656b50726c1b93c6",
-        "video/poly_studio_sim.py": "9e0f05da682794436c75675f97e1e4cf6048d08861ed88baf648c22d21173a9b"
+        "video/poly_studio.py": "89d42bf2f5853a4f2051255087519675081b99419a1adc4a7ef34edd3bf89724",
+        "video/poly_studio_sim.py": "951079a7fac504f8ce753dcc9473220c09c530ba26294108f1cf022d667786ae"
       },
       "ports": [
         443
@@ -6235,7 +6235,7 @@
       "name": "QSC Q-SYS QRC",
       "manufacturer": "QSC",
       "category": "audio",
-      "version": "4.3.4",
+      "version": "4.3.5",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls QSC Q-SYS Cores via QRC (Q-SYS Remote Control) \u2014 JSON-RPC 2.0 over TCP port 1710. Auto-discovers the running design's Components and their controls on connect (no manual block list), models each Component as a typed child entity, and streams real-time state via Change Group auto-poll. Covers Component control, Named Controls, Mixer, Audio Router, Snapshot recall/save, Loop Player, and PA Router paging.",
@@ -6243,7 +6243,7 @@
       "file": "audio/qsc_qrc.py",
       "format": "python",
       "files": {
-        "audio/qsc_qrc.py": "22bae254e58945d82ab3ce1c4f96b180aff1fe538cc94f5e7e9804fd0cd5d588",
+        "audio/qsc_qrc.py": "003b3cb32b8c8a459a0f924579003b64cb70b4746841df2c5a86ec21631cc2ad",
         "audio/qsc_qrc_sim.py": "9668f6f8082acffbe222245aba544b641930eff96125b0f8e2462e545dec1ab0"
       },
       "ports": [
@@ -6426,7 +6426,7 @@
       "name": "Samsung MDC Display",
       "manufacturer": "Samsung",
       "category": "display",
-      "version": "1.7.5",
+      "version": "1.7.6",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Samsung commercial displays via the MDC (Multiple Display Control) binary protocol over TCP. Each Set ID on the chain is a display child entity with power, volume, mute, input, and picture settings (brightness, contrast, backlight, picture mode, color tone).",
@@ -6434,7 +6434,7 @@
       "file": "displays/samsung_mdc.py",
       "format": "python",
       "files": {
-        "displays/samsung_mdc.py": "baef4cf831ef3a312abd4df3ba32dbc06523c9dfcf766cd43347993ee550cc2a",
+        "displays/samsung_mdc.py": "67e2eb4ec2513c474a7b10123142ea71065cdf7d5d118b15bce31139fcbcfac3",
         "displays/samsung_mdc_sim.py": "1b1d7949ef8370566f69fa79a2c9cea7088dfb898903748b9c34c5d093e41970"
       },
       "ports": [
@@ -7014,7 +7014,7 @@
       "name": "Sharp/NEC Display (External Control)",
       "manufacturer": "Sharp NEC",
       "category": "display",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Sharp/NEC professional large-format displays over the NEC External Control protocol on TCP 7142. Each Monitor ID on the daisy chain is a display child entity with power, input, volume, mutes, picture settings, panel temperature, and self-diagnosis status. Includes a raw opcode escape hatch for the full protocol surface.",
@@ -7022,7 +7022,7 @@
       "file": "displays/sharp_nec_display.py",
       "format": "python",
       "files": {
-        "displays/sharp_nec_display.py": "e28a0e595db26e1baa6c35a85a5d404a69069ddeabc3d16d8ce3d1f70f9ad5c4",
+        "displays/sharp_nec_display.py": "01d3d67023ab7d9d41e0ba4f0a4cba0341e02f4a8bb6820e6cd0365ba06b48b4",
         "displays/sharp_nec_display_sim.py": "ffd2204a5c187dde4f14e04c4e37c9c4bc13b0f2789a5ecb0751e987bafe0f98"
       },
       "ports": [
@@ -7310,7 +7310,7 @@
       "name": "Shure Networked Devices",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "2.2.0",
+      "version": "2.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Shure networked audio devices over the command strings protocol on TCP port 2202: MXA910 / MXA920 / MXA925 / MXA710 ceiling and linear arrays, the MXA320 table array, the MXA902 ceiling array with loudspeaker, ANI interfaces, the P300 IntelliMix processor and the SCM820 automixer. Each audio channel or coverage area is a child entity with mute, gain, name, gate status and live metering; device mute, presets, the status LED, automatic coverage, talker positions and the MXA902's loudspeaker are controlled directly. State pushes live as it changes on the device or another controller.",
@@ -7318,7 +7318,7 @@
       "file": "audio/shure_network.py",
       "format": "python",
       "files": {
-        "audio/shure_network.py": "0cf05db6a9ed2ead8fee73f542a3844e663b6cc0ea1b39aa7d6cd84f43ef1c08",
+        "audio/shure_network.py": "61721eb903c771f7bcc5089395dd98b9359c4bd2980f73ea0a0c638a1723484a",
         "audio/shure_network_sim.py": "75d685fdfd1ea901698c7049b9106fa15a7211f86acd5d0a455ad956d967f940"
       },
       "ports": [
@@ -7748,7 +7748,7 @@
       "name": "Sony Bravia Display",
       "manufacturer": "Sony",
       "category": "display",
-      "version": "1.5.8",
+      "version": "1.5.9",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Sony Bravia TVs and professional displays via the JSON-RPC REST API and IRCC remote emulation. Power, input, volume, mute, navigation, media transport, app launch. Covers Android TV, Google TV, and Pro Bravia models.",
@@ -7756,7 +7756,7 @@
       "file": "displays/sony_bravia.py",
       "format": "python",
       "files": {
-        "displays/sony_bravia.py": "19b675e84b2a16e1f9f6b7d94c067c02a54a294033cd26740cceb201258e9eef",
+        "displays/sony_bravia.py": "fe02cdcf4bbaa685d3067d2fa4d88943f383c3fb96566b27e078e787b73431bf",
         "displays/sony_bravia_sim.py": "3d890393a8b2afd77bc274a745d995fc465475b79d4c153ed64d8674e177104f"
       },
       "ports": [
@@ -7812,7 +7812,7 @@
       "name": "Sony VISCA-IP PTZ Camera",
       "manufacturer": "Sony",
       "category": "camera",
-      "version": "1.3.4",
+      "version": "1.3.5",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Dedicated Sony SRG / BRC / EVI VISCA-over-IP driver (UDP port 52381). Adds Sony picture profiles, R/B gain, color matrix, defog, visibility enhancer, low-light, chroma suppress, PRESET MODE + PTZ TRACE (BRC-X400/X401), tally, IR correction, ICR, AF mode, AE speed, min/max shutter, high sensitivity, and OSD on/off \u2014 on top of the standard PTZ + AE/WB command set.",
@@ -7820,7 +7820,7 @@
       "file": "cameras/sony_visca.py",
       "format": "python",
       "files": {
-        "cameras/sony_visca.py": "1741902d0a5827172d5b77fd2154a66aa1166a83612db913a07520adf627b9b6",
+        "cameras/sony_visca.py": "098e8a7e0353b6594f986743be3d38aa2af9e89d311be9ca49d270b44a62c420",
         "cameras/sony_visca_sim.py": "a7f7224b3127909f777db7874b69bccf97f58f2c75bfbffe71ed1a71def02c30"
       },
       "ports": [
@@ -7871,7 +7871,7 @@
       "name": "Sony VPL Projector (ADCP)",
       "manufacturer": "Sony",
       "category": "projector",
-      "version": "1.4.4",
+      "version": "1.4.5",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Sony VPL professional installation projectors over Sony's Advanced Display Control Protocol (ADCP) on TCP port 53595. Power, input, blank, freeze, picture mode, aspect ratio, image-quality (contrast / brightness / colour / sharpness), and the universal remote-key set. Supports SHA-256 challenge-response authentication so the projector can keep its default auth-on web setting.",
@@ -7879,7 +7879,7 @@
       "file": "projectors/sony_vpl.py",
       "format": "python",
       "files": {
-        "projectors/sony_vpl.py": "33f295ec6a712c4c40dd046165c78059196d6078ae4b162ea1c6158621f352e9",
+        "projectors/sony_vpl.py": "95465dc55d8c250ea548c652c6e3791f686612f6fe199e9b10aa8d617a3458f3",
         "projectors/sony_vpl_sim.py": "225eb5c08b97ad5c0c05f277ad7b334e99077490ecebe7e6dec675244796acb3"
       },
       "ports": [
@@ -7950,7 +7950,7 @@
       "name": "vMix",
       "manufacturer": "StudioCoast",
       "category": "video",
-      "version": "2.3.6",
+      "version": "2.3.7",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls vMix video production software via the TCP API. Supports transitions, input switching, audio, overlays, recording, streaming, titles, replay, PTZ, and the numbered outputs including their SRT streams.",
@@ -7958,8 +7958,8 @@
       "file": "video/vmix.py",
       "format": "python",
       "files": {
-        "video/vmix.py": "67fed70fa2b47abddc61e8390cc9b773349869a9b8a5d3c1dfed87a182916ae8",
-        "video/vmix_sim.py": "825c876a8ef02d87b5ffc3d19251b4e9a9f4505c58d1b8f33ab45414d00e2035"
+        "video/vmix.py": "018a07722f0a3029746e35ce6669a7e2650794d29f49eb42384ef6e6bf127622",
+        "video/vmix_sim.py": "f7bae5b332e1efbef077f7af21d2eca79c670b461039ba301ff6563d9ba7cabb"
       },
       "ports": [
         8099
@@ -8219,7 +8219,7 @@
       "name": "TurtleAV Chazy Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.4.3",
+      "version": "1.4.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control AV-over-IP matrix controller and the sub-units it manages: video encoders (TX), decoders (RX), and video walls. The standard Control's command set; for the Media Player, Groups, Events, Scheduler, Dante Presets, Configuration Presets and Date/Time modules, use the Chazy Control Pro driver.",
@@ -8227,7 +8227,7 @@
       "file": "switchers/chazy_control.py",
       "format": "python",
       "files": {
-        "switchers/chazy_control.py": "ae181dc00d5dc4422536601e7b1d5510de200165de95b03e572ae7221adf3214",
+        "switchers/chazy_control.py": "6b7091ce8c1faa364c98253b667fd51b79299deb593d2666cf6563f7bf9f94e5",
         "switchers/chazy_control_discovery.py": "17ec5c484f808f084eea83e859b9ede4e5a808bbbfb0f38280602c0224e716b9",
         "switchers/chazy_control_sim.py": "0c41f64c2831ac3cc52761a2dcac382e0e2902e104a356e9947d2b3d984bac6f"
       },
@@ -8296,7 +8296,7 @@
       "name": "TurtleAV Chazy Control Pro",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.6.5",
+      "version": "1.6.6",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control Pro AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX) and decoders (RX), video walls, decoder groups, events, schedules, NAS/FTP media sources, Dante presets, and configuration presets.",
@@ -8304,9 +8304,9 @@
       "file": "switchers/chazy_control_pro.py",
       "format": "python",
       "files": {
-        "switchers/chazy_control_pro.py": "89d33eb8e63d400707f355f2b8388cc9b0e37fbde8598589c265de341db3c267",
+        "switchers/chazy_control_pro.py": "985ef5b7aedeafef0253c7dbf80e185d06dd5995214f4c341b453256a765ddd8",
         "switchers/chazy_control_pro_discovery.py": "3e1bf2542c36a4ed265dff4b74c97afe57a25b52ae69b0c62d70755ed06eec7b",
-        "switchers/chazy_control_pro_sim.py": "b2e092b1122b885c8efdb7df98cdd316282112aac946898d2de389c312468fbe"
+        "switchers/chazy_control_pro_sim.py": "ea1456579dfa4d2e8a62733a777e02c38c612d382f583e41bea355be1e007ed5"
       },
       "ports": [
         23
@@ -8377,7 +8377,7 @@
       "name": "TurtleAV Darwin Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.2.3",
+      "version": "1.2.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Darwin Control (CTL100AL) H.265 AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX), decoders (RX), and video walls.",
@@ -8385,9 +8385,9 @@
       "file": "switchers/darwin_control.py",
       "format": "python",
       "files": {
-        "switchers/darwin_control.py": "87aaec7f9dc5d34634bb5975a39a5462f02ff339a81d6f8d41d69e41b16b5fc9",
+        "switchers/darwin_control.py": "1e834ec0534e926d069fe2d41b6a57e9614d23207e528394a62a8046676c5a09",
         "switchers/darwin_control_discovery.py": "8c9153c34d0400a3710755a2d3847affea9f0233d8a6bda1f64effa583d9d628",
-        "switchers/darwin_control_sim.py": "353f2aed0143289d858c3a69f059bd1da712645fa6691bc29e176a8cc6484632"
+        "switchers/darwin_control_sim.py": "4eaf64b512123673a10b4bf28eec0967ab5de3b9ad090d878b3859da1b4cdc9d"
       },
       "ports": [
         23
@@ -8455,7 +8455,7 @@
       "name": "tvONE CORIOmaster",
       "manufacturer": "tvONE",
       "category": "video",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls tvONE CORIOmaster, CORIOmaster mini/micro, and CORIOmaster2 video wall processors over the CORIOmax command-line API (TCP 10001). Windows, canvases, and the installed input/output cards are discovered from the unit and modeled as child entities \u2014 route sources into wall windows, move and resize windows, recall presets and storyboards, run canvas audio, and drive the Streaming Media card's playback, with live updates over the unit's event subscription.",
@@ -8463,7 +8463,7 @@
       "file": "video/tvone_coriomaster.py",
       "format": "python",
       "files": {
-        "video/tvone_coriomaster.py": "9f54049b2bfcfd64cd88ea1cf2fb54ac919545ccacb9a78ac57134e4e7737cd7",
+        "video/tvone_coriomaster.py": "240e2a6797e7abc2379b572599cc0dc56c384669c470305cbc8fab6824d68fcf",
         "video/tvone_coriomaster_sim.py": "0b75d09fb25b28bc6d2459e794f4055d1dbc785591a19c93c5a60096f9c37618"
       },
       "ports": [
@@ -8737,7 +8737,7 @@
       "name": "ViewSonic Commercial Display",
       "manufacturer": "ViewSonic",
       "category": "display",
-      "version": "2.2.1",
+      "version": "2.2.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls ViewSonic CDE-series commercial displays (and other ViewSonic large-format displays publishing the LFD RS-232 & LAN protocol) on TCP port 5000 or direct RS-232. Power, input select, volume, mute, brightness, backlight, picture values, freeze and screen blank, PIP, video-wall tiling, keypad navigation, control locks, the display's clock, ambient sensor readings, and a Wake-on-LAN wake for displays whose standby closes the network port. Listens for the display's own status pushes and polls for the rest.",
@@ -8745,7 +8745,7 @@
       "file": "displays/viewsonic_cde.avcdriver",
       "format": "avcdriver",
       "files": {
-        "displays/viewsonic_cde.avcdriver": "eea01d59f608eacbf2b55dfccf6723e0a0aee1e86bf768898f9bef54920366da"
+        "displays/viewsonic_cde.avcdriver": "5966130a51d834c7cbcff18ba42ea6a761893ab4bddc8a8ae42280725b6dcb06"
       },
       "ports": [
         5000
@@ -8845,7 +8845,7 @@
       "name": "WattBox IP-Controlled PDU",
       "manufacturer": "WattBox",
       "category": "power",
-      "version": "1.3.10",
+      "version": "1.3.11",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls SnapAV WattBox IP-controlled power distribution units over the WattBox Integration Protocol (Telnet, port 23). Outlets are addressable children with per-outlet state, name, and power metering. Supports on/off/toggle/reset, per-outlet naming, auto-reboot configuration, system + per-outlet power metering, and UPS status reporting on units with a connected UPS.",
@@ -8853,7 +8853,7 @@
       "file": "power/wattbox_ip.py",
       "format": "python",
       "files": {
-        "power/wattbox_ip.py": "5746a8f85b6256339f1c6b774ec5a7215f938e9778c79b1f9e18d9357ef99063",
+        "power/wattbox_ip.py": "9aed852c908d7f52c418e7ab2356f9430f16bc6f294000622c5830a692284e27",
         "power/wattbox_ip_sim.py": "e6306a9adaaea62b0729ad8e022c9fff7bc7d488efa1cbb37884891c83eec981"
       },
       "ports": [

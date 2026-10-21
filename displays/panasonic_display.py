@@ -250,7 +250,7 @@ class PanasonicDisplayDriver(BaseDriver):
         "name": "Panasonic Professional Display",
         "manufacturer": "Panasonic",
         "category": "display",
-        "version": "1.0.5",
+        "version": "1.0.6",
         # Set by hand (the contract check cannot see a method call): every
         # control connection binds to BaseDriver.local_address(), which landed
         # in 0.37.0 (supersedes the lifecycle-hook 0.24.0 requirement).
@@ -756,7 +756,11 @@ class PanasonicDisplayDriver(BaseDriver):
     async def _post_connect(self) -> None:
         # One probe round-trip validates reachability, the greeting,
         # and (in protected mode) the credentials — the display
-        # answers ERRA to the first command on a bad hash.
+        # answers ERRA to the first command on a bad hash. The refusal is
+        # raised typed, quoting the reply: through 1.0.2 it was an untyped
+        # ConnectionError, and the device card showed a generic sentence
+        # instead of the display's words (measured on both protocols; the
+        # poll side of the same fix is _auth_guarded).
         try:
             results = await self._run_requests([("QPW", "power")])
         except _AuthRejected as exc:
@@ -1163,7 +1167,10 @@ class PanasonicDisplayDriver(BaseDriver):
             )
         except _AuthRejected:
             # Only a blank password in protected mode is refused before a
-            # session exists.
+            # session exists. Through 1.0.2 the wizard hashed the blank one,
+            # sent it and reported "Credentials rejected"; protected mode
+            # exists only while a password is set (LAN Control Protocol,
+            # section 5), so a blank password could never be accepted.
             raise ConnectionError(
                 "The display has a Web Control admin password set. Enter "
                 "it to test the credentials."

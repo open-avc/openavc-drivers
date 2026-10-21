@@ -1,10 +1,10 @@
-"""Sample CLI outputs for the NETGEAR M4250/M4350 driver tests.
+"""Sample CLI outputs for the NETGEAR M4250/M4350 driver, built from the manual.
 
 Dotted key/value outputs are byte-exact from the M4250/M4350 CLI Reference
 Manual examples. Column tables are built with ``_tbl`` so the dashed separator
 and the data columns are guaranteed to line up the way a real switch emits them
 (fixed-width, single-space gaps). The driver parses column positions from the
-separator, so this exercises the real parsing path. M4350 ``unit/slot/port``
+separator, so these keep that layout. M4350 ``unit/slot/port``
 naming is used throughout.
 """
 

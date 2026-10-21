@@ -163,6 +163,9 @@ def _parse_sicp_frame(buffer: bytes) -> tuple[bytes | None, bytes]:
     return m.group(0), buffer[m.end():]
 
 
+# Every SICP number is two hex digits ("1e" = 30). The YAML driver this replaced
+# read them base-10, so on a real display a volume of "1e" never stored and
+# volume read-back was broken; every level reply decodes here.
 def _hex_or_none(data: str) -> Optional[int]:
     try:
         return int(data, 16)
@@ -284,7 +287,7 @@ class LGSICPDriver(BaseDriver):
         "name": "LG SICP Display",
         "manufacturer": "LG",
         "category": "display",
-        "version": "2.0.8",
+        "version": "2.0.9",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",

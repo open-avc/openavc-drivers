@@ -192,7 +192,7 @@ class VISCAIPDriver(BaseDriver):
         "name": "Generic VISCA-IP PTZ Camera",
         "manufacturer": "Generic",
         "category": "camera",
-        "version": "1.3.4",
+        "version": "1.3.5",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
@@ -489,6 +489,10 @@ class VISCAIPDriver(BaseDriver):
                     },
                     "help": "Moves continuously until Pan/Tilt Stop is sent.",
                 }
+                # Stop stays out of this table: up to 1.3.3 it was built here
+                # with the eight moves, so it offered Pan Speed and Tilt Speed
+                # and the help "Send 'pt_stop' to halt" (found in a review of
+                # every command's field labels). What is sent never changed.
                 for cmd in _PT_DIR if cmd != "pt_stop"
             },
             "pt_stop": {
@@ -521,6 +525,9 @@ class VISCAIPDriver(BaseDriver):
                 "help": "Variable-speed zoom out. Send 'zoom_stop' to halt.",
             },
             "zoom_stop": {"label": "Zoom Stop", "params": {}},
+            # Up to 1.3.0 the max was the optical 16384 (0x4000), so the
+            # platform's bounds check would refuse every digital position up to
+            # 0x7AC0; found by a sweep of the bounds before that check began.
             "zoom_direct": {
                 "label": "Zoom Direct",
                 "params": {"position": {"type": "integer", "required": True, "min": 0, "max": 31424}},
@@ -552,7 +559,9 @@ class VISCAIPDriver(BaseDriver):
             },
 
             # Presets (0-127; classic Sony units stop at 99, AVer and other
-            # extended-VISCA models accept the full 0-0x7F byte range)
+            # extended-VISCA models accept the full 0-0x7F byte range). Up to
+            # 1.3.0 these stopped at 99, which refused AVer slots 100-127
+            # (found by the same bounds sweep as zoom_direct).
             "preset_recall": {
                 "label": "Preset Recall",
                 "params": {"number": {"type": "integer", "required": True, "min": 0, "max": 127}},
@@ -840,6 +849,9 @@ class VISCAIPDriver(BaseDriver):
             case "zoom_stop":
                 await self._send_visca(b"\x81\x01\x04\x07\x00\xff")
             case "zoom_direct":
+                # Up to 1.3.0 this clamp stopped at 0x4000, so a digital-zoom
+                # position of 31424 went out as 16384 with no error (found by
+                # the bounds sweep noted at zoom_direct's declaration).
                 pos = max(0, min(0x7AC0, int(params["position"])))
                 await self._send_visca(
                     b"\x81\x01\x04\x47" + _encode_4nibble(pos) + b"\xff"
@@ -877,6 +889,9 @@ class VISCAIPDriver(BaseDriver):
             case "focus_one_push":
                 await self._send_visca(b"\x81\x01\x04\x18\x01\xff")
 
+            # Up to 1.3.0 these three clamps stopped at 99, so slot 127 (valid
+            # on the AVer models listed) saved and recalled slot 99 instead;
+            # found by the same bounds sweep.
             case "preset_recall":
                 num = max(0, min(127, int(params["number"])))
                 await self._send_visca(

@@ -390,7 +390,7 @@ class VMixDriver(BaseDriver):
         "name": "vMix",
         "manufacturer": "StudioCoast",
         "category": "video",
-        "version": "2.3.6",
+        "version": "2.3.7",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
@@ -1239,7 +1239,9 @@ class VMixDriver(BaseDriver):
             # reported -- a GT title's "Headline.Text", say -- can still be
             # typed. Set Image's field is typed: the XML lists a title's image
             # fields beside its text fields, both plain strings, so a cascade
-            # could not offer the image fields alone.
+            # could not offer the image fields alone. Up to 2.3.2 Set Image
+            # cascaded too and offered the title's text fields for an image
+            # (noticed while narrowing Set Text's picker); 2.3.3 dropped it.
             "set_text": {
                 "label": "Set Text",
                 "params": {

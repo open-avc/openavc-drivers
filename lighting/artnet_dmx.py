@@ -123,7 +123,7 @@ class ArtNetDMXDriver(BaseDriver):
         "name": "Art-Net DMX (Generic)",
         "manufacturer": "Generic",
         "category": "lighting",
-        "version": "1.4.3",
+        "version": "1.4.4",
         # local_address(), which binds the socket this driver opens itself,
         # needs 0.37.0.
         "min_platform_version": "0.37.0",
@@ -557,6 +557,10 @@ class ArtNetDMXDriver(BaseDriver):
             name=self.device_id,
         )
         # From the adapter Settings > Network > Reach devices through chose.
+        # A transport the platform builds follows that setting on its own; one
+        # a driver builds itself does not, and before 1.4.3 this one left from
+        # whichever adapter the computer picked (found reviewing every driver
+        # that opens its own connection).
         await self.transport.open(
             allow_broadcast=True, local_addr=self.local_address(host)
         )

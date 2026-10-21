@@ -120,7 +120,7 @@ class HisenseVidaaDriver(BaseDriver):
         "name": "Hisense VIDAA TV",
         "manufacturer": "Hisense",
         "category": "display",
-        "version": "1.0.6",
+        "version": "1.0.7",
         # MQTTTransport's local_address keyword and local_address(), which bind
         # the broker connection this driver builds itself, need 0.37.0.
         "min_platform_version": "0.37.0",
@@ -155,6 +155,11 @@ class HisenseVidaaDriver(BaseDriver):
                 "with the physical remote. Power Off and everything else work "
                 "while the TV is on."
             ),
+            # The setup text's last paragraph names no place to get the
+            # certificate. Before 1.0.5 it pointed integrators at a community
+            # project to copy the VIDAA app's client certificate and key from;
+            # that was removed on review, so keep it to what OpenAVC does and
+            # does not include.
             "setup": (
                 "1. Make sure the TV and OpenAVC are on the same network.\n"
                 "2. On the TV, enable mobile-app/remote control if it has such a "

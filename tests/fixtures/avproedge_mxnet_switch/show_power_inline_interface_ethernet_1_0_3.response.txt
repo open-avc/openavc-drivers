@@ -1,0 +1,4 @@
+
+Interface       Status  Oper   Power(mW) Max-type Max(mW) Current(mA) Volt(V) Priority Class
+--------------- ------- ------ --------- -------- ------- ----------- ------- -------- -----
+Ethernet1/0/3    enable     on      4100    class   30000          79      52      low     3

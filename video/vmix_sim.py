@@ -20,9 +20,12 @@ way its documentation reads, because each one hid a bug in this driver:
    real one. vMix never reports a bad function name over TCP, which is how six
    commands in this driver sat dead and green for months. The simulator keeps
    that behaviour on purpose — a simulator that rejected unknown names would
-   make this driver's tests pass where the device would not. What guards the
-   names instead is tests/test_vmix_driver.py, which checks every function the
-   driver can emit against the vendor's published function list.
+   answer a bad name differently from the vMix it stands in for.
+   What guards the names instead is the vendor's published function list,
+   with the names confirmed on vMix 29 that it leaves out, kept in this
+   repository as tests/fixtures/vmix_shortcut_functions.json:
+   check every function name the driver sends against it when adding or
+   changing a command, because nothing on the wire will flag a wrong one.
 3. Only inputs that carry audio report any audio attributes. Input 1 here is a
    Colour input with none, which is the case that reads as "muted, volume 0" to
    anyone who assumes the attributes are always present.

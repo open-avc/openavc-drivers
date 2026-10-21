@@ -244,7 +244,7 @@ class BenqDisplayDriver(BaseDriver):
         "name": "BenQ Display",
         "manufacturer": "BenQ",
         "category": "display",
-        "version": "1.2.1",
+        "version": "1.2.2",
         "author": "OpenAVC",
         "description": (
             "Controls BenQ interactive flat panels (BenQ Boards: RM, RP, RE, "
@@ -805,6 +805,12 @@ class BenqDisplayDriver(BaseDriver):
             + value
         )
         # Length byte counts every byte except the CR, itself included.
+        # The guides disagree on one case, the ten-byte operation-time get:
+        # the RP-series guide spells out "0x3A for Length=10" and the IL430
+        # Generic guide's example sends 0x3A, but the RM6503 guide's Example 5
+        # shows 0x38 for it, against its own "total bytes excluding CR" rule.
+        # This follows the rule (':'), and replies are parsed by position, so
+        # their length byte is never read.
         return bytes([0x30 + len(body) + 1]) + body + b"\r"
 
     async def _send(self, cmd_type: str, code: int, value: bytes = b"000") -> None:

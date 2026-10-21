@@ -12,7 +12,7 @@
       "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
       "manufacturer": "AVer",
       "category": "camera",
-      "version": "1.3.8",
+      "version": "1.3.9",
       "author": "OpenAVC",
       "transport": "http",
       "description": "AVer Pro-AV PTZ310 / PTZ330 family. Combines VISCA-over-IP (UDP 52381) for power, PTZ motion, and position inquiries with AVer's HTTP CGI (port 80, /storks) for image quality (shutter, iris, gain, white balance, color temperature, saturation, contrast, sharpness), AI features (SmartShoot, SmartFraming), bulk status query, RTMP streaming, mirror/flip, and reboot. For other AVer models without a documented HTTP CGI guide, prefer the generic 'visca_ip' driver.",
@@ -20,7 +20,7 @@
       "file": "cameras/aver_ptz.py",
       "format": "python",
       "files": {
-        "cameras/aver_ptz.py": "9543eb420ef283f862afb67bba5862ad20ddbe35f05ea8ab38e995bd2795b6da",
+        "cameras/aver_ptz.py": "de76fcefa8600cdcff62854c20fea4b56cfc943f9db03fc0fbe23d0e847e426b",
         "cameras/aver_ptz_sim.py": "af9ade272070341ee27eb402b44d536907f458733ba5ffd8c1bfebf7cc3b9205"
       },
       "ports": [
@@ -71,7 +71,7 @@
       "name": "Axis Camera (VAPIX)",
       "manufacturer": "Axis",
       "category": "camera",
-      "version": "1.1.7",
+      "version": "1.1.8",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Axis network cameras through VAPIX, Axis's own API: remote zoom and focus on fixed cameras, the IR cut filter and day/night switching, image settings, rotation, text and image overlays, the I/O ports, IR illuminators, audio, and the stream and snapshot addresses for the Video Panel. PTZ models add pan, tilt, zoom, presets and guard tours. Port changes, day/night mode, motion, tampering and hardware faults arrive as events.",
@@ -79,7 +79,7 @@
       "file": "cameras/axis_vapix.py",
       "format": "python",
       "files": {
-        "cameras/axis_vapix.py": "7ed73329859a903723c0c4914ce058edbd1ca4d53641e950d401528d6c59bca4",
+        "cameras/axis_vapix.py": "3e40649c28d81ebbc5e69c8059c5821210856b303d501db2e2ad3f589e6e4702",
         "cameras/axis_vapix_sim.py": "f42ab97d40d6c76ceab31f9ae97d6d366087440acd97e32f782d8ffeef68113f"
       },
       "ports": [
@@ -244,7 +244,7 @@
       "name": "Crestron 1 Beyond Camera",
       "manufacturer": "Crestron",
       "category": "camera",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Crestron 1 Beyond IV-CAM cameras (I12, I20, P12, P20 and I12D-B) over VISCA on TCP 5500 or RS-232 / RS-485. Power and Privacy Mode, pan / tilt / zoom / focus, presets, exposure and white balance, tracking and the intelligent modes through the camera's reserved presets, the lightbar, mount mode, and the Intelligent Switching host commands. Publishes each camera's RTSP feeds for the Video Panel.",
@@ -252,7 +252,7 @@
       "file": "cameras/crestron_1beyond_camera.py",
       "format": "python",
       "files": {
-        "cameras/crestron_1beyond_camera.py": "530930cd0945dbb7c39f882b2f9df9a879f09cf1cf37d8eab0091f0ae50cae14",
+        "cameras/crestron_1beyond_camera.py": "28b74bc1ba3b6e2b6da0fcdf08cf3660b220c738a61fd95fa14a1673f68df22e",
         "cameras/crestron_1beyond_camera_sim.py": "aec48243d3da925ed83318c908f5acacc9826c4ca6e45a9a6f5615a931cdb325"
       },
       "ports": [
@@ -326,7 +326,7 @@
       "name": "Generic VISCA-IP PTZ Camera",
       "manufacturer": "Generic",
       "category": "camera",
-      "version": "1.3.4",
+      "version": "1.3.5",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Generic Sony-specification VISCA-over-IP driver (UDP port 52381). Pan/tilt/zoom/focus, presets, auto-exposure, white balance, backlight, power. Covers Sony SRG/BRC, AVer, Marshall, Lumens and many other pro PTZ cameras that adopt Sony's wire format. PTZOptics uses a different framing on TCP/5678 -- prefer the dedicated `ptzoptics` driver for those.",
@@ -334,7 +334,7 @@
       "file": "cameras/visca_ip.py",
       "format": "python",
       "files": {
-        "cameras/visca_ip.py": "65272a1b5f1693ae92553bd1f5b705fb0831db74a079c7ff2a6aad8625e4aa49",
+        "cameras/visca_ip.py": "a1691b742e879aff1ef2f6b65b64481a4b554688df1940cd7a9f42d8c9cfd0b4",
         "cameras/visca_ip_discovery.py": "e303ef39607c842dfc2de68747e4a8c8b98695257db2ccf07434798126558ede",
         "cameras/visca_ip_sim.py": "6828c91c1b8354591b0a0c60c312398f562cee4d303a92855db17b6d1c0905f9"
       },
@@ -644,7 +644,7 @@
       "name": "Sony VISCA-IP PTZ Camera",
       "manufacturer": "Sony",
       "category": "camera",
-      "version": "1.3.4",
+      "version": "1.3.5",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Dedicated Sony SRG / BRC / EVI VISCA-over-IP driver (UDP port 52381). Adds Sony picture profiles, R/B gain, color matrix, defog, visibility enhancer, low-light, chroma suppress, PRESET MODE + PTZ TRACE (BRC-X400/X401), tally, IR correction, ICR, AF mode, AE speed, min/max shutter, high sensitivity, and OSD on/off \u2014 on top of the standard PTZ + AE/WB command set.",
@@ -652,7 +652,7 @@
       "file": "cameras/sony_visca.py",
       "format": "python",
       "files": {
-        "cameras/sony_visca.py": "1741902d0a5827172d5b77fd2154a66aa1166a83612db913a07520adf627b9b6",
+        "cameras/sony_visca.py": "098e8a7e0353b6594f986743be3d38aa2af9e89d311be9ca49d270b44a62c420",
         "cameras/sony_visca_sim.py": "a7f7224b3127909f777db7874b69bccf97f58f2c75bfbffe71ed1a71def02c30"
       },
       "ports": [

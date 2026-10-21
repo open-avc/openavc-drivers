@@ -148,7 +148,9 @@ class BiampTesiraTTPSimulator(TCPSimulator):
         self._client_subs: dict[str, list[dict[str, Any]]] = {}
         # Per-client verbose mode: it decides whether a get's value is
         # labelled. (Pushes keep the documented labelled form either way:
-        # no non-verbose push example is published.)
+        # no non-verbose push example is published.) Before driver 3.1.4 it was
+        # tracked but never used, so a driver that turned verbose off, and read
+        # nothing on a real Tesira, passed here (found reading Biamp's TTP docs).
         self._client_verbose: dict[str, bool] = {}
         # Last-recalled preset
         self._last_preset = ""

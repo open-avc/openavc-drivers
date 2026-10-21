@@ -1,0 +1,15 @@
+
+Interface       Status  Oper   Power(mW) Max-type Max(mW) Current(mA) Volt(V) Priority Class
+--------------- ------- ------ --------- -------- ------- ----------- ------- -------- -----
+Ethernet1/0/1    enable     on      3300    class   30000          62      52      low     3
+Ethernet1/0/2    enable    off         0    class   30000           0       0      low     0
+Ethernet1/0/3    enable     on      4200    class   30000          80      52      low     3
+Ethernet1/0/4    enable    off         0    class   30000           0       0      low     0
+Ethernet1/0/5    enable    off         0    class   30000           0       0      low     0
+Ethernet1/0/6    enable    off         0    class   30000           0       0      low     0
+Ethernet1/0/7    enable    off         0    class   30000           0       0      low     0
+Ethernet1/0/8    enable    off         0    class   30000           0       0      low     0
+Power inline is not supported on interface Ethernet1/0/9.
+Power inline is not supported on interface Ethernet1/0/10.
+Power inline is not supported on interface Ethernet1/0/11.
+Power inline is not supported on interface Ethernet1/0/12.

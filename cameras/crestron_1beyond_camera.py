@@ -347,7 +347,7 @@ class CrestronOneBeyondCameraDriver(BaseDriver):
         "name": "Crestron 1 Beyond Camera",
         "manufacturer": "Crestron",
         "category": "camera",
-        "version": "1.0.2",
+        "version": "1.0.3",
         "author": "OpenAVC",
         "min_platform_version": "0.36.0",
         "description": (
@@ -446,6 +446,9 @@ class CrestronOneBeyondCameraDriver(BaseDriver):
         "default_config": {
             "host": "",
             "port": 5500,
+            # Blank on purpose, here and in config_schema: 1.0.0 defaulted it
+            # to the I12, so a P20 added without touching Model offered the
+            # I12's tracking and Home Shot commands and hid Mount Mode.
             "model": "",
             "camera_address": 1,
             "pan_speed": 12,
@@ -467,6 +470,8 @@ class CrestronOneBeyondCameraDriver(BaseDriver):
                 "type": "integer", "default": 5500, "label": "VISCA Port",
                 "description": "5500 unless it was changed in Camera Manager (Advanced Settings > Control Port).",
             },
+            # Required with no default: any default is wrong for four models in
+            # five (1.0.0's I12 default ran a P20 as an I12).
             "model": {
                 "type": "enum", "required": True, "label": "Model",
                 "values": [
@@ -1283,6 +1288,8 @@ class CrestronOneBeyondCameraDriver(BaseDriver):
     # ── Connection lifecycle ──
 
     async def _pre_connect(self) -> None:
+        # A blank or unknown Model refuses to connect rather than running as
+        # the wrong camera, which is what 1.0.0's I12 default did to a P20.
         if not self._model:
             raise ConnectionFaultError(
                 "Set Model to the camera's model (I12, I20, P12, P20 or I12D-B).",

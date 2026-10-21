@@ -644,7 +644,7 @@ class AllenHeathQuDriver(BaseDriver):
         "name": "Allen & Heath Qu Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.3.1",
+        "version": "1.3.2",
         # learned_from on the Model setting landed in 0.37.0.
         "min_platform_version": "0.37.0",
         "author": "OpenAVC",
@@ -838,6 +838,9 @@ class AllenHeathQuDriver(BaseDriver):
     # Liveness: the probe below runs every ACTIVE_SENSE_TX_INTERVAL and is the
     # keep-alive too; one failed probe (nothing heard for RX_SILENCE_TIMEOUT)
     # takes the connection down, the same 10-14 s the console needs to vanish.
+    # Before 1.2.1 the driver ran its own keep-alive loop that closed the socket
+    # after 10 s of silence without telling the platform, so the device read
+    # connected and never reconnected (found in a Python driver review).
     HEALTH_INTERVAL_S = ACTIVE_SENSE_TX_INTERVAL
     HEALTH_MAX_FAILURES = 1
     HEALTH_FAULT_MESSAGE = (
@@ -936,6 +939,10 @@ class AllenHeathQuDriver(BaseDriver):
         # and the liveness probe's first keep-alive is an interval away. Only
         # bytes from the console count as hearing it, so a console that
         # accepts the connection and sends nothing fails the first probe.
+        # Before 1.3.1 connecting counted as hearing it, so a hung console
+        # showed online on every reconnect and was dropped about 12 s later
+        # (found while making the platform hold a reconnect offline until
+        # its first probe passes).
         self._last_rx = None
         await self._send(bytes([ACTIVE_SENSE]))
 

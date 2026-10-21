@@ -321,6 +321,8 @@ class LgSicpSimulator(TCPSimulator):
         if cmd in _LEVEL_FIELD:
             field = _LEVEL_FIELD[cmd]
             if data == "FF":
+                # Two hex digits, as the display answers. The simulator once
+                # answered decimal, which hid the old driver's base-10 read-back.
                 return True, format(int(self._get(set_id, field)), "02X")
             try:
                 value = int(data, 16)

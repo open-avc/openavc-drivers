@@ -149,6 +149,9 @@ class BirddogCodecSimulator(HTTPSimulator):
         # ── /encodesetup — NDI encode settings (used by set_device_setting) ──
         if clean_path == "/encodesetup":
             if method == "POST" and body_data:
+                # NDIName has its own key, never "hostname": this handler once
+                # stored it there, matching the driver's old NDI-name setting that
+                # read back the hostname, so the round trip agreed (found in review).
                 if "NDIName" in body_data:
                     self.set_state("ndi_name", body_data["NDIName"])
             return 200, {

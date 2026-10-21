@@ -1,0 +1,2 @@
+camera ccu scene recall factory 1
+Syntax error: Unknown or incomplete command

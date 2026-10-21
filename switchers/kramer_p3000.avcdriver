@@ -91,7 +91,7 @@ id: kramer_p3000
 name: Kramer Protocol 3000
 manufacturer: Kramer
 category: switcher
-version: 1.8.0
+version: 1.8.1
 author: OpenAVC
 # learned_from on the input and output counts.
 min_platform_version: "0.37.0"
@@ -267,6 +267,9 @@ state_variables:
       Single-output devices: the selected input. On a matrix, the input
       of the most recent route report (use the Output children there).
   volume:
+    # number, not integer: an SWT3-41-H (firmware 1.0.65739, on the bench)
+    # reports dB with one decimal ("~01@AUD-LVL 1,1,0.0"), which an integer
+    # cannot hold; on 1.7.0 that unit's volume never read at all.
     type: number
     label: Volume Level
     help: >
@@ -347,6 +350,7 @@ child_entity_types:
         label: Audio Muted
         help: "True when this output's audio is muted (#MUTE; not implemented on all models)."
       volume:
+        # number for the same decimal dB reply as the flat volume above.
         type: number
         label: Volume
         help: "Audio output level (#AUD-LVL): 0 to 100 on some models, dB on others. Not every model has it."
@@ -516,6 +520,8 @@ commands:
         min: 0
         help: "Audio output number (model-specific; VP-440X-class uses 0)"
       level:
+        # number: the SWT3-41-H takes a decimal dB level (-12.5 measured),
+        # which an integer param could not send.
         type: number
         required: true
         label: Volume Level

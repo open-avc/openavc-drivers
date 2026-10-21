@@ -242,7 +242,7 @@ class SonyVISCADriver(BaseDriver):
         "name": "Sony VISCA-IP PTZ Camera",
         "manufacturer": "Sony",
         "category": "camera",
-        "version": "1.3.4",
+        "version": "1.3.5",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
@@ -807,6 +807,10 @@ class SonyVISCADriver(BaseDriver):
                     },
                     "help": "Moves continuously until Pan/Tilt Stop is sent.",
                 }
+                # Stop stays out of this table: up to 1.3.3 it was built here
+                # with the eight moves, so it offered Pan Speed and Tilt Speed
+                # and the help "Send 'pt_stop' to halt" (found in a review of
+                # every command's field labels). What is sent never changed.
                 for cmd in _PT_DIR if cmd != "pt_stop"
             },
             "pt_stop": {
@@ -839,6 +843,10 @@ class SonyVISCADriver(BaseDriver):
                 "help": "Variable-speed zoom out. Send 'zoom_stop' to halt.",
             },
             "zoom_stop": {"label": "Zoom Stop", "params": {}},
+            # Up to 1.3.0 the max was the optical 16384 (0x4000), so the
+            # platform's bounds check would refuse every Clear Image Zoom
+            # position up to 0x7AC0; found by a sweep of the bounds before that
+            # check began.
             "zoom_direct": {
                 "label": "Zoom Direct",
                 "params": {"position": {"type": "integer", "required": True, "min": 0, "max": 31424}},
@@ -1351,6 +1359,9 @@ class SonyVISCADriver(BaseDriver):
             case "zoom_stop":
                 await self._send_visca(b"\x81\x01\x04\x07\x00\xff")
             case "zoom_direct":
+                # Up to 1.3.0 this clamp stopped at 0x4000, so a Clear Image
+                # Zoom position of 31424 went out as 16384 with no error (found
+                # by the bounds sweep noted at zoom_direct's declaration).
                 pos = max(0, min(0x7AC0, int(params["position"])))
                 await self._send_visca(
                     b"\x81\x01\x04\x47" + _encode_4nibble(pos) + b"\xff"

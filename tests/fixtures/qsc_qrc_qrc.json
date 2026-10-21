@@ -1,5 +1,5 @@
 {
-  "_comment": "Byte-exact QRC captures from a live QSC Core 24f (design 'Untitled'). Used by test_qsc_qrc.py. Do not hand-edit; recapture with qsys-scratch/capture_fixtures.py.",
+  "_comment": "QRC replies from a live QSC Core 24f (design 'Untitled'), stored as the decoded JSON-RPC payloads the driver parses, not raw wire bytes. Do not hand-edit; recapture from a Core.",
   "status_get_result": {
     "Platform": "Core 24f",
     "State": "Active",

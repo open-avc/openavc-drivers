@@ -216,7 +216,7 @@ class ChazyControlDriver(BaseDriver):
         "name": "TurtleAV Chazy Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.4.3",
+        "version": "1.4.4",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         # Gated on the newest platform surface this driver CALLS:
@@ -702,6 +702,9 @@ class ChazyControlDriver(BaseDriver):
             if old != new and self.is_child_registered(ctype, old):
                 prev = self.get_child_state(ctype, old)
                 self.deregister_child(ctype, old)
+                # Every declared value moves to the new id, label included: this
+                # seed once dropped "label", so a renumber reset the user's name
+                # (found reviewing the Control Pro driver, which shared the code).
                 seed = {
                     k: v for k, v in prev.items()
                     if k in self.get_child_entity_types()[ctype]["state_variables"]

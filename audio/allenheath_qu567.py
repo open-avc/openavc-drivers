@@ -817,7 +817,7 @@ class AllenHeathQu567Driver(BaseDriver):
         "name": "Allen & Heath Qu-5/6/7 Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.1.1",
+        "version": "1.1.2",
         "author": "OpenAVC",
         "description": (
             "Controls the current Allen & Heath Qu generation (Qu-5, Qu-6, "
@@ -1106,7 +1106,10 @@ class AllenHeathQu567Driver(BaseDriver):
                 # Every address a child could own is asked about, pan
                 # included: the pan plane mirrors the level plane on the
                 # consoles measured, but inferring one from the other would be
-                # a guess where asking costs one more message.
+                # a guess where asking costs one more message. During the
+                # build this asked only about mutes and levels, so no pan
+                # address was ever answered and every pan and balance route
+                # was silently dropped: the state existed and never moved.
                 probes.extend(a for a in (mute, level, pan) if a is not None)
             probes.append(master_lr())
             probes.append(mute_addr(SRC_LR))

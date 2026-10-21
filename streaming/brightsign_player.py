@@ -127,7 +127,7 @@ class DwsError(Exception):
         return self.http_status == 401
 
 
-# ── Reply parsing (pure; exercised directly by the tests) ───────────────────
+# ── Reply parsing (pure functions) ──────────────────────────────────────────
 
 
 def _as_int(value: Any, default: int = 0) -> int:
@@ -315,7 +315,7 @@ class BrightSignPlayerDriver(BaseDriver):
         "name": "BrightSign Player (Local DWS)",
         "manufacturer": "BrightSign",
         "category": "streaming",
-        "version": "1.0.8",
+        "version": "1.0.9",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
@@ -1255,6 +1255,9 @@ class BrightSignPlayerDriver(BaseDriver):
         try:
             return await handler(self, params)
         except DwsError as exc:
+            # Only a 401 is a refused password. Through 1.0.5 a 403 here (the
+            # player refusing this one command) also became auth_failed with
+            # the password sentence; found in 1.0.6's review of 401 against 403.
             if exc.login_refused:
                 raise self._auth_fault() from exc
             self.set_state("last_error", str(exc))

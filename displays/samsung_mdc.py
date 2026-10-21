@@ -387,7 +387,7 @@ class SamsungMDCDriver(BaseDriver):
         "name": "Samsung MDC Display",
         "manufacturer": "Samsung",
         "category": "display",
-        "version": "1.7.5",
+        "version": "1.7.6",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # `restarts_device_for` on power_on and all_on needs 0.34.0.
@@ -471,7 +471,10 @@ class SamsungMDCDriver(BaseDriver):
                 "extract_manufacturer": "Samsung",
             },
             # Samsung's own IEEE blocks (Samsung Electronics and Samsung
-            # Electro-Mechanics).
+            # Electro-Mechanics). f8:77:b8 is the bench DM75E's prefix (read by
+            # a Device Audit network check), which none of the others
+            # matched: with network MDC off or port 1515
+            # held by another controller, the prefix is what still offers it.
             "oui": [
                 "00:07:ab",
                 "00:e0:64",
@@ -560,6 +563,10 @@ class SamsungMDCDriver(BaseDriver):
             {"id": "all_off", "kind": "command", "icon": "power-off"},
             {"id": "refresh", "kind": "command", "icon": "refresh-cw"},
         ],
+        # Every command that addresses one display declares `sets`, and every
+        # parameter a `label`. Without them a Device Audit of the bench DM75E
+        # read every command "Not confirmed" beside its own change, and the
+        # fields showed raw names ("level *").
         "commands": {
             "power_on": {
                 "label": "Power On",

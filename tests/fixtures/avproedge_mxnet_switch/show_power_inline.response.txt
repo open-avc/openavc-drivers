@@ -1,0 +1,11 @@
+
+Power Inline Status: On
+Power Available: 125 W
+Power Used: 7 W
+Power Remaining: 118 W
+Police: Off
+Legacy: Off
+Disconnect: Dc
+Mode: Signal
+Pse Type: RTL RSK
+SW Version: 0.0.0.3

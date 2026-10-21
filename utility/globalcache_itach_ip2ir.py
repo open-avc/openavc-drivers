@@ -273,7 +273,7 @@ class GlobalCacheItachIP2IRDriver(BaseDriver):
         "name": "Global Cache iTach IP2IR (IR Bridge)",
         "manufacturer": "Global Cache",
         "category": "utility",
-        "version": "1.0.3",
+        "version": "1.0.4",
         "author": "OpenAVC",
         "transport": "tcp",
         "description": (
@@ -380,7 +380,9 @@ class GlobalCacheItachIP2IRDriver(BaseDriver):
         """The IP2IR bridge has no device-level commands of its own — downstream
         IR devices carry the code-set and emit through it via ``bridge_emit``.
         This satisfies the BaseDriver abstract method; ``refresh`` re-reads the
-        firmware for a manual liveness check.
+        firmware for a manual liveness check. Without it (1.0.0) the platform
+        could not create the driver at all ("Can't instantiate abstract class"),
+        so Add Device failed for every IP2IR.
         """
         if command == "refresh":
             await self.poll()

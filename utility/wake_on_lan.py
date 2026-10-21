@@ -62,7 +62,7 @@ class WakeOnLANDriver(BaseDriver):
         "name": "Wake-on-LAN",
         "manufacturer": "Generic",
         "category": "utility",
-        "version": "1.3.7",
+        "version": "1.3.8",
         # send_udp sends a 255.255.255.255 broadcast through the adapter
         # Reach devices through chose, or through every connected adapter,
         # from 0.37.0.
@@ -143,6 +143,9 @@ class WakeOnLANDriver(BaseDriver):
             log.warning(f"[{self.device_id}] Unknown command: {command}")
             return
 
+        # A blank MAC here, or an unusable one in build_magic_packet, raises.
+        # Before 1.3.6 both were only logged and the command answered as if
+        # the wake had gone out; found in a review of the driver.
         mac = self.config.get("mac_address", "")
         if not mac:
             raise WakeAddressError("No MAC address is set. Enter it under Edit Device.")

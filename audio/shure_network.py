@@ -146,10 +146,8 @@ _GAIN_WIRE_MAX = 1400
 _GAIN_DB_MIN = -110.0
 _GAIN_DB_MAX = 30.0
 
-# LED brightness: 0 = disabled, then 1-5 = 20/40/60/80/100% on every MXA
-# page and the MXA910 from v3.0. Older MXA910 / P300 / ANI firmware only
-# honor 0-2; those devices answer a benign ``REP ERR`` to 3-5, so the widest
-# documented range is the right bound.
+# Not read: the LED brightness bound is written out in DRIVER_INFO, where the
+# set_led_brightness command says why it is 5.
 _LED_BRIGHTNESS_MAX = 5
 
 # A meter SAMPLE value is 000-060, representing -60 .. 0 dBFS.
@@ -308,7 +306,7 @@ class ShureNetworkDriver(BaseDriver):
         "name": "Shure Networked Devices",
         "manufacturer": "Shure",
         "category": "audio",
-        "version": "2.2.0",
+        "version": "2.2.1",
         # learned_from on Channel Count and Model landed in 0.37.0.
         "min_platform_version": "0.37.0",
         "author": "OpenAVC",
@@ -854,6 +852,7 @@ class ShureNetworkDriver(BaseDriver):
                 "state_key": "led_brightness",
                 "default": 2,
                 "min": 0,
+                # 5, not the 1.x driver's 2: see set_led_brightness.
                 "max": 5,
                 "setup": False,
             },
@@ -1228,6 +1227,15 @@ class ShureNetworkDriver(BaseDriver):
                 "label": "Set LED Brightness",
                 "params": {
                     "level": {
+                        # 0 = disabled, then 1-5 = 20/40/60/80/100% on every MXA
+                        # page and the MXA910 from v3.0. The 1.x YAML driver
+                        # capped this at 2, so the platform's range check would
+                        # have refused 3-5 on modern MXA arrays; the 2.0 rewrite
+                        # found it on the MXA920 command strings page. Older
+                        # MXA910 / P300 / ANI firmware honors only 0-2 and
+                        # answers a benign REP ERR to 3-5, so the widest
+                        # documented range is the bound. The led_brightness
+                        # device setting and state variable carry the same 0-5.
                         "type": "integer",
                         "required": True,
                         "min": 0,
@@ -1822,6 +1830,9 @@ class ShureNetworkDriver(BaseDriver):
             return
         tokens = text.split()
         head = tokens[0].upper()
+        # Only SAMPLE and SAMPLE_IN are channel meters. Before 2.2.0 the match
+        # was ^SAMPLE(?:_IN|_OUT)?, so SAMPLE_OUT (the P300's outputs) fed them
+        # and a talker frame's coordinates would have been read as levels.
         if head in ("SAMPLE", "SAMPLE_IN"):
             if len(tokens) > 1 and tokens[1].upper().startswith("TALKER_POS"):
                 # TALKER_POSITIONS (the array-group example spells it

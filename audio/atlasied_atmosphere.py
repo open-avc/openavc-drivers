@@ -263,7 +263,7 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
         "name": "AtlasIED Atmosphere",
         "manufacturer": "AtlasIED",
         "category": "audio",
-        "version": "2.0.5",
+        "version": "2.0.6",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -827,6 +827,9 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
         self._probe_fut = fut
         try:
             await self._send_get("KeepAlive", "str")
+            # Awaited, never sent and forgotten: before 1.3.0 the keep-alive
+            # sent `get KeepAlive` every 4 minutes and never read the reply, so
+            # a device that stopped answering stayed online (1.3.0 review).
             await fut
         finally:
             self._probe_fut = None

@@ -81,7 +81,7 @@
       "name": "BrightSign Player (Local DWS)",
       "manufacturer": "BrightSign",
       "category": "streaming",
-      "version": "1.0.8",
+      "version": "1.0.9",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Monitors and controls BrightSign signage players through the player's Local Diagnostic Web Server API: identity, health, clock, every HDMI output with its display and video mode, HDMI power-save, reboot, snapshot, CEC, registry and log level, plus the Moka display's own panel controls. Drives the presentation with UDP messages and sets its User Variables.",
@@ -89,8 +89,8 @@
       "file": "streaming/brightsign_player.py",
       "format": "python",
       "files": {
-        "streaming/brightsign_player.py": "d1bbed7a55861c22624641defe3f52bad40e463cac08401d1e0f3c1bfdc93bd0",
-        "streaming/brightsign_player_sim.py": "03ba64afb47bfaa070da10b1e9247ea3ed1871f40c6e98feae30be7a0bf00c2a"
+        "streaming/brightsign_player.py": "a3062523a5db297224c5331fbe4a9fc9132641ce7256cc74e5b2857b404d6681",
+        "streaming/brightsign_player_sim.py": "f67f3eb95c433fc8006ad7181d2118c34af2885d0b1906b02e62b9b64e5453d4"
       },
       "ports": [
         443,
@@ -187,7 +187,7 @@
       "name": "Crestron AirMedia Series 3",
       "manufacturer": "Crestron",
       "category": "streaming",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Crestron AirMedia Series 3 wireless presentation receivers over the receiver's API: who is connected and presenting, the login code, the source on the display, the HDMI output, the USB conferencing peripherals and their volume, the paired AirMedia Connect adaptors, and the presentation settings. Changes arrive as the receiver reports them.",
@@ -195,7 +195,7 @@
       "file": "streaming/crestron_airmedia3.py",
       "format": "python",
       "files": {
-        "streaming/crestron_airmedia3.py": "f87859aa65b29c89cd8745a0be7174d69ba1f4771bab1120a4451f8cd88b285f",
+        "streaming/crestron_airmedia3.py": "a10b63f2ed2936a3efed2f2f72bf7a63a49829ad76df7053269e2d6ef66eec24",
         "streaming/crestron_airmedia3_sim.py": "9bad5c032806ff694be0fbcb86813784123c3d5029d6d6da1723bfad6e66adfc"
       },
       "ports": [

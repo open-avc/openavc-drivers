@@ -99,7 +99,7 @@ class PolyStudioDriver(BaseDriver):
         "name": "Poly Studio (VideoOS)",
         "manufacturer": "Poly",
         "category": "video",
-        "version": "1.4.4",
+        "version": "1.4.5",
         # local_address(), which binds the client the Test Admin Login wizard
         # builds itself, needs 0.37.0.
         "min_platform_version": "0.37.0",
@@ -421,7 +421,8 @@ class PolyStudioDriver(BaseDriver):
         ],
     }
 
-    # Volume step for relative up/down in Poly's 0-50 scale.
+    # Volume step for relative up/down. The reference guide states no volume
+    # range; the 0-50 scale this once assumed was invented.
     _VOLUME_STEP = 2
 
     def __init__(
@@ -477,6 +478,9 @@ class PolyStudioDriver(BaseDriver):
         try:
             await self.poll()
         except ConnectionFaultError:
+            # A ConnectionFaultError is a ConnectionError: without this line
+            # the swallow below would log a refused session at the first poll,
+            # the connect would succeed, and the next poll would sign in again.
             raise
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] Initial poll failed")
@@ -541,6 +545,8 @@ class PolyStudioDriver(BaseDriver):
             try:
                 await self._login()
             except ConnectionFaultError as exc:
+                # Remembered: after a password change the bar sees one refused
+                # sign-in, then nothing more on this connection.
                 self._refused = str(exc)
                 raise
 
@@ -558,7 +564,16 @@ class PolyStudioDriver(BaseDriver):
         on this connection and the request is sent again; a refused login, or
         a session refused straight after a fresh one, raises ``auth_failed``.
         Transport failures propagate, and other statuses come back to the
-        caller."""
+        caller.
+
+        Before 1.4.2 the polls and commands sent straight to the client and
+        each poll GET only checked ``.ok``, so a refused session was skipped:
+        measured through the platform's device manager against this driver's
+        simulator, 1.4.1 sent the refused cookie 42 times in 15 s after a
+        password change and stayed connected, a session that ended with the
+        password still good froze every value until a restart, and a command
+        on an expired session did nothing. Every session request goes through
+        here for that reason."""
         if self._refused:
             raise ConnectionFaultError(self._refused, code="auth_failed")
         logins_seen = self._logins
@@ -568,6 +583,8 @@ class PolyStudioDriver(BaseDriver):
         await self._login_again(logins_seen)
         resp = await self._send(method, path, body)
         if resp.status_code in _SESSION_REFUSED:
+            # Remembered, so a bar that takes the login and still refuses the
+            # session costs one sign-in on this connection, never one a poll.
             self._refused = _SESSION_REFUSED_AFTER_LOGIN
             raise ConnectionFaultError(
                 _SESSION_REFUSED_AFTER_LOGIN, code="auth_failed"
@@ -594,6 +611,9 @@ class PolyStudioDriver(BaseDriver):
             await self._request("POST", "/rest/audio/muted", False)
             self.set_state("audio_mute", False)
         elif command == "mute_video":
+            # Table 2-97 takes {"mute": <boolean>}. Before 1.4.0 this sent a
+            # bare boolean and privacy mute never reached the bar; the
+            # simulator shared the mistake, so only the guide showed it.
             await self._request(
                 "POST", "/rest/video/local/mute", {"mute": True}
             )
@@ -604,6 +624,8 @@ class PolyStudioDriver(BaseDriver):
             )
             self.set_state("video_mute", False)
         elif command == "set_volume":
+            # The guide states no range; its own /rest/audio example reports
+            # 62. Before 1.4.0 this clamped to an invented 0-50 and refused it.
             value = max(0, min(100, int(params.get("value", 0))))
             await self._request("POST", "/rest/audio/volume", value)
             self.set_state("volume", value)
@@ -651,6 +673,7 @@ class PolyStudioDriver(BaseDriver):
             current = int(resp.text.strip())
         except ValueError:
             current = self.get_state("volume") or 25
+        # Same bound as set_volume; the old 0-50 clamp stopped Volume Up at 50.
         target = max(0, min(100, current + delta))
         await self._request("POST", "/rest/audio/volume", target)
         self.set_state("volume", target)
@@ -757,7 +780,8 @@ class PolyStudioDriver(BaseDriver):
 
         # System info: GET /rest/system returns the device envelope
         # ({systemName, model, serialNumber, softwareVersion, ...}), which is
-        # what fills the system_name state var.
+        # what fills the system_name state var. Before 1.3.0 nothing read it:
+        # system_name was declared and stayed empty, found in a driver review.
         # NOT IN the VideoOS 4.4.0 reference guide -- it lists no bare
         # /rest/system table and the word "systemName" appears nowhere in it.
         # Kept because absence from the guide is not absence from the device,

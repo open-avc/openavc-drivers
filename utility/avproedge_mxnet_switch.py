@@ -611,7 +611,7 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
         "name": "AVPro Edge MXnet Network Switch",
         "manufacturer": "AVPro Edge",
         "category": "utility",
-        "version": "1.2.3",
+        "version": "1.2.4",
         "author": "OpenAVC",
         # Computed by build_index.py, not chosen: the `web_ui` field below
         # carries a 0.24.0 floor. Well behind the current release, so this
@@ -1579,6 +1579,10 @@ _PORT_COMMANDS: dict[str, dict[str, Any]] = {
         "optimistic": lambda p: {"poe_admin": "enabled"},
     },
     "poe_disable_port": {
+        # Uplink-guarded like poe_cycle_port, and with no restore at all: cut
+        # the uplink here and the switch is gone until someone reaches it
+        # another way. Extended from the 2026-08-27 bench incident, where a
+        # PoE cycle on the bench SW8P's uplink left Ethernet1/0/1 dark.
         "cuts": "Cutting PoE",
         "lines": ["no power inline enable"],
         "optimistic": lambda p: {"poe_admin": "disabled", "poe_status": "off",
@@ -1589,6 +1593,8 @@ _PORT_COMMANDS: dict[str, dict[str, Any]] = {
         "optimistic": lambda p: {"admin_status": "enabled"},
     },
     "port_disable": {
+        # Uplink-guarded too: `shutdown` drops the link even on a port PoE never
+        # powered, so the same 2026-08-27 uplink incident applies here.
         "cuts": "Shutting down a port",
         "lines": ["shutdown"],
         "optimistic": lambda p: {"admin_status": "disabled",

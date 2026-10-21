@@ -170,7 +170,7 @@ class QLabDriver(BaseDriver):
         "name": "QLab Show Control",
         "manufacturer": "Figure 53",
         "category": "video",
-        "version": "2.0.3",
+        "version": "2.0.4",
         "author": "OpenAVC",
         "description": "Controls Figure 53's QLab show-control / playback "
                        "software (macOS) over OSC. GO, STOP, PANIC, "
@@ -638,9 +638,16 @@ class QLabDriver(BaseDriver):
             self._note_permissions(answer)
             return
         if answer == "badpass" or status == "badpass":
+            # auth_failed, so the platform stops reconnecting until the passcode
+            # changes. The 1.x YAML driver reconnected instead, re-sending a
+            # wrong passcode about every 35 s forever while QLab lengthened its
+            # lockout each time, and reported it as "stopped answering".
             self.set_state("connected_ok", "badpass")
             raise ConnectionFaultError(self._badpass_message(), code="auth_failed")
         if status == "error" or answer == "error":
+            # A workspace that is not open: /connect answers status "ok" with
+            # data "error" (measured on QLab 5.6.1). 1.x looped on it as
+            # "stopped answering"; no_response names the workspace and retries.
             raise ConnectionFaultError(self._no_workspace_message(), code="no_response")
         raise ConnectionFaultError(
             f"QLab did not accept the connection ({answer or status or 'no reason given'}).",
@@ -666,6 +673,9 @@ class QLabDriver(BaseDriver):
         """Ask for a reply to every message and for change notices, then read
         the current state. QLab forgets all of it when it restarts."""
         await self._send("/alwaysReply", [("i", 1)])
+        # Rootless, never {ws}/updates: QLab 5.6.1 answers the workspace-scoped
+        # form with an error, so 1.x, which sent it, never got a change notice
+        # on any install with a Workspace ID set (measured on QLab 5.6.1).
         await self._send("/updates", [("i", 1)])
         await self._send("/version")
         await self._query_state()
@@ -832,6 +842,9 @@ class QLabDriver(BaseDriver):
         try:
             await self._login()
         except ConnectionFaultError as exc:
+            # A passcode changed in QLab answers this login "badpass": report it
+            # once as auth_failed and stop, never another login on a timer (the
+            # 1.x loop that re-sent a wrong passcode every 35 s).
             self._force_disconnect(exc.fault_code, str(exc))
             return
         except (ConnectionError, OSError):

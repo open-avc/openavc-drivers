@@ -1,0 +1,1 @@
+/amp/deviceInfo/modelID "Connect Series Model 352D"

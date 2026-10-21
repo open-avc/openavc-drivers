@@ -94,7 +94,7 @@ id: viewsonic_cde
 name: ViewSonic Commercial Display
 manufacturer: ViewSonic
 category: display
-version: 2.2.1
+version: 2.2.2
 author: OpenAVC
 description: >-
   Controls ViewSonic CDE-series commercial displays (and other ViewSonic
@@ -470,11 +470,18 @@ state_variables:
 # packet ("\r8{monitor_id:02d}g..."), so the state reads back at once; the
 # display answers the get after the set has taken effect.
 commands:
+  # Set Power 001, not the magic packet 2.0.0 sent here from the spec alone: a
+  # CDE8631-1C turned on to this every time, and the packet woke it in no
+  # power-save mode.
+  # No read-back get on either power command: at power-on it sent rl001,
+  # rl000, rl001 45 ms apart, the middle one most likely a get answered with
+  # the state from before the change.
   power_on:
     label: Power On
     help: Turns the display on, in about 3 seconds on a CDE31. The display has to be answering in standby, so on the CDE31 series set Power Save to Sleep. For a display whose standby turns its network off, use Wake (Wake-on-LAN).
     send: "s!001"
     sets: { power: "on" }
+  # The magic packet's own command since 2.1.0; in 2.0.0 it was Power On.
   wake_on_lan:
     label: Wake (Wake-on-LAN)
     help: Sends a Wake-on-LAN packet to the MAC learned on the last connection (or typed in under Edit Device). Runs while the display is off the network, from a macro, schedule or panel button. For ViewSonic displays whose standby turns the network off and that wake this way; turn WOL on in the display's settings. A CDE31 display does not wake this way; use Power On with Power Save set to Sleep.
@@ -482,6 +489,7 @@ commands:
     udp:
       magic_packet: mac_address
     sets: { power: "on" }
+  # No read-back get, for the reason given above Power On.
   power_off:
     label: Power Off (Standby)
     help: Puts the display in standby. While a system update is waiting, the display shows an update prompt instead and stays on until someone answers it on screen. Whether the network stays up in standby depends on the display's power-save setting (Sleep keeps it, Hibernate drops it).
@@ -550,6 +558,7 @@ commands:
     sets: { volume: "{level}" }
   # The volume steps apply after their ack (a get sent with them reads the
   # old level); the display pushes the new level within about a second.
+  # Measured on a CDE8631-1C, so they carry no read-back get.
   volume_up:
     label: Volume Up
     help: Raises the speaker volume one step.
@@ -621,6 +630,9 @@ commands:
     help: Switches the backlight back on. The display ignores it for about 2 seconds after a Screen Blank, and the screen then reads as still blank; send it again after that.
     send: "s(001\r8{monitor_id:02d}gh000"
     sets: { backlight_on: true }
+  # Freeze applies after its ack too (a get sent with it read the old state
+  # on a CDE8631-1C), so neither freeze command carries one; the display
+  # pushes the new state in the Function On_Off form (r=102 / r=002).
   freeze_on:
     label: Freeze Picture
     help: Holds the current picture on screen.

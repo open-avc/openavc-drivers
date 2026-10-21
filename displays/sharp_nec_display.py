@@ -232,8 +232,11 @@ def _extract_nec_frame(buf: bytes) -> tuple[bytes | None, bytes]:
     Garbage is consumed by returning an EMPTY message with the trimmed
     remainder (the driver ignores frames that short). ``(None, trimmed)``
     would work equally well -- CallableFrameParser keeps the buffer a parse
-    function returns whether or not it found a message -- but the empty-frame
-    form is what this driver's tests pin, so it stays.
+    function returns whether or not it found a message. That is so from
+    OpenAVC 0.24.0; before it the parser kept the buffer only alongside a
+    message, which is why this was written with the empty frame. The two
+    forms behave the same on every platform this driver installs on, so it
+    stays.
     """
     if not buf:
         return None, buf
@@ -377,7 +380,7 @@ class SharpNECDisplayDriver(BaseDriver):
         "name": "Sharp/NEC Display (External Control)",
         "manufacturer": "Sharp NEC",
         "category": "display",
-        "version": "1.0.4",
+        "version": "1.0.5",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.29.0",
         "author": "OpenAVC",
@@ -1127,6 +1130,10 @@ class SharpNECDisplayDriver(BaseDriver):
             try:
                 await self._poll_display(monitor_id)
             except TimeoutError:
+                # Up to 1.0.3 the first silent Monitor ID raised here, so one
+                # empty roster entry or one unplugged display failed every
+                # poll and the chain went offline after three (found in a
+                # review of the driver's code).
                 self.set_child_state_batch(
                     "display",
                     monitor_id,

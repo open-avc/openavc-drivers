@@ -170,7 +170,7 @@ class AVerPTZDriver(BaseDriver):
         "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
         "manufacturer": "AVer",
         "category": "camera",
-        "version": "1.3.8",
+        "version": "1.3.9",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # confirm on factory_reset needs 0.36.0; binding the VISCA socket to
         # Reach devices through, 0.37.0.
@@ -248,6 +248,9 @@ class AVerPTZDriver(BaseDriver):
                 "joystick or other control surface."
             ),
         },
+        # No Inter-command Delay: the platform's delay never reaches this
+        # driver's own httpx client and VISCA socket, so the 0.05 s one it
+        # declared before 1.3.6 did nothing. No AVer document asks for a gap.
         "default_config": {
             "host": "",
             "port": 80,
@@ -882,6 +885,9 @@ class AVerPTZDriver(BaseDriver):
                 "label": "Start RTMP Stream",
                 "params": {
                     "server": {"type": "string", "required": True, "label": "RTMP Server URL"},
+                    # Secret: before 1.3.3 the key went out URL-quoted in every
+                    # log and device audit report (found when a device audit
+                    # showed another driver's typed key in its report).
                     "key":    {"type": "string", "required": True, "secret": True,
                                "label": "Stream Key"},
                 },
@@ -957,6 +963,9 @@ class AVerPTZDriver(BaseDriver):
             loop = asyncio.get_running_loop()
             self._visca_protocol = _ViscaUDPProtocol(self._on_visca_data)
             # From the adapter Settings > Network > Reach devices through chose.
+            # A connection the driver opens itself does not follow that setting
+            # on its own: before 1.3.8 this one left by whatever route the
+            # operating system picked.
             ip = self.local_address(host)
             transport, _ = await loop.create_datagram_endpoint(
                 lambda: self._visca_protocol,
@@ -1147,6 +1156,14 @@ class AVerPTZDriver(BaseDriver):
         and re-raises without dropping, so a reachable camera is not marked
         down by one privileged command. A 403 is not described by the
         document and keeps the untyped error it had.
+
+        Two earlier versions got this wrong. Before 1.3.0 a non-200 came back
+        as a silent None, so a 401 on reboot or factory reset did nothing and
+        said nothing (found in a review of the driver's connection faults).
+        Before 1.3.5 the 401 was untyped text the poll counted as a missed
+        poll, so a password changed on the camera took three refused polls to
+        drop the device (measured through the device manager on the driver's
+        simulator).
         """
         if status_code == 401:
             if self.config.get("username"):

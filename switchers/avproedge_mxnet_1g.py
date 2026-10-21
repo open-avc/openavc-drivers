@@ -299,7 +299,7 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
         "name": "AVPro Edge MXNet 1G",
         "manufacturer": "AVPro Edge",
         "category": "switcher",
-        "version": "1.4.3",
+        "version": "1.4.4",
         # Gated on the platform surface this driver actually calls, which is
         # the newest thing it needs -- currently BaseDriver.local_address(),
         # which the Test Connection socket binds to (0.37.0), after
@@ -1815,6 +1815,11 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
         for key, entry in info.items():
             if not isinstance(entry, dict):
                 continue
+            # The child id is the `mac` member, never the roster key. On a
+            # CBOX-B (firmware 4.32) a rename in MENTOR (`config set device id`)
+            # makes the new name the key, and the routes reply uses it too;
+            # keying children off it would re-create every renamed endpoint as
+            # a new child and orphan the bindings that pointed at it.
             mac = _txt(entry.get("mac")) or _txt(key)
             if not _RE_MAC.match(mac):
                 log.debug(f"[{self.device_id}] Skipping roster entry with no MAC: {key}")
@@ -1870,6 +1875,10 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
                 if "exaudiovolume" in entry:
                     common["audio_volume"] = self._as_int(entry.get("exaudiovolume"), 0, 100)
             else:
+                # Readable, whatever the API document says. The driver first
+                # shipped this as write-only on the document's word; on a CBOX-B
+                # (firmware 4.32) `analogvolume` is in both `devicelist` and
+                # `device info` for a decoder and reads back a written value.
                 if "analogvolume" in entry:
                     common["audio_volume"] = self._as_int(entry.get("analogvolume"), 0, 100)
                 if "stream" in entry:

@@ -1,15 +1,15 @@
 """Byte-exact Darwin Control telnet captures (Controller(h) FW 1.50.02).
 
 Captured from real hardware (one TX + one RX enrolled, both ID 001). These are
-the ground truth for the darwin_control driver's parser tests and for the
-darwin_control simulator, whose banners must match byte-for-byte.
+what the darwin_control driver's parser was written against, and what the
+darwin_control simulator's banners match byte-for-byte.
 
 `RAW_*` values are exactly what arrives on the wire after Telnet IAC stripping
 (command echo + response + trailing "CONTROLLER> " prompt). `BANNER_*` values
 are the response body the driver's parser receives (echo + prompt removed,
 CRLF normalised to LF, leading/trailing newlines stripped) — i.e. the exact
-output of DarwinControlDriver._strip_echo, so the simulator's framed output can
-be asserted against them directly.
+output of DarwinControlDriver._strip_echo, so the simulator's framed output can be
+compared with them directly.
 
 Note the firmware brands every banner header "Controller(h)" (not "DARWIN
 CONTROL", which the FW 2.03.19 manual shows). Parsers must key off row layout,

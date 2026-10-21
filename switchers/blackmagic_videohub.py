@@ -97,7 +97,7 @@ class BlackmagicVideohubDriver(BaseDriver):
         "name": "Blackmagic Videohub",
         "manufacturer": "Blackmagic Design",
         "category": "switcher",
-        "version": "1.3.6",
+        "version": "1.3.7",
         "author": "OpenAVC",
         # Set by hand (the contract check cannot see a method call): the
         # Test Connection socket binds to BaseDriver.local_address(), which
@@ -228,6 +228,10 @@ class BlackmagicVideohubDriver(BaseDriver):
                 ),
             },
         },
+        # Device-level facts only. Per-port labels, routes and locks are child
+        # state: before 1.3.0 this block held flat in_16_label / out_16_input /
+        # mon_4_input keys capped at 16 ports and 4 monitors, and on a wider
+        # frame every port past the cap landed as a key the UI could not show.
         "state_variables": {
             "model": {"type": "string", "label": "Model"},
             "device_present": {"type": "boolean", "label": "Device Present"},
@@ -671,7 +675,12 @@ class BlackmagicVideohubDriver(BaseDriver):
 
     def _reconcile_ports(self, child_type: str, count: int) -> None:
         """Register children 1..count for a port type, deregistering any the
-        unit no longer reports (a frame swap or module change)."""
+        unit no longer reports (a frame swap or module change).
+
+        The count is what the VIDEOHUB DEVICE block reports, never a fixed
+        cap: before 1.3.0 ports were flat keys capped at 16 video ports and 4
+        monitors, so on a 40x40 or 80x80 frame every port past 16 was state
+        the UI could not show."""
         want = set(range(1, count + 1))
         current = set(self.list_children(child_type))
         for cid in sorted(want - current):

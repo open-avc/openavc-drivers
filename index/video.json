@@ -12,7 +12,7 @@
       "name": "BirdDog NDI Encoder/Decoder",
       "manufacturer": "BirdDog",
       "category": "video",
-      "version": "1.5.4",
+      "version": "1.5.5",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls BirdDog NDI encoders and decoders via REST API. Select NDI sources on decoders, monitor input/output status, reboot, and refresh source lists.",
@@ -20,8 +20,8 @@
       "file": "video/birddog_codec.py",
       "format": "python",
       "files": {
-        "video/birddog_codec.py": "18a27167ff364209187055f6830a31fa2ce2e713d2e9c052645bbd7f8d82e1b1",
-        "video/birddog_codec_sim.py": "1d84d80a44a8744ea5858e8c4302f3a0682d29ff051e1149e49cc24f6838b3b0"
+        "video/birddog_codec.py": "a9f78f6eb22221af8db377081a0d064419b49f4995ddb0de332f045aa9ee1357",
+        "video/birddog_codec_sim.py": "a1c017d42377a8fde076a6f1589a221394a18cd90731a84297c9887912d166d8"
       },
       "ports": [
         8080
@@ -74,7 +74,7 @@
       "name": "Cisco Webex Codec / Room Series (xAPI)",
       "manufacturer": "Cisco",
       "category": "video",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Cisco Webex video-conferencing endpoints (Codec Pro / Plus / EQ, Room Bar, Room Kit family, Room 55/70 family, Board Pro, Desk family) via the RoomOS xAPI over HTTPS. Standby, volume, mute, dial / hangup, DND, presentation, camera presets, on-screen messaging, reboot. State changes arrive instantly \u2014 the codec pushes them over HttpFeedback, with polling as the resync baseline.\n",
@@ -82,7 +82,7 @@
       "file": "video/cisco_roomos_xapi.avcdriver",
       "format": "avcdriver",
       "files": {
-        "video/cisco_roomos_xapi.avcdriver": "7a88e88bc72a9eb02a83040e0128592327857a0218cd239b45b7c042394fab29"
+        "video/cisco_roomos_xapi.avcdriver": "9cb409d09e31f23ad1311fc89ac3f03b7ce403b5bac0ff491a3865b1d902f92f"
       },
       "ports": [
         443
@@ -157,7 +157,7 @@
       "name": "QLab Show Control",
       "manufacturer": "Figure 53",
       "category": "video",
-      "version": "2.0.3",
+      "version": "2.0.4",
       "author": "OpenAVC",
       "transport": "osc",
       "description": "Controls Figure 53's QLab show-control / playback software (macOS) over OSC. GO, STOP, PANIC, pause/resume/reset, and per-cue start/stop/load/preview by number or unique ID, plus select, playhead, level, arm, color, and load-at. Live feedback: current cue id/number/name, running state, and QLab version. OSC remote control is free in QLab 5. UDP or reliable TCP+SLIP transport.",
@@ -165,7 +165,7 @@
       "file": "video/qlab.py",
       "format": "python",
       "files": {
-        "video/qlab.py": "d467fa34581c7f94cc644b05434f906322ad3d420058aa8933a7417d016283de",
+        "video/qlab.py": "79892104222ac9080711317d1c82f6e49634db7a64d9cb10c8bafe0696b4f1c0",
         "video/qlab_sim.py": "4bdfdfae05c5405a7115959182e93a93c88c9cfb07748008f1761766af35cf29"
       },
       "ports": [
@@ -339,7 +339,7 @@
       "name": "Poly Studio (VideoOS)",
       "manufacturer": "Poly",
       "category": "video",
-      "version": "1.4.4",
+      "version": "1.4.5",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Poly (HP) Studio X30, X50, X70, E70, and G7500 video collaboration bars via the public VideoOS REST API. Audio / video mute, volume, camera presets and direction nudges, hangup, reboot \u2014 everything needed to wire Poly bars into a touch panel.",
@@ -347,8 +347,8 @@
       "file": "video/poly_studio.py",
       "format": "python",
       "files": {
-        "video/poly_studio.py": "7ef104b14535c1e74719deee3e1e7af118669787fac79c2b656b50726c1b93c6",
-        "video/poly_studio_sim.py": "9e0f05da682794436c75675f97e1e4cf6048d08861ed88baf648c22d21173a9b"
+        "video/poly_studio.py": "89d42bf2f5853a4f2051255087519675081b99419a1adc4a7ef34edd3bf89724",
+        "video/poly_studio_sim.py": "951079a7fac504f8ce753dcc9473220c09c530ba26294108f1cf022d667786ae"
       },
       "ports": [
         443
@@ -482,7 +482,7 @@
       "name": "vMix",
       "manufacturer": "StudioCoast",
       "category": "video",
-      "version": "2.3.6",
+      "version": "2.3.7",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls vMix video production software via the TCP API. Supports transitions, input switching, audio, overlays, recording, streaming, titles, replay, PTZ, and the numbered outputs including their SRT streams.",
@@ -490,8 +490,8 @@
       "file": "video/vmix.py",
       "format": "python",
       "files": {
-        "video/vmix.py": "67fed70fa2b47abddc61e8390cc9b773349869a9b8a5d3c1dfed87a182916ae8",
-        "video/vmix_sim.py": "825c876a8ef02d87b5ffc3d19251b4e9a9f4505c58d1b8f33ab45414d00e2035"
+        "video/vmix.py": "018a07722f0a3029746e35ce6669a7e2650794d29f49eb42384ef6e6bf127622",
+        "video/vmix_sim.py": "f7bae5b332e1efbef077f7af21d2eca79c670b461039ba301ff6563d9ba7cabb"
       },
       "ports": [
         8099
@@ -546,7 +546,7 @@
       "name": "tvONE CORIOmaster",
       "manufacturer": "tvONE",
       "category": "video",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls tvONE CORIOmaster, CORIOmaster mini/micro, and CORIOmaster2 video wall processors over the CORIOmax command-line API (TCP 10001). Windows, canvases, and the installed input/output cards are discovered from the unit and modeled as child entities \u2014 route sources into wall windows, move and resize windows, recall presets and storyboards, run canvas audio, and drive the Streaming Media card's playback, with live updates over the unit's event subscription.",
@@ -554,7 +554,7 @@
       "file": "video/tvone_coriomaster.py",
       "format": "python",
       "files": {
-        "video/tvone_coriomaster.py": "9f54049b2bfcfd64cd88ea1cf2fb54ac919545ccacb9a78ac57134e4e7737cd7",
+        "video/tvone_coriomaster.py": "240e2a6797e7abc2379b572599cc0dc56c384669c470305cbc8fab6824d68fcf",
         "video/tvone_coriomaster_sim.py": "0b75d09fb25b28bc6d2459e794f4055d1dbc785591a19c93c5a60096f9c37618"
       },
       "ports": [

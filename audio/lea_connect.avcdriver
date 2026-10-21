@@ -69,7 +69,7 @@ id: lea_connect
 name: LEA Connect Series Amplifier
 manufacturer: LEA Professional
 category: audio
-version: "1.1.1"
+version: "1.1.2"
 author: OpenAVC
 transport: tcp
 delimiter: "\n"
@@ -714,6 +714,8 @@ state_variables:
     type: boolean
     label: "Power OK"
     cloud_priority: high
+  # A warning, not the 2020 doc's "AC Line Voltage Ok": a healthy 352D on
+  # firmware 3.1.7.0 reports false at 121 V, so a label saying OK read "No".
   psu_line_warning:
     type: boolean
     label: "AC Line Voltage Warning"

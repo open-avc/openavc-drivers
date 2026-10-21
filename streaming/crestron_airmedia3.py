@@ -165,7 +165,7 @@ class CrestronAirMedia3Driver(BaseDriver):
         "name": "Crestron AirMedia Series 3",
         "manufacturer": "Crestron",
         "category": "streaming",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "author": "OpenAVC",
         "min_platform_version": "0.37.0",
         "description": (
@@ -1018,6 +1018,9 @@ class CrestronAirMedia3Driver(BaseDriver):
                     warned = True
                 await asyncio.sleep(min(2.0 * failures, 30.0))
                 continue
+            # A refused session can be a 301 to the sign-in page (a DM-NVX-D30 on
+            # the same web server). 1.0.0 followed it to a 200 page with no JSON,
+            # so this loop asked again every second forever and never signed in.
             if _session_refused(resp):
                 try:
                     await self._sign_in_again(sign_ins)

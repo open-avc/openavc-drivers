@@ -462,7 +462,7 @@ class AVProEdgeMXNet10GDriver(BaseDriver):
         "name": "AVPro Edge MXNet 10G",
         "manufacturer": "AVPro Edge",
         "category": "switcher",
-        "version": "1.0.1",
+        "version": "1.0.2",
         # Computed, not chosen: `routing:` needs 0.27.0, sharing a route
         # property between the All-streams and Video planes needs 0.28.0,
         # BaseDriver.child_fault() needs 0.29.0, `restarts_device_for`
@@ -2591,6 +2591,11 @@ class AVProEdgeMXNet10GDriver(BaseDriver):
 
         await progress(f"Connecting to {host}:{port}…", 20)
         # From the adapter Settings > Network > Reach devices through chose.
+        # A connection the platform makes follows that setting on its own; a
+        # socket a driver opens itself does not, and before 1.0.1 this one
+        # (the Test Connection wizard's) left from whichever adapter the
+        # computer picked (found reviewing every driver that opens its own
+        # connection).
         local_ip = self.local_address(host)
         try:
             reader, writer = await asyncio.wait_for(

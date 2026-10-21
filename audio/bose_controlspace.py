@@ -199,7 +199,12 @@ def coerce_onoff(value: Any) -> bool:
 
 def hex_level_to_db(raw: int) -> float:
     """System / device command level: 0h = -60 dB ... 90h = +12 dB in 0.5 dB
-    steps; FFh = -60.5 dB (off)."""
+    steps; FFh = -60.5 dB (off).
+
+    The v5.13 document contradicts itself once here and the formula wins:
+    section 4.2's example "GG 2,80" is "Group 2 is set to 1dB", but by the
+    formula it states (which its SG 2,78 = 0 dB and SV 1,3,50 = -20 dB
+    examples follow) 80h is +4 dB."""
     if raw >= HEX_LEVEL_OFF:
         return LEVEL_MIN
     return round(raw / 2.0 - 60.0, 1)
@@ -615,6 +620,10 @@ def build_conference_room_router(size: str) -> list[ControlDef]:
         L("program_level", "Program Level", 2, 1),
         B("program_mute", "Program Mute", 2, 2),
     ]
+    # Far End k is at 2k+1 (level) / 2k+2 (mute), as the v5.13 document's
+    # section 6.1.22 table gives it (Far End 1 Level = 3). Its own example
+    # 'SA"Room 2">2>12=O' says it mutes Far End input 4, but the table puts 12
+    # on Far End 5 Mute (Far End 4 Mute is 10). The table wins.
     for k in range(1, far_ends + 1):
         out += [L(f"far_end_{k}_level", f"Far End {k} Level", 2, 2 * k + 1),
                 B(f"far_end_{k}_mute", f"Far End {k} Mute", 2, 2 * k + 2)]
@@ -1749,7 +1758,7 @@ class BoseControlSpaceDriver(BaseDriver):
         "name": "Bose Professional ControlSpace (ESP / EX / CSP)",
         "manufacturer": "Bose Professional",
         "category": "audio",
-        "version": "1.0.6",
+        "version": "1.0.7",
         # confirm on the commands that erase, delete or reset needs 0.36.0;
         # BaseDriver.local_address(), which the Test Connection socket binds
         # to, needs 0.37.0 (set by hand: the contract check cannot see it).

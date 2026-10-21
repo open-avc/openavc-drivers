@@ -183,7 +183,7 @@ class SonyBraviaDriver(BaseDriver):
         "name": "Sony Bravia Display",
         "manufacturer": "Sony",
         "category": "display",
-        "version": "1.5.8",
+        "version": "1.5.9",
         # local_address(), which binds the client the Test Pre-Shared Key
         # wizard builds itself, needs 0.37.0.
         "min_platform_version": "0.37.0",
@@ -265,6 +265,9 @@ class SonyBraviaDriver(BaseDriver):
             "psk": {
                 "type": "string",
                 "required": True,
+                # Secret since 1.5.5: before that, a device audit of the Sony
+                # simulator showed the typed key in connection.config, the
+                # summary's Connection line and every X-Auth-PSK header.
                 "secret": True,
                 "label": "Pre-Shared Key",
                 "description": (
@@ -1078,6 +1081,9 @@ class SonyBraviaDriver(BaseDriver):
             timeout=8.0,
             name=f"{self.device_id}-setup",
             # From the adapter Settings > Network > Reach devices through chose.
+            # A connection the driver opens itself does not follow that setting
+            # on its own: before 1.5.8 this one left by whatever route the
+            # operating system picked.
             local_address=self.local_address(host),
         )
 

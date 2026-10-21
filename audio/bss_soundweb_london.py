@@ -407,8 +407,12 @@ def value_to_raw(fmt: str, value: Any) -> int:
 def raw_to_value(fmt: str, raw: int) -> Any:
     if fmt == FMT_GAIN:
         return round(raw_to_gain_db(raw), 2)
+    # Meters are linear dB x 10000, not the fader law. Up to 1.0.3 they went
+    # through raw_to_gain_db, so a BLU-100's resting -800000 read -31622 dB.
     if fmt == FMT_METER:
         return round(raw / 10000, 2)
+    # One count per 6 dB step: a BLU-100 sent Audio Architect's 0 / +6 / +12 dB
+    # as 0 / 1 / 2 and full travel as 8 (+48 dB); the Kit only says Discrete.
     if fmt == FMT_INPUT_GAIN:
         return int(raw) * INPUT_GAIN_STEP_DB
     if fmt == FMT_BOOL:
@@ -1147,7 +1151,7 @@ class BSSSoundwebLondonDriver(BaseDriver):
         "name": "BSS Soundweb London (BLU)",
         "manufacturer": "BSS Audio",
         "category": "audio",
-        "version": "1.1.8",
+        "version": "1.1.9",
         # Set by hand (the contract check cannot see a method call): the
         # Test Connection socket binds to BaseDriver.local_address(), 0.37.0.
         "min_platform_version": "0.37.0",

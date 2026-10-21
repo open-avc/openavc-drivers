@@ -24,8 +24,8 @@ The trap is that the two trees number the *same three facts* differently:
 
 Reading one tree's numbers with the other's meaning reports every outlet
 backwards, silently and plausibly. So every enum lives in its tree's own
-``Tree`` profile, nothing is decoded without one, and
-``tests/test_apc_rack_pdu.py`` pins all four mappings against the MIB.
+``Tree`` profile, nothing is decoded without one, and each of the four
+mappings below names the MIB object whose SYNTAX clause it was read from.
 
 **Polling, deliberately.** SNMP's push channel is the trap (an unsolicited
 datagram to UDP 162), and the platform has no listener shape for a unicast port
@@ -137,8 +137,9 @@ RPDU_ALL_COMMAND = {
     "cancel_all_pending": 8,
 }
 
-# Same in both trees for the first three values, then they diverge: rPDU2
-# spends 4 on outletUnknown and pushes the delayed set up by one.
+# rPDU2OutletSwitchedControlCommand / rPDUOutletControlOutletCommand. Same in
+# both trees for the first three values, then they diverge: rPDU2 spends 4 on
+# outletUnknown and pushes the delayed set up by one.
 RPDU2_OUTLET_COMMAND = {
     "outlet_on": 1,
     "outlet_off": 2,
@@ -758,7 +759,7 @@ class APCRackPDUDriver(BaseDriver):
         "name": "APC Switched Rack PDU",
         "manufacturer": "APC",
         "category": "power",
-        "version": "1.0.2",
+        "version": "1.0.3",
         "author": "OpenAVC",
         # transport: snmp is the floor the contract computes. An older
         # platform answers "Unsupported transport type" and never connects.

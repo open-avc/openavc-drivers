@@ -208,7 +208,7 @@ class DarwinControlDriver(BaseDriver):
         "name": "TurtleAV Darwin Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.2.3",
+        "version": "1.2.4",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # the routing: block below needs 0.27.0.
@@ -685,6 +685,9 @@ class DarwinControlDriver(BaseDriver):
             if old != new and self.is_child_registered(ctype, old):
                 prev = self.get_child_state(ctype, old)
                 self.deregister_child(ctype, old)
+                # The seed keeps `label`, the name the user gave the child. It
+                # used to leave `label` out, so every renumber dropped it (the
+                # same defect the Chazy Control Pro driver had; found in review).
                 seed = {
                     k: v for k, v in prev.items()
                     if k in self.get_child_entity_types()[ctype]["state_variables"]
@@ -828,8 +831,9 @@ class DarwinControlDriver(BaseDriver):
 #
 # The controller emits fixed-width column banners. Columns can be blank
 # (space-filled) when a value is unknown, so data is sliced by header word
-# positions, not whitespace-split. All parsers are validated byte-for-byte
-# against the live captures in tests/fixtures/darwin_control_banners.py.
+# positions, not whitespace-split. All parsers were written against the live
+# captures in tests/fixtures/darwin_control_banners.py and match them byte for
+# byte.
 
 
 def _column_starts(header: str) -> list[int]:
@@ -1562,6 +1566,9 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "dec_hotkey_set": {"label": "Decoder: Set KVM Hotkey", "params": {
             "decoder_id": dec_id(),
             "nn": {"type": "integer", "required": True, "min": 1, "max": 20, "label": "Slot (1-20)"},
+            # Unpadded on purpose. This enum once shipped as "01".."09", and the
+            # bench controller (FW 1.50.02) refused every padded modifier with
+            # "[ERROR]OUT parameter out of range" (9 of 9) and took all 9 bare.
             "k0": {"type": "enum", "values": [str(x) for x in range(1, 10)], "required": True,
                    "help": "1:LCtrl 2:RCtrl 3:LShift 4:RShift 5:LAlt 6:RAlt "
                            "7:Ctrl+Shift 8:Ctrl+Alt 9:Shift+Alt"},

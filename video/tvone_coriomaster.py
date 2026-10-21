@@ -230,7 +230,7 @@ class TvoneCoriomasterDriver(BaseDriver):
         "name": "tvONE CORIOmaster",
         "manufacturer": "tvONE",
         "category": "video",
-        "version": "1.0.4",
+        "version": "1.0.5",
         # 0.37.0, declared by hand (the contract check cannot see it): the
         # platform's silence check is what takes a hung controller offline,
         # since a poll now stops at the first request nothing answers; and
@@ -2026,6 +2026,9 @@ class TvoneCoriomasterDriver(BaseDriver):
 
         await progress(f"Connecting to {host}:{port}…", 20)
         # From the adapter Settings > Network > Reach devices through chose.
+        # This socket is the driver's own, so it follows that setting only if
+        # bound here; before 1.0.4 it went wherever the operating system routed
+        # it (found checking every connection a driver opens itself).
         local_ip = self.local_address(host)
         try:
             reader, writer = await asyncio.wait_for(

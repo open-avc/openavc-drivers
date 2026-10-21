@@ -1,8 +1,8 @@
 """Byte-exact Chazy Control Pro telnet captures (TAV-CHAZY-CLTPRO FW 1.10.11).
 
 Captured from real hardware (one TX + one RX added, both ID 001). These are
-the ground truth for the chazy_control_pro driver's parser tests and for the
-chazy_control_pro simulator (D2), whose banners must match byte-for-byte.
+what the chazy_control_pro driver's parser was written against, and what the
+chazy_control_pro simulator's banners match byte-for-byte.
 
 `RAW_*` values are exactly what arrives on the wire after Telnet IAC stripping
 (command echo + response + trailing "CONTROLLER> " prompt). `BANNER_*` values

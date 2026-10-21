@@ -1,0 +1,11 @@
+================================================================
+              TAV-CHAZY-CLTPRO Secondary Stream Info
+
+ID    WorkMode    Version
+001   NA
+    >>MainStream URL
+      http://169.254.10.1:8080/?action=stream
+    >>SubStream URL
+      NA
+
+================================================================

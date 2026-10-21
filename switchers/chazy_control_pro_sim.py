@@ -15,9 +15,8 @@ real controller's telnet API (TAV-CHAZY-CLTPRO FW 1.10.11):
 
 Byte-exact ground truth is the real-hardware capture in
 ``tests/fixtures/chazy_control_pro_banners.py`` — NOT the API-doc examples
-(the live firmware diverges from the docs). The render functions below are
-asserted byte-for-byte against those fixtures in
-``tests/test_chazy_control_pro_sim.py``.
+(the live firmware diverges from the docs). The render functions below
+reproduce those captures byte for byte.
 
 Seeded by default with one encoder (001, a TAV-CHAZY4K-TX) and one decoder
 (001, a TAV-CHAZY4K-RX), both online — the state the captures were taken in.
@@ -42,11 +41,11 @@ from openavc.simulator.tcp_simulator import TCPSimulator
 # End-of-response marker re-printed after the connect banner and every reply.
 PROMPT = b"CONTROLLER> "
 
-# Telnet IAC option negotiation sent at connect. The exact bytes are not in the
-# capture (the fixtures record the stream *after* IAC stripping); the driver
-# documents the controller as negotiating WILL SGA / WILL ECHO / DO BINARY and
-# strips all IAC regardless. We emit a standard server-echo negotiation so the
-# driver's _filter_telnet path is exercised.
+# Telnet IAC option negotiation sent at connect. The real controller sends
+# twelve bytes, WILL SGA / WILL ECHO / DONT ECHO / DO BINARY (captured by a
+# device audit: tests/fixtures/chazy_control_pro/connect_greeting.response.bin).
+# The driver strips all IAC regardless; this sends three of the four, enough to
+# exercise the driver's _filter_telnet path.
 _IAC = 0xFF
 _IAC_GREETING = bytes([
     _IAC, 0xFB, 0x03,   # IAC WILL SGA (suppress go-ahead)

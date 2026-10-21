@@ -382,7 +382,7 @@ class AxisVapixDriver(BaseDriver):
         "name": "Axis Camera (VAPIX)",
         "manufacturer": "Axis",
         "category": "camera",
-        "version": "1.1.7",
+        "version": "1.1.8",
         # confirm on the commands that erase, delete or reset needs 0.36.0;
         # binding the event WebSocket to Reach devices through, 0.37.0.
         "min_platform_version": "0.37.0",
@@ -1460,7 +1460,12 @@ class AxisVapixDriver(BaseDriver):
         (Viewer level, so any account may read it; it keeps the clock offset
         fresh), basic device information on a camera without the time API,
         and the firmware version from the Properties group on firmware with
-        neither (param.cgi, which every account may use)."""
+        neither (param.cgi, which every account may use).
+
+        Before 1.1.5 the liveness probe asked basicdeviceinfo.cgi of every
+        camera without the time API, so on firmware before 8.40, which lacks
+        it, every probe was a 404 and the camera was dropped as not responding
+        every minute (seen against the simulator's pre-8.40 camera)."""
         if API_TIME in self._apis:
             await self._read_time()
         elif API_DEVICE_INFO in self._apis:

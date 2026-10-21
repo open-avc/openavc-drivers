@@ -222,6 +222,8 @@ class BrightSignPlayerSimulator(HTTPSimulator):
             # this is the port the driver will send to. A port something else
             # already holds must not take the HTTP side down with it: the
             # player still answers, the presentation just cannot be reached.
+            # Before 1.0.2 it did, and the device sat offline as "no
+            # simulator" (found in an IDE pass, with port 5055 held).
             loop = asyncio.get_running_loop()
             try:
                 self._udp_transport, _ = await loop.create_datagram_endpoint(

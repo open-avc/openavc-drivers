@@ -299,9 +299,10 @@ class PolyStudioSimulator(HTTPSimulator):
 
         # Video / privacy mute. Unlike /rest/audio/muted, BOTH directions
         # here are objects, not bare booleans: GET answers {"result": <bool>}
-        # and POST takes {"mute": <bool>}. The bare-boolean form this used to
-        # serve agreed with the driver and with the driver's test double, and
-        # all three disagreed with the device.
+        # and POST takes {"mute": <bool>} (Tables 2-96 and 2-97). The
+        # bare-boolean form this used to serve matched what the driver sent,
+        # so neither could show the other wrong, and both disagreed with the
+        # device.
         if path == "/rest/video/local/mute":
             if method == "GET":
                 return web.json_response(

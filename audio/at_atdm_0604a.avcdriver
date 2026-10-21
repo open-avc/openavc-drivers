@@ -103,7 +103,7 @@ id: at_atdm_0604a
 name: Audio-Technica ATDM-0604a
 manufacturer: Audio-Technica
 category: audio
-version: 2.4.1
+version: 2.4.2
 author: OpenAVC
 min_platform_version: "0.33.0"
 description: >
@@ -2180,7 +2180,9 @@ simulator:
 
     # Input gain/level query (10-field answer: ch, mic, line, level,
     # max-volume enable + value, mute, virtual-mic gain, min-volume enable +
-    # value; mute is the seventh field, as the bench unit answers)
+    # value; mute is the seventh field, as the bench unit answers). Before
+    # 2.4.0 this answered mute fifth, the driver's own misreading, so the round
+    # trip agreed; a device audit of a real 0604a (fw 01.03.01) showed it.
     - match: 'g_input_gain_level O 0000 00 NC (\d+) ?'
       handler: |
         ch = match.group(1)

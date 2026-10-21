@@ -439,6 +439,8 @@ def value_to_colour(value: int) -> str:
 #
 # Global Scale is 00-01 (Major / Minor) per the spec + reference table —
 # Chromatic exists only for per-UFX-unit CC parameters, not the global scale.
+# Version 1 offered Chromatic here and sent an undocumented 02; the 2.0 pass
+# found it reading the V2.0 reference tables.
 
 UFX_KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 UFX_SCALE_NAMES = ["Major", "Minor"]
@@ -970,7 +972,7 @@ class AllenHeathDLiveDriver(BaseDriver):
         "name": "Allen & Heath dLive Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "2.1.2",
+        "version": "2.1.3",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath dLive digital mixing systems "

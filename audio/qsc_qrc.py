@@ -333,7 +333,7 @@ class QSCQRCDriver(BaseDriver):
         "name": "QSC Q-SYS QRC",
         "manufacturer": "QSC",
         "category": "audio",
-        "version": "4.3.4",
+        "version": "4.3.5",
         # Set by hand (the contract check cannot see a method call): the
         # Test Connection socket binds to BaseDriver.local_address(), which
         # landed in 0.37.0 (supersedes the lifecycle-hook 0.24.0 requirement).
@@ -1023,6 +1023,9 @@ class QSCQRCDriver(BaseDriver):
         initial: dict[str, Any] = {}
         sub_controls: list[str] = []
 
+        # Every control comes from GetControls, never a per-category guess: v3
+        # modelled a router as select.N integers only, and a live Core 24f's
+        # router answered with boolean output.N.input.M.select crosspoints too.
         for ctrl in controls:
             if not isinstance(ctrl, dict):
                 continue

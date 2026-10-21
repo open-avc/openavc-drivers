@@ -61,12 +61,15 @@
 #   offline with a sign-in fault. xCommand HttpFeedback Register is ADMIN
 #   only in its own entry too. xConfiguration writes are not included
 #   (settings live in the Cisco web UI, not the AV control surface).
+#   Through 1.3.0 help.setup step 2 and the Username field said an
+#   Integrator-only user still controls the codec and loses only push
+#   feedback, a misreading of those role lists; both now ask for Admin.
 
 id: cisco_roomos_xapi
 name: Cisco Webex Codec / Room Series (xAPI)
 manufacturer: Cisco
 category: video
-version: 1.3.1
+version: 1.3.2
 author: OpenAVC
 description: >
   Controls Cisco Webex video-conferencing endpoints (Codec Pro / Plus / EQ,

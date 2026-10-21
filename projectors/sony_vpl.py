@@ -163,7 +163,7 @@ class SonyVPLDriver(BaseDriver):
         "name": "Sony VPL Projector (ADCP)",
         "manufacturer": "Sony",
         "category": "projector",
-        "version": "1.4.4",
+        "version": "1.4.5",
         # Set by hand (the contract check cannot see a method call): the
         # Test ADCP socket binds to BaseDriver.local_address(), which landed
         # in 0.37.0 (supersedes the lifecycle-hook 0.24.0 requirement).
@@ -956,6 +956,9 @@ class SonyVPLDriver(BaseDriver):
 
         await progress(f"Connecting to {host}:{port}…", 20)
         # From the adapter Settings > Network > Reach devices through chose.
+        # A connection the driver opens itself does not follow that setting on
+        # its own: before 1.4.4 this one left by whatever route the operating
+        # system picked.
         local_ip = self.local_address(host)
         try:
             reader, writer = await asyncio.wait_for(

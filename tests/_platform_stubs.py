@@ -127,6 +127,11 @@ class UndeclaredStateError(ValueError):
     """A driver wrote state it does not declare, under strict mode."""
 
 
+class CommandRefusedError(RuntimeError):
+    """Mirrors ``openavc.drivers.base.CommandRefusedError``: the device refused
+    the command, and the message says why."""
+
+
 class WakeAddressError(ValueError):
     """Mirrors ``openavc.drivers.base.WakeAddressError``: a wake refused for a
     MAC address that is empty or is not one."""
@@ -1364,6 +1369,7 @@ def _default_tree() -> dict[str, dict[str, Any]]:
             "DeviceSettingValueError": DeviceSettingValueError,
             "UndeclaredStateError": UndeclaredStateError,
             "WakeAddressError": WakeAddressError,
+            "CommandRefusedError": CommandRefusedError,
             "ConnectionFaultError": ConnectionFaultError,
         },
         "openavc.core": {},

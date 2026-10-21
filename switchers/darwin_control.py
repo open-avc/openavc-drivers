@@ -53,6 +53,11 @@ from typing import Any
 from openavc.drivers.base import BaseDriver
 from openavc.utils.logger import get_logger
 
+try:
+    from openavc.drivers.base import CommandRefusedError
+except ImportError:  # OpenAVC before 0.37.1 has no typed command refusal
+    CommandRefusedError = RuntimeError
+
 log = get_logger(__name__)
 
 # End-of-response marker the controller prints after every reply (and the
@@ -203,7 +208,7 @@ class DarwinControlDriver(BaseDriver):
         "name": "TurtleAV Darwin Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.2.2",
+        "version": "1.2.3",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # the routing: block below needs 0.27.0.
@@ -567,7 +572,7 @@ class DarwinControlDriver(BaseDriver):
         for line in resp.splitlines():
             ls = line.strip()
             if ls.startswith("[ERROR]"):
-                raise RuntimeError(ls[len("[ERROR]"):].strip().rstrip("."))
+                raise CommandRefusedError(ls[len("[ERROR]"):].strip().rstrip("."))
         return resp
 
     # ── Polling ──

@@ -22,6 +22,7 @@ import pytest
 
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
+    CommandRefusedError,
     install_connection_fault_stub,
     StubBaseDriver as _StubBaseDriver,
     StubState as _FakeState,
@@ -117,7 +118,9 @@ class _FakeBaseDriver(LifecycleFake):
         return self.state.data.get(key, default)
 
 
-def _load_driver() -> ModuleType:
+def _load_driver(name: str = "chazy_pro_dispatch_under_test", *, typed_refusal: bool = True) -> ModuleType:
+    """``typed_refusal=False`` installs a base module as OpenAVC before
+    0.37.1 has it, with no ``CommandRefusedError``."""
     server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
     sys.modules["openavc"] = server
@@ -127,6 +130,8 @@ def _load_driver() -> ModuleType:
         sys.modules[f"openavc.{sub}"] = m
     base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
+    if typed_refusal:
+        base.CommandRefusedError = CommandRefusedError
     sys.modules["openavc.drivers.base"] = base
     tcp = ModuleType("openavc.transport.tcp")
     tcp.TCPTransport = object
@@ -135,9 +140,9 @@ def _load_driver() -> ModuleType:
     logger.get_logger = lambda name="x": logging.getLogger(name)
     sys.modules["openavc.utils.logger"] = logger
     install_connection_fault_stub()
-    spec = importlib.util.spec_from_file_location("chazy_pro_dispatch_under_test", DRIVER_PATH)
+    spec = importlib.util.spec_from_file_location(name, DRIVER_PATH)
     mod = importlib.util.module_from_spec(spec)
-    sys.modules["chazy_pro_dispatch_under_test"] = mod
+    sys.modules[name] = mod
     spec.loader.exec_module(mod)
     return mod
 
@@ -176,8 +181,15 @@ def test_send_set_raises_on_error_line():
         return "[ERROR]Encoder 999 does not exist."
 
     d._send_request = fake_send_request
-    with pytest.raises(RuntimeError, match="Encoder 999 does not exist"):
+    with pytest.raises(CommandRefusedError, match="Encoder 999 does not exist"):
         asyncio.run(d._send_set("SET ENC 999 NAME X"))
+
+
+def test_on_an_older_platform_the_refusal_is_a_plain_runtime_error():
+    """OpenAVC 0.37.0 has no CommandRefusedError: the driver still loads, and an
+    [ERROR] line is refused with a RuntimeError, as before."""
+    older = _load_driver("chazy_pro_dispatch_under_test_older", typed_refusal=False)
+    assert older.CommandRefusedError is RuntimeError
 
 
 def test_send_set_passes_success_through():

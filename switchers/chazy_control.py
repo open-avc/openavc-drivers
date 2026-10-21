@@ -71,6 +71,11 @@ from openavc.core.connection_fault import CHILD_NOT_RESPONDING
 from openavc.drivers.base import BaseDriver
 from openavc.utils.logger import get_logger
 
+try:
+    from openavc.drivers.base import CommandRefusedError
+except ImportError:  # OpenAVC before 0.37.1 has no typed command refusal
+    CommandRefusedError = RuntimeError
+
 log = get_logger(__name__)
 
 # End-of-response marker the controller prints after every reply (and after
@@ -211,7 +216,7 @@ class ChazyControlDriver(BaseDriver):
         "name": "TurtleAV Chazy Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.4.2",
+        "version": "1.4.3",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         # Gated on the newest platform surface this driver CALLS:
@@ -583,7 +588,7 @@ class ChazyControlDriver(BaseDriver):
         for line in resp.splitlines():
             ls = line.strip()
             if ls.startswith("[ERROR]"):
-                raise RuntimeError(ls[len("[ERROR]"):].strip().rstrip("."))
+                raise CommandRefusedError(ls[len("[ERROR]"):].strip().rstrip("."))
         return resp
 
     # ── Polling ──

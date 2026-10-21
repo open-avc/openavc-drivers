@@ -93,7 +93,7 @@ def _import_platform() -> tuple[dict, str]:
             from openavc.discovery.companion import ProbeContext  # noqa: PLC0415
             from openavc.drivers.base import (             # noqa: PLC0415
                 BaseDriver, CommandParamError, DeviceSettingValueError,
-                UndeclaredStateError, WakeAddressError,
+                UndeclaredStateError, WakeAddressError, CommandRefusedError,
             )
             from openavc.transport.frame_parsers import (  # noqa: PLC0415
                 DEFAULT_MAX_BUFFER, CallableFrameParser, DelimiterFrameParser,
@@ -114,6 +114,7 @@ def _import_platform() -> tuple[dict, str]:
         "DeviceSettingValueError": DeviceSettingValueError,
         "UndeclaredStateError": UndeclaredStateError,
         "WakeAddressError": WakeAddressError,
+        "CommandRefusedError": CommandRefusedError,
         "ConnectionFaultError": ConnectionFaultError,
         "DRIVER_FAULT_CODES": _DRIVER_FAULT_CODES,
         "StateStore": StateStore,
@@ -168,6 +169,7 @@ PAIRS: list[tuple[type, str]] = [
     (stubs.DeviceSettingValueError, "DeviceSettingValueError"),
     (stubs.UndeclaredStateError, "UndeclaredStateError"),
     (stubs.WakeAddressError, "WakeAddressError"),
+    (stubs.CommandRefusedError, "CommandRefusedError"),
     (stubs.StubProbeContext, "ProbeContext"),
 ]
 

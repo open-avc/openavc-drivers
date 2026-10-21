@@ -1049,7 +1049,7 @@
       "name": "TurtleAV Chazy Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.4.2",
+      "version": "1.4.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control AV-over-IP matrix controller and the sub-units it manages: video encoders (TX), decoders (RX), and video walls. The standard Control's command set; for the Media Player, Groups, Events, Scheduler, Dante Presets, Configuration Presets and Date/Time modules, use the Chazy Control Pro driver.",
@@ -1057,7 +1057,7 @@
       "file": "switchers/chazy_control.py",
       "format": "python",
       "files": {
-        "switchers/chazy_control.py": "11433daff57098afcc7d885dc76b26390046fdfd9450bc648298c99408c2811d",
+        "switchers/chazy_control.py": "ae181dc00d5dc4422536601e7b1d5510de200165de95b03e572ae7221adf3214",
         "switchers/chazy_control_discovery.py": "17ec5c484f808f084eea83e859b9ede4e5a808bbbfb0f38280602c0224e716b9",
         "switchers/chazy_control_sim.py": "0c41f64c2831ac3cc52761a2dcac382e0e2902e104a356e9947d2b3d984bac6f"
       },
@@ -1126,7 +1126,7 @@
       "name": "TurtleAV Chazy Control Pro",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.6.4",
+      "version": "1.6.5",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control Pro AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX) and decoders (RX), video walls, decoder groups, events, schedules, NAS/FTP media sources, Dante presets, and configuration presets.",
@@ -1134,7 +1134,7 @@
       "file": "switchers/chazy_control_pro.py",
       "format": "python",
       "files": {
-        "switchers/chazy_control_pro.py": "cfb0ff2e2acb7c647be8013d4ce666236d4042182d4ed4653be3a487596a5ba8",
+        "switchers/chazy_control_pro.py": "89d33eb8e63d400707f355f2b8388cc9b0e37fbde8598589c265de341db3c267",
         "switchers/chazy_control_pro_discovery.py": "3e1bf2542c36a4ed265dff4b74c97afe57a25b52ae69b0c62d70755ed06eec7b",
         "switchers/chazy_control_pro_sim.py": "b2e092b1122b885c8efdb7df98cdd316282112aac946898d2de389c312468fbe"
       },
@@ -1207,7 +1207,7 @@
       "name": "TurtleAV Darwin Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.2.2",
+      "version": "1.2.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Darwin Control (CTL100AL) H.265 AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX), decoders (RX), and video walls.",
@@ -1215,7 +1215,7 @@
       "file": "switchers/darwin_control.py",
       "format": "python",
       "files": {
-        "switchers/darwin_control.py": "3db299920cde16787215b476bb4b888e5afa8b61853af737f93d514d9b46d52f",
+        "switchers/darwin_control.py": "87aaec7f9dc5d34634bb5975a39a5462f02ff339a81d6f8d41d69e41b16b5fc9",
         "switchers/darwin_control_discovery.py": "8c9153c34d0400a3710755a2d3847affea9f0233d8a6bda1f64effa583d9d628",
         "switchers/darwin_control_sim.py": "353f2aed0143289d858c3a69f059bd1da712645fa6691bc29e176a8cc6484632"
       },

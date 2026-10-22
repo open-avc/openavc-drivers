@@ -55,6 +55,21 @@ schedule action with 400 for an output with no schedule assigned (here every
 output but output 1), while the web login takes the flag; and on firmware
 before 5.3 the JSON API answers an energy counter reset with 400 "Internal
 error".
+
+Files and restarts, over the web login, as the 4KB's own web interface (5.3.2)
+does them: SET system/reset restarts the unit; SET on system/srvkeyupload,
+system/srvcertupload, system/fwupdate or system/cfgimport opens an upload, which
+from firmware 5.2 (the greeting's serverApiVersion 2.0.0) arrives in chunks on
+upload/chunk and before it as one HTTP POST to the uploadPath answered (a 5.1.3
+greeting carries no serverApiVersion, which is what the web interface expects
+of an older unit). Once a file is in: a key or certificate is kept (the
+certificate's fingerprint shows as HTTPS certificate), firmware restarts the
+unit a few seconds later, a configuration sets the device name and output
+names it holds and restarts the unit. Writing network/servers/config restarts
+it too (NETIO's word for 5.1.x). Export Config is the twelve
+export/config/<section> topics from 5.2, system/cfgexport before it. A refused
+chunk answers with the code the demo units used for a bad parameter; the
+unit's own codes for these were not seen.
 """
 
 import asyncio
@@ -124,10 +139,41 @@ FW_ATTEMPTS = 3
 UPDATE_SERVER = ["offers newer firmware", "offers nothing newer", "does not answer"]
 FW_BLANK_ITEM = {"name": "", "version": "", "downloadUrl": "", "downloadUrlNoMcu": "", "releaseNoteEn": ""}
 
+# Files to the unit and restarts. The chunked upload and the twelve export
+# sections arrived in 5.2 (the greeting's serverApiVersion 2.0.0).
+CHUNKED_SINCE = (5, 2, 0)
+UPLOAD_TOPICS = {
+    "system/srvkeyupload": "key",
+    "system/srvcertupload": "certificate",
+    "system/fwupdate": "firmware",
+    "system/cfgimport": "configuration",
+}
+UPLOAD_PATH = "/upload/"
+EXPORT_SECTIONS = (
+    "inputs", "network", "outputs", "PAB", "protocols", "rules", "schedules",
+    "system", "users", "wdtpingers", "mqtt", "nbus",
+)
+# How long after the last chunk the unit restarts to install firmware.
+FW_FILE_INSTALL_S = 2.0
+
 
 def _version(text):
     match = re.search(r"(\d+)\.(\d+)\.(\d+)", str(text or ""))
     return tuple(int(part) for part in match.groups()) if match else (5, 3, 1)
+
+
+def _fingerprint(pem):
+    """A PEM certificate's SHA-256 fingerprint, AB:CD:..., or the file's own
+    SHA-256 when it does not parse."""
+    try:
+        from cryptography import x509
+        from cryptography.hazmat.primitives import serialization
+
+        der = x509.load_pem_x509_certificate(pem).public_bytes(serialization.Encoding.DER)
+    except Exception:  # noqa: BLE001 - not a certificate: its bytes then
+        der = pem
+    text = hashlib.sha256(der).hexdigest().upper()
+    return ":".join(text[i:i + 2] for i in range(0, len(text), 2))
 
 
 def _token(username, password, public_key, stamp, salt):
@@ -184,13 +230,16 @@ class NetioWebSession:
 
         if kind == "HELO":
             self.stamp = int(time.time())
-            return ok({
+            greeting = {
                 "protocolVersion": "1.0.0",
                 "localTimestamp": self.stamp,
                 "publicKey": WEB_PUBLIC_KEY,
                 "serverApiVersion": "2.0.0",
                 "device": self.sim.web_device(),
-            })
+            }
+            if self._fw() < CHUNKED_SINCE:
+                del greeting["serverApiVersion"]
+            return ok(greeting)
         if kind == "AUTH":
             return self._auth(frame, ok, error)
         if not self.authed:
@@ -294,6 +343,10 @@ class NetioSimulator(HTTPSimulator):
             "update_retries": True,
             # Which update was last started: "full" or "keep outlets on".
             "last_update": "",
+            # The SHA-256 fingerprint of the last certificate uploaded, and the
+            # last file a command sent (what it was and its size).
+            "https_certificate": "",
+            "last_file": "",
             "sensor_connected": False,
             "in1_temperature_c": 22.5,
             "in1_humidity": 40.0,
@@ -441,6 +494,13 @@ class NetioSimulator(HTTPSimulator):
         self._fw_asked = False
         self._down_until = 0.0
         self.generation = 0
+        # A restart due later (the install after a firmware file), and the
+        # uploads open: token -> what, chunks expected, the next index, bytes.
+        self._restart_due = None
+        self._uploads = {}
+        self._upload_seq = 0
+        self._https_key = b""
+        self._servers = {"httpEnable": True, "httpPort": 80, "httpsEnable": False, "httpsPort": 443}
 
     # ── Model ──
 
@@ -752,6 +812,8 @@ class NetioSimulator(HTTPSimulator):
         """The web login's socket on the same port as the JSON API, as on a unit."""
         if request.path == WEB_PATH and request.headers.get("Upgrade", "").lower() == "websocket":
             return await self._serve_web_login(request)
+        if request.method == "POST" and request.path.startswith(UPLOAD_PATH) and not self.restarting():
+            return await self._serve_upload_post(request)
         return await super()._handle_http_request(request)
 
     async def _serve_web_login(self, request):
@@ -807,9 +869,24 @@ class NetioSimulator(HTTPSimulator):
         self.fw_tick()
         return time.monotonic() < self._down_until
 
+    def _go_down(self, at):
+        """The unit restarts at ``at``: every web login open then is closed,
+        and it answers 503 until it is back."""
+        self.generation += 1
+        self._down_until = at + FW_RESTART_S
+        self._started = self._down_until
+        self._fw_list = [dict(FW_BLANK_ITEM)]
+        self._fw_check = None
+        self._fw_asked = False
+        self._uploads.clear()
+
     def fw_tick(self):
-        """Move a check or an update on to where the clock says it is."""
+        """Move a check, an update or a restart due on to where the clock says
+        it is."""
         now = time.monotonic()
+        if self._restart_due is not None and now >= self._restart_due:
+            due, self._restart_due = self._restart_due, None
+            self._go_down(due)
         check = self._fw_check
         if check is not None and now >= check[0] + FW_REBUILD_S:
             if check[1] is not None:
@@ -819,12 +896,7 @@ class NetioSimulator(HTTPSimulator):
         if job is None or now < job["restart_at"]:
             return
         # The download ended, and the unit restarts with whatever it got.
-        self.generation += 1
-        self._down_until = job["restart_at"] + FW_RESTART_S
-        self._started = self._down_until
-        self._fw_list = [dict(FW_BLANK_ITEM)]
-        self._fw_check = None
-        self._fw_asked = False
+        self._go_down(job["restart_at"])
         if not self.get_state("update_download_fails", False):
             self.set_state("firmware", job["target"])
             self._fw_job = None
@@ -884,6 +956,134 @@ class NetioSimulator(HTTPSimulator):
                 }
                 return ok()
         return error("MissingParameter", "Missing request parameter")
+
+    # ── Files and restarts ──
+
+    def _chunked(self):
+        return _version(self.get_state("firmware", "5.3.1")) >= CHUNKED_SINCE
+
+    def _settings_set(self, topic, data, ok, error):
+        self.fw_tick()
+        now = time.monotonic()
+        if topic == "system/reset":
+            if not (isinstance(data, dict) and data.get("reset") is True):
+                return error("MissingParameter", "Missing request parameter")
+            self._go_down(now)
+            return ok()
+        if topic == "network/servers/config":
+            if isinstance(data, dict):
+                self._servers.update({k: v for k, v in data.items() if k in self._servers})
+            self._go_down(now)
+            return ok()
+        if topic in UPLOAD_TOPICS:
+            self._upload_seq += 1
+            token = f"sim{self._upload_seq:04d}{int(now * 1000) % 100000:05d}"
+            self._uploads[token] = {"what": UPLOAD_TOPICS[topic], "next": 0, "data": bytearray()}
+            if self._chunked():
+                return ok({"uploadId": token})
+            return ok({"uploadPath": UPLOAD_PATH + token})
+        if topic == "upload/chunk":
+            return self._chunk(data, ok, error)
+        if topic == "system/cfgexport":
+            if self._chunked():
+                return error("TopicNotFonud", "Topic not found")
+            return ok({"config": json.dumps(self._export(), indent=2)})
+        section = topic.split("/", 2)[2]
+        if not self._chunked() or section not in EXPORT_SECTIONS:
+            return error("TopicNotFonud", "Topic not found")
+        return ok(self._export()[section])
+
+    def _chunk(self, data, ok, error):
+        """One chunk of an upload, in order; the last one delivers the file."""
+        data = data if isinstance(data, dict) else {}
+        upload = self._uploads.get(str(data.get("uploadId") or ""))
+        if not self._chunked() or upload is None:
+            return error("MissingParameter", "Missing request parameter")
+        index = data.get("chunkIndex")
+        if index != upload["next"] or data.get("bytesFrom") != len(upload["data"]):
+            return error("MissingParameter", "Missing request parameter")
+        try:
+            piece = base64.b64decode(str(data.get("b64Data") or ""), validate=True)
+        except ValueError:
+            return error("MissingParameter", "Missing request parameter")
+        if data.get("bytesTo") != len(upload["data"]) + len(piece):
+            return error("MissingParameter", "Missing request parameter")
+        upload["data"].extend(piece)
+        upload["next"] += 1
+        if data.get("complete"):
+            token = str(data.get("uploadId"))
+            self._uploads.pop(token, None)
+            if len(upload["data"]) != data.get("bytesTotal") or upload["next"] != data.get("chunksTotal"):
+                return error("MissingParameter", "Missing request parameter")
+            self._deliver(upload["what"], bytes(upload["data"]))
+        return ok()
+
+    def _deliver(self, what, payload):
+        """A whole file the unit took."""
+        self.set_state("last_file", f"{what} ({len(payload)} bytes)")
+        if what == "key":
+            self._https_key = payload
+        elif what == "certificate":
+            self.set_state("https_certificate", _fingerprint(payload))
+        elif what == "firmware":
+            self._restart_due = time.monotonic() + FW_FILE_INSTALL_S
+        elif what == "configuration":
+            self._import(payload)
+            self._go_down(time.monotonic())
+
+    def _export(self):
+        """Export Config's sections, as the unit answers each one: a dict
+        holding the section's own name."""
+        outputs = self._model()[0]
+        name = str(self.get_state("device_name", "PowerPDU-SIM"))
+        sections = {section: {section: {}} for section in EXPORT_SECTIONS}
+        sections["nbus"] = {}
+        sections["system"] = {"system": {"settings": {"alias": name, "hostname": name}}}
+        sections["outputs"] = {"outputs": {"outputs": [
+            {"id": n, "name": str(self.get_state(f"out{n}_name", f"Power output {n}"))}
+            for n in range(1, outputs + 1)
+        ]}}
+        sections["users"] = {"users": {"users": [{"name": "admin", "privileges": 4095}]}}
+        return sections
+
+    def _import(self, payload):
+        """What a configuration file sets here: the device name and the output
+        names, in either form the export writes."""
+        try:
+            doc = json.loads(payload.decode("utf-8-sig"))
+        except (UnicodeDecodeError, ValueError):
+            return
+        if not isinstance(doc, dict):
+            return
+        system = (doc.get("system") or {}).get("system") or {}
+        alias = ((system.get("settings") or {}) if isinstance(system, dict) else {}).get("alias")
+        if isinstance(alias, str) and alias.strip():
+            self.set_state("device_name", alias)
+        outputs = (doc.get("outputs") or {}).get("outputs") or {}
+        items = outputs.get("outputs") if isinstance(outputs, dict) else None
+        for item in items if isinstance(items, list) else []:
+            n = item.get("id") if isinstance(item, dict) else None
+            if isinstance(n, int) and 1 <= n <= MAX_OUTPUTS and isinstance(item.get("name"), str):
+                self.set_state(f"out{n}_name", item["name"])
+
+    async def _serve_upload_post(self, request):
+        """Before 5.2: the file POSTed as the multipart field ``file`` to the
+        upload path the unit answered. Over HTTPS 5.1.3 takes neither firmware
+        nor a configuration this way (NETIO's word); the driver does not try."""
+        from aiohttp import web
+
+        token = request.path[len(UPLOAD_PATH):]
+        upload = self._uploads.pop(token, None)
+        if upload is None or self._chunked():
+            return web.json_response({"code": "NotFound", "message": "Upload not found"}, status=404)
+        form = await request.post()
+        field = form.get("file")
+        payload = field.file.read() if hasattr(field, "file") else None
+        if payload is None:
+            return web.json_response({"code": "MissingParameter", "message": "No file"}, status=400)
+        self.log_protocol("in", f"POST {request.path} ({len(payload)} bytes)")
+        self._deliver(upload["what"], payload)
+        return web.json_response({"status": "OK"})
 
     def _brand(self):
         model = str(self.get_state("model", "4KS"))
@@ -958,6 +1158,8 @@ class NetioSimulator(HTTPSimulator):
             }
         if topic == "system/uptime":
             return {"uptime": int(time.monotonic() - self._started)}
+        if topic == "network/servers/config":
+            return dict(self._servers)
         if topic == "system/datetime":
             return {"ntpEnabled": True, "ntpServer": "pool.ntp.org", "timezone": "UTC",
                     "time": int(time.time())}
@@ -1056,6 +1258,11 @@ class NetioSimulator(HTTPSimulator):
     def web_set(self, topic, data, ok, error):
         if topic == "system/firmwarelist":
             return self._fw_set(data, ok, error)
+        if topic in ("system/reset", "network/servers/config", "upload/chunk", "system/cfgexport") \
+                or topic in UPLOAD_TOPICS or topic.startswith("export/config/"):
+            if not self.get_state("web_settings_allowed", True):
+                return error("Unauthorized", "Client is not authorized to perform this operation.")
+            return self._settings_set(topic, data, ok, error)
         match = re.fullmatch(r"outputs/id/(\d+)/(ctrl|config|resetOutputConsumption)", topic)
         if not match:
             return error("TopicNotFonud", "Topic not found")

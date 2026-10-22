@@ -45,8 +45,15 @@ two install the newest firmware offered, one with the outlet controller's own
 firmware (every output switches off for a few seconds) and one without it. The
 unit downloads the firmware itself and restarts, and tries again after a failed
 download, three attempts in all; the driver follows it through the restarts and
-reports how the update went. Firmware from a file and certificates are not part
-of this driver.
+reports how the update went.
+
+Also over the web login, as the unit's own web interface does them: Restart
+Device (the outputs stay as they are), and, on OpenAVC 0.37.2 and later, the
+commands that take a file or hand one back: an HTTPS certificate and its key,
+firmware from a file, and the configuration backed up and restored. A file goes
+to the unit in chunks over the web login (API 2, firmware 5.2.0 and later) or
+by one HTTP POST before that. The certificate the unit serves over HTTPS, its
+fingerprint and expiry, is read from the web login's own handshake.
 
 **Push and polling.** Over the JSON API the driver polls: NETIO's push
 protocols do not report an output switching (Netio Push sends this same
@@ -83,8 +90,10 @@ against NETIO's public demo units (PowerPDU 8QS, 4PS and 4KS, PowerDIN 4PZ,
 PowerCable 2PZ, PowerBOX 4KF, on firmware 5.3.1 and 5.3.2): the JSON API on
 2026-10-13, the web login on 2026-10-16. Then on a PowerPDU 4KB that NETIO sent
 (2026-10-21): both, on firmware 5.2.4 and 5.3.2, over HTTP and HTTPS, and the
-online firmware update between them. Where the units and a source disagree the
-code follows the units, and says so where it reads the value.
+online firmware update between them. The files and Restart Device follow the
+code of the web interface that unit serves (5.3.2), which differs from the
+demo units' older one. Where the units and a source disagree the code follows
+the units, and says so where it reads the value.
 """
 
 from __future__ import annotations
@@ -111,6 +120,16 @@ try:
     from openavc.drivers.base import CommandRefusedError
 except ImportError:  # OpenAVC before 0.37.1 has no typed command refusal
     CommandRefusedError = RuntimeError
+
+try:
+    from openavc.drivers.command_files import CommandFile, DeviceFile
+except ImportError:  # OpenAVC before 0.37.2 gives no command a file (see FILE_COMMANDS)
+    CommandFile = DeviceFile = None
+
+try:
+    from openavc.discovery.certificates import certificate_details
+except ImportError:  # the platform's one certificate reader, from 0.36.0
+    certificate_details = None
 
 log = get_logger(__name__)
 
@@ -182,6 +201,122 @@ FW_RETRY_INTERVAL_S = 1.0
 # A restart shows as a boot time (now minus the uptime) that moved; a busy unit
 # reports its uptime a few seconds late, so it has to move by more than this.
 FW_RESTART_SLACK_S = 10.0
+
+# ── Files to and from the unit (web login) ──
+# As the unit's own web interface does it (served by a PowerPDU 4KB on 5.3.2,
+# 2026-10-21). SET on an upload topic opens the upload; the API version in the
+# HELO answer decides how the file follows: from 2, in chunks over the web
+# login (`upload/chunk`, each answered before the next, tried three times, no
+# pause between them); before 2, one HTTP POST of the file as the multipart
+# field `file` to the `uploadPath` the unit answered, which needs no login of
+# its own.
+WEB_CHUNKED_API = 2
+UPLOAD_CHUNK_BYTES = 2048
+UPLOAD_CHUNK_TIMEOUT_S = 30.0
+UPLOAD_CHUNK_TRIES = 3
+UPLOAD_POST_TIMEOUT_S = 300.0
+UPLOAD_KEY_TOPIC = "system/srvkeyupload"
+UPLOAD_CERT_TOPIC = "system/srvcertupload"
+UPLOAD_FIRMWARE_TOPIC = "system/fwupdate"
+UPLOAD_CONFIG_TOPIC = "system/cfgimport"
+# The web interface's own limits (its maxSizeBytes).
+FIRMWARE_MAX_BYTES = 10 * 1024 * 1024
+CONFIG_MAX_BYTES = 10 * 1024 * 1024
+CERT_MAX_BYTES = 8192
+# Export Config from API 2: one SET {} on each section's topic, written as
+# {section: reply data} with a two-space indent. Before API 2 it is one SET on
+# system/cfgexport, whose reply carries the file's text as `config`.
+EXPORT_SECTIONS = (
+    "inputs", "network", "outputs", "PAB", "protocols", "rules", "schedules",
+    "system", "users", "wdtpingers", "mqtt", "nbus",
+)
+EXPORT_LEGACY_TOPIC = "system/cfgexport"
+EXPORT_TIMEOUT_S = 30.0
+# Restart: system/reset from 5.2.0 (PyNetioConf). On 5.1.x the unit restarts
+# when its web server settings are written, the current ones included (Jakub
+# Sperl, NETIO, 2026-10-21).
+WEB_RESET_SINCE = (5, 2, 0)
+WEB_SERVERS_TOPIC = "network/servers/config"
+
+# The commands that take a file or hand one back. OpenAVC gives a command a
+# file from 0.37.2; on an older release the driver has none of these, and
+# every other command works as before (they are added in __init__).
+FILE_COMMANDS: dict[str, dict[str, Any]] = {
+    "upload_https_certificate": {
+        "label": "Upload HTTPS Certificate",
+        "params": {
+            "private_key": {
+                "type": "file", "label": "Private Key", "required": True,
+                "max_bytes": CERT_MAX_BYTES,
+                "help": "The certificate's private key, PEM encoded.",
+            },
+            "certificate": {
+                "type": "file", "label": "Certificate", "required": True,
+                "max_bytes": CERT_MAX_BYTES,
+                "help": "The certificate the NETIO serves over HTTPS, PEM encoded.",
+            },
+        },
+        "confirm": "Replaces the certificate the NETIO serves over HTTPS, then restarts it. Its "
+                   "outputs stay as they are.",
+        # A PowerPDU 4KB on 5.3.2 over HTTPS (2026-10-21) took TLS again 15 s
+        # after the upload, then left reads unanswered for a while: the web
+        # login was back 82 s after it. Ended early once the unit is back.
+        "restarts_device_for": 120,
+        "help": "Installs a certificate and its private key for the NETIO's HTTPS server, as its "
+                "web interface does under HTTP/HTTPS, then restarts it so it serves the new one. "
+                "The key must belong to the certificate. Web login only, with a user that may "
+                "change the NETIO's settings.",
+    },
+    # restarts_device_for opens when the file is in, so it covers the install
+    # and both restarts of a package with the outlet controller's firmware.
+    "update_firmware_from_file": {
+        "label": "Update Firmware From a File",
+        "params": {
+            "firmware": {
+                "type": "file", "label": "Firmware Package", "required": True,
+                "max_bytes": FIRMWARE_MAX_BYTES,
+                "help": "A NETIO firmware package, as NETIO's firmware download page offers it.",
+            },
+        },
+        "confirm": "Installs the firmware in this file. The NETIO restarts once it is in, and if "
+                   "the package includes the outlet controller's firmware every output switches "
+                   "off for a few seconds.",
+        "restarts_device_for": 600,
+        "help": "Installs a firmware package from a file, as Install Firmware does in the NETIO's "
+                "web interface, for a NETIO that cannot reach NETIO's update server. Web login "
+                "only, with a user that may change the NETIO's settings.",
+    },
+    "back_up_configuration": {
+        "label": "Back Up Configuration",
+        "params": {},
+        "returns_file": True,
+        "help": "Downloads the NETIO's settings as a file, the one Export Config saves in its web "
+                "interface, so Restore Configuration or the web interface can put them back. The "
+                "file holds the web users' password hashes: keep it somewhere safe. Web login "
+                "only, with a user that may change the NETIO's settings.",
+    },
+    "restore_configuration": {
+        "label": "Restore Configuration",
+        "params": {
+            "configuration": {
+                "type": "file", "label": "Configuration File", "required": True,
+                "accept": [".json"], "max_bytes": CONFIG_MAX_BYTES,
+                "help": "A file from Back Up Configuration, or from Export Config in the NETIO's "
+                        "web interface.",
+            },
+        },
+        "confirm": "Replaces every setting on this NETIO with the ones in the file, its network "
+                   "address and web users included, then restarts it. If the file gives it "
+                   "another address or another password for this login, change them on this "
+                   "device afterwards.",
+        # A PowerPDU 4KB on 5.3.2 (2026-10-21) restarted 2 s after the file
+        # was in and was back 18 s after it.
+        "restarts_device_for": 60,
+        "help": "Puts back the settings in a configuration file, as Import Config does in the "
+                "NETIO's web interface, then the NETIO restarts. Web login only, with a user that "
+                "may change the NETIO's settings.",
+    },
+}
 
 # "Not available": a sensor that is not connected, a figure the unit does not
 # measure (a power factor with no load on a 4KS reads 999.00).
@@ -642,6 +777,89 @@ def firmware_version(text: Any) -> tuple[int, int, int] | None:
     return int(match.group(1)), int(match.group(2)), int(match.group(3))
 
 
+def web_api_major(text: Any, firmware: tuple[int, int, int] | None) -> int | None:
+    """The major of the web login's serverApiVersion (the HELO answer).
+
+    A greeting without one is from before the chunked upload (the unit's own
+    web interface then needs a default), and 5.2.0 is where NETIO's library
+    starts sending files in chunks, so the firmware decides it then.
+    """
+    match = re.match(r"\s*(\d+)\.", str(text or ""))
+    if match:
+        return int(match.group(1))
+    if firmware is None:
+        return None
+    return WEB_CHUNKED_API if firmware >= WEB_RESET_SINCE else WEB_CHUNKED_API - 1
+
+
+def certificate_fingerprint(sha256_hex: str) -> str:
+    """A SHA-256 fingerprint the way a browser shows one: AB:CD:..."""
+    text = sha256_hex.strip().upper()
+    return ":".join(text[i:i + 2] for i in range(0, len(text), 2))
+
+
+def backup_name(device_name: Any, day: datetime) -> str:
+    """The backup's file name: the unit's name and the day."""
+    name = _ID_UNSAFE.sub("-", str(device_name or "").strip()).strip("-") or "netio"
+    return f"{name}-config-{day:%Y-%m-%d}.json"
+
+
+def configuration_problem(name: str, data: bytes, sectioned: bool) -> str | None:
+    """Why ``data`` cannot be a NETIO configuration file, or None.
+
+    ``sectioned``: the unit exports in sections (web login API 2 and later),
+    so a file of its has at least one of them at the top.
+    """
+    try:
+        doc = json.loads(data.decode("utf-8-sig"))
+    except (UnicodeDecodeError, ValueError):
+        doc = None
+    if not isinstance(doc, dict):
+        return f"{name} is not a NETIO configuration file. Back Up Configuration makes one."
+    if sectioned and not any(section in doc for section in EXPORT_SECTIONS):
+        return (
+            f"{name} is not a NETIO configuration file: it has none of the sections Back Up "
+            f"Configuration writes."
+        )
+    return None
+
+
+def certificate_pair_problem(key: bytes, cert: bytes, key_name: str, cert_name: str) -> str | None:
+    """Why this private key and certificate cannot be served together, or None.
+
+    Checked before either goes to the unit: with HTTPS on, the unit's HTTP
+    server is off, so a certificate it cannot serve would leave it answering
+    nothing at all. ``cryptography`` ships with every OpenAVC that has the
+    upload command.
+    """
+    try:
+        from cryptography import x509
+        from cryptography.exceptions import UnsupportedAlgorithm
+        from cryptography.hazmat.primitives import serialization
+    except ImportError:
+        return None
+    try:
+        certificate = x509.load_pem_x509_certificate(cert)
+    except ValueError:
+        return f"{cert_name} is not a PEM certificate."
+    try:
+        private_key = serialization.load_pem_private_key(key, password=None)
+    except TypeError:
+        return f"{key_name} is protected by a passphrase; the NETIO takes a key without one."
+    except (ValueError, UnsupportedAlgorithm):
+        return f"{key_name} is not a PEM private key."
+    spki = serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
+    if private_key.public_key().public_bytes(*spki) != certificate.public_key().public_bytes(*spki):
+        return f"{key_name} is not the private key of {cert_name}."
+    return None
+
+
+async def _pieces(data: bytes) -> Any:
+    """``data`` in upload chunks, for a file already read whole."""
+    for start in range(0, len(data), UPLOAD_CHUNK_BYTES):
+        yield data[start:start + UPLOAD_CHUNK_BYTES]
+
+
 def _firmware_text(text: Any) -> str | None:
     """The firmware as the JSON API's Agent reports it: ``5.3.2``, the part
     before the low-level (MCU) version."""
@@ -915,10 +1133,12 @@ class NetioDriver(BaseDriver):
         "name": "NETIO PowerPDU, PowerBOX, PowerCable and PowerDIN",
         "manufacturer": "NETIO",
         "category": "power",
-        "version": "1.3.0",
+        "version": "1.4.0",
         "author": "OpenAVC",
-        # confirm on the commands that reset, switch everything or update the
-        # firmware needs 0.36.0; restarts_device_for on the updates, 0.34.0;
+        # confirm on the commands that reset, switch everything, restart or
+        # update the firmware needs 0.36.0; restarts_device_for on the updates
+        # and the restart, 0.34.0; the commands that take or hand back a file
+        # appear from 0.37.2 (FILE_COMMANDS, added in __init__);
         # the discovery probe's then: step, 0.32.0. The web login follows
         # Reach devices through where the platform can (0.37.0 and later; see
         # _open_web) and runs without it before that. A refused command's
@@ -933,7 +1153,9 @@ class NetioDriver(BaseDriver):
             "output's load, current, power factor and energy on metered models. Digital inputs, "
             "NETIO temperature and humidity sensors, each output's schedule and the unit's own "
             "watchdogs, rules and power analysis blocks are reported as live values. Over the web "
-            "login the unit's firmware can be checked and updated from NETIO's update server."
+            "login the unit's firmware can be checked and updated from NETIO's update server and "
+            "the unit restarted; on OpenAVC 0.37.2 and later, its HTTPS certificate installed, "
+            "firmware installed from a file, and its configuration backed up and restored."
         ),
         "source_url": "https://www.netio-products.com/files/M2M-HTTP-JSON_NETIO-API-protocol_v2-6_.pdf",
         "tags": ["pdu", "power", "outlet-control", "metering", "energy", "rack", "power-strip", "din-rail"],
@@ -1013,10 +1235,9 @@ class NetioDriver(BaseDriver):
                     "Web login: the same reads, each output's schedule, and the outputs' switching "
                     "pushed as it happened; outputs switched, toggled, rebooted and switched on for "
                     "a time (the demo login may not rename outputs, change their schedules or reset "
-                    "energy counters, so those were not run over the web login). Checking for and "
-                    "installing firmware updates was run in the simulator only: the demo login may "
-                    "not change settings. Firmware from a file and certificates are not part of "
-                    "this driver."
+                    "energy counters, so those were not run over the web login). The firmware, "
+                    "certificate, configuration and restart commands were not run on these units: "
+                    "the demo login may not change settings."
                 ),
             },
             {
@@ -1048,17 +1269,20 @@ class NetioDriver(BaseDriver):
                 "one output, reboot a frozen device, or switch an output on for a set time. On "
                 "metered models each output's load and energy are reported too. Connected with the "
                 "web login, an output switching shows the moment it happens and each output's "
-                "schedule is reported, and the unit's firmware can be checked and updated from "
-                "NETIO's update server. The results of the unit's own IP watchdogs, rules and power "
-                "analysis blocks are reported with the JSON API only."
+                "schedule is reported, the unit's firmware can be checked and updated from NETIO's "
+                "update server, and the unit can be restarted. On OpenAVC 0.37.2 and later Send "
+                "Command also installs an HTTPS certificate, installs firmware from a file, and "
+                "backs up and restores the unit's configuration. The results of the unit's own IP "
+                "watchdogs, rules and power analysis blocks are reported with the JSON API only."
             ),
             "setup": (
                 "1. Choose Connect With. The web login (firmware 5.1.3 and later) needs nothing "
                 "turned on: enter a user from the NETIO's web interface as Username and Password. A "
                 "user allowed to control outputs can switch them. Renaming an output, turning its "
                 "schedule on or off and resetting its energy counter need a user that may change "
-                "output settings, and checking for and installing firmware updates a user that may "
-                "change the unit's settings, such as an administrator.\n"
+                "output settings. Checking for and installing firmware updates, restarting the unit, "
+                "its HTTPS certificate and backing up or restoring its configuration need a user "
+                "that may change the unit's settings, such as an administrator.\n"
                 "2. For the JSON API instead, open M2M API Protocols in the NETIO's web interface, "
                 "then the JSON API tab. Turn on Enable JSON API, Enable READ-ONLY and Enable WRITE, "
                 "and save. The unit restarts its web server, so it answers errors for a few "
@@ -1208,6 +1432,21 @@ class NetioDriver(BaseDriver):
                 "type": "string", "label": "Firmware Update Status", "cloud_priority": "low",
                 "help": "How the last firmware update went: still updating, updated, or why it "
                         "failed.",
+            },
+            "https_certificate_fingerprint": {
+                "type": "string", "label": "HTTPS Certificate Fingerprint", "cloud_priority": "low",
+                "help": "The SHA-256 fingerprint of the certificate the NETIO serves over HTTPS. "
+                        "Reported with the web login and Use HTTPS on.",
+            },
+            "https_certificate_expires": {
+                "type": "string", "label": "HTTPS Certificate Expires", "cloud_priority": "low",
+                "help": "When the certificate the NETIO serves over HTTPS expires (UTC). Reported "
+                        "with the web login and Use HTTPS on.",
+            },
+            "https_certificate_days_left": {
+                "type": "integer", "label": "HTTPS Certificate Days Left", "cloud_priority": "low",
+                "help": "Days until the certificate the NETIO serves over HTTPS expires, below 0 "
+                        "once it has. Reported with the web login and Use HTTPS on.",
             },
             "last_error": {"type": "string", "label": "Last Error"},
         },
@@ -1496,6 +1735,19 @@ class NetioDriver(BaseDriver):
                         "interface, so the outputs stay as they are. Web login only, with a user "
                         "that may change the NETIO's settings.",
             },
+            # A PowerPDU 4KB on 5.3.2 answered again 21.8 s after system/reset
+            # over HTTP and the web login was back 22 s after it over HTTPS
+            # (2026-10-21); the window ends as soon as it is back.
+            "restart_device": {
+                "label": "Restart Device",
+                "params": {},
+                "confirm": "Restarts the NETIO. Its outputs stay as they are; it answers nothing "
+                           "for about half a minute.",
+                "restarts_device_for": 60,
+                "help": "Restarts the NETIO, as Restart device does in its web interface. The "
+                        "outputs stay as they are. Web login only, with a user that may change "
+                        "the NETIO's settings.",
+            },
         },
     }
 
@@ -1511,6 +1763,12 @@ class NetioDriver(BaseDriver):
 
     def __init__(self, device_id: str, config: dict[str, Any], state: Any, events: Any) -> None:
         super().__init__(device_id, config, state, events)
+        if CommandFile is not None:
+            # Every door reads this instance's table, so the file commands
+            # appear where the platform can run them; the catalog's floor comes
+            # from the class's table and stays where it is.
+            base = type(self).DRIVER_INFO
+            self.DRIVER_INFO = {**base, "commands": {**base["commands"], **FILE_COMMANDS}}
         self._client = None
         self._connect_doc: dict[str, Any] | None = None
         self._rosters: dict[str, list[Any]] = {t: [] for t in CHILD_TYPES}
@@ -1527,6 +1785,13 @@ class NetioDriver(BaseDriver):
         self._ws_last_send = 0.0
         self._ws_closing = False
         self._fw: tuple[int, int, int] | None = None
+        # The major of the web login's serverApiVersion (HELO), which decides
+        # how a file goes to the unit.
+        self._api_major: int | None = None
+        # The certificate the web login was served over wss: its fingerprint,
+        # and when it expires, for the days left.
+        self._cert_fingerprint: str | None = None
+        self._cert_expires: datetime | None = None
         self._hello_device: dict[str, Any] = {}
         self._web_info: dict[str, Any] | None = None
         self._web_metered: bool | None = None
@@ -1848,7 +2113,43 @@ class NetioDriver(BaseDriver):
         except (OSError, asyncio.TimeoutError) as exc:
             raise self._not_responding(exc) from exc
         self._ws = ws
+        self._note_certificate(ws)
         self._ws_reader = asyncio.create_task(self._web_read_loop(ws))
+
+    def _note_certificate(self, ws: Any) -> None:
+        """The certificate this connection was served over wss: its
+        fingerprint and expiry, read from the handshake already made (a
+        second TLS connection costs the unit seconds, and two at once once
+        stopped its HTTPS server answering)."""
+        self._cert_fingerprint = None
+        self._cert_expires = None
+        if self._scheme != "https" or certificate_details is None:
+            return
+        transport = getattr(ws, "transport", None)
+        ssl_object = transport.get_extra_info("ssl_object") if transport is not None else None
+        try:
+            der = ssl_object.getpeercert(binary_form=True) if ssl_object is not None else None
+        except (ValueError, ssl.SSLError):
+            der = None
+        details = certificate_details(der) if der else None
+        if not details:
+            return
+        self._cert_fingerprint = certificate_fingerprint(str(details.get("sha256") or ""))
+        try:
+            self._cert_expires = datetime.fromisoformat(str(details.get("not_after")))
+        except ValueError:
+            self._cert_expires = None
+
+    def _certificate_states(self) -> dict[str, Any]:
+        expires = self._cert_expires
+        days = None
+        if expires is not None:
+            days = math.floor((expires - datetime.now(timezone.utc)).total_seconds() / 86400)
+        return {
+            "https_certificate_fingerprint": self._cert_fingerprint,
+            "https_certificate_expires": expires.strftime("%Y-%m-%dT%H:%M:%SZ") if expires else None,
+            "https_certificate_days_left": days,
+        }
 
     async def _close_web(self) -> None:
         ws, self._ws = self._ws, None
@@ -2028,6 +2329,7 @@ class NetioDriver(BaseDriver):
         device = data.get("device") if isinstance(data.get("device"), dict) else {}
         self._hello_device = device
         self._fw = firmware_version(device.get("fwVersion"))
+        self._api_major = web_api_major(data.get("serverApiVersion"), self._fw)
         if self._fw is not None and self._fw < WEB_API_SINCE:
             raise ConnectionFaultError(
                 f"The NETIO runs firmware {_firmware_text(device.get('fwVersion'))}; the web login "
@@ -2136,6 +2438,7 @@ class NetioDriver(BaseDriver):
         glob = snap.get("outputs/globalmeasure")
         if glob is not None or not metered:
             device.update(web_global(glob.get("measure") if isinstance(glob, dict) else None, metered))
+        device.update(self._certificate_states())
 
         listed = web_numbered(_items(snap.get("outputs/list")), MAX_OUTPUTS, web_output_listed)
         measured = web_numbered(
@@ -2259,7 +2562,8 @@ class NetioDriver(BaseDriver):
 
     def _apply(self, doc: dict[str, Any]) -> None:
         summary = summarize(doc)
-        self.set_states(summary["device"])
+        # The web login reports the HTTPS certificate; blank over the JSON API.
+        self.set_states({**summary["device"], **self._certificate_states()})
         for child_type in CHILD_TYPES:
             self._sync_children(child_type, summary[child_type])
 
@@ -2344,15 +2648,20 @@ class NetioDriver(BaseDriver):
     def _fw_running(self) -> str:
         return _firmware_text(self._hello_device.get("fwVersion")) or "an unknown version"
 
-    def _fw_need_web(self) -> None:
+    def _need_web(self, what: str) -> None:
+        """Refuse a command the JSON API cannot carry, and any while a firmware
+        update is under way."""
         if not self._web:
             raise NetioCommandError(
-                "Checking for and installing firmware updates needs the web login: set Connect "
-                "With to Web login, with a user that may change the NETIO's settings."
+                f"{what} needs the web login: set Connect With to Web login, with a user that "
+                f"may change the NETIO's settings."
             )
         pending = self._fw_update
         if pending is not None:
-            raise NetioCommandError(f"The NETIO is updating to firmware {pending['target']}.")
+            raise NetioCommandError(f"The NETIO is {pending['doing']}.")
+
+    def _fw_need_web(self) -> None:
+        self._need_web("Checking for and installing firmware updates")
 
     async def _fw_lock(self) -> str:
         data = await self._web_read("system/lock")
@@ -2465,6 +2774,7 @@ class NetioDriver(BaseDriver):
         now = time.monotonic()
         seconds = _as_int(uptime.get("uptime")) if isinstance(uptime, dict) else None
         self._fw_update = {
+            "doing": f"updating to firmware {offer['version']}",
             "target": offer["version"],
             "target_v": firmware_version(offer["version"]),
             "started": now,
@@ -2501,6 +2811,9 @@ class NetioDriver(BaseDriver):
         FW_UPDATE_TIMEOUT_S after it started."""
         pending = self._fw_update
         if pending is None:
+            return
+        if "file" in pending:
+            self._fw_follow_file(pending, snap)
             return
         target = pending["target"]
         running = self._fw_running()
@@ -2560,6 +2873,34 @@ class NetioDriver(BaseDriver):
                 f"{self._fw_running()} and did not try again."
             )
 
+    def _fw_follow_file(self, pending: dict[str, Any], snap: dict[str, Any]) -> None:
+        """A firmware file's install: done once the unit has restarted (its
+        boot time moved), with the firmware it then runs. A package with the
+        outlet controller's firmware restarts it a second time, inside the
+        command's restart window. Failed if it has not restarted
+        FW_UPDATE_TIMEOUT_S after the file went in."""
+        now = time.monotonic()
+        uptime = snap.get("system/uptime")
+        seconds = _as_int(uptime.get("uptime")) if isinstance(uptime, dict) else None
+        if seconds is not None and now - seconds - pending["booted"] > FW_RESTART_SLACK_S:
+            self._fw_finish()
+            # The last check's answer was about the firmware just replaced.
+            self.set_states({
+                "firmware_update_status": (
+                    f"Installed the firmware in {pending['file']}: the NETIO runs "
+                    f"{self._fw_running()}"
+                ),
+                "firmware_update_available": None,
+                "firmware_update_version": None,
+            })
+            log.info(f"[{self.device_id}] The NETIO runs firmware {self._fw_running()} now")
+            return
+        if now - pending["started"] > FW_UPDATE_TIMEOUT_S:
+            self._fw_failed(
+                f"The NETIO took the firmware in {pending['file']} but had not restarted to "
+                f"install it {int(FW_UPDATE_TIMEOUT_S // 60)} minutes later."
+            )
+
     def _fw_finish(self) -> None:
         self._fw_update = None
         self._fw_stop_watch_now()
@@ -2579,6 +2920,153 @@ class NetioDriver(BaseDriver):
         if watch is not None and watch is not asyncio.current_task():
             watch.cancel()
             await asyncio.wait({watch})
+
+    # ── Web login: files and restarts ──
+
+    def _chunked(self) -> bool:
+        """Whether files go to the unit in chunks over the web login (API 2 and
+        later) rather than by HTTP POST."""
+        return self._api_major is not None and self._api_major >= WEB_CHUNKED_API
+
+    def _dropped(self) -> bool:
+        return self._ws is None or not _ws_open(self._ws)
+
+    def _https_post_refused(self, what: str) -> None:
+        """Firmware 5.1.3 cannot import a configuration or take firmware over
+        HTTPS (NETIO, 2026-10-14), the two its web interface sends by POST."""
+        if self._scheme == "https" and not self._chunked():
+            raise NetioCommandError(
+                f"This NETIO, on firmware {self._fw_running()}, takes {what} over HTTP only. Turn "
+                f"HTTPS off in its web interface first, or update its firmware to 5.2.0 or later."
+            )
+
+    async def _web_upload(
+        self, topic: str, file: Any, what: str, *, data: bytes | None = None, restarts: bool = False,
+    ) -> None:
+        """Send ``file`` (the command's CommandFile) to the unit on ``topic``,
+        the way its own web interface does. ``data`` is the file's bytes when
+        they were read already. ``restarts``: the unit restarts once the file
+        is in, so a connection gone at the last chunk is that restart."""
+        try:
+            reply = await self._web_call("SET", topic, {})
+        except NetioWebError as exc:
+            raise self._web_refused(exc, what) from exc
+        opened = reply.get("data") if isinstance(reply.get("data"), dict) else {}
+        if self._chunked():
+            upload_id = opened.get("uploadId")
+            if not upload_id:
+                raise NetioCommandError(f"The NETIO did not open an upload to {what}.")
+            pieces = _pieces(data) if data is not None else file.chunks(UPLOAD_CHUNK_BYTES)
+            await self._web_send_chunks(str(upload_id), pieces, file.size, what, restarts=restarts)
+            return
+        path = opened.get("uploadPath")
+        if not path:
+            raise NetioCommandError(f"The NETIO did not open an upload to {what}.")
+        body = data if data is not None else await file.read()
+        await self._http_upload(str(path), file.name, body, what)
+
+    async def _web_send_chunks(
+        self, upload_id: str, pieces: Any, total: int, what: str, *, restarts: bool,
+    ) -> None:
+        """Each chunk answered before the next; a chunk refused or unanswered
+        is sent again, UPLOAD_CHUNK_TRIES times in all, as the unit's web
+        interface does."""
+        count = max(1, math.ceil(total / UPLOAD_CHUNK_BYTES))
+        index = offset = 0
+        async for piece in pieces:
+            last = index == count - 1
+            chunk = {
+                "uploadId": upload_id,
+                "chunkIndex": index,
+                "chunksTotal": count,
+                "bytesFrom": offset,
+                "bytesTo": offset + len(piece),
+                "bytesTotal": total,
+                "b64Data": base64.b64encode(piece).decode("ascii"),
+                "complete": last,
+            }
+            for attempt in range(1, UPLOAD_CHUNK_TRIES + 1):
+                try:
+                    await self._web_call("SET", "upload/chunk", chunk, timeout=UPLOAD_CHUNK_TIMEOUT_S)
+                    break
+                except NetioWebError as exc:
+                    if attempt == UPLOAD_CHUNK_TRIES:
+                        raise self._web_refused(exc, what) from exc
+                except ConnectionError:
+                    if self._dropped():
+                        if last and restarts:
+                            return
+                        raise
+                    if attempt == UPLOAD_CHUNK_TRIES:
+                        raise
+            index += 1
+            offset += len(piece)
+
+    async def _http_upload(self, path: str, name: str, body: bytes, what: str) -> None:
+        """Before API 2: the file as the multipart field ``file``, POSTed to
+        the path the unit opened, on its own scheme and port. The path is the
+        authority; the unit's web interface sends nothing else."""
+        url = f"{self._scheme}://{self._where()}/{path.lstrip('/')}"
+        try:
+            async with httpx.AsyncClient(
+                verify=bool(_as_bool(self.config.get("verify_ssl"))),
+                timeout=httpx.Timeout(UPLOAD_POST_TIMEOUT_S, connect=HTTPS_CONNECT_S),
+                follow_redirects=False,
+            ) as client:
+                resp = await client.post(url, files={"file": (name, body)})
+        except httpx.TransportError as exc:
+            raise self._not_responding(exc) from exc
+        if 200 <= resp.status_code < 300:
+            return
+        try:
+            error = resp.json()
+        except ValueError:
+            error = None
+        error = error if isinstance(error, dict) else {}
+        code = str(error.get("code") or f"HTTP {resp.status_code}")
+        detail = str(error.get("message") or "").strip()
+        message = f"The NETIO refused to {what} ({code}{': ' + detail if detail else ''})."
+        self.set_state("last_error", message)
+        raise NetioCommandError(message)
+
+    async def _web_restart(self) -> None:
+        """Restart the unit: system/reset from 5.2.0; on 5.1.x its web server
+        settings written back as they are. A connection gone before the
+        answer is the restart under way."""
+        try:
+            if self._fw is not None and self._fw < WEB_RESET_SINCE:
+                current = await self._web_read(WEB_SERVERS_TOPIC)
+                if not isinstance(current, dict):
+                    raise NetioCommandError("The NETIO did not report its web server settings.")
+                keys = ("httpEnable", "httpPort", "httpsEnable", "httpsPort")
+                await self._web_call("SET", WEB_SERVERS_TOPIC, {k: current.get(k) for k in keys})
+            else:
+                await self._web_call("SET", "system/reset", {"reset": True})
+        except NetioWebError as exc:
+            raise self._web_refused(exc, "restart") from exc
+        except ConnectionError:
+            if not self._dropped():
+                raise
+
+    async def _web_export(self) -> bytes:
+        """The unit's settings, as its web interface's Export Config saves them."""
+        if not self._chunked():
+            reply = await self._web_call(
+                "SET", EXPORT_LEGACY_TOPIC, extra={"data": None}, timeout=EXPORT_TIMEOUT_S,
+            )
+            data = reply.get("data") if isinstance(reply.get("data"), dict) else {}
+            config = data.get("config")
+            if config is None:
+                raise NetioCommandError("The NETIO sent back no configuration.")
+            text = config if isinstance(config, str) else json.dumps(config, indent=2, ensure_ascii=False)
+            return text.encode("utf-8")
+        sections: dict[str, Any] = {}
+        for section in EXPORT_SECTIONS:
+            reply = await self._web_call(
+                "SET", f"export/config/{section}", {}, timeout=EXPORT_TIMEOUT_S,
+            )
+            sections[section] = reply.get("data")
+        return json.dumps(sections, indent=2, ensure_ascii=False).encode("utf-8")
 
     # ── Commands ──
 
@@ -2802,6 +3290,75 @@ class NetioDriver(BaseDriver):
     async def _cmd_update_firmware_keep_outlets(self, params: dict[str, Any]) -> None:
         await self._fw_install(full=False)
 
+    async def _cmd_restart_device(self, params: dict[str, Any]) -> None:
+        self._need_web("Restarting the NETIO")
+        await self._web_restart()
+        log.info(f"[{self.device_id}] Restarting the NETIO")
+
+    async def _cmd_upload_https_certificate(self, params: dict[str, Any]) -> None:
+        self._need_web("Uploading an HTTPS certificate")
+        key_file, cert_file = params["private_key"], params["certificate"]
+        key, cert = await key_file.read(), await cert_file.read()
+        problem = certificate_pair_problem(key, cert, key_file.name, cert_file.name)
+        if problem:
+            raise NetioCommandError(problem)
+        await self._web_upload(UPLOAD_KEY_TOPIC, key_file, "take the private key", data=key)
+        await self._web_upload(UPLOAD_CERT_TOPIC, cert_file, "take the certificate", data=cert)
+        # The unit serves a new certificate only once it has restarted.
+        await self._web_restart()
+        log.info(
+            f"[{self.device_id}] Installed the HTTPS certificate {cert_file.name}; restarting the NETIO"
+        )
+
+    async def _cmd_update_firmware_from_file(self, params: dict[str, Any]) -> None:
+        self._need_web("Installing firmware from a file")
+        file = params["firmware"]
+        self._https_post_refused("firmware")
+        try:
+            uptime = await self._web_read("system/uptime")
+        except NetioWebError as exc:
+            raise self._web_refused(exc, "update its firmware") from exc
+        await self._web_upload(UPLOAD_FIRMWARE_TOPIC, file, "take the firmware", restarts=True)
+        now = time.monotonic()
+        seconds = _as_int(uptime.get("uptime")) if isinstance(uptime, dict) else None
+        self._fw_update = {
+            "doing": f"installing the firmware in {file.name}",
+            "file": file.name,
+            "started": now,
+            # When the unit last started, to tell its restart apart from a
+            # dropped connection.
+            "booted": now - (seconds or 0),
+        }
+        self._fw_offers = None
+        self.set_state("firmware_update_status", f"Installing the firmware in {file.name}")
+        log.info(
+            f"[{self.device_id}] Installing the firmware in {file.name} on the NETIO "
+            f"(now {self._fw_running()})"
+        )
+
+    async def _cmd_back_up_configuration(self, params: dict[str, Any]) -> Any:
+        self._need_web("Backing up the configuration")
+        try:
+            data = await self._web_export()
+        except NetioWebError as exc:
+            raise self._web_refused(exc, "export its configuration") from exc
+        return DeviceFile(
+            backup_name(self.get_state("device_name"), datetime.now()), data, "application/json",
+        )
+
+    async def _cmd_restore_configuration(self, params: dict[str, Any]) -> None:
+        self._need_web("Restoring a configuration")
+        file = params["configuration"]
+        self._https_post_refused("a configuration file")
+        data = await file.read()
+        problem = configuration_problem(file.name, data, self._chunked())
+        if problem:
+            raise NetioCommandError(problem)
+        await self._web_upload(
+            UPLOAD_CONFIG_TOPIC, file, "import the configuration", data=data, restarts=True,
+        )
+        log.info(f"[{self.device_id}] Restored the configuration in {file.name}; the NETIO restarts")
+
     _DISPATCH = {
         "refresh": _cmd_refresh,
         "output_on": _cmd_output_on,
@@ -2819,6 +3376,11 @@ class NetioDriver(BaseDriver):
         "check_firmware_update": _cmd_check_firmware_update,
         "update_firmware_full": _cmd_update_firmware_full,
         "update_firmware_keep_outlets": _cmd_update_firmware_keep_outlets,
+        "restart_device": _cmd_restart_device,
+        "upload_https_certificate": _cmd_upload_https_certificate,
+        "update_firmware_from_file": _cmd_update_firmware_from_file,
+        "back_up_configuration": _cmd_back_up_configuration,
+        "restore_configuration": _cmd_restore_configuration,
     }
 
     async def send_command(self, command: str, params: dict[str, Any] | None = None) -> Any:

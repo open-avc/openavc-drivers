@@ -1218,7 +1218,11 @@ class NetioDriver(BaseDriver):
                     "5.3; on 5.2.4 use the web login. Turning an output's schedule on or off needs a "
                     "schedule assigned to it in the NETIO's web interface. The first firmware check "
                     "after the NETIO starts sometimes gets no answer from NETIO's server; the driver "
-                    "asks once more."
+                    "asks once more. On 5.3.2: Restart Device over HTTP and HTTPS (the outputs stay "
+                    "on), an HTTPS certificate installed over HTTPS and then served, the "
+                    "configuration backed up and restored, and firmware installed from NETIO's 1.6 MB "
+                    "package in about 5 minutes (every output off for a moment during the install). "
+                    "A configuration file goes in more slowly, about 1.6 seconds for each 2 KB."
                 ),
             },
             {
@@ -1792,6 +1796,9 @@ class NetioDriver(BaseDriver):
         # and when it expires, for the days left.
         self._cert_fingerprint: str | None = None
         self._cert_expires: datetime | None = None
+        # Files being sent to the unit: the poll and the liveness check wait
+        # (see _web_poll).
+        self._sending_files = 0
         self._hello_device: dict[str, Any] = {}
         self._web_info: dict[str, Any] | None = None
         self._web_metered: bool | None = None
@@ -2538,7 +2545,10 @@ class NetioDriver(BaseDriver):
 
     async def _web_probe(self) -> None:
         """PING from 5.2; before it, a read of the uptime. Any answer, an error
-        included, is a live unit."""
+        included, is a live unit. While a file is going to it, every chunk
+        answered is that answer."""
+        if self._sending_files:
+            return
         if self._fw is None or self._fw >= WEB_PING_SINCE:
             await self._web_call("PING", check=False)
             return
@@ -2553,6 +2563,11 @@ class NetioDriver(BaseDriver):
             # library leaves it, and read in full when it reconnects. Outputs
             # switching are still pushed.
             self._fw_follow({})
+            return
+        if self._sending_files:
+            # A PowerPDU 4KB taking firmware chunks left a poll's read
+            # unanswered (2026-10-21), so the unit is left to the file; outputs
+            # switching are still pushed.
             return
         snapshot = await self._web_snapshot()
         self._apply_web(snapshot)
@@ -2952,18 +2967,22 @@ class NetioDriver(BaseDriver):
         except NetioWebError as exc:
             raise self._web_refused(exc, what) from exc
         opened = reply.get("data") if isinstance(reply.get("data"), dict) else {}
-        if self._chunked():
-            upload_id = opened.get("uploadId")
-            if not upload_id:
+        self._sending_files += 1
+        try:
+            if self._chunked():
+                upload_id = opened.get("uploadId")
+                if not upload_id:
+                    raise NetioCommandError(f"The NETIO did not open an upload to {what}.")
+                pieces = _pieces(data) if data is not None else file.chunks(UPLOAD_CHUNK_BYTES)
+                await self._web_send_chunks(str(upload_id), pieces, file.size, what, restarts=restarts)
+                return
+            path = opened.get("uploadPath")
+            if not path:
                 raise NetioCommandError(f"The NETIO did not open an upload to {what}.")
-            pieces = _pieces(data) if data is not None else file.chunks(UPLOAD_CHUNK_BYTES)
-            await self._web_send_chunks(str(upload_id), pieces, file.size, what, restarts=restarts)
-            return
-        path = opened.get("uploadPath")
-        if not path:
-            raise NetioCommandError(f"The NETIO did not open an upload to {what}.")
-        body = data if data is not None else await file.read()
-        await self._http_upload(str(path), file.name, body, what)
+            body = data if data is not None else await file.read()
+            await self._http_upload(str(path), file.name, body, what)
+        finally:
+            self._sending_files -= 1
 
     async def _web_send_chunks(
         self, upload_id: str, pieces: Any, total: int, what: str, *, restarts: bool,

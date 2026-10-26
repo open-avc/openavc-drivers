@@ -183,7 +183,7 @@ class SonyBraviaDriver(BaseDriver):
         "name": "Sony Bravia Display",
         "manufacturer": "Sony",
         "category": "display",
-        "version": "1.5.9",
+        "version": "1.5.10",
         # local_address(), which binds the client the Test Pre-Shared Key
         # wizard builds itself, needs 0.37.0.
         "min_platform_version": "0.37.0",
@@ -572,6 +572,9 @@ class SonyBraviaDriver(BaseDriver):
                     "psk": {
                         "type": "password",
                         "secret": True,
+                        # Start stays disabled until a key is typed: the psk
+                        # setting is required, and the TV refuses a blank key.
+                        "required": True,
                         "label": "Pre-Shared Key",
                         "help": (
                             "The PSK set on the TV under Settings > Network > "

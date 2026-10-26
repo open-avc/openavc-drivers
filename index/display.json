@@ -574,7 +574,7 @@
       "name": "Sony Bravia Display",
       "manufacturer": "Sony",
       "category": "display",
-      "version": "1.5.9",
+      "version": "1.5.10",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Sony Bravia TVs and professional displays via the JSON-RPC REST API and IRCC remote emulation. Power, input, volume, mute, navigation, media transport, app launch. Covers Android TV, Google TV, and Pro Bravia models.",
@@ -582,7 +582,7 @@
       "file": "displays/sony_bravia.py",
       "format": "python",
       "files": {
-        "displays/sony_bravia.py": "fe02cdcf4bbaa685d3067d2fa4d88943f383c3fb96566b27e078e787b73431bf",
+        "displays/sony_bravia.py": "5b59f2c4161d3c69f216fec7dfc8c69942c80b47c4bcdf63d6527977eb0d5639",
         "displays/sony_bravia_sim.py": "3d890393a8b2afd77bc274a745d995fc465475b79d4c153ed64d8674e177104f"
       },
       "ports": [

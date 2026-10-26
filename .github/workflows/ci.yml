@@ -92,5 +92,6 @@ jobs:
             tests/test_connect_lifecycle.py \
             tests/test_commands_that_erase_ask_first.py \
             tests/test_driver_defaults_agree.py \
+            tests/test_setup_fields_match_their_settings.py \
             tests/test_doc_python_examples.py \
             tests/protocol_math -v

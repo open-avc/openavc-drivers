@@ -483,7 +483,7 @@ simulator:
       'false': 'Amt0'
 ```
 
-When a `notifications` entry exists for a state variable, it takes priority over the auto-generated push for that variable. Variables without a `notifications` entry still use the automatic format.
+When a `notifications` entry covers the new value (a template for that value, or `'*'`), it replaces the auto-generated push for that change: the driver gets the notification once, not the automatic push followed by it. A value with no template, and a variable without a `notifications` entry, still use the automatic format.
 
 **Template variables:**
 - `{value}` is replaced with the new state value, as the device's own number when the variable declares `scale` or `offset`

@@ -333,7 +333,7 @@ class QSCQRCDriver(BaseDriver):
         "name": "QSC Q-SYS QRC",
         "manufacturer": "QSC",
         "category": "audio",
-        "version": "4.3.5",
+        "version": "4.3.6",
         # Set by hand (the contract check cannot see a method call): the
         # Test Connection socket binds to BaseDriver.local_address(), which
         # landed in 0.37.0 (supersedes the lifecycle-hook 0.24.0 requirement).
@@ -1055,6 +1055,11 @@ class QSCQRCDriver(BaseDriver):
                     var_def["max"] = float(ctrl["ValueMax"])
                 except (ValueError, TypeError, KeyError):
                     pass
+            # A gain is in dB on every Q-SYS component (the Core's own String
+            # reads "-41.0dB"). Declared so a fader matched to it says dB:
+            # GetControls carries no unit field, so nothing else can.
+            if type_hint == "number" and (cname == "gain" or cname.endswith(".gain")):
+                var_def["unit"] = "dB"
             schema[prop] = var_def
             str_prop = None
             if has_str:

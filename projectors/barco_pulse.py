@@ -256,7 +256,7 @@ class BarcoPulseDriver(BaseDriver):
         "name": "Barco Pulse Projector",
         "manufacturer": "Barco",
         "category": "projector",
-        "version": "1.1.4",
+        "version": "1.1.5",
         # learned_from on the MAC address setting landed in 0.37.0, and so
         # did BaseDriver.local_address(), which the Test Pulse socket binds
         # to (a method call the contract check cannot see).
@@ -1392,7 +1392,7 @@ class BarcoPulseDriver(BaseDriver):
             return await self._send_jsonrpc("system.poweron")
         try:
             woke = await self._send_wol()
-        except WakeAddressError:
+        except (WakeAddressError, OSError):
             if not connected:
                 raise
             woke = False
@@ -1413,8 +1413,9 @@ class BarcoPulseDriver(BaseDriver):
         """Wake-on-LAN to the projector's MAC: the one read on the last
         connection, else the mac_address setting. The platform's
         ``wake_on_lan`` sends the magic packet to the broadcast address and
-        to the projector's host. True when a packet went out; raises
-        WakeAddressError when the MAC filled in is not a MAC address."""
+        to the projector's host. True when a packet went out, False with no
+        MAC to send to; raises WakeAddressError when the MAC filled in is not
+        a MAC address, and the OSError when the packet could not be sent."""
         mac = (
             str(self.get_state("mac_address") or "").strip()
             or str(self.config.get("mac_address") or "").strip()
@@ -1438,8 +1439,11 @@ class BarcoPulseDriver(BaseDriver):
                 f"it under Edit Device."
             ) from None
         except OSError as exc:
+            # Raised, not swallowed: offline, this is the reason Power On
+            # did nothing, and an unplugged adapter chosen in Reach devices
+            # through says so in its own sentence.
             log.warning(f"[{self.device_id}] Wake-on-LAN send failed: {exc}")
-            return False
+            raise
         log.info(f"[{self.device_id}] Sent Wake-on-LAN packet to {mac}")
         return True
 

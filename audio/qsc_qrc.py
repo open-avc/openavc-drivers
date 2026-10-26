@@ -333,7 +333,7 @@ class QSCQRCDriver(BaseDriver):
         "name": "QSC Q-SYS QRC",
         "manufacturer": "QSC",
         "category": "audio",
-        "version": "4.3.6",
+        "version": "4.3.7",
         # Set by hand (the contract check cannot see a method call): the
         # Test Connection socket binds to BaseDriver.local_address(), which
         # landed in 0.37.0 (supersedes the lifecycle-hook 0.24.0 requirement).

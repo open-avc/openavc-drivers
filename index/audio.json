@@ -1585,7 +1585,7 @@
       "name": "QSC Q-SYS QRC",
       "manufacturer": "QSC",
       "category": "audio",
-      "version": "4.3.6",
+      "version": "4.3.7",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls QSC Q-SYS Cores via QRC (Q-SYS Remote Control) \u2014 JSON-RPC 2.0 over TCP port 1710. Auto-discovers the running design's Components and their controls on connect (no manual block list), models each Component as a typed child entity, and streams real-time state via Change Group auto-poll. Covers Component control, Named Controls, Mixer, Audio Router, Snapshot recall/save, Loop Player, and PA Router paging.",
@@ -1593,8 +1593,8 @@
       "file": "audio/qsc_qrc.py",
       "format": "python",
       "files": {
-        "audio/qsc_qrc.py": "81befbe4eca0fd7f4d345b194a1ffba066d62de4a5eba48600393500425e0e24",
-        "audio/qsc_qrc_sim.py": "9668f6f8082acffbe222245aba544b641930eff96125b0f8e2462e545dec1ab0"
+        "audio/qsc_qrc.py": "2e7aa370165a9b499dd0770e825eac5187cf290c6489cd2f39e2cb6112327ec4",
+        "audio/qsc_qrc_sim.py": "17d8f790353a948e9883ea0e6ac68835652c5eadabab5bea720a2a00f6194535"
       },
       "ports": [
         1710

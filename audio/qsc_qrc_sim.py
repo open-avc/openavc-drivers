@@ -90,9 +90,13 @@ def _build_topology() -> tuple[
                 state[(comp, spec["Name"])] = seed
         meta[comp] = (qtype, controls)
 
-    # Gain
+    # Gain. Seeded at unity, the level a commissioned design holds, not the
+    # -100 dB the captured Core's blank 'Untitled' design happened to sit at:
+    # a program gain at the floor of its range trips every low-bound monitor
+    # each time simulation starts. The mixer crosspoints below keep the
+    # capture's values, because there -100 dB is routing (not connected).
     add("PgmGain", "gain", [
-        ctrl("gain", "Float", rng=_GAIN_RANGE, seed=-100.0),
+        ctrl("gain", "Float", rng=_GAIN_RANGE, seed=0.0),
         ctrl("mute", "Boolean"), ctrl("invert", "Boolean"),
         ctrl("bypass", "Boolean"),
     ])
@@ -914,8 +918,13 @@ class QSCQRCSimulator(TCPSimulator):
                     return 0
             except Exception:
                 pass
-        if "gain" in n or "level" in n or "delay" in n or "meter" in n:
+        # A meter with no signal reads the bottom of its range. A gain or
+        # level control sits at unity, as in a commissioned design, so a
+        # low-bound monitor on it is not tripped by the simulator starting.
+        if "meter" in n:
             return -100.0
+        if "gain" in n or "level" in n or "delay" in n:
+            return 0.0
         return 0
 
     async def _autopoll_pump(self, client_id: str, gid: str) -> None:

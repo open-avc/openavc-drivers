@@ -164,6 +164,7 @@ WEB_GET_SINCE = (5, 4, 0)
 WEB_HELD_TOPICS = ("outputs/measure", "outputs/globalmeasure", "outputs/list", "inputs/list")
 WEB_STATE_TOPIC = "outputs/state"
 # A web user's sign-in refused for its credentials (PyNetioConf names both).
+# NETIO: TooManyFailLogin follows 4 failed sign-ins and lasts about 10 s at first.
 WEB_AUTH_REFUSALS = ("InvalidCredentials", "TooManyFailLogin", "Unauthorized")
 # The fields of an output's settings, all sent back on every write of them as
 # PyNetioConf does.
@@ -1133,7 +1134,7 @@ class NetioDriver(BaseDriver):
         "name": "NETIO PowerPDU, PowerBOX, PowerCable and PowerDIN",
         "manufacturer": "NETIO",
         "category": "power",
-        "version": "1.4.0",
+        "version": "1.4.1",
         "author": "OpenAVC",
         # confirm on the commands that reset, switch everything, restart or
         # update the firmware needs 0.36.0; restarts_device_for on the updates
@@ -1281,12 +1282,14 @@ class NetioDriver(BaseDriver):
             ),
             "setup": (
                 "1. Choose Connect With. The web login (firmware 5.1.3 and later) needs nothing "
-                "turned on: enter a user from the NETIO's web interface as Username and Password. A "
-                "user allowed to control outputs can switch them. Renaming an output, turning its "
-                "schedule on or off and resetting its energy counter need a user that may change "
-                "output settings. Checking for and installing firmware updates, restarting the unit, "
-                "its HTTPS certificate and backing up or restoring its configuration need a user "
-                "that may change the unit's settings, such as an administrator.\n"
+                "turned on: enter a user from the NETIO's web interface as Username and Password. "
+                "After 4 failed sign-ins, the NETIO locks its web login for about 10 seconds at "
+                "first. A user allowed to control outputs can switch them. Renaming an output, "
+                "turning its schedule on or off and resetting its energy counter need a user that "
+                "may change output settings. Checking for and installing firmware updates, "
+                "restarting the unit, its HTTPS certificate and backing up or restoring its "
+                "configuration need a user that may change the unit's settings, such as an "
+                "administrator.\n"
                 "2. For the JSON API instead, open M2M API Protocols in the NETIO's web interface, "
                 "then the JSON API tab. Turn on Enable JSON API, Enable READ-ONLY and Enable WRITE, "
                 "and save. The unit restarts its web server, so it answers errors for a few "

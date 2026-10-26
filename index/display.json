@@ -12,7 +12,7 @@
       "name": "BenQ Display",
       "manufacturer": "BenQ",
       "category": "display",
-      "version": "1.2.2",
+      "version": "1.2.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls BenQ interactive flat panels (BenQ Boards: RM, RP, RE, CP, CM series) and BenQ Smart Signage using BenQ's RS232 & LAN protocol on TCP port 4660 or direct RS-232. Power and screen off, source select, volume, mute and audio EQ, picture values and modes, backlight, color temperature, aspect, remote-key navigation, IR and keypad locks, power save, and a Power On that wakes a standby display over Wake-on-LAN. Polls for status.",
@@ -20,7 +20,7 @@
       "file": "displays/benq_display.py",
       "format": "python",
       "files": {
-        "displays/benq_display.py": "004d5484ddf43bed653684c6a924d49c89cb0846cce8f8d1688bd16a656d49cf",
+        "displays/benq_display.py": "4e5c179efcd8354299c8e64f247fbf29698303ece332932ed4efa090aa4d6407",
         "displays/benq_display_sim.py": "419940ec6fc818136d1d04dca4e53e20bad2ffb31c8a87ae6e34f17527673ffb"
       },
       "ports": [

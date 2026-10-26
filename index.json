@@ -1753,7 +1753,7 @@
       "name": "Barco Pulse Projector",
       "manufacturer": "Barco",
       "category": "projector",
-      "version": "1.1.3",
+      "version": "1.1.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Barco Pulse-platform laser projectors (F70 / F80 / F90, UDX, UDM, HDX 4K, I600, G62 / G100, XDL and other Pulse models) over the Pulse JSON-RPC API on TCP 9090. Live push updates for power, source, shutter, laser power and picture settings; source picker built from the projector's own input list; lens shift / zoom / focus; test patterns; environment temperatures; and a raw property/method escape hatch for the full Pulse API.",
@@ -1761,7 +1761,7 @@
       "file": "projectors/barco_pulse.py",
       "format": "python",
       "files": {
-        "projectors/barco_pulse.py": "4a7dc3201d7dc4a7cafaa43128a8a77871b1b7e696459a2125c5d44628b75280",
+        "projectors/barco_pulse.py": "5f6abcd10ef78e35f2fad79f80ae86b0e1a8c8891224983b3f3281c19f3fe3ee",
         "projectors/barco_pulse_sim.py": "4f87820c7c9d18294a059a3f25b163334ef66a126e8d52a52592908090c6d0fa"
       },
       "ports": [
@@ -1900,7 +1900,7 @@
       "name": "BenQ Display",
       "manufacturer": "BenQ",
       "category": "display",
-      "version": "1.2.2",
+      "version": "1.2.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls BenQ interactive flat panels (BenQ Boards: RM, RP, RE, CP, CM series) and BenQ Smart Signage using BenQ's RS232 & LAN protocol on TCP port 4660 or direct RS-232. Power and screen off, source select, volume, mute and audio EQ, picture values and modes, backlight, color temperature, aspect, remote-key navigation, IR and keypad locks, power save, and a Power On that wakes a standby display over Wake-on-LAN. Polls for status.",
@@ -1908,7 +1908,7 @@
       "file": "displays/benq_display.py",
       "format": "python",
       "files": {
-        "displays/benq_display.py": "004d5484ddf43bed653684c6a924d49c89cb0846cce8f8d1688bd16a656d49cf",
+        "displays/benq_display.py": "4e5c179efcd8354299c8e64f247fbf29698303ece332932ed4efa090aa4d6407",
         "displays/benq_display_sim.py": "419940ec6fc818136d1d04dca4e53e20bad2ffb31c8a87ae6e34f17527673ffb"
       },
       "ports": [

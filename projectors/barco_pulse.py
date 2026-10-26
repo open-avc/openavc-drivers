@@ -256,7 +256,7 @@ class BarcoPulseDriver(BaseDriver):
         "name": "Barco Pulse Projector",
         "manufacturer": "Barco",
         "category": "projector",
-        "version": "1.1.3",
+        "version": "1.1.4",
         # learned_from on the MAC address setting landed in 0.37.0, and so
         # did BaseDriver.local_address(), which the Test Pulse socket binds
         # to (a method call the contract check cannot see).
@@ -1390,7 +1390,12 @@ class BarcoPulseDriver(BaseDriver):
         connected = bool(self.transport and self.transport.connected)
         if connected and self.get_state("power_state") != "eco":
             return await self._send_jsonrpc("system.poweron")
-        woke = await self._send_wol()
+        try:
+            woke = await self._send_wol()
+        except WakeAddressError:
+            if not connected:
+                raise
+            woke = False
         if connected:
             return await self._send_jsonrpc("system.poweron")
         if not woke:
@@ -1408,19 +1413,30 @@ class BarcoPulseDriver(BaseDriver):
         """Wake-on-LAN to the projector's MAC: the one read on the last
         connection, else the mac_address setting. The platform's
         ``wake_on_lan`` sends the magic packet to the broadcast address and
-        to the projector's host. True when a packet went out."""
+        to the projector's host. True when a packet went out; raises
+        WakeAddressError when the MAC filled in is not a MAC address."""
         mac = (
             str(self.get_state("mac_address") or "").strip()
             or str(self.config.get("mac_address") or "").strip()
         )
-        try:
-            await self.wake_on_lan(mac)
-        except ValueError:
+        if not mac:
             log.warning(
                 f"[{self.device_id}] No MAC address known — cannot send "
                 "Wake-on-LAN for ECO wake-up"
             )
             return False
+        try:
+            await self.wake_on_lan(mac)
+        except ValueError:
+            log.warning(
+                f"[{self.device_id}] '{mac}' is not a MAC address — cannot "
+                "send Wake-on-LAN for ECO wake-up"
+            )
+            raise WakeAddressError(
+                f"The projector cannot be woken: '{mac}' is not a MAC address "
+                f"(six pairs of hex digits, like AA:BB:CC:DD:EE:FF). Correct "
+                f"it under Edit Device."
+            ) from None
         except OSError as exc:
             log.warning(f"[{self.device_id}] Wake-on-LAN send failed: {exc}")
             return False

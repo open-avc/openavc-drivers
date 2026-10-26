@@ -244,7 +244,7 @@ class BenqDisplayDriver(BaseDriver):
         "name": "BenQ Display",
         "manufacturer": "BenQ",
         "category": "display",
-        "version": "1.2.2",
+        "version": "1.2.3",
         "author": "OpenAVC",
         "description": (
             "Controls BenQ interactive flat panels (BenQ Boards: RM, RP, RE, "
@@ -1048,15 +1048,23 @@ class BenqDisplayDriver(BaseDriver):
             or str(self.config.get("mac_address") or "").strip()
         )
         woke = False
+        not_a_mac = False
         if mac:
             try:
                 await self.wake_on_lan(mac)
                 woke = True
             except ValueError as exc:
+                not_a_mac = True
                 log.warning(f"[{self.device_id}] Wake-on-LAN skipped: {exc}")
         if self.transport and self.transport.connected:
             await self._set(SET_POWER, "001")
             return True
+        if not_a_mac:
+            raise WakeAddressError(
+                f"The display cannot be woken: '{mac}' is not a MAC address "
+                f"(six pairs of hex digits, like AA:BB:CC:DD:EE:FF). Correct "
+                f"it under Edit Device."
+            )
         if not woke:
             raise WakeAddressError(
                 "The display is offline and no MAC address is known, so it "

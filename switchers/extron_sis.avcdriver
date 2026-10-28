@@ -56,7 +56,11 @@
 #
 # Power save (DXP HD 4K PLUS guide p. 26 and p. 51): Esc {n}PSAV<CR> answers
 # "Psav{n}". Mode 1 ends at any SIS command, a front panel press or a power
-# cycle, so the poll is held while the switcher reports mode 1. Mode 2 answers
+# cycle (the DXP guide also lists only Esc 0PSAV, the front panel, PCS and a
+# power cycle on p. 51; a DSC 301 HD leaves it only at Esc 0PSAV or a front
+# panel press, and has no mode 2 and no verbose mode, so it never answers the
+# Vrb3 the reset rule reads), so the poll is held while the switcher reports
+# mode 1. Mode 2 answers
 # viewing commands and ends only at Esc 0PSAV<CR>, so the poll runs. The view
 # Esc PSAV<CR> is documented as answering the bare digit; whether verbose
 # mode 3 tags it "Psav{n}" is not verified. A unit without power save answers
@@ -303,7 +307,7 @@ state_variables:
     min: 0
     max: 2
     label: Auto-Input Switching
-    help: "0 off (manual switching), 1 the highest-priority active input, 2 the most recently connected input. Select Input is refused while it is not 0 (SW HD 4K PLUS)."
+    help: "0 off (manual switching), 1 or 2 an automatic mode (the Auto-Input Switching setting says which input each picks). Select Input is refused while it is not 0 (SW HD 4K PLUS, DSC scalers)."
   last_error:
     type: string
     label: Last Error
@@ -462,7 +466,7 @@ commands:
   set_volume:
     label: Set Volume
     send: "{level}V"
-    help: "Set the audio volume level (single-output devices)."
+    help: "Set the audio volume level on a presentation switcher with a volume control, such as the IN Series. The SW HD 4K PLUS and DSC scalers have none."
     params:
       level:
         type: integer
@@ -534,7 +538,7 @@ commands:
   output_video_sync_mute_on:
     label: Output Video and Sync Mute On
     send: "{output}*2B"
-    help: "Mute an output's video and stop its sync, so the display shows no signal (matrix switchers). Output Video Mute Off restores it."
+    help: "Mute an output's video and stop its sync, so the display shows no signal (DXP; the XTP CrossPoint and CrossPoint 450 have video mute only). Output Video Mute Off restores it."
     params:
       output:
         type: integer
@@ -564,10 +568,13 @@ commands:
         label: Output Number
         min: 1
 
+  # Global presets: {n}. recalls, {n}, saves ("Rpr{n}" / "Spr{n}"; DXP guide,
+  # CrossPoint 450 Plus guide "9," -> "Spr09"). On an XTP CrossPoint those forms
+  # are analog input presets; its global presets are the PRST commands below.
   recall_preset:
     label: Recall Preset
     send: "{preset}."
-    help: "Recall a saved routing preset. The valid preset range is model-specific (e.g. 16 global presets on DXP HD 4K PLUS; more on larger frames) — the device rejects an invalid number."
+    help: "Recall a saved routing preset (DXP, CrossPoint; on an XTP CrossPoint use Recall Preset (XTP)). The valid preset range is model-specific (e.g. 16 global presets on DXP HD 4K PLUS; more on larger frames) — the device rejects an invalid number."
     params:
       preset:
         type: integer
@@ -577,8 +584,32 @@ commands:
 
   save_preset:
     label: Save Preset
-    send: "{preset},."
-    help: "Save the current routing configuration to a preset. The valid preset range is model-specific."
+    send: "{preset},"
+    help: "Save the current routing configuration to a preset (DXP, CrossPoint; on an XTP CrossPoint use Save Preset (XTP)). The valid preset range is model-specific."
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Preset Number
+        min: 1
+
+  # XTP CrossPoint global presets (XTP guide): Esc R{n}PRST<CR> -> "PrstR{nn}",
+  # Esc S{n}PRST<CR> -> "PrstS{nn}".
+  recall_preset_xtp:
+    label: Recall Preset (XTP)
+    send: "\x1bR{preset}PRST\r"
+    help: "Recall a saved global preset on an XTP CrossPoint. The switcher refuses one that was never saved."
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Preset Number
+        min: 1
+
+  save_preset_xtp:
+    label: Save Preset (XTP)
+    send: "\x1bS{preset}PRST\r"
+    help: "Save the current ties to a global preset on an XTP CrossPoint."
     params:
       preset:
         type: integer
@@ -596,7 +627,7 @@ commands:
     label: Power Save Mode 1
     send: "\x1b1PSAV\r"
     sets: { power_save: 1 }
-    help: "Low power: everything but control stops and the fans slow. Polling pauses until Power Save Off is sent. A front panel press or any other command also ends this mode, but polling stays paused until Power Save Off, or until the switcher reconnects after a power cycle. While polling is paused, nothing notices the switcher going offline."
+    help: "Low power: everything but control stops and the fans slow. Polling pauses until Power Save Off is sent. On a DXP a front panel press or any other command also ends this mode (a DSC scaler leaves it only at Power Save Off or a front panel press), but polling stays paused until Power Save Off, or until the switcher reconnects after a power cycle. While polling is paused, nothing notices the switcher going offline."
 
   power_save_2:
     label: Power Save Mode 2
@@ -626,14 +657,14 @@ device_settings:
   auto_switch:
     type: enum
     label: Auto-Input Switching
-    help: "Off for manual switching; Select Input is refused in the other two modes."
+    help: "Off for manual switching; Select Input is refused in the other two modes. Mode 1: on an SW HD 4K PLUS the priority order set on the switcher (else the highest active input), on a DSC scaler the highest input. Mode 2: on an SW HD 4K PLUS the most recently connected input, on a DSC scaler the lowest input."
     state_key: auto_switch
     default: 0
     setup: false
     values:
       - { value: "0", label: "Off (manual switching)" }
-      - { value: "1", label: "Highest-priority active input" }
-      - { value: "2", label: "Most recently connected input" }
+      - { value: "1", label: "Mode 1" }
+      - { value: "2", label: "Mode 2" }
     write:
       send: "\x1b{value}AUSW\r"
 
@@ -646,7 +677,9 @@ responses:
   - match: '^Out(\d+) In(\d+) All$'
     child_set:
       - { type: output, id: "$1", state: { input: "$2", audio_input: "$2" } }
-  - match: '^Out(\d+) In(\d+) Vid$'
+  # "RGB": the XTP CrossPoint and CrossPoint 450 answer an & tie (video only,
+  # the same as %) with "Out04 In10 RGB".
+  - match: '^Out(\d+) In(\d+) (?:Vid|RGB)$'
     child_set:
       - { type: output, id: "$1", state: { input: "$2" } }
   - match: '^Out(\d+) In(\d+) Aud$'
@@ -656,7 +689,7 @@ responses:
   # Input select / input-to-all ack: "In1 All" (also "In1 Vid"/"In1 Aud"
   # from breakaway-to-all forms). Single-output devices report their
   # selected input here.
-  - match: '^In(\d+) (?:All|Vid|Aud)$'
+  - match: '^In(\d+) (?:All|Vid|Aud|RGB)$'
     set: { input: "$1" }
 
   # The SW HD 4K PLUS answer to the polled Information request I (guide
@@ -672,6 +705,16 @@ responses:
         map: { "1": true, "0": false }
       - state: video_mute
         group: 4
+        type: boolean
+        map: { "2": true, "1": true, "0": false }
+  # The DSC 301 HD answer to I (guide, Information Requests): "Vid{i} Typ{t} Std{s} Blk{m}
+  # Hrt{h} Vrt{v}", input and video mute (Blk 1 = to black, 2 = video and
+  # sync). The DSC has no verbose mode, so it is never tagged.
+  - match: '^Vid(\d+) Typ\S+ Std\S+ Blk([0-2]) Hrt\S+ Vrt\S+$'
+    set: { input: "$1" }
+    mappings:
+      - state: video_mute
+        group: 2
         type: boolean
         map: { "2": true, "1": true, "0": false }
   - match: '^Afmt([01])$'
@@ -825,11 +868,26 @@ responses:
     only_when: { key: power_save, operator: eq, value: 1 }
     set: { power_save: 0 }
 
-  # Signal presence notification (single-output devices; 0=no signal)
-  - match: 'Sig1'
+  # Signal status (SW HD 4K PLUS guide p. 24, "Sig0 0 0 0*0" on an SW4 1.02):
+  # one digit per input, then "*" and the output's. The output's is the
+  # active input's signal. Anchored: unanchored "Sig0" matched inside a list
+  # whose active input had a signal ("Sig0 1 0 0*1").
+  - match: '^Sig[01](?: [01])*\*([01])$'
+    mappings:
+      - state: signal_active
+        group: 1
+        type: boolean
+        map: { "1": true, "0": false }
+  - match: '^Sig1$'
     set: { signal_active: true }
-  - match: 'Sig0'
+  - match: '^Sig0$'
     set: { signal_active: false }
+
+  # Preset acknowledgements, read so a recall or save is not an unread reply:
+  # "Rpr05" / "Spr09" (DXP, CrossPoint; Rpr also when a preset is recalled at
+  # the front panel), "PrstR05" / "PrstS08" (XTP).
+  - match: '^(?:Rpr|Spr|PrstR|PrstS)\d+$'
+    set: {}
 
   # Matrix size, the reply to the polled Information request "I"
   # (DXP HD 4K PLUS guide, "General information"): "V8X4 A8X2", prefixed
@@ -1133,8 +1191,13 @@ simulator:
     # Preset recall/save
     - receive: '(\d+)\.'
       respond: "Rpr{1}\r\n"
-    - receive: '(\d+),\.'
+    - receive: '(\d+),'
       respond: "Spr{1}\r\n"
+    # XTP CrossPoint global presets
+    - receive: '\x1bR(\d+)PRST.*'
+      respond: "PrstR{1}\r\n"
+    - receive: '\x1bS(\d+)PRST.*'
+      respond: "PrstS{1}\r\n"
 
   error_modes:
     communication_timeout:

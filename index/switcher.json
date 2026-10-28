@@ -777,7 +777,7 @@
       "file": "switchers/extron_sis.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/extron_sis.avcdriver": "40c8720084332583335509123ef272dab654516004938f5003bd9cdf2ede87bf"
+        "switchers/extron_sis.avcdriver": "6927a25eb4013f6a7e43f69b5a116f63de1d3263919f11bfaef54cfc56d199fa"
       },
       "ports": [
         23

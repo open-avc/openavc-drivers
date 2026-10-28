@@ -78,6 +78,7 @@ The command-to-state link normally comes from naming conventions (`power_on` set
 
 - The simulated roster comes from the type's `instances:` rule resolved against the device config, from any dotted keys you seed in `simulator: initial_state`, and from the project's configured children.
 - A per-child poll entry that declares its pairing — `{ each_child: output, send: "{child_id}%", query_for: input }` — is answered from each child's own state, with the reply text derived from your `child_set:` response rules.
+- A response rule's `then_query:` entries (platform 0.38.0) are answered the same way as poll entries. One sent once whose `{child_id}` names the child the rule writes is answered for every child of that type.
 - A list read is answered with every child it covers, in the shape of your `child_list:` rule: a query sent once with `query_for: output.input`, or a per-child entry with `page_size:`, answered from the child it names onward. One item that carries two of a child's values (a single digit for both mutes) cannot be written from one variable, so give that query a `command_handlers` entry.
 - A command with exactly one `child_id` parameter applies its `sets:` / `query_for` (naming the child type's state variables) to the addressed child, and answers from that child's state. A command addressing a child outside the roster goes unanswered, like real hardware ignoring a port it doesn't have.
 

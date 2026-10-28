@@ -3341,7 +3341,7 @@
       "file": "switchers/extron_dtp_crosspoint.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/extron_dtp_crosspoint.avcdriver": "b6ede97874d0a87cb54c01839f05667cab5a176aa04c65430c192c566aaf7b94"
+        "switchers/extron_dtp_crosspoint.avcdriver": "12c7d530d4332235c6f9f8ada172f2f2196a6970c9e1eaebb0e565a371f8194c"
       },
       "ports": [
         23
@@ -3371,13 +3371,13 @@
             "DTP CrossPoint 84 4K",
             "DTP CrossPoint 82 4K",
             "DTP CrossPoint 108 4K IPCP SA",
-            "DTP CrossPoint 108 4K IPCP MA 70",
+            "DTP CrossPoint 108 4K IPCP MA",
             "DTP CrossPoint 86 4K IPCP SA",
-            "DTP CrossPoint 86 4K IPCP MA 70",
+            "DTP CrossPoint 86 4K IPCP MA",
             "DTP CrossPoint 84 4K IPCP SA",
-            "DTP CrossPoint 84 4K IPCP MA 70",
+            "DTP CrossPoint 84 4K IPCP MA",
             "DTP CrossPoint 82 4K IPCP SA",
-            "DTP CrossPoint 82 4K IPCP MA 70"
+            "DTP CrossPoint 82 4K IPCP MA"
           ],
           "confidence": "untested",
           "notes": "Built from Extron's user guide; not yet tested on a switcher. A new unit's password is its serial number: enter it in Password. The switcher reports its size when it connects and the output and input settings fill in. The IPCP models' built-in control processor is a separate device at its own address and is not controlled by this driver.\n"

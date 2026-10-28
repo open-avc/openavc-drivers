@@ -97,13 +97,13 @@ compatible_models:
       - DTP CrossPoint 84 4K
       - DTP CrossPoint 82 4K
       - DTP CrossPoint 108 4K IPCP SA
-      - DTP CrossPoint 108 4K IPCP MA 70
+      - DTP CrossPoint 108 4K IPCP MA
       - DTP CrossPoint 86 4K IPCP SA
-      - DTP CrossPoint 86 4K IPCP MA 70
+      - DTP CrossPoint 86 4K IPCP MA
       - DTP CrossPoint 84 4K IPCP SA
-      - DTP CrossPoint 84 4K IPCP MA 70
+      - DTP CrossPoint 84 4K IPCP MA
       - DTP CrossPoint 82 4K IPCP SA
-      - DTP CrossPoint 82 4K IPCP MA 70
+      - DTP CrossPoint 82 4K IPCP MA
     confidence: untested
     notes: >
       Built from Extron's user guide; not yet tested on a switcher. A new unit's
@@ -357,14 +357,15 @@ state_variables:
     label: Last Error
     help: "Why the switcher refused the last command, when it says so."
 
-# Two switching planes: video and audio, tied together or broken away.
+# Two switching planes. A press on the Video plane ties video and audio
+# together, as the front panel does; the Audio plane breaks audio away.
 routing:
   destination_child_type: output
   source_child_type: input
   planes:
     - label: Video
       route_property: input
-      command: route_video
+      command: route
     - label: Audio
       route_property: audio_input
       command: route_audio

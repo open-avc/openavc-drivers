@@ -729,7 +729,7 @@
     },
     {
       "manufacturer": "Extron",
-      "model": "DTP CrossPoint 108 4K IPCP MA 70",
+      "model": "DTP CrossPoint 108 4K IPCP MA",
       "category": "switcher",
       "drivers": [
         {
@@ -765,7 +765,7 @@
     },
     {
       "manufacturer": "Extron",
-      "model": "DTP CrossPoint 82 4K IPCP MA 70",
+      "model": "DTP CrossPoint 82 4K IPCP MA",
       "category": "switcher",
       "drivers": [
         {
@@ -801,7 +801,7 @@
     },
     {
       "manufacturer": "Extron",
-      "model": "DTP CrossPoint 84 4K IPCP MA 70",
+      "model": "DTP CrossPoint 84 4K IPCP MA",
       "category": "switcher",
       "drivers": [
         {
@@ -837,7 +837,7 @@
     },
     {
       "manufacturer": "Extron",
-      "model": "DTP CrossPoint 86 4K IPCP MA 70",
+      "model": "DTP CrossPoint 86 4K IPCP MA",
       "category": "switcher",
       "drivers": [
         {

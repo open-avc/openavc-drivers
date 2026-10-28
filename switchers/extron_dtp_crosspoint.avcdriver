@@ -1,0 +1,1372 @@
+# Extron DTP CrossPoint 4K Series (SIS) Driver
+#
+# Controls the DTP CrossPoint 4K scaling presentation matrix switchers
+# (108, 86, 84 and 82, with or without the IPCP Pro control processor) over
+# Telnet (port 23) or the rear RS-232 port (9600 8N1).
+#
+# Source: DTP CrossPoint 4K Series User Guide, 68-2368-02 Rev. R (05/25),
+# "Remote Configuration and Control" (pp. 59-77) and "DSP SIS Commands"
+# (pp. 158-167). Page numbers below are the guide's printed page numbers.
+#
+# Why YAML: SIS is line-oriented text and verbose mode 3 makes every reply
+# say what it is. The guide (p. 76): "If tagged responses is enabled (modes 2
+# and 3), all read commands return the constant string and the value as the
+# set command does". So a tie read "3%" answers "Out03 In01 Vid" like the tie
+# itself, and no reply needs to be matched to the query that asked for it.
+# The driver sends Esc 3CV at connect; mode 3 also turns on the change
+# notices (front panel ties, presets, the volume knobs, the lock).
+#
+# Push and poll: hybrid. The switcher announces front panel changes in mode 3
+# (p. 62): "Qik" (a front panel tie; the tie itself is not given, so the
+# poll reads it), "Rpr{nn}" (a preset recalled), "GrpmD{n}*{y}" (the Volume
+# or Mic Volume knob turned) and "Exe{n}" (the lock changed). Ties, mutes,
+# signals and HDCP are polled.
+#
+# Sizes and output numbering (pp. 12, 63-67). The four sizes differ in more
+# than their counts: on every size but the 108, outputs 3 and up are pairs,
+# one tie output driving an HDMI connector (A) and a DTP connector (B) with
+# the same picture and sound. Ties take the output number (3); video mutes
+# and output HDCP take the connector (3A, 3B). So outputs and output
+# connectors are two child types:
+#
+#   size  inputs  tie outputs  output connectors (bulk-view order)
+#   108   10      1-8          1, 2, 3, 4, 5A, 5B, 6A, 6B, 7, 8
+#   86     8      1-6          1, 2, 3A, 3B, 4A, 4B, 5, 6
+#   84     8      1-4          1, 2, 3A, 3B, 4A, 4B
+#   82     8      1-2          1A, 1B, 2A, 2B
+#
+# The size is read from two replies whose length the guide documents per
+# size: every connector's video mute (Esc VM, "Mut" + 10, 8, 6 or 4 digits,
+# p. 67) and every input's sync (0LS, "Frq00 " + 10 or 8 digits, p. 68).
+# Each length has its own rule, which also says which connector each digit
+# is. The Information request I names the model; the guide shows only
+# "DTPCP108", so the other names are not relied on.
+#
+# Password (pp. 60-62): Extron sets every account's password to the unit's
+# serial number at the factory. On port 23 a protected unit sends its
+# copyright line, then "Password:"; the right password gets "Login
+# Administrator" or "Login User", a wrong one the prompt again. The guide
+# sends the prompt only on TCP/IP or Telnet connections, never on RS-232.
+# The login is extron_sis 1.12.0's, proven on an SW4 HD 4K PLUS (see that
+# driver): the platform's telnet_login answers a username prompt and then a
+# password prompt, so the password is typed at the first prompt
+# (username_field: password), the second "prompt" is the line break that
+# opens the answer, a bare CR goes, and "Login " confirms it.
+#
+# Audio (pp. 64, 66, 105, 114, 167): the matrix has no per-output volume or
+# mute command. Volume is the DSP's group masters: group 1 is Program Volume
+# and group 2 Mic Volume by factory default, in 0.1 dB from -100 to +12 dB,
+# and the front panel knobs move them. A group can be redefined as a mute
+# group in DSP Configurator, and "Esc D{g}GRPM" then answers 0 or 1, so each
+# group's type is read before its level is believed. An output's embedded
+# audio is turned off with its audio source ("none", Esc O{out}*2AFMT). The
+# DSP object IDs (AU) are left out: the guide gives them for the 108 only,
+# says other sizes use other numbers without giving them, and three of its
+# own examples disagree with its tables.
+#
+# Not in the guide's command set: unit power or standby, saving a global
+# preset (presets are made in DSP Configurator or PCS, p. 68), and power to a
+# DTP endpoint.
+
+id: extron_dtp_crosspoint
+name: Extron DTP CrossPoint 4K
+manufacturer: Extron
+category: switcher
+version: 1.0.0
+author: OpenAVC
+min_platform_version: "0.37.0"
+description: >
+  Controls Extron DTP CrossPoint 4K scaling presentation matrix switchers
+  (108, 86, 84, 82, and the IPCP SA and MA models). Every output, output
+  connector and input is a child entity: ties, video mutes, each output's
+  audio, signal and HDCP status, plus the Program and Mic Volume group
+  masters in dB, presets and the front panel lock. Works over Telnet (port
+  23) or RS-232 (9600 8N1), with the switcher's password.
+
+source_url: https://media.extron.com/public/download/files/userman/68-2368-02_R.pdf
+tags: [matrix-switcher, scaler, dtp, sis, presentation-switcher]
+verified: false
+simulated: true
+protocols: [extron_sis]
+ports: [23]
+compatible_models:
+  - manufacturer: Extron
+    models:
+      - DTP CrossPoint 108 4K
+      - DTP CrossPoint 86 4K
+      - DTP CrossPoint 84 4K
+      - DTP CrossPoint 82 4K
+      - DTP CrossPoint 108 4K IPCP SA
+      - DTP CrossPoint 108 4K IPCP MA 70
+      - DTP CrossPoint 86 4K IPCP SA
+      - DTP CrossPoint 86 4K IPCP MA 70
+      - DTP CrossPoint 84 4K IPCP SA
+      - DTP CrossPoint 84 4K IPCP MA 70
+      - DTP CrossPoint 82 4K IPCP SA
+      - DTP CrossPoint 82 4K IPCP MA 70
+    confidence: untested
+    notes: >
+      Built from Extron's user guide; not yet tested on a switcher. A new unit's
+      password is its serial number: enter it in Password. The switcher reports
+      its size when it connects and the output and input settings fill in. The
+      IPCP models' built-in control processor is a separate device at its own
+      address and is not controlled by this driver.
+
+transport: tcp
+transports: [tcp, serial]
+delimiter: "\r\n"
+
+help:
+  overview: >
+    Controls an Extron DTP CrossPoint 4K matrix switcher. Each output, output
+    connector and input becomes a child entity: what each output is tied to,
+    each connector's video mute and the display it sees, each input's signal,
+    and the Program and Mic Volume levels in dB. On every size but the 108,
+    outputs 3 and up are pairs: one output drives an HDMI connector (A) and a
+    DTP connector (B) with the same picture. Ties use the output number, and
+    video mutes use the connector, so each half can be muted on its own.
+  setup: >
+    1. Connect the switcher to the network, or to its rear RS-232 port (9600
+    8N1) directly or through a bridge. A new switcher is at 192.168.254.254
+    with DHCP off; give it an address on your network first.
+    2. Use port 23 for network control.
+    3. Enter the switcher's password in Password. A new unit's password is
+    its serial number, printed on its label. Leave Password blank if the
+    switcher has no password, and always on RS-232, which never asks for one.
+    4. The switcher reports its size when it connects, and Inputs, Outputs and
+    Output Connectors fill in. To build a project before the switcher is
+    connected, set all three to its model (an 84 is the default).
+    5. Volume and Mic Volume are the switcher's group masters 1 and 2, as it
+    leaves the factory. If they were set up differently in DSP Configurator,
+    the levels stay blank and the group commands still work.
+
+discovery:
+  # The copyright line the switcher sends the moment a connection opens
+  # (p. 61): "(c) Copyright 20yy, Extron Electronics, DTPCPxx, Vx.xx,
+  # 60-nnnn-nn", where DTPCPxx is the model name. The probe sends nothing.
+  # extron_sis's probe reads any Extron banner and also matches; the two
+  # tie on driver id and this one sorts first, so a scan offers it first.
+  tcp_probe:
+    port: 23
+    expect_regex: '(?:©|\(c\))[^\n]*?\d{4}[^\n]*?Extron\s+Electronics,\s*DTPCP\d+'
+    extract_manufacturer: "Extron"
+    extract:
+      model:
+        regex: '(DTPCP\d+)'
+      firmware:
+        regex: 'V(\d+\.\d+(?:\.\d+)?)'
+  oui:
+    - "00:05:a6"
+
+default_config:
+  host: ""
+  port: 23
+  baudrate: 9600
+  password: ""
+  input_count: 8
+  output_count: 4
+  connector_ids: "1,2,3A,3B,4A,4B"
+  poll_interval: 10
+  inter_command_delay: 0.1
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 23
+    label: Port
+  baudrate:
+    type: integer
+    default: 9600
+    label: Baud Rate (serial)
+    description: "The rear RS-232 port runs at 9600 8N1 unless it was changed on the switcher."
+  password:
+    type: string
+    secret: true
+    default: ""
+    label: Password
+    description: >
+      The switcher's administrator or user password. A new unit's password
+      is its serial number. Leave blank if the switcher has no password, and
+      on RS-232.
+  input_count:
+    type: integer
+    default: 8
+    min: 1
+    max: 10
+    label: Inputs
+    learned_from: matrix_inputs
+    description: >
+      Inputs on the switcher: 10 on a 108, 8 on the others. Each becomes an
+      Input child. The switcher reports it when it connects, and it is saved
+      here.
+  output_count:
+    type: integer
+    default: 4
+    min: 1
+    max: 8
+    label: Outputs
+    learned_from: matrix_outputs
+    description: >
+      Outputs a tie can go to: 8 on a 108, 6 on an 86, 4 on an 84, 2 on an 82.
+      Each becomes an Output child. The switcher reports it when it connects,
+      and it is saved here.
+  connector_ids:
+    type: enum
+    default: "1,2,3A,3B,4A,4B"
+    label: Output Connectors
+    learned_from: matrix_connectors
+    values:
+      - { value: "1,2,3,4,5A,5B,6A,6B,7,8", label: "DTP CrossPoint 108: 1, 2, 3, 4, 5A/5B, 6A/6B, 7, 8" }
+      - { value: "1,2,3A,3B,4A,4B,5,6", label: "DTP CrossPoint 86: 1, 2, 3A/3B, 4A/4B, 5, 6" }
+      - { value: "1,2,3A,3B,4A,4B", label: "DTP CrossPoint 84: 1, 2, 3A/3B, 4A/4B" }
+      - { value: "1A,1B,2A,2B", label: "DTP CrossPoint 82: 1A/1B, 2A/2B" }
+    description: >
+      The switcher's output connectors. A paired output has an HDMI connector
+      (A) and a DTP connector (B). Each connector becomes an Output Connector
+      child with its own video mute. The switcher reports them when it
+      connects, and they are saved here.
+  poll_interval:
+    type: integer
+    default: 10
+    min: 0
+    label: Poll Interval (sec)
+  inter_command_delay:
+    type: number
+    default: 0.1
+    label: Inter-Command Delay (sec)
+
+# Verbose mode 3 first: change notices on, and every read answers tagged
+# (p. 76). Then the model and firmware, and the settings that change only
+# from a configuration program: each input's HDCP authorization and audio
+# source, and each connector's HDCP mode.
+on_connect:
+  - "\x1b3CV\r"
+  - { send: "I", query_for: model }
+  - { send: "Q", query_for: firmware }
+  - { each_child: input, send: "\x1bE{child_id}HDCP\r", query_for: hdcp_authorized }
+  - { each_child: input, send: "\x1bI{child_id}AFMT\r", query_for: audio_source }
+  - { each_child: connector, send: "\x1bS{child_id}HDCP\r", query_for: hdcp_mode }
+
+# The password login, typed at the first prompt (see the header). The second
+# "prompt" is the line break that opens the switcher's answer, and the second
+# credential is a config field no driver sets, so only the line ending goes:
+# a bare CR, which an Extron switcher ignores after a good login (measured on
+# an SW4 HD 4K PLUS 1.02 for extron_sis). telnet_login skips the login while
+# the field it types first (here the password) is blank. A refusal is the
+# prompt again, never "Login ", so it fails as a refused login once
+# timeout_seconds pass.
+auth:
+  type: telnet_login
+  username_prompt: "Password:"
+  username_field: password
+  password_prompt: "\r\n"
+  password_field: unused_second_line
+  success_pattern: "Login "
+  line_ending: "\r"
+  timeout_seconds: 5
+
+# Over the network a poll nothing answers takes the switcher offline. A
+# direct RS-232 link has no such check, so the system status (S, p. 69),
+# which the switcher answers whatever its setup, is asked on its own clock
+# too, and any reply counts. The switcher has no power save or standby for
+# it to end.
+liveness:
+  send: "S"
+  interval: 30
+  timeout: 5
+  max_failures: 2
+
+state_variables:
+  model:
+    type: string
+    label: Model
+    help: "The model name the switcher reports, for example DTPCP108."
+  firmware:
+    type: string
+    label: Firmware Version
+    help: "The switcher's controller firmware version."
+  matrix_inputs:
+    type: integer
+    label: Matrix Inputs
+    help: "Inputs the switcher reports: 10 on a 108, 8 on the others."
+  matrix_outputs:
+    type: integer
+    label: Matrix Outputs
+    help: "Tie outputs the switcher reports: 8, 6, 4 or 2."
+  matrix_connectors:
+    type: string
+    label: Matrix Output Connectors
+    help: "The output connectors the switcher reports, in order."
+  volume:
+    type: number
+    label: Volume
+    unit: dB
+    min: -100
+    max: 12
+    step: 0.1
+    scale: 0.1
+    control: true
+    cloud_priority: high
+    help: "Program Volume, group master 1, in dB. Follows the front panel Volume knob. Blank if group 1 is not a gain group."
+  mic_volume:
+    type: number
+    label: Mic Volume
+    unit: dB
+    min: -100
+    max: 12
+    step: 0.1
+    scale: 0.1
+    control: true
+    help: "Mic Volume, group master 2, in dB. Follows the front panel Mic Volume knob. Blank if group 2 is not a gain group."
+  group_1_type:
+    type: enum
+    values: ["gain", "mute"]
+    label: Group 1 Type
+    help: "Whether group master 1 is a gain group (a level) or a mute group."
+  group_2_type:
+    type: enum
+    values: ["gain", "mute"]
+    label: Group 2 Type
+    help: "Whether group master 2 is a gain group (a level) or a mute group."
+  front_panel_lock:
+    type: integer
+    min: 0
+    max: 2
+    label: Front Panel Lock
+    help: "0 unlocked, 1 everything locked, 2 advanced functions locked (ties, presets and volume still work). Mode 2 is the factory setting."
+  last_preset:
+    type: integer
+    label: Last Preset Recalled
+    help: "The preset the switcher last reported recalling, from this driver or the front panel."
+  temperature:
+    type: number
+    label: Internal Temperature
+    unit: "°C"
+    help: "The switcher's internal temperature."
+  supply_voltage:
+    type: number
+    label: Power Supply Voltage
+    unit: V
+    help: "The switcher's internal power supply voltage."
+  last_error:
+    type: string
+    label: Last Error
+    help: "Why the switcher refused the last command, when it says so."
+
+# Two switching planes: video and audio, tied together or broken away.
+routing:
+  destination_child_type: output
+  source_child_type: input
+  planes:
+    - label: Video
+      route_property: input
+      command: route_video
+    - label: Audio
+      route_property: audio_input
+      command: route_audio
+
+child_entity_types:
+  output:
+    label: Output
+    label_plural: Outputs
+    id_format: { type: integer, min: 1, max: 8 }
+    state_variables:
+      input:
+        type: integer
+        label: Routed Input
+        help: "Input tied to this output for video (0 = untied)."
+        control: true
+        cloud_priority: high
+      audio_input:
+        type: integer
+        label: Routed Audio Input
+        help: "Input tied to this output for audio (0 = untied)."
+        control: true
+      audio_source:
+        type: enum
+        values: ["original", "dsp", "none"]
+        label: Audio Source
+        help: "The audio this output carries: original (the tied input's audio), dsp (the DSP mix) or none (audio off)."
+        control: true
+      frozen:
+        type: boolean
+        label: Frozen
+        help: "True when this scaled output's picture is frozen, from the switcher's answer to the last Freeze command."
+      test_pattern:
+        type: enum
+        values: ["off", "crop", "alternating_pixels", "crosshatch", "color_bars", "grayscale", "blue_mode"]
+        label: Test Pattern
+        help: "The test pattern on this scaled output, from the switcher's answer to the last Test Pattern command."
+    summary_fields: [input, audio_input, audio_source]
+    instances:
+      count_from_state: matrix_outputs
+      count_from: output_count
+      label: "Output {id}"
+  connector:
+    label: Output Connector
+    label_plural: Output Connectors
+    id_format: { type: string }
+    state_variables:
+      video_mute:
+        type: boolean
+        label: Video Muted
+        help: "True when this connector's video is muted (with or without its sync)."
+        control: true
+        cloud_priority: high
+      sync_mute:
+        type: boolean
+        label: Sync Muted
+        help: "True when this connector's sync is stopped as well, so the display sees no signal."
+      display:
+        type: enum
+        values: ["none", "no_hdcp", "hdcp", "hdcp_encrypted"]
+        label: Display
+        help: "What the switcher sees on this connector: none (no display connected), no_hdcp (a display without HDCP), hdcp (an HDCP display, not encrypted), hdcp_encrypted (an HDCP display, encrypted)."
+        cloud_priority: high
+      hdcp_mode:
+        type: enum
+        values: ["auto", "always", "auto_dvi", "always_dvi"]
+        label: HDCP Mode
+        help: "auto encrypts when the source is encrypted (the default), always encrypts all the time; the DVI forms keep retrying a display that does not take HDCP."
+    summary_fields: [video_mute, display]
+    instances:
+      ids_from: connector_ids
+      label: "Output {id}"
+  input:
+    label: Input
+    label_plural: Inputs
+    id_format: { type: integer, min: 1, max: 10 }
+    state_variables:
+      signal:
+        type: boolean
+        label: Signal Detected
+        help: "True when the switcher detects sync on this input."
+        cloud_priority: high
+      hdcp:
+        type: enum
+        values: ["none", "hdcp", "non_hdcp"]
+        label: HDCP Status
+        help: "none = no source, hdcp = an HDCP source, non_hdcp = a source without HDCP."
+      hdcp_authorized:
+        type: boolean
+        label: HDCP Authorized
+        help: "True when this input tells its source it accepts HDCP (the default). Off makes most sources send unencrypted video."
+      audio_source:
+        type: enum
+        values: ["auto", "hdmi", "analog"]
+        label: Audio Source
+        help: "Where this input takes its audio: auto (the digital audio when there is any, else the analog), hdmi, or analog (the input's 2-channel analog audio)."
+    summary_fields: [signal, hdcp]
+    instances:
+      count_from_state: matrix_inputs
+      count_from: input_count
+      label: "Input {id}"
+
+commands:
+  # Ties (p. 63). "Out03 In01 All", "Out03 In01 Vid", "Out03 In01 Aud".
+  route:
+    label: Route Input to Output
+    send: "{input}*{output}!"
+    help: "Ties an input to an output for video and audio."
+    params:
+      input: { type: child_id, child_type: input, required: true, label: Input }
+      output: { type: child_id, child_type: output, required: true, label: Output }
+
+  route_video:
+    label: Route Video Only
+    send: "{input}*{output}%"
+    help: "Ties an input's video to an output, leaving the output's audio tie as it is."
+    params:
+      input: { type: child_id, child_type: input, required: true, label: Input }
+      output: { type: child_id, child_type: output, required: true, label: Output }
+
+  route_audio:
+    label: Route Audio Only
+    send: "{input}*{output}$"
+    help: "Ties an input's audio to an output, leaving the output's video tie as it is."
+    params:
+      input: { type: child_id, child_type: input, required: true, label: Input }
+      output: { type: child_id, child_type: output, required: true, label: Output }
+
+  untie:
+    label: Untie Output
+    send: "0*{output}!"
+    help: "Removes an output's video and audio tie, so the output shows nothing."
+    params:
+      output: { type: child_id, child_type: output, required: true, label: Output }
+
+  route_all:
+    label: Route Input to All Outputs
+    send: "{input}*!"
+    help: "Ties an input to every output for video and audio. Each output's tie refreshes on the next poll."
+    params:
+      input: { type: child_id, child_type: input, required: true, label: Input }
+
+  clear_all_ties:
+    label: Clear All Ties
+    send: "0*!"
+    confirm: "Removes every video and audio tie, so every output goes blank."
+    help: "Removes every video and audio tie. Each output's tie refreshes on the next poll."
+
+  # Presets (p. 68): "{n}." answers "Rpr{nn}". 32 global presets, made in
+  # DSP Configurator or PCS; recalling one that was never saved is refused.
+  recall_preset:
+    label: Recall Preset
+    send: "{preset}."
+    help: "Recalls a global preset: its ties and audio settings. The switcher refuses a preset that was never saved."
+    sets: { last_preset: "{preset}" }
+    params:
+      preset: { type: integer, required: true, label: Preset, min: 1, max: 32 }
+
+  clear_preset:
+    label: Clear Preset
+    send: "\x1b{preset}ZG\r"
+    confirm: "Erases this global preset and its name from the switcher."
+    help: "Erases a global preset and its name."
+    params:
+      preset: { type: integer, required: true, label: Preset, min: 1, max: 32 }
+
+  # Video mutes (p. 64), by connector: "3A*1B" answers "Vmt3A*1".
+  video_mute:
+    label: Video Mute
+    send: "{connector}*1B"
+    help: "Mutes a connector's video to black; the display keeps its sync."
+    sets: { video_mute: true }
+    params:
+      connector: { type: child_id, child_type: connector, required: true, label: Output Connector }
+
+  video_sync_mute:
+    label: Video and Sync Mute
+    send: "{connector}*2B"
+    help: "Mutes a connector's video and stops its sync, so the display sees no signal."
+    sets: { sync_mute: true }
+    params:
+      connector: { type: child_id, child_type: connector, required: true, label: Output Connector }
+
+  video_unmute:
+    label: Video Unmute
+    send: "{connector}*0B"
+    help: "Restores a connector's video and sync."
+    sets: { video_mute: false }
+    params:
+      connector: { type: child_id, child_type: connector, required: true, label: Output Connector }
+
+  # The global forms answer "Vmt1" / "Vmt2" / "Vmt0" and nothing per
+  # connector, so each reads every connector's mute back in the same send.
+  video_mute_all:
+    label: Video Mute All
+    send: "1*B\x1bVM\r"
+    help: "Mutes the video of every output connector to black."
+
+  video_sync_mute_all:
+    label: Video and Sync Mute All
+    send: "2*B\x1bVM\r"
+    help: "Mutes the video and stops the sync of every output connector."
+
+  video_unmute_all:
+    label: Video Unmute All
+    send: "0*B\x1bVM\r"
+    help: "Restores the video and sync of every output connector."
+
+  # Output audio (p. 66): "Esc O3*2AFMT" answers "AfmtO03*2".
+  output_audio_source:
+    label: Output Audio Source
+    send: "\x1bO{output}*{source}AFMT\r"
+    help: "Sets the audio an output carries: Original (the tied input's audio), DSP (the DSP mix) or None, which turns the output's audio off."
+    sets: { audio_source: "{source}" }
+    params:
+      output: { type: child_id, child_type: output, required: true, label: Output }
+      source:
+        type: enum
+        required: true
+        label: Audio Source
+        values: ["original", "dsp", "none"]
+        map: { "original": "0", "dsp": "1", "none": "2" }
+
+  input_audio_source:
+    label: Input Audio Source
+    send: "\x1bI{input}*{source}AFMT\r"
+    help: "Sets where an input takes its audio: Auto (digital audio when there is any), HDMI, or Analog (the input's 2-channel analog audio)."
+    sets: { audio_source: "{source}" }
+    params:
+      input: { type: child_id, child_type: input, required: true, label: Input }
+      source:
+        type: enum
+        required: true
+        label: Audio Source
+        values: ["auto", "hdmi", "analog"]
+        map: { "auto": "0", "hdmi": "1", "analog": "2" }
+
+  # Group masters (p. 167): "Esc D1*-293GRPM" answers "GrpmD1*-293"
+  # (-29.3 dB). The minus sign is required; a plus is assumed.
+  set_volume:
+    label: Set Volume
+    send: "\x1bD1*{level}GRPM\r"
+    help: "Sets Program Volume (group master 1) in dB, -100 to +12. The switcher refuses a level outside the group's limits."
+    sets: { volume: "{level}" }
+    params:
+      level: { type: number, required: true, label: Level, unit: dB, min: -100, max: 12, decimals: 1, scale: 0.1 }
+
+  volume_up:
+    label: Volume Up
+    send: "\x1bD1*{step}+GRPM\r"
+    help: "Raises Program Volume by the step in dB."
+    params:
+      step: { type: number, required: true, label: Step, unit: dB, min: 0.1, max: 112, decimals: 1, default: 1, scale: 0.1 }
+
+  volume_down:
+    label: Volume Down
+    send: "\x1bD1*{step}-GRPM\r"
+    help: "Lowers Program Volume by the step in dB."
+    params:
+      step: { type: number, required: true, label: Step, unit: dB, min: 0.1, max: 112, decimals: 1, default: 1, scale: 0.1 }
+
+  set_mic_volume:
+    label: Set Mic Volume
+    send: "\x1bD2*{level}GRPM\r"
+    help: "Sets Mic Volume (group master 2) in dB, -100 to +12. The switcher refuses a level outside the group's limits."
+    sets: { mic_volume: "{level}" }
+    params:
+      level: { type: number, required: true, label: Level, unit: dB, min: -100, max: 12, decimals: 1, scale: 0.1 }
+
+  mic_volume_up:
+    label: Mic Volume Up
+    send: "\x1bD2*{step}+GRPM\r"
+    help: "Raises Mic Volume by the step in dB."
+    params:
+      step: { type: number, required: true, label: Step, unit: dB, min: 0.1, max: 112, decimals: 1, default: 1, scale: 0.1 }
+
+  mic_volume_down:
+    label: Mic Volume Down
+    send: "\x1bD2*{step}-GRPM\r"
+    help: "Lowers Mic Volume by the step in dB."
+    params:
+      step: { type: number, required: true, label: Step, unit: dB, min: 0.1, max: 112, decimals: 1, default: 1, scale: 0.1 }
+
+  set_group_level:
+    label: Set Group Master Level
+    send: "\x1bD{group}*{level}GRPM\r"
+    help: "Sets any gain group master made in DSP Configurator to a level in dB. The switcher refuses a level outside the group's range or limits."
+    params:
+      group: { type: integer, required: true, label: Group, min: 1, max: 32 }
+      level: { type: number, required: true, label: Level, unit: dB, min: -100, max: 80, decimals: 1, scale: 0.1 }
+
+  # On a gain group the same bytes set the level to +0.1 dB and 0 dB (p. 167).
+  group_mute_on:
+    label: Group Mute On
+    send: "\x1bD{group}*1GRPM\r"
+    help: "Mutes everything in a mute group made in DSP Configurator. Use it only on a mute group: on a gain group it sets the level to +0.1 dB."
+    params:
+      group: { type: integer, required: true, label: Group, min: 1, max: 32 }
+
+  group_mute_off:
+    label: Group Mute Off
+    send: "\x1bD{group}*0GRPM\r"
+    help: "Unmutes a mute group made in DSP Configurator. Use it only on a mute group: on a gain group it sets the level to 0 dB."
+    params:
+      group: { type: integer, required: true, label: Group, min: 1, max: 32 }
+
+  # Front panel lock (p. 69): "2X" answers "Exe2".
+  set_front_panel_lock:
+    label: Set Front Panel Lock
+    send: "{mode}X"
+    help: "Locks the front panel: Unlocked, Lock All, or Lock Advanced (ties, presets and volume still work)."
+    sets: { front_panel_lock: "{mode}" }
+    params:
+      mode:
+        type: enum
+        required: true
+        label: Lock
+        values:
+          - { value: "0", label: "Unlocked" }
+          - { value: "1", label: "Lock All" }
+          - { value: "2", label: "Lock Advanced" }
+
+  # HDCP (p. 66): "Esc E1*0HDCP" answers "HdcpE1*0"; "Esc S3A*1HDCP"
+  # answers "HdcpS3A*1".
+  input_hdcp_authorized:
+    label: Input HDCP Authorization
+    send: "\x1bE{input}*{state}HDCP\r"
+    help: "On (the default) tells the source the input accepts HDCP. Off makes most sources send unencrypted video, for a display that cannot show HDCP."
+    sets: { hdcp_authorized: "{state}" }
+    params:
+      input: { type: child_id, child_type: input, required: true, label: Input }
+      state:
+        type: enum
+        required: true
+        label: HDCP Authorization
+        values: ["on", "off"]
+        map: { "on": "1", "off": "0" }
+
+  output_hdcp_mode:
+    label: Output HDCP Mode
+    send: "\x1bS{connector}*{mode}HDCP\r"
+    help: "Sets how a connector encrypts: Auto encrypts when the source is encrypted (the default), Always encrypts all the time. The DVI forms keep retrying a display that does not take HDCP."
+    sets: { hdcp_mode: "{mode}" }
+    params:
+      connector: { type: child_id, child_type: connector, required: true, label: Output Connector }
+      mode:
+        type: enum
+        required: true
+        label: HDCP Mode
+        values: ["auto", "always", "auto_dvi", "always_dvi"]
+        map: { "auto": "0", "always": "1", "auto_dvi": "2", "always_dvi": "3" }
+
+  # Scaled outputs only (p. 72): outputs 5-8 on a 108, 3-6 on an 86, 3-4 on
+  # an 84, 1-2 on an 82. "3*1F" answers "Frz3*01"; "Esc 3*4TEST" answers
+  # "Test3*4" (the guide pads the pattern to two digits in its key).
+  freeze_on:
+    label: Freeze On
+    send: "{output}*1F"
+    help: "Freezes a scaled output's picture (outputs 5-8 on a 108, 3-6 on an 86, 3-4 on an 84, 1-2 on an 82)."
+    sets: { frozen: true }
+    params:
+      output: { type: child_id, child_type: output, required: true, label: Output }
+
+  freeze_off:
+    label: Freeze Off
+    send: "{output}*0F"
+    help: "Unfreezes a scaled output's picture."
+    sets: { frozen: false }
+    params:
+      output: { type: child_id, child_type: output, required: true, label: Output }
+
+  test_pattern:
+    label: Test Pattern
+    send: "\x1b{output}*{pattern}TEST\r"
+    help: "Shows a test pattern on a scaled output (outputs 5-8 on a 108, 3-6 on an 86, 3-4 on an 84, 1-2 on an 82), or turns it off."
+    sets: { test_pattern: "{pattern}" }
+    params:
+      output: { type: child_id, child_type: output, required: true, label: Output }
+      pattern:
+        type: enum
+        required: true
+        label: Pattern
+        values:
+          - { value: "off", label: "Off" }
+          - { value: "crop", label: "Crop" }
+          - { value: "alternating_pixels", label: "Alternating Pixels" }
+          - { value: "crosshatch", label: "Crosshatch" }
+          - { value: "color_bars", label: "Color Bars" }
+          - { value: "grayscale", label: "Grayscale" }
+          - { value: "blue_mode", label: "Blue Mode" }
+        map: { "off": "0", "crop": "1", "alternating_pixels": "2", "crosshatch": "3", "color_bars": "4", "grayscale": "5", "blue_mode": "6" }
+
+actions:
+  - id: route
+    icon: shuffle
+  - id: recall_preset
+    icon: bookmark
+  - id: set_volume
+    icon: volume-2
+  - id: video_mute
+    icon: eye-off
+  - id: video_unmute
+    icon: eye
+
+# The front panel lock (p. 69): written with {mode}X, read back by the poll
+# and by the switcher's "Exe{n}" notice.
+device_settings:
+  front_panel_lock:
+    type: enum
+    label: Front Panel Lock
+    help: "Unlocked, Lock All (everything but choosing Lock Advanced), or Lock Advanced (ties, presets and volume still work; the factory setting)."
+    state_key: front_panel_lock
+    default: 2
+    setup: false
+    values:
+      - { value: "0", label: "Unlocked" }
+      - { value: "1", label: "Lock All" }
+      - { value: "2", label: "Lock Advanced" }
+    write:
+      send: "{value}X"
+
+responses:
+  # The answer to Esc 3CV at connect.
+  - match: '^Vrb3$'
+    set: {}
+
+  # A protected switcher with no Password entered answers every line with
+  # the prompt (the login was skipped). The prompt has no line ending of its
+  # own (SW4 HD 4K PLUS); the next one's leading CR LF frames it.
+  - match: '^Password:$'
+    set: { last_error: "The switcher asks for a password. Enter it in this device's Password setting." }
+  - match: '^E24$'
+    set: { last_error: "The switcher refused a command a User login may not send. Enter the administrator password." }
+
+  # The copyright line and the date line an unprotected switcher sends on
+  # connect (p. 61). With a password the login reads them instead.
+  - match: '^\(c\) Copyright \d{4}, Extron Electronics, (DTPCP\w+), V(\d+\.\d+(?:\.\d+)?)'
+    set: { model: "$1", firmware: "$2" }
+  - match: '^\w{3}, \d{1,2} \w{3} \d{4} \d{1,2}:\d{2}:\d{2}$'
+    set: {}
+
+  # ── Ties (p. 63) ──
+  # The answer to a tie and, in verbose mode 3, to a tie read ("3%", "3$"):
+  # "Out03 In01 Vid". The video and audio forms come first so the simulator
+  # answers each read in its own form.
+  - match: '^Out(\d+) In(\d+) Vid$'
+    child_set:
+      - { type: output, id: "$1", state: { input: "$2" } }
+  - match: '^Out(\d+) In(\d+) Aud$'
+    child_set:
+      - { type: output, id: "$1", state: { audio_input: "$2" } }
+  - match: '^Out(\d+) In(\d+) All$'
+    child_set:
+      - { type: output, id: "$1", state: { input: "$2", audio_input: "$2" } }
+  # Input to all outputs and clear all: "In05 All", "In00 All". Each
+  # output's tie is read by the next poll.
+  - match: '^In\d+ (?:All|Vid|Aud)$'
+    set: {}
+  # A tie made at the front panel (p. 62). It does not say which, so the
+  # next poll reads the ties.
+  - match: '^Qik$'
+    set: {}
+
+  # ── Presets (p. 68) ──
+  # "Rpr05": the answer to a recall, and the switcher's notice of a recall
+  # at the front panel.
+  - match: '^Rpr(\d+)$'
+    set: { last_preset: "$1" }
+  - match: '^Zpg\d*$'
+    set: {}
+
+  # ── Video mutes (pp. 64, 67) ──
+  # A connector's mute: "Vmt3A*1". The guide shows no unpaired one; it may
+  # come back "Vmt1*1" or "Vmt01*1". 1 = video, 2 = video and sync.
+  - match: '^Vmt0?([1-9][AB]?)\*([0-2])$'
+    child_set:
+      - type: connector
+        id: "$1"
+        state:
+          video_mute: { group: 2, map: { "0": "false", "1": "true", "2": "true" } }
+          sync_mute: { group: 2, map: { "0": "false", "1": "false", "2": "true" } }
+  # The global mutes' answer: "Vmt1". The same send reads every connector.
+  - match: '^Vmt[0-2]$'
+    set: {}
+
+  # Every connector's mute, one digit per connector in the size's own order
+  # (Esc VM, "Mut" in verbose mode 3; the guide's 84 example is
+  # "Mut012101"). The number of digits is the size, so each size has a rule
+  # that names its connectors and reports the switcher's outputs.
+  # 108: 10 connectors.
+  - match: '^Mut ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2])$'
+    set: { matrix_outputs: "8", matrix_connectors: "1,2,3,4,5A,5B,6A,6B,7,8" }
+    child_set:
+      - { type: connector, id: "1", state: { video_mute: { group: 1, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 1, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "2", state: { video_mute: { group: 2, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 2, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "3", state: { video_mute: { group: 3, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 3, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "4", state: { video_mute: { group: 4, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 4, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "5A", state: { video_mute: { group: 5, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 5, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "5B", state: { video_mute: { group: 6, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 6, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "6A", state: { video_mute: { group: 7, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 7, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "6B", state: { video_mute: { group: 8, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 8, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "7", state: { video_mute: { group: 9, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 9, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "8", state: { video_mute: { group: 10, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 10, map: { "0": "false", "1": "false", "2": "true" } } } }
+  # 86: 8 connectors.
+  - match: '^Mut ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2])$'
+    set: { matrix_outputs: "6", matrix_connectors: "1,2,3A,3B,4A,4B,5,6" }
+    child_set:
+      - { type: connector, id: "1", state: { video_mute: { group: 1, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 1, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "2", state: { video_mute: { group: 2, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 2, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "3A", state: { video_mute: { group: 3, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 3, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "3B", state: { video_mute: { group: 4, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 4, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "4A", state: { video_mute: { group: 5, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 5, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "4B", state: { video_mute: { group: 6, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 6, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "5", state: { video_mute: { group: 7, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 7, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "6", state: { video_mute: { group: 8, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 8, map: { "0": "false", "1": "false", "2": "true" } } } }
+  # 84: 6 connectors.
+  - match: '^Mut ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2])$'
+    set: { matrix_outputs: "4", matrix_connectors: "1,2,3A,3B,4A,4B" }
+    child_set:
+      - { type: connector, id: "1", state: { video_mute: { group: 1, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 1, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "2", state: { video_mute: { group: 2, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 2, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "3A", state: { video_mute: { group: 3, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 3, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "3B", state: { video_mute: { group: 4, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 4, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "4A", state: { video_mute: { group: 5, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 5, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "4B", state: { video_mute: { group: 6, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 6, map: { "0": "false", "1": "false", "2": "true" } } } }
+  # 82: 4 connectors, all paired.
+  - match: '^Mut ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2])$'
+    set: { matrix_outputs: "2", matrix_connectors: "1A,1B,2A,2B" }
+    child_set:
+      - { type: connector, id: "1A", state: { video_mute: { group: 1, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 1, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "1B", state: { video_mute: { group: 2, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 2, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "2A", state: { video_mute: { group: 3, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 3, map: { "0": "false", "1": "false", "2": "true" } } } }
+      - { type: connector, id: "2B", state: { video_mute: { group: 4, map: { "0": "false", "1": "true", "2": "true" } }, sync_mute: { group: 4, map: { "0": "false", "1": "false", "2": "true" } } } }
+
+  # ── Signal (p. 68) ──
+  # Every input's sync, from input 1 ("Frq00 " in verbose mode 3; the guide
+  # draws the digits spaced in its example and does not say). 10 digits on a
+  # 108, 8 on the others, which is how the inputs are counted.
+  - match: '^Frq00 ?((?:[01] ?){10})$'
+    set: { matrix_inputs: "10" }
+    child_list:
+      type: input
+      group: $1
+      element: '([01])'
+      state:
+        signal: { group: 1, map: { "0": "false", "1": "true" } }
+  - match: '^Frq00 ?((?:[01] ?){8})$'
+    set: { matrix_inputs: "8" }
+    child_list:
+      type: input
+      group: $1
+      element: '([01])'
+      state:
+        signal: { group: 1, map: { "0": "false", "1": "true" } }
+
+  # ── HDCP (pp. 66-67) ──
+  # An input's status, "HdcpI1*2" in verbose mode 3.
+  - match: '^HdcpI(\d+)\*([0-2])$'
+    child_set:
+      - type: input
+        id: "$1"
+        state:
+          hdcp: { group: 2, map: { "0": "none", "1": "hdcp", "2": "non_hdcp" } }
+  # An input's HDCP authorization: "HdcpE1*1".
+  - match: '^HdcpE(\d+)\*([01])$'
+    child_set:
+      - type: input
+        id: "$1"
+        state:
+          hdcp_authorized: { group: 2, map: { "0": "false", "1": "true" } }
+  # A connector's display: "HdcpO3A*3" in verbose mode 3. The user guide
+  # says 3 is encrypted; the setup guide says 7.
+  - match: '^HdcpO0?([1-9][AB]?)\*([0-37])$'
+    child_set:
+      - type: connector
+        id: "$1"
+        state:
+          display: { group: 2, map: { "0": "none", "1": "no_hdcp", "2": "hdcp", "3": "hdcp_encrypted", "7": "hdcp_encrypted" } }
+  # A connector's HDCP mode: "HdcpS3A*1".
+  - match: '^HdcpS0?([1-9][AB]?)\*([0-3])$'
+    child_set:
+      - type: connector
+        id: "$1"
+        state:
+          hdcp_mode: { group: 2, map: { "0": "auto", "1": "always", "2": "auto_dvi", "3": "always_dvi" } }
+
+  # ── Audio source (pp. 64, 66) ──
+  # An output's: "AfmtO03*2". An input's: "AfmtI01*2".
+  - match: '^AfmtO(\d+)\*([0-2])$'
+    child_set:
+      - type: output
+        id: "$1"
+        state:
+          audio_source: { group: 2, map: { "0": "original", "1": "dsp", "2": "none" } }
+  - match: '^AfmtI(\d+)\*([0-2])$'
+    child_set:
+      - type: input
+        id: "$1"
+        state:
+          audio_source: { group: 2, map: { "0": "auto", "1": "hdmi", "2": "analog" } }
+
+  # ── Group masters (p. 167) ──
+  # Each group's type first: "GrpmP1*6" (6 gain, 12 mute).
+  - match: '^GrpmP1\*(6|12)$'
+    mappings:
+      - { state: group_1_type, group: 1, map: { "6": "gain", "12": "mute" } }
+  - match: '^GrpmP2\*(6|12)$'
+    mappings:
+      - { state: group_2_type, group: 1, map: { "6": "gain", "12": "mute" } }
+  # A level, in 0.1 dB: "GrpmD1*-293", the answer to a set, a step and a
+  # read, and the switcher's notice of a turned knob. A mute group answers
+  # the same read 0 or 1, so a level is read only from a gain group.
+  - match: '^GrpmD1\*(-?\d+)$'
+    only_when: { key: group_1_type, operator: eq, value: gain }
+    set: { volume: "$1" }
+  - match: '^GrpmD2\*(-?\d+)$'
+    only_when: { key: group_2_type, operator: eq, value: gain }
+    set: { mic_volume: "$1" }
+  # Every other group's answer (and a mute group's), read so it is not an
+  # unread reply.
+  - match: '^Grpm[DPLO]\d+\*'
+    set: {}
+
+  # ── Front panel lock (p. 69) ──
+  # The answer to a set and, in verbose mode 3, to the read X; also the
+  # switcher's notice of a change at the front panel.
+  - match: '^Exe([0-2])$'
+    set: { front_panel_lock: "$1" }
+
+  # ── Scaled outputs (p. 72) ──
+  - match: '^Frz(\d+)\*0?([01])$'
+    child_set:
+      - type: output
+        id: "$1"
+        state:
+          frozen: { group: 2, map: { "0": "false", "1": "true" } }
+  - match: '^Test(\d+)\*0?([0-6])$'
+    child_set:
+      - type: output
+        id: "$1"
+        state:
+          test_pattern: { group: 2, map: { "0": "off", "1": "crop", "2": "alternating_pixels", "3": "crosshatch", "4": "color_bars", "5": "grayscale", "6": "blue_mode" } }
+
+  # ── Identity and health (p. 69) ──
+  # System status: "Sts00*12.250 54.000 750000 750000", the supply voltage
+  # and the internal temperature (the prefix only in verbose mode 2 or 3).
+  - match: '^(?:Sts\d+\*)?(\d+\.\d+) (\d+\.\d+) \d+ \d+$'
+    set: { supply_voltage: "$1", temperature: "$2" }
+  # The Information request I: "DTPCP108" (the guide's only sample; it does
+  # not show the tagged form).
+  - match: '^(?:[A-Za-z]+\d*\*)?(DTPCP\w+)'
+    set: { model: "$1" }
+  # Firmware, the answer to Q: "1.23" (the guide does not show the tagged
+  # form; an SW4 HD 4K PLUS tags it "Ver01*1.02").
+  - match: '^(?:Ver\d*\*)?(\d+\.\d+(?:\.\d+)?)$'
+    set: { firmware: "$1" }
+
+polling:
+  queries:
+    # Health, the lock and the group masters (each group's type before its
+    # level, so the level rule knows what it reads).
+    - { send: "S", query_for: temperature }
+    - { send: "X", query_for: front_panel_lock }
+    - { send: "\x1bP1GRPM\r", query_for: group_1_type }
+    - { send: "\x1bD1GRPM\r", query_for: volume }
+    - { send: "\x1bP2GRPM\r", query_for: group_2_type }
+    - { send: "\x1bD2GRPM\r", query_for: mic_volume }
+    # Every input's sync and every connector's mute, one read each. The
+    # mute read's rules name each connector, and also report the size.
+    - { send: "0LS", query_for: input.signal }
+    - { send: "\x1bVM\r", query_for: matrix_connectors }
+    # Each output's ties and audio. The guide's bulk tie view (Esc 0*1*1VC)
+    # lists 10 places on a 108 and 8 on an 86, which matches their
+    # connectors rather than their tie outputs, and says nothing of the 84
+    # or 82, so the ties are read one output at a time.
+    - { each_child: output, send: "{child_id}%", query_for: input }
+    - { each_child: output, send: "{child_id}$", query_for: audio_input }
+    - { each_child: output, send: "\x1bO{child_id}AFMT\r", query_for: audio_source }
+    # HDCP: the per-item reads, whose tagged replies the guide shows; the
+    # all-inputs and all-outputs views have no tagged form to tell them apart.
+    - { each_child: input, send: "\x1bI{child_id}HDCP\r", query_for: hdcp }
+    - { each_child: connector, send: "\x1bO{child_id}HDCP\r", query_for: display }
+
+# ── SIMULATOR DEFINITION ──
+# Models a DTP CrossPoint 84 4K in verbose mode 3: 8 inputs, 4 tie outputs,
+# connectors 1, 2, 3A, 3B, 4A, 4B, group masters 1 and 2 as gain groups.
+# Seeding the child keys rosters them, so the per-output and per-connector
+# reads (declared with query_for) answer from each child's own state; the
+# handlers below cover the replies that carry many children or need a rule.
+# Its I answer, "DTPCP84", follows the guide's 108 sample; the guide does not
+# show an 84's.
+simulator:
+  push_state: true
+  initial_state:
+    model: "DTPCP84"
+    firmware: "1.23"
+    volume: 0
+    mic_volume: -10
+    group_1_type: gain
+    group_2_type: gain
+    front_panel_lock: 2
+    temperature: 41.5
+    supply_voltage: 12.25
+    output.1.input: 1
+    output.2.input: 2
+    output.3.input: 3
+    output.4.input: 4
+    output.1.audio_input: 1
+    output.2.audio_input: 2
+    output.3.audio_input: 3
+    output.4.audio_input: 4
+    output.1.audio_source: original
+    output.2.audio_source: original
+    output.3.audio_source: original
+    output.4.audio_source: original
+    connector.1.video_mute: false
+    connector.2.video_mute: false
+    connector.3A.video_mute: false
+    connector.3B.video_mute: false
+    connector.4A.video_mute: false
+    connector.4B.video_mute: false
+    connector.1.sync_mute: false
+    connector.2.sync_mute: false
+    connector.3A.sync_mute: false
+    connector.3B.sync_mute: false
+    connector.4A.sync_mute: false
+    connector.4B.sync_mute: false
+    connector.1.display: hdcp_encrypted
+    connector.2.display: no_hdcp
+    connector.3A.display: hdcp
+    connector.3B.display: none
+    connector.4A.display: none
+    connector.4B.display: hdcp_encrypted
+    connector.1.hdcp_mode: auto
+    connector.2.hdcp_mode: auto
+    connector.3A.hdcp_mode: auto
+    connector.3B.hdcp_mode: auto
+    connector.4A.hdcp_mode: auto
+    connector.4B.hdcp_mode: auto
+    input.1.signal: true
+    input.2.signal: true
+    input.3.signal: true
+    input.4.signal: false
+    input.5.signal: false
+    input.6.signal: false
+    input.7.signal: true
+    input.8.signal: false
+    input.1.hdcp: hdcp
+    input.2.hdcp: non_hdcp
+    input.3.hdcp: hdcp
+    input.4.hdcp: none
+    input.5.hdcp: none
+    input.6.hdcp: none
+    input.7.hdcp: non_hdcp
+    input.8.hdcp: none
+    input.1.hdcp_authorized: true
+    input.2.hdcp_authorized: true
+    input.3.hdcp_authorized: true
+    input.4.hdcp_authorized: true
+    input.5.hdcp_authorized: true
+    input.6.hdcp_authorized: true
+    input.7.hdcp_authorized: true
+    input.8.hdcp_authorized: true
+    input.1.audio_source: auto
+    input.2.audio_source: auto
+    input.3.audio_source: auto
+    input.4.audio_source: auto
+    input.5.audio_source: auto
+    input.6.audio_source: auto
+    input.7.audio_source: auto
+    input.8.audio_source: auto
+
+  delays:
+    command_response: 0.02
+
+  controls:
+    - type: matrix
+      label: Video Ties
+      inputs: 8
+      outputs: 4
+      state_pattern: "output.{output}.input"
+    - type: slider
+      key: volume
+      label: Volume (dB)
+      min: -100
+      max: 12
+    - type: slider
+      key: mic_volume
+      label: Mic Volume (dB)
+      min: -100
+      max: 12
+    - type: toggle
+      key: connector.3A.video_mute
+      label: Output 3A Video Mute
+    - type: toggle
+      key: input.1.signal
+      label: Input 1 Signal
+    - type: indicator
+      key: temperature
+      label: Temperature
+
+  command_handlers:
+    # Verbose mode: Esc {m}CV -> "Vrb{m}".
+    - match: '\x1b([0-3])CV'
+      handler: |
+        respond("Vrb" + match.group(1) + "\r\n")
+
+    # Ties: "{i}*{o}!" / "%" / "$" -> "Out{oo} In{ii} All|Vid|Aud"; input 0
+    # unties. An output the switcher lacks is E12, an input E01.
+    - match: '(\d+)\*(\d+)([!%$])'
+      handler: |
+        def _run():
+            inp = int(match.group(1))
+            out = int(match.group(2))
+            kind = match.group(3)
+            if inp > int(config.get("input_count") or 8):
+                respond("E01\r\n")
+                return
+            if out < 1 or out > int(config.get("output_count") or 4):
+                respond("E12\r\n")
+                return
+            if kind in "!%":
+                state[f"output.{out}.input"] = inp
+            if kind in "!$":
+                state[f"output.{out}.audio_input"] = inp
+            word = {"!": "All", "%": "Vid", "$": "Aud"}[kind]
+            respond(f"Out{out:02d} In{inp:02d} {word}\r\n")
+        _run()
+
+    # Input to all outputs, or clear all with input 0: "{i}*!" -> "In{ii} All".
+    - match: '(\d+)\*!'
+      handler: |
+        inp = int(match.group(1))
+        for out in range(1, int(config.get("output_count") or 4) + 1):
+            state[f"output.{out}.input"] = inp
+            state[f"output.{out}.audio_input"] = inp
+        respond(f"In{inp:02d} All\r\n")
+
+    # A connector's video mute: "{c}*{0|1|2}B" -> "Vmt{c}*{v}".
+    - match: '(\d[AB]?)\*([0-2])B'
+      handler: |
+        conn = match.group(1).lstrip("0") or "0"
+        val = int(match.group(2))
+        if f"connector.{conn}.video_mute" in state:
+            state[f"connector.{conn}.video_mute"] = val != 0
+            state[f"connector.{conn}.sync_mute"] = val == 2
+            respond(f"Vmt{conn}*{val}\r\n")
+        else:
+            respond("E12\r\n")
+
+    # Global video mute, and the read of every connector that rides with it:
+    # "1*B" -> "Vmt1", Esc VM -> "Mut" + a digit per connector.
+    - match: '([0-2])\*B(?:\x1bVM)?'
+      handler: |
+        val = int(match.group(1))
+        ids = [c.strip() for c in str(config.get("connector_ids") or "").split(",") if c.strip()]
+        for conn in ids:
+            state[f"connector.{conn}.video_mute"] = val != 0
+            state[f"connector.{conn}.sync_mute"] = val == 2
+        reply = f"Vmt{val}\r\n"
+        if match.group(0).endswith("VM"):
+            digits = ""
+            for conn in ids:
+                digits += "2" if state.get(f"connector.{conn}.sync_mute") else ("1" if state.get(f"connector.{conn}.video_mute") else "0")
+            reply += f"Mut{digits}\r\n"
+        respond(reply)
+    - match: '\x1bVM'
+      handler: |
+        ids = [c.strip() for c in str(config.get("connector_ids") or "").split(",") if c.strip()]
+        digits = ""
+        for conn in ids:
+            digits += "2" if state.get(f"connector.{conn}.sync_mute") else ("1" if state.get(f"connector.{conn}.video_mute") else "0")
+        respond(f"Mut{digits}\r\n")
+
+    # Every input's sync: 0LS -> "Frq00 " + a digit per input.
+    - match: '0LS'
+      handler: |
+        n = int(config.get("input_count") or 8)
+        digits = "".join("1" if state.get(f"input.{i}.signal") else "0" for i in range(1, n + 1))
+        respond(f"Frq00 {digits}\r\n")
+
+    # Group masters: type, read, set and step. Levels in 0.1 dB, -1000 to
+    # +120 for groups 1 and 2; outside that, E13.
+    - match: '\x1bP(\d+)GRPM'
+      handler: |
+        g = int(match.group(1))
+        kind = state.get(f"group_{g}_type", "gain") if g in (1, 2) else "gain"
+        respond(f"GrpmP{g}*{6 if kind == 'gain' else 12}\r\n")
+    - match: '\x1bD(\d+)(?:\*(\d+)([+-])|\*(-?\d+))?GRPM'
+      handler: |
+        def _run():
+            g = int(match.group(1))
+            key = {1: "volume", 2: "mic_volume"}.get(g)
+            current = int(round(float(state.get(key) or 0) * 10)) if key else 0
+            if match.group(2) is not None:
+                step = int(match.group(2))
+                level = current + step if match.group(3) == "+" else current - step
+            elif match.group(4) is not None:
+                level = int(match.group(4))
+            else:
+                level = current
+            if level < -1000 or level > 120:
+                respond("E13\r\n")
+                return
+            if key:
+                state[key] = level / 10
+            respond(f"GrpmD{g}*{level}\r\n")
+        _run()
+
+    # System status: S -> "Sts00*{volts} {degC} 750000 750000".
+    - match: 'S'
+      handler: |
+        volts = float(state.get("supply_voltage") or 12.25)
+        temp = float(state.get("temperature") or 40)
+        respond(f"Sts00*{volts:.3f} {temp:.3f} 750000 750000\r\n")
+
+    # The lock: "{m}X" -> "Exe{m}", X -> "Exe{m}" (tagged like the set).
+    - match: '([0-2])X'
+      handler: |
+        state["front_panel_lock"] = int(match.group(1))
+        respond("Exe" + match.group(1) + "\r\n")
+    - match: 'X'
+      handler: |
+        respond(f"Exe{int(state.get('front_panel_lock') or 0)}\r\n")
+
+    # Identity: I -> the model name of the configured size, Q -> the
+    # firmware (the guide's untagged forms).
+    - match: 'I'
+      handler: |
+        names = {"1,2,3,4,5A,5B,6A,6B,7,8": "DTPCP108", "1,2,3A,3B,4A,4B,5,6": "DTPCP86", "1,2,3A,3B,4A,4B": "DTPCP84", "1A,1B,2A,2B": "DTPCP82"}
+        respond(names.get(str(config.get("connector_ids") or ""), "DTPCP84") + "\r\n")
+    - match: 'Q'
+      handler: |
+        respond(str(state.get("firmware") or "1.23") + "\r\n")
+
+    # Presets: "{n}." -> "Rpr{nn}"; Esc {n}ZG -> "Zpg{nn}". 1 to 32.
+    - match: '(\d+)\.'
+      handler: |
+        p = int(match.group(1))
+        if 1 <= p <= 32:
+            state["last_preset"] = p
+            respond(f"Rpr{p:02d}\r\n")
+        else:
+            respond("E11\r\n")
+    - match: '\x1b(\d+)ZG'
+      handler: |
+        respond(f"Zpg{int(match.group(1)):02d}\r\n")
+
+    # Audio sources, an output connector's HDCP mode and a test pattern. Their
+    # parameters send the device's digit through map:, and the generated
+    # handler would store that digit rather than the value and answer
+    # nothing, so these are answered here.
+    - match: '\x1bO(\d+)\*([0-2])AFMT'
+      handler: |
+        out = int(match.group(1))
+        if 1 <= out <= int(config.get("output_count") or 4):
+            state[f"output.{out}.audio_source"] = ["original", "dsp", "none"][int(match.group(2))]
+            respond(f"AfmtO{out:02d}*{match.group(2)}\r\n")
+        else:
+            respond("E12\r\n")
+    - match: '\x1bI(\d+)\*([0-2])AFMT'
+      handler: |
+        inp = int(match.group(1))
+        if 1 <= inp <= int(config.get("input_count") or 8):
+            state[f"input.{inp}.audio_source"] = ["auto", "hdmi", "analog"][int(match.group(2))]
+            respond(f"AfmtI{inp:02d}*{match.group(2)}\r\n")
+        else:
+            respond("E01\r\n")
+    - match: '\x1bS(\d[AB]?)\*([0-3])HDCP'
+      handler: |
+        conn = match.group(1).lstrip("0") or "0"
+        ids = [c.strip() for c in str(config.get("connector_ids") or "").split(",") if c.strip()]
+        if conn in ids:
+            state[f"connector.{conn}.hdcp_mode"] = ["auto", "always", "auto_dvi", "always_dvi"][int(match.group(2))]
+            respond(f"HdcpS{conn}*{match.group(2)}\r\n")
+        else:
+            respond("E12\r\n")
+    - match: '\x1b(\d+)\*([0-6])TEST'
+      handler: |
+        outs = int(config.get("output_count") or 4)
+        out = int(match.group(1))
+        if outs - (3 if outs >= 6 else 1) <= out <= outs:
+            state[f"output.{out}.test_pattern"] = ["off", "crop", "alternating_pixels", "crosshatch", "color_bars", "grayscale", "blue_mode"][int(match.group(2))]
+            respond(f"Test{out}*{match.group(2)}\r\n")
+        else:
+            respond("E12\r\n")
+
+    # Freeze: "{o}*{0|1}F" -> "Frz{o}*0{v}", on the scaled outputs only (the
+    # last four of a 108 or 86, the last two of an 84 or 82).
+    - match: '(\d+)\*([01])F'
+      handler: |
+        outs = int(config.get("output_count") or 4)
+        out = int(match.group(1))
+        if outs - (3 if outs >= 6 else 1) <= out <= outs:
+            state[f"output.{out}.frozen"] = match.group(2) == "1"
+            respond(f"Frz{out}*0{match.group(2)}\r\n")
+        else:
+            respond("E12\r\n")
+
+  error_modes:
+    communication_timeout:
+      description: "The switcher stops answering"
+      behavior: no_response
+    garbled_response:
+      description: "Corrupted data on the wire"
+      behavior: corrupt_response

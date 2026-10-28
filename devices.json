@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1026,
+    "total_devices": 1038,
     "shards": null
   },
   "devices": [
@@ -5914,7 +5914,7 @@
         {
           "id": "extron_sis",
           "confidence": "untested",
-          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. Newer Extron units ship with their serial number as the password: enter it in Password. Verified on an SW4 HD 4K PLUS (firmware 1.02): password login, input select, video mute, auto-input switching.\n"
+          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. Newer Extron units ship with their serial number as the password: enter it in Password. Verified on an SW4 HD 4K PLUS (firmware 1.02): password login, input select, video mute, auto-input switching. A DTP CrossPoint 4K switcher has its own driver, Extron DTP CrossPoint 4K, which reads its paired outputs, video mutes and audio correctly: use that one for it.\n"
         }
       ]
     },
@@ -5926,7 +5926,7 @@
         {
           "id": "extron_sis",
           "confidence": "untested",
-          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. Newer Extron units ship with their serial number as the password: enter it in Password. Verified on an SW4 HD 4K PLUS (firmware 1.02): password login, input select, video mute, auto-input switching.\n"
+          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. Newer Extron units ship with their serial number as the password: enter it in Password. Verified on an SW4 HD 4K PLUS (firmware 1.02): password login, input select, video mute, auto-input switching. A DTP CrossPoint 4K switcher has its own driver, Extron DTP CrossPoint 4K, which reads its paired outputs, video mutes and audio correctly: use that one for it.\n"
         }
       ]
     },
@@ -5938,7 +5938,7 @@
         {
           "id": "extron_sis",
           "confidence": "untested",
-          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. Newer Extron units ship with their serial number as the password: enter it in Password. Verified on an SW4 HD 4K PLUS (firmware 1.02): password login, input select, video mute, auto-input switching.\n"
+          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. Newer Extron units ship with their serial number as the password: enter it in Password. Verified on an SW4 HD 4K PLUS (firmware 1.02): password login, input select, video mute, auto-input switching. A DTP CrossPoint 4K switcher has its own driver, Extron DTP CrossPoint 4K, which reads its paired outputs, video mutes and audio correctly: use that one for it.\n"
         }
       ]
     },
@@ -5950,7 +5950,151 @@
         {
           "id": "extron_sis",
           "confidence": "untested",
-          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. Newer Extron units ship with their serial number as the password: enter it in Password. Verified on an SW4 HD 4K PLUS (firmware 1.02): password login, input select, video mute, auto-input switching.\n"
+          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. Newer Extron units ship with their serial number as the password: enter it in Password. Verified on an SW4 HD 4K PLUS (firmware 1.02): password login, input select, video mute, auto-input switching. A DTP CrossPoint 4K switcher has its own driver, Extron DTP CrossPoint 4K, which reads its paired outputs, video mutes and audio correctly: use that one for it.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DTP CrossPoint 108 4K",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_dtp_crosspoint",
+          "confidence": "untested",
+          "notes": "Built from Extron's user guide; not yet tested on a switcher. A new unit's password is its serial number: enter it in Password. The switcher reports its size when it connects and the output and input settings fill in. The IPCP models' built-in control processor is a separate device at its own address and is not controlled by this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DTP CrossPoint 108 4K IPCP MA 70",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_dtp_crosspoint",
+          "confidence": "untested",
+          "notes": "Built from Extron's user guide; not yet tested on a switcher. A new unit's password is its serial number: enter it in Password. The switcher reports its size when it connects and the output and input settings fill in. The IPCP models' built-in control processor is a separate device at its own address and is not controlled by this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DTP CrossPoint 108 4K IPCP SA",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_dtp_crosspoint",
+          "confidence": "untested",
+          "notes": "Built from Extron's user guide; not yet tested on a switcher. A new unit's password is its serial number: enter it in Password. The switcher reports its size when it connects and the output and input settings fill in. The IPCP models' built-in control processor is a separate device at its own address and is not controlled by this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DTP CrossPoint 82 4K",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_dtp_crosspoint",
+          "confidence": "untested",
+          "notes": "Built from Extron's user guide; not yet tested on a switcher. A new unit's password is its serial number: enter it in Password. The switcher reports its size when it connects and the output and input settings fill in. The IPCP models' built-in control processor is a separate device at its own address and is not controlled by this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DTP CrossPoint 82 4K IPCP MA 70",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_dtp_crosspoint",
+          "confidence": "untested",
+          "notes": "Built from Extron's user guide; not yet tested on a switcher. A new unit's password is its serial number: enter it in Password. The switcher reports its size when it connects and the output and input settings fill in. The IPCP models' built-in control processor is a separate device at its own address and is not controlled by this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DTP CrossPoint 82 4K IPCP SA",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_dtp_crosspoint",
+          "confidence": "untested",
+          "notes": "Built from Extron's user guide; not yet tested on a switcher. A new unit's password is its serial number: enter it in Password. The switcher reports its size when it connects and the output and input settings fill in. The IPCP models' built-in control processor is a separate device at its own address and is not controlled by this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DTP CrossPoint 84 4K",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_dtp_crosspoint",
+          "confidence": "untested",
+          "notes": "Built from Extron's user guide; not yet tested on a switcher. A new unit's password is its serial number: enter it in Password. The switcher reports its size when it connects and the output and input settings fill in. The IPCP models' built-in control processor is a separate device at its own address and is not controlled by this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DTP CrossPoint 84 4K IPCP MA 70",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_dtp_crosspoint",
+          "confidence": "untested",
+          "notes": "Built from Extron's user guide; not yet tested on a switcher. A new unit's password is its serial number: enter it in Password. The switcher reports its size when it connects and the output and input settings fill in. The IPCP models' built-in control processor is a separate device at its own address and is not controlled by this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DTP CrossPoint 84 4K IPCP SA",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_dtp_crosspoint",
+          "confidence": "untested",
+          "notes": "Built from Extron's user guide; not yet tested on a switcher. A new unit's password is its serial number: enter it in Password. The switcher reports its size when it connects and the output and input settings fill in. The IPCP models' built-in control processor is a separate device at its own address and is not controlled by this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DTP CrossPoint 86 4K",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_dtp_crosspoint",
+          "confidence": "untested",
+          "notes": "Built from Extron's user guide; not yet tested on a switcher. A new unit's password is its serial number: enter it in Password. The switcher reports its size when it connects and the output and input settings fill in. The IPCP models' built-in control processor is a separate device at its own address and is not controlled by this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DTP CrossPoint 86 4K IPCP MA 70",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_dtp_crosspoint",
+          "confidence": "untested",
+          "notes": "Built from Extron's user guide; not yet tested on a switcher. A new unit's password is its serial number: enter it in Password. The switcher reports its size when it connects and the output and input settings fill in. The IPCP models' built-in control processor is a separate device at its own address and is not controlled by this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DTP CrossPoint 86 4K IPCP SA",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_dtp_crosspoint",
+          "confidence": "untested",
+          "notes": "Built from Extron's user guide; not yet tested on a switcher. A new unit's password is its serial number: enter it in Password. The switcher reports its size when it connects and the output and input settings fill in. The IPCP models' built-in control processor is a separate device at its own address and is not controlled by this driver.\n"
         }
       ]
     },
@@ -5962,7 +6106,7 @@
         {
           "id": "extron_sis",
           "confidence": "untested",
-          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. Newer Extron units ship with their serial number as the password: enter it in Password. Verified on an SW4 HD 4K PLUS (firmware 1.02): password login, input select, video mute, auto-input switching.\n"
+          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. Newer Extron units ship with their serial number as the password: enter it in Password. Verified on an SW4 HD 4K PLUS (firmware 1.02): password login, input select, video mute, auto-input switching. A DTP CrossPoint 4K switcher has its own driver, Extron DTP CrossPoint 4K, which reads its paired outputs, video mutes and audio correctly: use that one for it.\n"
         }
       ]
     },
@@ -5974,7 +6118,7 @@
         {
           "id": "extron_sis",
           "confidence": "untested",
-          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. Newer Extron units ship with their serial number as the password: enter it in Password. Verified on an SW4 HD 4K PLUS (firmware 1.02): password login, input select, video mute, auto-input switching.\n"
+          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. Newer Extron units ship with their serial number as the password: enter it in Password. Verified on an SW4 HD 4K PLUS (firmware 1.02): password login, input select, video mute, auto-input switching. A DTP CrossPoint 4K switcher has its own driver, Extron DTP CrossPoint 4K, which reads its paired outputs, video mutes and audio correctly: use that one for it.\n"
         }
       ]
     },
@@ -5986,7 +6130,7 @@
         {
           "id": "extron_sis",
           "confidence": "untested",
-          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. Newer Extron units ship with their serial number as the password: enter it in Password. Verified on an SW4 HD 4K PLUS (firmware 1.02): password login, input select, video mute, auto-input switching.\n"
+          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. Newer Extron units ship with their serial number as the password: enter it in Password. Verified on an SW4 HD 4K PLUS (firmware 1.02): password login, input select, video mute, auto-input switching. A DTP CrossPoint 4K switcher has its own driver, Extron DTP CrossPoint 4K, which reads its paired outputs, video mutes and audio correctly: use that one for it.\n"
         }
       ]
     },
@@ -5998,7 +6142,7 @@
         {
           "id": "extron_sis",
           "confidence": "untested",
-          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. Newer Extron units ship with their serial number as the password: enter it in Password. Verified on an SW4 HD 4K PLUS (firmware 1.02): password login, input select, video mute, auto-input switching.\n"
+          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. Newer Extron units ship with their serial number as the password: enter it in Password. Verified on an SW4 HD 4K PLUS (firmware 1.02): password login, input select, video mute, auto-input switching. A DTP CrossPoint 4K switcher has its own driver, Extron DTP CrossPoint 4K, which reads its paired outputs, video mutes and audio correctly: use that one for it.\n"
         }
       ]
     },
@@ -6022,7 +6166,7 @@
         {
           "id": "extron_sis",
           "confidence": "untested",
-          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. Newer Extron units ship with their serial number as the password: enter it in Password. Verified on an SW4 HD 4K PLUS (firmware 1.02): password login, input select, video mute, auto-input switching.\n"
+          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. Newer Extron units ship with their serial number as the password: enter it in Password. Verified on an SW4 HD 4K PLUS (firmware 1.02): password login, input select, video mute, auto-input switching. A DTP CrossPoint 4K switcher has its own driver, Extron DTP CrossPoint 4K, which reads its paired outputs, video mutes and audio correctly: use that one for it.\n"
         }
       ]
     },

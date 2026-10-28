@@ -94,7 +94,7 @@ id: extron_sis
 name: Extron SIS Protocol
 manufacturer: Extron
 category: switcher
-version: 1.12.0
+version: 1.12.1
 author: OpenAVC
 # learned_from on the input and output counts.
 min_platform_version: "0.37.0"
@@ -132,7 +132,9 @@ compatible_models:
       single-output devices. Newer Extron units ship with their serial
       number as the password: enter it in Password. Verified on an SW4 HD
       4K PLUS (firmware 1.02): password login, input select, video mute,
-      auto-input switching.
+      auto-input switching. A DTP CrossPoint 4K switcher has its own driver,
+      Extron DTP CrossPoint 4K, which reads its paired outputs, video mutes
+      and audio correctly: use that one for it.
 
 transport: tcp
 transports: [tcp, serial]

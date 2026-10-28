@@ -3399,7 +3399,7 @@
       "name": "Extron SIS Protocol",
       "manufacturer": "Extron",
       "category": "switcher",
-      "version": "1.11.0",
+      "version": "1.12.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Extron products via the SIS (Simple Instruction Set) protocol. Covers crosspoint matrix switchers (DXP, CrossPoint), presentation switchers (IN Series), scalers (DSC, DVS), distribution amplifiers, and DSP products. On matrix models each configured output and input is a child entity with per-output routing and mute state. Works over TCP (port 23) or RS-232 (9600 8N1).\n",
@@ -3407,7 +3407,7 @@
       "file": "switchers/extron_sis.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/extron_sis.avcdriver": "5b32616ec80c2dc0950efd7bb768fdb1e6d69650cbf2869ffe53b5e9da537e46"
+        "switchers/extron_sis.avcdriver": "40c8720084332583335509123ef272dab654516004938f5003bd9cdf2ede87bf"
       },
       "ports": [
         23
@@ -3426,7 +3426,7 @@
       ],
       "help": {
         "overview": "Universal control for Extron products using the SIS protocol. Works with 200+ products including crosspoint matrix switchers, presentation switchers, scalers, distribution amplifiers, and DSPs. On matrix switchers, configure the frame size (Input Count / Output Count) and every output becomes a child entity tracking its routed input and mute state, with per-input source detection.\n",
-        "setup": "1. Connect the Extron device to the network or via RS-232 (9600 8N1). 2. For TCP control, set the device's IP address and use port 23 (default). 3. Matrix switchers (DXP, CrossPoint, XTP): set Input Count and Output Count to the frame size (e.g. 8 and 4 for a DXP 84). Each output and input becomes a child entity. Leave both at 0 for single-output devices (scalers, presentation switchers, DAs) \u2014 they use the plain Select Input / volume / mute commands. 4. Extron recommends a 100ms delay between commands (pre-configured).\n"
+        "setup": "1. Connect the Extron device to the network, or to RS-232 (9600 8N1) directly or through a bridge. 2. For network control, set the device's IP address and use port 23 (default). A new Extron unit is at 192.168.254.254 with DHCP off; give it an address on your network first. 3. Enter the switcher's password in Password. A new unit's password is its serial number, printed on its label. Leave it blank only if the switcher has no password. 4. Matrix switchers (DXP, CrossPoint, XTP): set Input Count and Output Count to the frame size (e.g. 8 and 4 for a DXP 84). Each output and input becomes a child entity. Leave Output Count at 0 for single-output devices (scalers, presentation switchers, DAs); they use the plain Select Input / volume / mute commands. On an SW HD 4K PLUS, set Input Count to its inputs to see each input's source. 5. Select Input is refused while Auto-Input Switching is on; set it to Off for manual switching. 6. Extron recommends a 100ms delay between commands (pre-configured).\n"
       },
       "compatible_models": [
         {
@@ -3435,6 +3435,7 @@
             "DXP Series matrix switchers",
             "CrossPoint Series matrix switchers",
             "IN Series presentation switchers",
+            "SW HD 4K PLUS Series switchers",
             "DSC Series scalers",
             "DVS Series scalers",
             "DTP Series transmitters and receivers",
@@ -3442,7 +3443,7 @@
             "DMP Series DSPs"
           ],
           "confidence": "untested",
-          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices.\n"
+          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. Newer Extron units ship with their serial number as the password: enter it in Password. Verified on an SW4 HD 4K PLUS (firmware 1.02): password login, input select, video mute, auto-input switching.\n"
         }
       ],
       "discovery": {

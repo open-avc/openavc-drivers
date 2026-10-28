@@ -61,12 +61,36 @@
 # Esc PSAV<CR> is documented as answering the bare digit; whether verbose
 # mode 3 tags it "Psav{n}" is not verified. A unit without power save answers
 # E10, its power_save stays blank, and its poll is never held.
+#
+# Password (DTP CrossPoint 4K setup guide 68-2368-51 Rev. B pp. 21-22; SW HD
+# 4K PLUS user guide 68-2940-01 Rev. E): Extron sets every account's password
+# to the unit's serial number at the factory. On port 23 a protected unit
+# sends its copyright line, then "\r\nPassword:" with no line ending; the right
+# password gets "\r\nLogin Administrator\r\n" (or "Login User"), a wrong one
+# gets the prompt again. An unprotected unit asks nothing. Captured on an SW4
+# HD 4K PLUS 1.02 (2026-10-28): the wrong-password prompt comes back about 3 s
+# later, and a bare CR after the login is ignored.
+#
+# The platform's telnet_login answers a username prompt and then a password
+# prompt; Extron asks for a password only. So the auth block below types the
+# password at the first prompt (username_field: password), then waits for the
+# line break that opens either answer and sends an empty line, which the
+# switcher ignores after a good login. "Login " then confirms it; a refusal
+# never says it, so the attempt fails as a refused login after the timeout.
+# A blank Password skips the login (an unprotected unit). A protected unit
+# with no password entered answers every line with the prompt, which the
+# "^Password:$" rule turns into last_error.
+#
+# SW HD 4K PLUS (presentation switchers, guide p. 28): the Information request
+# I answers "In{i} Ausw{m} Afmt{a} Vmt{v}" (selected input, auto-input switch
+# mode, embedded audio mute, video mute), read below. While auto-input
+# switching is on, a manual input select answers E10 (measured, 1.02).
 
 id: extron_sis
 name: Extron SIS Protocol
 manufacturer: Extron
 category: switcher
-version: 1.11.0
+version: 1.12.0
 author: OpenAVC
 # learned_from on the input and output counts.
 min_platform_version: "0.37.0"
@@ -90,6 +114,7 @@ compatible_models:
       - DXP Series matrix switchers
       - CrossPoint Series matrix switchers
       - IN Series presentation switchers
+      - SW HD 4K PLUS Series switchers
       - DSC Series scalers
       - DVS Series scalers
       - DTP Series transmitters and receivers
@@ -100,9 +125,13 @@ compatible_models:
       Any Extron product implementing the SIS protocol (~200 products).
       For matrix switchers, set Input Count / Output Count to the frame
       size to get per-output routing and mute state; leave both 0 for
-      single-output devices.
+      single-output devices. Newer Extron units ship with their serial
+      number as the password: enter it in Password. Verified on an SW4 HD
+      4K PLUS (firmware 1.02): password login, input select, video mute,
+      auto-input switching.
 
 transport: tcp
+transports: [tcp, serial]
 delimiter: "\r\n"
 
 help:
@@ -114,14 +143,23 @@ help:
     child entity tracking its routed input and mute state, with per-input
     source detection.
   setup: >
-    1. Connect the Extron device to the network or via RS-232 (9600 8N1).
-    2. For TCP control, set the device's IP address and use port 23 (default).
-    3. Matrix switchers (DXP, CrossPoint, XTP): set Input Count and Output
+    1. Connect the Extron device to the network, or to RS-232 (9600 8N1)
+    directly or through a bridge.
+    2. For network control, set the device's IP address and use port 23
+    (default). A new Extron unit is at 192.168.254.254 with DHCP off; give
+    it an address on your network first.
+    3. Enter the switcher's password in Password. A new unit's password is
+    its serial number, printed on its label. Leave it blank only if the
+    switcher has no password.
+    4. Matrix switchers (DXP, CrossPoint, XTP): set Input Count and Output
     Count to the frame size (e.g. 8 and 4 for a DXP 84). Each output and
-    input becomes a child entity. Leave both at 0 for single-output devices
-    (scalers, presentation switchers, DAs) — they use the plain Select
-    Input / volume / mute commands.
-    4. Extron recommends a 100ms delay between commands (pre-configured).
+    input becomes a child entity. Leave Output Count at 0 for single-output
+    devices (scalers, presentation switchers, DAs); they use the plain
+    Select Input / volume / mute commands. On an SW HD 4K PLUS, set Input
+    Count to its inputs to see each input's source.
+    5. Select Input is refused while Auto-Input Switching is on; set it to
+    Off for manual switching.
+    6. Extron recommends a 100ms delay between commands (pre-configured).
 
 discovery:
   # Extron telnet (port 23) sends a copyright banner the moment the
@@ -145,6 +183,8 @@ discovery:
 default_config:
   host: ""
   port: 23
+  baudrate: 9600
+  password: ""
   input_count: 0
   output_count: 0
   poll_interval: 10
@@ -159,6 +199,19 @@ config_schema:
     type: integer
     default: 23
     label: Port
+  baudrate:
+    type: integer
+    default: 9600
+    label: Baud Rate (serial)
+    description: "Extron RS-232 control runs at 9600 8N1."
+  password:
+    type: string
+    secret: true
+    default: ""
+    label: Password
+    description: >
+      The switcher's administrator or user password. A new unit's password
+      is its serial number. Leave blank if the switcher has no password.
   input_count:
     type: integer
     default: 0
@@ -168,7 +221,9 @@ config_schema:
     description: >
       Number of inputs on a matrix switcher — each becomes an Input child
       with source-detect state. A matrix reports its size when it connects,
-      and it is saved here. Leave 0 for single-output devices.
+      and it is saved here. On an SW HD 4K PLUS, set it to the switcher's
+      inputs to see each one's source. Leave 0 for other single-output
+      devices.
   output_count:
     type: integer
     default: 0
@@ -194,6 +249,25 @@ config_schema:
 on_connect:
   - "\x1b3CV\r\n"
   - "\x1bPSAV\r"
+  # Firmware: "Ver01*1.02" in verbose mode 3 (SW4 HD 4K PLUS 1.02).
+  - "Q"
+
+# The password login, typed at the first prompt (see the header). The second
+# "prompt" is the line break that opens the switcher's answer, and the second
+# credential is a config field no driver sets, so only the line ending goes:
+# a bare CR, which the switcher ignores after a good login. telnet_login
+# skips the login while the field it types first (here the password) is
+# blank. A refusal is the prompt again, about 3 s later, never "Login ", so
+# it fails as a refused login once timeout_seconds pass after that.
+auth:
+  type: telnet_login
+  username_prompt: "Password:"
+  username_field: password
+  password_prompt: "\r\n"
+  password_field: unused_second_line
+  success_pattern: "Login "
+  line_ending: "\r"
+  timeout_seconds: 5
 
 state_variables:
   input:
@@ -219,7 +293,21 @@ state_variables:
   video_mute:
     type: boolean
     label: Video Mute
-    help: "True when the video output is blanked (single-output devices; matrix mute-all acks also land here)."
+    help: "True when the video output is blanked, with or without its sync (single-output devices; matrix mute-all acks also land here)."
+  embedded_audio_mute:
+    type: boolean
+    label: Embedded Audio Mute
+    help: "True when the audio carried on the HDMI output is muted (SW HD 4K PLUS)."
+  auto_switch:
+    type: integer
+    min: 0
+    max: 2
+    label: Auto-Input Switching
+    help: "0 off (manual switching), 1 the highest-priority active input, 2 the most recently connected input. Select Input is refused while it is not 0 (SW HD 4K PLUS)."
+  last_error:
+    type: string
+    label: Last Error
+    help: "Why the switcher is not answering commands, when it says so."
   firmware:
     type: string
     label: Firmware Version
@@ -363,7 +451,7 @@ commands:
   select_input:
     label: Select Input
     send: "{input}!"
-    help: "Select the active input on a single-output device (scaler, presentation switcher). On DXP-class matrices this form views an output's tie instead — use Route there."
+    help: "Select the active input on a single-output device (scaler, presentation switcher). Refused while Auto-Input Switching is on. On DXP-class matrices this form views an output's tie instead — use Route there."
     params:
       input:
         type: integer
@@ -404,6 +492,22 @@ commands:
     send: "0B"
     help: "Restore the video output (single-output devices)."
 
+  # 2B: video and sync mute (SW HD 4K PLUS guide; "Vmt2" on an SW4 1.02).
+  video_sync_mute_on:
+    label: Video and Sync Mute On
+    send: "2B"
+    help: "Blank the video output and stop its sync, so the display shows no signal (single-output devices; on a matrix use Output Video and Sync Mute). Video Mute Off restores it."
+
+  embedded_audio_mute_on:
+    label: Embedded Audio Mute On
+    send: "\x1b1AFMT\r"
+    help: "Mute the audio carried on the HDMI output (SW HD 4K PLUS)."
+
+  embedded_audio_mute_off:
+    label: Embedded Audio Mute Off
+    send: "\x1b0AFMT\r"
+    help: "Unmute the audio carried on the HDMI output (SW HD 4K PLUS)."
+
   output_video_mute_on:
     label: Output Video Mute On
     send: "{output}*1B"
@@ -419,6 +523,18 @@ commands:
     label: Output Video Mute Off
     send: "{output}*0B"
     help: "Unmute an output's video (matrix switchers)."
+    params:
+      output:
+        type: integer
+        required: true
+        label: Output Number
+        min: 1
+
+  # {o}*2B: video and sync mute (DTP CrossPoint 4K setup guide p. 24).
+  output_video_sync_mute_on:
+    label: Output Video and Sync Mute On
+    send: "{output}*2B"
+    help: "Mute an output's video and stop its sync, so the display shows no signal (matrix switchers). Output Video Mute Off restores it."
     params:
       output:
         type: integer
@@ -502,6 +618,25 @@ actions:
   - id: mute_off
     icon: volume-2
 
+# Auto-input switching (SW HD 4K PLUS guide p. 23): Esc {m}AUSW<CR> answers
+# "Ausw{m}"; the polled I reports the mode. While it is not 0 a manual input
+# select is refused. A unit without the mode answers E10 and the setting stays
+# blank.
+device_settings:
+  auto_switch:
+    type: enum
+    label: Auto-Input Switching
+    help: "Off for manual switching; Select Input is refused in the other two modes."
+    state_key: auto_switch
+    default: 0
+    setup: false
+    values:
+      - { value: "0", label: "Off (manual switching)" }
+      - { value: "1", label: "Highest-priority active input" }
+      - { value: "2", label: "Most recently connected input" }
+    write:
+      send: "\x1b{value}AUSW\r"
+
 responses:
   # ── Matrix tie acks / verbose view-tie responses ──
   # "Out2 In1 All" (AV tie), "Out2 In1 Vid" (video breakaway),
@@ -524,13 +659,44 @@ responses:
   - match: '^In(\d+) (?:All|Vid|Aud)$'
     set: { input: "$1" }
 
+  # The SW HD 4K PLUS answer to the polled Information request I (guide
+  # p. 28; "In1 Ausw0 Afmt0 Vmt0" on an SW4 1.02): the selected input, the
+  # auto-input switch mode, embedded audio mute and video mute (2 = video and
+  # sync).
+  - match: '^In(\d+) Ausw([0-2]) Afmt([01]) Vmt([0-2])$'
+    set: { input: "$1", auto_switch: "$2" }
+    mappings:
+      - state: embedded_audio_mute
+        group: 3
+        type: boolean
+        map: { "1": true, "0": false }
+      - state: video_mute
+        group: 4
+        type: boolean
+        map: { "2": true, "1": true, "0": false }
+  - match: '^Afmt([01])$'
+    mappings:
+      - state: embedded_audio_mute
+        group: 1
+        type: boolean
+        map: { "1": true, "0": false }
+  - match: '^Ausw([0-2])$'
+    set: { auto_switch: "$1" }
+
+  # A protected switcher with no Password entered answers every line with
+  # the prompt (the login was skipped). The prompt has no line ending of its
+  # own; the next one's leading CR LF frames it.
+  - match: '^Password:$'
+    set: { last_error: "The switcher asks for a password. Enter it in this device's Password setting." }
+
   # ── Per-output mute acks / views (matrix): "Vmt2*1", "Amt2*3" ──
-  - match: '^Vmt(\d+)\*([01])$'
+  # 2 = video and sync mute (DXP guide; DTP CrossPoint 4K guides).
+  - match: '^Vmt(\d+)\*([0-2])$'
     child_set:
       - type: output
         id: "$1"
         state:
-          video_mute: { group: 2, map: { "1": "true", "0": "false" } }
+          video_mute: { group: 2, map: { "2": "true", "1": "true", "0": "false" } }
   - match: '^Amt(\d+)\*0$'
     child_set:
       - { type: output, id: "$1", state: { audio_mute: "false" } }
@@ -541,12 +707,12 @@ responses:
       - { type: output, id: "$1", state: { audio_mute: "true" } }
 
   # Front-panel push notifications (matrix): "02Vmt1" / "02Amt0"
-  - match: '^(\d+)Vmt([01])$'
+  - match: '^(\d+)Vmt([0-2])$'
     child_set:
       - type: output
         id: "$1"
         state:
-          video_mute: { group: 2, map: { "1": "true", "0": "false" } }
+          video_mute: { group: 2, map: { "2": "true", "1": "true", "0": "false" } }
   - match: '^(\d+)Amt([01])$'
     child_set:
       - type: output
@@ -561,7 +727,8 @@ responses:
     set: { mute: "true" }
   - match: '^Amt0$'
     set: { mute: "false" }
-  - match: '^Vmt1$'
+  # Vmt2: video and sync mute ("Vmt2" from 2B on an SW4 1.02).
+  - match: '^Vmt[12]$'
     set: { video_mute: "true" }
   - match: '^Vmt0$'
     set: { video_mute: "false" }
@@ -611,6 +778,15 @@ responses:
       state:
         signal: { group: 1, map: { "0": "false", "1": "true", "2": "true" } }
         hdcp: { group: 1, map: { "0": "none", "1": "hdcp", "2": "non_hdcp" } }
+  # The SW HD 4K PLUS tags the same list "HdcpI" with nothing after it and
+  # ends it with a space ("HdcpI0 0 0 0 " on an SW4 1.02, guide p. 25).
+  - match: '^HdcpI([0-2](?: [0-2])*) ?$'
+    child_list:
+      type: input
+      element: '([0-2])'
+      state:
+        signal: { group: 1, map: { "0": "false", "1": "true", "2": "true" } }
+        hdcp: { group: 1, map: { "0": "none", "1": "hdcp", "2": "non_hdcp" } }
 
   # ── Per-input source/HDCP status (matrix): "HdcpI3*1" ──
   # 0 = no source detected, 1 = HDCP source, 2 = non-HDCP source.
@@ -630,6 +806,10 @@ responses:
   - match: '^Ds(\d+)$'
     set: { volume: "$1" }
 
+  # Firmware, the answer to Q at connect: "Ver01*1.02" in verbose mode 3
+  # (SW4 HD 4K PLUS 1.02).
+  - match: '^Ver\d+\*(\S+)$'
+    set: { firmware: "$1" }
   # Firmware: "Ver1.02.0001" (legacy unanchored — format varies by family)
   - match: 'Ver(\S+)'
     set: { firmware: "$1" }
@@ -697,6 +877,8 @@ simulator:
     volume: 50
     mute: false
     video_mute: false
+    embedded_audio_mute: false
+    auto_switch: 0
     firmware: "1.04"
     signal_active: true
     power_save: 0
@@ -829,16 +1011,37 @@ simulator:
             state[f"output.{i}.audio_input"] = inp
         respond(f"In{inp} All\r\n")
 
-    # Per-output video mute set: {output}*{0|1}B  ->  "Vmt{o}*{s}"
-    - match: '(\d+)\*([01])B'
+    # Per-output video mute set: {output}*{0|1|2}B  ->  "Vmt{o}*{s}"
+    # (2 = video and sync mute)
+    - match: '(\d+)\*([0-2])B'
       handler: |
         out = int(match.group(1))
         val = int(match.group(2))
         if f"output.{out}.video_mute" in state:
-            state[f"output.{out}.video_mute"] = val == 1
+            state[f"output.{out}.video_mute"] = val != 0
             respond(f"Vmt{out}*{val}\r\n")
         else:
             respond("E01\r\n")
+
+    # Flat video mute (single-output dialect): {0|1|2}B  ->  "Vmt{s}"
+    - match: '([0-2])B'
+      handler: |
+        val = int(match.group(1))
+        state["video_mute"] = val != 0
+        respond(f"Vmt{val}\r\n")
+
+    # Embedded audio mute: Esc {0|1}AFMT  ->  "Afmt{s}" (SW HD 4K PLUS)
+    - match: '\x1b([01])AFMT.*'
+      handler: |
+        val = int(match.group(1))
+        state["embedded_audio_mute"] = val == 1
+        respond(f"Afmt{val}\r\n")
+
+    # Auto-input switching: Esc {m}AUSW  ->  "Ausw{m}" (SW HD 4K PLUS)
+    - match: '\x1b([0-2])AUSW.*'
+      handler: |
+        state["auto_switch"] = int(match.group(1))
+        respond("Ausw" + match.group(1) + "\r\n")
 
     # Per-output audio mute set: {output}*{0-7}Z  ->  "Amt{o}*{s}"
     # (values 1-7 are model-specific path combinations; any non-zero
@@ -902,7 +1105,8 @@ simulator:
     # Information query. A matrix answers with its size, the one the
     # project's counts describe (verbose mode 3 adds the Info00* tag; the A
     # half is the DXP's two analog/S-PDIF audio outputs). A single-output
-    # device answers with signal information, as a DSC scaler does.
+    # device answers as an SW HD 4K PLUS does: input, auto-input switch mode,
+    # embedded audio mute, video mute.
     - match: 'I'
       handler: |
         ins = int(config.get("input_count") or 0)
@@ -910,7 +1114,13 @@ simulator:
         if outs > 0:
             respond(f"Info00*V{ins}X{outs} A{ins}X2\r\n")
         else:
-            respond(f"Vid{state['input']} Typ6 Std0 Blk0 Hrt031.5 Vrt060.0\r\n")
+            afmt = 1 if state.get("embedded_audio_mute") else 0
+            vmt = 1 if state.get("video_mute") else 0
+            respond(f"In{state['input']} Ausw{int(state.get('auto_switch') or 0)} Afmt{afmt} Vmt{vmt}\r\n")
+
+    # Firmware query, as verbose mode 3 tags it
+    - receive: 'Q'
+      respond: "Ver01*{state.firmware}\r\n"
 
     # Model name
     - receive: "N"

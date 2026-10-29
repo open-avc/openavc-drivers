@@ -878,7 +878,7 @@ class BiampTesiraTTPDriver(BaseDriver):
         "name": "Biamp Tesira TTP",
         "manufacturer": "Biamp",
         "category": "audio",
-        "version": "3.1.7",
+        "version": "3.1.8",
         # Set by hand (the contract check cannot see a method call): the
         # Test Connection socket binds to BaseDriver.local_address(), which
         # landed in 0.37.0 (supersedes the lifecycle-hook 0.24.0 requirement).

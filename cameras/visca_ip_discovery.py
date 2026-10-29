@@ -25,6 +25,7 @@ License: MIT (matches the OpenAVC drivers repo).
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from dataclasses import dataclass
 from typing import Any
 
@@ -122,6 +123,14 @@ async def _query_one(
             pass
 
 
+def _hold_port(ctx: ProbeContext, ip: str):
+    """Hold ``ip``'s VISCA port for one connection, so no other identification check
+    opens it meanwhile: ``ctx.hold_port`` from OpenAVC 0.38.0, nothing on an older
+    platform (where this companion runs as before)."""
+    hold = getattr(ctx, "hold_port", None)
+    return hold(ip, VISCA_PORT) if hold is not None else contextlib.nullcontext()
+
+
 async def probe(ctx: ProbeContext) -> None:
     """Query every host the engine saw answering on TCP/10500."""
     candidates = ctx.hosts_by_open_port.get(VISCA_PORT, ())
@@ -132,7 +141,11 @@ async def probe(ctx: ProbeContext) -> None:
 
     async def bounded(ip: str) -> tuple[str, dict[str, Any] | None]:
         async with sem:
-            return await _query_one(ip, ctx.source_ip, ctx.log)
+            try:
+                async with _hold_port(ctx, ip):
+                    return await _query_one(ip, ctx.source_ip, ctx.log)
+            except ConnectionRefusedError:  # a device in the project holds the port
+                return ip, None
 
     results = await asyncio.gather(*(bounded(ip) for ip in candidates))
 

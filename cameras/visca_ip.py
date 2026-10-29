@@ -192,7 +192,7 @@ class VISCAIPDriver(BaseDriver):
         "name": "Generic VISCA-IP PTZ Camera",
         "manufacturer": "Generic",
         "category": "camera",
-        "version": "1.3.5",
+        "version": "1.3.6",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",

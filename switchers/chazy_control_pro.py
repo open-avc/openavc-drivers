@@ -216,7 +216,7 @@ class ChazyControlProDriver(BaseDriver):
         "name": "TurtleAV Chazy Control Pro",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.6.6",
+        "version": "1.6.7",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         # Gated on the newest platform surface this driver CALLS:

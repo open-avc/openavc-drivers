@@ -42,6 +42,7 @@ License: MIT (matches the OpenAVC drivers repo).
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import re
 
@@ -159,6 +160,14 @@ async def _grab_banner(ip: str, source_ip: str, log: logging.Logger) -> str:
     return acc.decode("latin-1", errors="replace")
 
 
+def _hold_port(ctx: ProbeContext, ip: str):
+    """Hold ``ip``'s telnet port for one connection, so no other identification check
+    opens it meanwhile: ``ctx.hold_port`` from OpenAVC 0.38.0, nothing on an older
+    platform (where this companion runs as before)."""
+    hold = getattr(ctx, "hold_port", None)
+    return hold(ip, CHAZY_TELNET_PORT) if hold is not None else contextlib.nullcontext()
+
+
 async def probe(ctx: ProbeContext) -> None:
     """Banner-grab every host the engine saw listening on TCP 23.
 
@@ -176,7 +185,11 @@ async def probe(ctx: ProbeContext) -> None:
 
     async def _try(ip: str) -> None:
         async with sem:
-            banner = await _grab_banner(ip, ctx.source_ip, ctx.log)
+            try:
+                async with _hold_port(ctx, ip):
+                    banner = await _grab_banner(ip, ctx.source_ip, ctx.log)
+            except ConnectionRefusedError:  # a device in the project holds the port
+                return
         if not banner:
             return
         model, firmware = parse_welcome(banner)

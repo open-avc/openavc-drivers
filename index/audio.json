@@ -953,7 +953,7 @@
       "name": "Biamp Tesira TTP",
       "manufacturer": "Biamp",
       "category": "audio",
-      "version": "3.1.7",
+      "version": "3.1.8",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Biamp Tesira and TesiraFORT\u00c9 DSPs over the Tesira Text Protocol on TCP port 23 (Telnet). Supports Mute, Level, Source Selector, Matrix Mixer (crosspoints), Auto Mixer, Router, Logic, AEC, Room Combiner, Audio Meter, Signal Present Meter, Tone Generator, Preset recall, and basic VoIP / Dialer surfaces. Subscribes to push updates instead of polling. Declare your Tesira blocks once in the device config \u2014 each block becomes a child entity whose per-channel controls panel UIs bind to directly.",
@@ -961,8 +961,8 @@
       "file": "audio/biamp_tesira_ttp.py",
       "format": "python",
       "files": {
-        "audio/biamp_tesira_ttp.py": "9c9d403723fdccb3b5bda3105ee183c78d6cc456d74e6a959b5eac579b9223f8",
-        "audio/biamp_tesira_ttp_discovery.py": "52a9a3d6c365efd4549d6b69b5bab2d385b207ac51da02d197089464a723d66e",
+        "audio/biamp_tesira_ttp.py": "70649aabd38114a04ef5668172cfe4c4602670119407e3565f7e466a9246452b",
+        "audio/biamp_tesira_ttp_discovery.py": "8aaf26857ceb1c475060f8476461544a257ef80433aeedc7cde860062c77f3da",
         "audio/biamp_tesira_ttp_sim.py": "509353c2f05764f91572152a9ed291d301a87f444fbbc719a6d585538a14ab8a"
       },
       "ports": [

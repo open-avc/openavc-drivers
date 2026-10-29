@@ -208,7 +208,7 @@ class DarwinControlDriver(BaseDriver):
         "name": "TurtleAV Darwin Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.2.4",
+        "version": "1.2.5",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # the routing: block below needs 0.27.0.

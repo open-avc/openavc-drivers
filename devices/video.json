@@ -2,11 +2,23 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 54,
+    "total_devices": 55,
     "shards": null,
     "category": "video"
   },
   "devices": [
+    {
+      "manufacturer": "Biamp",
+      "model": "Parl\u00e9 VBC 2800",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "biamp_parle_vbc2800",
+          "confidence": "untested",
+          "notes": "Firmware 1.6.0 or later (the Network API arrived in 1.6.0). Built from Biamp's Network API Control article; not yet run against a bar. The VBC 2500, VBC 2500a and ABC 2500 have no network control."
+        }
+      ]
+    },
     {
       "manufacturer": "BirdDog",
       "model": "4K HDMI",

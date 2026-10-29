@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1055,
+    "total_devices": 1056,
     "shards": null
   },
   "devices": [
@@ -2673,6 +2673,18 @@
           "id": "benq_display",
           "confidence": "untested",
           "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "Parl\u00e9 VBC 2800",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "biamp_parle_vbc2800",
+          "confidence": "untested",
+          "notes": "Firmware 1.6.0 or later (the Network API arrived in 1.6.0). Built from Biamp's Network API Control article; not yet run against a bar. The VBC 2500, VBC 2500a and ABC 2500 have no network control."
         }
       ]
     },

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 127,
+    "total_drivers": 128,
     "shards": null
   },
   "drivers": [
@@ -2056,6 +2056,66 @@
         "manufacturer_alias": [
           "benq",
           "benq corporation"
+        ]
+      }
+    },
+    {
+      "id": "biamp_parle_vbc2800",
+      "name": "Biamp Parl\u00e9 VBC 2800",
+      "manufacturer": "Biamp",
+      "category": "video",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "ssh",
+      "description": "Controls the Biamp Parl\u00e9 VBC 2800 video bar over its Network API (SSH): camera autoframing, tiling, pan, tilt, zoom and presets, the USB, analog and assistive listening audio levels and mutes, source selection, and people count, updated as they change.",
+      "source_url": "https://support.biamp.com/Parl%C3%A9/Miscellaneous/Parl%C3%A9_VBC_2800_Network_API_Control",
+      "file": "video/biamp_parle_vbc2800.py",
+      "format": "python",
+      "files": {
+        "video/biamp_parle_vbc2800.py": "5629965194a693b3ccc213a27e6ca4eea65cf64346ce678c3e52872560845e3d",
+        "video/biamp_parle_vbc2800_sim.py": "b96ae73b8d0ac2bdd57603dd398bb379e3d9c4d34f1b54d76ae6daf22dda1a4b"
+      },
+      "ports": [
+        22
+      ],
+      "protocols": [
+        "biamp_parle_network_api"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "video-bar",
+        "conferencing",
+        "camera",
+        "ptz",
+        "biamp",
+        "parle",
+        "ssh"
+      ],
+      "help": {
+        "overview": "Controls a Parl\u00e9 VBC 2800 video bar over the network. Camera: autoframing, tiling, pan, tilt and zoom, three position presets, people count. Audio: the level and mute of the computer's audio on the bar's speakers (USB In), the bar's audio to the computer (USB Out), the analog input, and the microphones on the assistive listening output. Values update as they change on the bar, from any source.",
+        "setup": "1. Update the bar to firmware 1.6.0 or later with Biamp Camera Controller.\n2. In Biamp Camera Controller, under Network, turn the Ethernet port on and give the bar a fixed address (static, or a DHCP reservation).\n3. Under Network Control, leave SSH Enabled and Control Enabled on. The user name is control. The password is the bar's serial number unless it was changed there.\n4. In OpenAVC, enter the bar's IP address and the password."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Biamp",
+          "models": [
+            "Parl\u00e9 VBC 2800"
+          ],
+          "confidence": "untested",
+          "notes": "Firmware 1.6.0 or later (the Network API arrived in 1.6.0). Built from Biamp's Network API Control article; not yet run against a bar. The VBC 2500, VBC 2500a and ABC 2500 have no network control."
+        }
+      ],
+      "discovery": {
+        "hostname": [
+          "^ParleVBC2800-"
+        ],
+        "oui": [
+          "78:45:01",
+          "34:e1:d1:9"
+        ],
+        "manufacturer_alias": [
+          "biamp"
         ]
       }
     },

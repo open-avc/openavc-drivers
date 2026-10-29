@@ -46,14 +46,16 @@
 #
 # Push vs poll: push, with a slow resync. "Most parameters will send an
 # acknowledgement in the form of a REP string when they change", so the
-# driver reads everything once on connect (GET ALL, plus the four DSP
-# tables) and mirrors the REPs after that. The legacy page adds that a
-# microphone's values can change while it is not available and should be
-# read again when TX_AVAILABLE returns to YES; a YAML driver cannot send on
-# a report, so the transmitter status, model, name and battery are read
-# again every Resync Interval (60 s by default). The meters travel in SAMPLE
-# frames only while METER_RATE is set, which is opt-in. Liveness is an
-# awaited < GET DEVICE_MODEL > every 30 s.
+# driver reads everything once on connect (GET ALL, the four DSP tables and
+# every channel's TX_AVAILABLE) and mirrors the REPs after that. The legacy
+# page adds that a microphone's values can change while it is not
+# available and should be read again when TX_AVAILABLE returns to YES, so a
+# YES reads that channel's microphone again at once (then_query, platform
+# 0.38.0 and later). Every channel's transmitter status, model, name and
+# battery are also read again every Resync Interval (60 s by default): an
+# older platform ignores then_query, and that poll is what reads them there.
+# The meters travel in SAMPLE frames only while METER_RATE is set, which is
+# opt-in. Liveness is an awaited < GET DEVICE_MODEL > every 30 s.
 #
 # Not used, because the neXt page drops or changes them: the secondary link
 # (SEC / PRI), STANDBY, a channel-indexed FLASH (neXt answers an error),
@@ -70,10 +72,11 @@ id: shure_mxw_next
 name: Shure MXW neXt Access Point
 manufacturer: Shure
 category: audio
-version: 1.1.0
+version: 1.2.0
 author: OpenAVC
 # scale / offset / unknown on state variables and command parameters, and
-# map on a device setting.
+# map on a device setting. then_query does not raise it: an older platform
+# ignores it.
 min_platform_version: "0.37.0"
 description: >
   Microflex Wireless neXt access points (MXWAPX4, MXWAPX8, MXWAPXD2) over
@@ -937,10 +940,11 @@ on_connect:
   # The channel count first: it sizes the channel roster before the channel
   # REPs arrive. GET ALL is every report the access point has; the four DSP
   # tables are asked for too, because each report is what brings an input or
-  # output online.
+  # output online, and so is TX_AVAILABLE, which is not polled.
   - { send: "< GET DECT_CHANNEL_COUNT >", query_for: channel_count_reported }
   - { send: "< GET DEVICE_MODEL >", query_for: model }
   - "< GET ALL >"
+  - "< GET CH 0 TX_AVAILABLE >"
   - "< GET 0 INPUT_CH_GAIN >"
   - "< GET 0 INPUT_CH_MUTE >"
   - "< GET 0 OUTPUT_CH_GAIN >"
@@ -950,9 +954,11 @@ on_connect:
 polling:
   # The microphone readings again, every Resync Interval: the legacy page
   # warns that they can change while a microphone is not available.
+  # TX_AVAILABLE is not polled: its YES rule reads that microphone again, so
+  # a poll's YES for every channel would read every microphone twice. The
+  # access point reports it when it changes, and on connect it is asked for.
   queries:
     - "< GET CH 0 TX_STATUS >"
-    - "< GET CH 0 TX_AVAILABLE >"
     - "< GET CH 0 TX_MODEL >"
     - "< GET CH 0 TX_DEVICE_ID >"
     - "< GET 0 BATT_CHARGE >"
@@ -1058,11 +1064,30 @@ responses:
         state:
           tx_status: { group: 2, map: { "ACTIVE": active, "MUTED": muted, "ON_CHARGER": on_charger, "UNKNOWN": unknown } }
           tx_mute_status: { group: 2, map: { "ACTIVE": unmuted, "MUTED": muted, "ON_CHARGER": unknown, "UNKNOWN": unknown } }
-  - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+TX_AVAILABLE\s+(YES|NO)$'
+  # "When TX_AVAILABLE changes from NO to YES, send GET commands for these
+  # parameters for the appropriate channel" (the legacy page). Its list in
+  # neXt's strings, with the microphone's name added and two left out:
+  # AUDIO_GAIN is the access point's input gain, which does not follow the
+  # microphone, and LED_STATUS answers ERR unless the mute preference is
+  # External Mute, which the driver cannot see.
+  - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+TX_AVAILABLE\s+(YES)$'
     child_set:
       - type: channel
         id: $1
-        state: { tx_available: { group: 2, map: { "YES": true, "NO": false } } }
+        state: { tx_available: { group: 2, map: { "YES": true } } }
+    then_query:
+      - "< GET CH {child_id} TX_STATUS >"
+      - "< GET CH {child_id} TX_MODEL >"
+      - "< GET CH {child_id} TX_DEVICE_ID >"
+      - "< GET {child_id} BUTTON_STS >"
+      - "< GET {child_id} BATT_CHARGE >"
+      - "< GET {child_id} BATT_RUN_TIME >"
+      - "< GET {child_id} BATT_HEALTH >"
+  - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+TX_AVAILABLE\s+(NO)$'
+    child_set:
+      - type: channel
+        id: $1
+        state: { tx_available: { group: 2, map: { "NO": false } } }
   - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+TX_DEVICE_ID\s+\{(.*?)\s*\}$'
     child_set:
       - { type: channel, id: $1, state: { tx_name: $2 } }

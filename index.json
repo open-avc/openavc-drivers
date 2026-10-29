@@ -7237,7 +7237,7 @@
       "name": "Shure MXW neXt Access Point",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Microflex Wireless neXt access points (MXWAPX4, MXWAPX8, MXWAPXD2) over Shure command strings. Per-channel gain, mute and name, each microphone's model, status, name, battery, button and LEDs, opt-in RF and audio meters, gain and mute on every Dante, analog and USB input and output, the automixer mute and the operation mode. Every change on the access point shows up as it happens.\n",
@@ -7245,7 +7245,7 @@
       "file": "audio/shure_mxw_next.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/shure_mxw_next.avcdriver": "b603bb23a14ed520786bed9d20a47823ed6d5634f676207b929e36e8b6d0c1c9"
+        "audio/shure_mxw_next.avcdriver": "67be549093460b8ae87dbcbab1fad884a2db24b516d52fde09827a7a78a0008b"
       },
       "ports": [
         2202

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 123,
+    "total_drivers": 124,
     "shards": null
   },
   "drivers": [
@@ -6229,6 +6229,90 @@
           "polycom",
           "hp",
           "plantronics"
+        ]
+      }
+    },
+    {
+      "id": "promethean_activpanel10",
+      "name": "Promethean ActivPanel 10",
+      "manufacturer": "Promethean",
+      "category": "display",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls the Promethean ActivPanel 10 and ActivPanel 10 Premium interactive displays over the network (TCP port 5000) or RS-232. Power, sleep and Wake-on-LAN, input select, volume and mute, freeze, blank, touch and remote locks, OPS computer power, picture levels, backlight mode, standby and sleep timers, front-panel button locks and the ePTZ camera. Polls for status.",
+      "source_url": "https://support.prometheanworld.com/s/article/2752",
+      "file": "displays/promethean_activpanel10.py",
+      "format": "python",
+      "files": {
+        "displays/promethean_activpanel10.py": "38a279ec56ea040da295f6a584d33ee4b309c23a9cd11839e96e43f2e3397a9f",
+        "displays/promethean_activpanel10_sim.py": "10392283fcc913e19b7bde7043e1bf17c7a237a958da3c1453d225af7ed41340"
+      },
+      "ports": [
+        5000
+      ],
+      "protocols": [
+        "promethean_rs232"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "display",
+        "promethean",
+        "activpanel",
+        "ifp",
+        "interactive-display",
+        "rs232",
+        "lan-control",
+        "education"
+      ],
+      "help": {
+        "overview": "Promethean ActivPanel 10 and 10 Premium interactive displays. Power, input, volume, mute, freeze, blank, touch and remote locks, the OPS computer's power, picture levels and timers. Polls every 15 seconds. Over the network, Power Off puts the panel to Sleep, which turns its network off: it shows offline until Power On wakes it with Wake-on-LAN.",
+        "setup": "1. Plug a network cable into the panel's own LAN port (not the OPS computer's), and give the panel a static IP address or a DHCP reservation. The address is under Settings > System > Network.\n2. OpenAVC must be on the same subnet as the panel: its network control does not cross subnets.\n3. Turn on Settings > Power > Wake on LAN, so Power On can wake a sleeping panel.\n4. Network control uses TCP port 5000 and needs no username or password.\n5. Serial control instead: a straight RS-232 cable to the panel's RS232 port, 9600 baud, 8 data bits, no parity, 1 stop bit. Standby and Power On work over serial without Wake-on-LAN.",
+        "connection": "A panel in Sleep does not answer on the network. Power On wakes it with Wake-on-LAN (Settings > Power > Wake on LAN on, and the panel's MAC address known), and the connection comes back on its own. Check that OpenAVC is on the panel's subnet and that the cable is in the panel's LAN port, not the OPS."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Promethean",
+          "models": [
+            "AP10-A65",
+            "AP10-A75",
+            "AP10-A86"
+          ],
+          "confidence": "untested",
+          "notes": "ActivPanel 10. Network control on the panel's own LAN port, TCP 5000, or RS-232 at 9600 8N1."
+        },
+        {
+          "manufacturer": "Promethean",
+          "models": [
+            "AP10-B55",
+            "AP10-B65",
+            "AP10-B75",
+            "AP10-B86"
+          ],
+          "confidence": "untested",
+          "notes": "ActivPanel 10 Premium. Same control codes; the camera commands are for the Promethean ePTZ 4K camera in the Premium's camera mount."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 5000,
+          "send_hex": "F6 03 05 00 FE 6F",
+          "expect_regex": "\\xf6\\x03\\x05[ -~]*(?:AP10|ActivPanel ?10)",
+          "extract": {
+            "model": {
+              "regex": "\\xf6\\x03\\x05((?:AP10|ActivPanel ?10)[ -~]*?)[\\x00-\\xff]o",
+              "group": 1
+            }
+          },
+          "timeout_ms": 2000
+        },
+        "oui": [
+          "6c:dc:6a"
+        ],
+        "manufacturer_alias": [
+          "promethean",
+          "promethean limited"
         ]
       }
     },

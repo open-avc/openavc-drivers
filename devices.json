@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1038,
+    "total_devices": 1045,
     "shards": null
   },
   "devices": [
@@ -9201,6 +9201,90 @@
           "id": "poly_studio",
           "confidence": "untested",
           "notes": "VideoOS REST API is identical across the X-series and G7500. Per-model differences (mic count, integrated cameras, bundled mic pods) don't change the command surface \u2014 they just gate which features actually do anything when invoked."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Promethean",
+      "model": "AP10-A65",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "promethean_activpanel10",
+          "confidence": "untested",
+          "notes": "ActivPanel 10. Network control on the panel's own LAN port, TCP 5000, or RS-232 at 9600 8N1."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Promethean",
+      "model": "AP10-A75",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "promethean_activpanel10",
+          "confidence": "untested",
+          "notes": "ActivPanel 10. Network control on the panel's own LAN port, TCP 5000, or RS-232 at 9600 8N1."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Promethean",
+      "model": "AP10-A86",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "promethean_activpanel10",
+          "confidence": "untested",
+          "notes": "ActivPanel 10. Network control on the panel's own LAN port, TCP 5000, or RS-232 at 9600 8N1."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Promethean",
+      "model": "AP10-B55",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "promethean_activpanel10",
+          "confidence": "untested",
+          "notes": "ActivPanel 10 Premium. Same control codes; the camera commands are for the Promethean ePTZ 4K camera in the Premium's camera mount."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Promethean",
+      "model": "AP10-B65",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "promethean_activpanel10",
+          "confidence": "untested",
+          "notes": "ActivPanel 10 Premium. Same control codes; the camera commands are for the Promethean ePTZ 4K camera in the Premium's camera mount."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Promethean",
+      "model": "AP10-B75",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "promethean_activpanel10",
+          "confidence": "untested",
+          "notes": "ActivPanel 10 Premium. Same control codes; the camera commands are for the Promethean ePTZ 4K camera in the Premium's camera mount."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Promethean",
+      "model": "AP10-B86",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "promethean_activpanel10",
+          "confidence": "untested",
+          "notes": "ActivPanel 10 Premium. Same control codes; the camera commands are for the Promethean ePTZ 4K camera in the Premium's camera mount."
         }
       ]
     },

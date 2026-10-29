@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 103,
+    "total_devices": 110,
     "shards": null,
     "category": "display"
   },
@@ -575,6 +575,90 @@
           "id": "panasonic_display",
           "confidence": "untested",
           "notes": "The command core (power, input, volume, mutes, aspect, picture) is uniform across the TH-series professional line; the SQ2H and EQ2 command lists are identical and CQ1 carries the same core. Per-series variation is which inputs exist \u2014 the input picker offers the SQ2H/EQ2 union and free-typed protocol codes pass through for model extras (e.g. CQ1's TV1 tuner input). Unsupported values return ERR2 on the display, logged at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Promethean",
+      "model": "AP10-A65",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "promethean_activpanel10",
+          "confidence": "untested",
+          "notes": "ActivPanel 10. Network control on the panel's own LAN port, TCP 5000, or RS-232 at 9600 8N1."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Promethean",
+      "model": "AP10-A75",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "promethean_activpanel10",
+          "confidence": "untested",
+          "notes": "ActivPanel 10. Network control on the panel's own LAN port, TCP 5000, or RS-232 at 9600 8N1."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Promethean",
+      "model": "AP10-A86",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "promethean_activpanel10",
+          "confidence": "untested",
+          "notes": "ActivPanel 10. Network control on the panel's own LAN port, TCP 5000, or RS-232 at 9600 8N1."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Promethean",
+      "model": "AP10-B55",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "promethean_activpanel10",
+          "confidence": "untested",
+          "notes": "ActivPanel 10 Premium. Same control codes; the camera commands are for the Promethean ePTZ 4K camera in the Premium's camera mount."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Promethean",
+      "model": "AP10-B65",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "promethean_activpanel10",
+          "confidence": "untested",
+          "notes": "ActivPanel 10 Premium. Same control codes; the camera commands are for the Promethean ePTZ 4K camera in the Premium's camera mount."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Promethean",
+      "model": "AP10-B75",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "promethean_activpanel10",
+          "confidence": "untested",
+          "notes": "ActivPanel 10 Premium. Same control codes; the camera commands are for the Promethean ePTZ 4K camera in the Premium's camera mount."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Promethean",
+      "model": "AP10-B86",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "promethean_activpanel10",
+          "confidence": "untested",
+          "notes": "ActivPanel 10 Premium. Same control codes; the camera commands are for the Promethean ePTZ 4K camera in the Premium's camera mount."
         }
       ]
     },

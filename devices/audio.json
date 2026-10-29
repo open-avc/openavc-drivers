@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 239,
+    "total_devices": 240,
     "shards": null,
     "category": "audio"
   },
@@ -2418,6 +2418,18 @@
           "id": "sonos",
           "confidence": "full",
           "notes": "UPnP API stable across all Sonos models. Control and eventing verified on a Sonos Amp (S16) and a Sonos One (S18), firmware 95.1 (S2)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Symetrix",
+      "model": "Cognio C20",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "symetrix_cognio",
+          "confidence": "untested",
+          "notes": "Cognio DesignOps 1.0 or later. Recall Preset's list of presets needs DesignOps 1.1 (Device.GetPresets); on 1.0 type the preset's remote name. Not the Composer DSPs (Edge, Radius, Prism): those are Symetrix Composer."
         }
       ]
     },

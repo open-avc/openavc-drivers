@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1054,
+    "total_devices": 1055,
     "shards": null
   },
   "devices": [
@@ -11289,6 +11289,18 @@
           "id": "vmix",
           "confidence": "full",
           "notes": "Verified against vMix 29 (29.0.0.49). Any vMix edition; the TCP API is enabled by default. Bus and Mix features beyond the master bus need a 4K or Pro edition."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Symetrix",
+      "model": "Cognio C20",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "symetrix_cognio",
+          "confidence": "untested",
+          "notes": "Cognio DesignOps 1.0 or later. Recall Preset's list of presets needs DesignOps 1.1 (Device.GetPresets); on 1.0 type the preset's remote name. Not the Composer DSPs (Edge, Radius, Prism): those are Symetrix Composer."
         }
       ]
     },

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 38,
+    "total_drivers": 39,
     "shards": null,
     "category": "audio"
   },
@@ -2523,6 +2523,67 @@
         ],
         "manufacturer_alias": [
           "sonos"
+        ]
+      }
+    },
+    {
+      "id": "symetrix_cognio",
+      "name": "Symetrix Cognio",
+      "manufacturer": "Symetrix",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Symetrix Cognio smart processors (C20) over the Cognio Control Protocol, JSON-RPC on TCP port 3012. Lists each Control Panel Group you name as a child with its live controls, updated as they change, and recalls and updates the site's presets.",
+      "source_url": "https://docs.symetrix.co/control/external-control-of-cognio-with-json-rpc/control-protocol.html",
+      "file": "audio/symetrix_cognio.py",
+      "format": "python",
+      "files": {
+        "audio/symetrix_cognio.py": "a3fcd5435f79b79973d376f41dc2ea940c8a50a0bc8d6644275b371e0d09b902",
+        "audio/symetrix_cognio_sim.py": "e845791487bbc86cf8895cdfe15e9d82f1211065e52306b8649e0f0194db83b1"
+      },
+      "ports": [
+        3012
+      ],
+      "protocols": [
+        "symetrix_cognio"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "dsp",
+        "symetrix",
+        "cognio",
+        "json-rpc",
+        "dante",
+        "conferencing"
+      ],
+      "help": {
+        "overview": "Controls a Symetrix Cognio processor through the Cognio Control Protocol. Each Control Panel Group you list appears under the device with its controls: a control's number (a fader's level, a mute's 0 or 1, a drop list's position) and its text as the panel shows it. Values update as they change on the processor, from any panel or preset. Set Control, Set Control Text and Adjust Control change one; Recall Preset and Update Preset work on the site's presets.",
+        "setup": "1. In Cognio DesignOps, open each Control Panel Group to control, turn on its Remote Enable and give it a Remote Name.\n2. Turn on Remote Enable for each control in it you need. DesignOps gives a control a default name (fader1, gain1) if you leave it blank. Names are case-sensitive.\n3. For presets, turn on Remote Enable in the Presets Manager and give each preset a Remote Name.\n4. Push the site to the processor.\n5. In OpenAVC, enter the IP address of the Cognio device that hosts the Control Panel Groups, and list each group's Remote Name under Control Panel Groups. The port is 3012 unless the site sets another.\nAfter a change to the site, use Refresh on the device's Control Panel Groups tab to read the controls again."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Symetrix",
+          "models": [
+            "Cognio C20"
+          ],
+          "confidence": "untested",
+          "notes": "Cognio DesignOps 1.0 or later. Recall Preset's list of presets needs DesignOps 1.1 (Device.GetPresets); on 1.0 type the preset's remote name. Not the Composer DSPs (Edge, Radius, Prism): those are Symetrix Composer."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 3012,
+          "send_ascii": "{\"jsonrpc\":\"2.0\",\"method\":\"Device.GetLastRecalledPreset\",\"id\":\"openavc-probe\"}\u0000",
+          "expect_regex": "\"remoteName\"\\s*:|\"code\"\\s*:\\s*-101\\b",
+          "extract_manufacturer": "Symetrix"
+        },
+        "oui": [
+          "00:0c:d0"
+        ],
+        "manufacturer_alias": [
+          "symetrix"
         ]
       }
     },

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 240,
+    "total_devices": 243,
     "shards": null,
     "category": "audio"
   },
@@ -591,7 +591,7 @@
         {
           "id": "allenheath_sq",
           "confidence": "untested",
-          "notes": "Same MIDI command set and channel counts across all three. SQ-5 has 8 SoftKeys (triggers 9-16 are no-ops). SoftKeys are addressed by integer 1-16."
+          "notes": "Same MIDI command set and channel counts across all three. SQ-5 has 8 SoftKeys (triggers 9-16 are no-ops). SoftKeys are addressed by integer 1-16. Matrices 4-6 and Cue List recall need firmware 1.6."
         }
       ]
     },
@@ -603,7 +603,7 @@
         {
           "id": "allenheath_sq",
           "confidence": "untested",
-          "notes": "Same MIDI command set and channel counts across all three. SQ-5 has 8 SoftKeys (triggers 9-16 are no-ops). SoftKeys are addressed by integer 1-16."
+          "notes": "Same MIDI command set and channel counts across all three. SQ-5 has 8 SoftKeys (triggers 9-16 are no-ops). SoftKeys are addressed by integer 1-16. Matrices 4-6 and Cue List recall need firmware 1.6."
         }
       ]
     },
@@ -615,7 +615,43 @@
         {
           "id": "allenheath_sq",
           "confidence": "untested",
-          "notes": "Same MIDI command set and channel counts across all three. SQ-5 has 8 SoftKeys (triggers 9-16 are no-ops). SoftKeys are addressed by integer 1-16."
+          "notes": "Same MIDI command set and channel counts across all three. SQ-5 has 8 SoftKeys (triggers 9-16 are no-ops). SoftKeys are addressed by integer 1-16. Matrices 4-6 and Cue List recall need firmware 1.6."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "SQ5+",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_sq",
+          "confidence": "untested",
+          "notes": "Set Model to SQ5+ / SQ6+ / SQ7+: the SQ+ moves every master output to its own parameter numbers. MIDI over TCP needs firmware 2.0.2; RackUltra FX control needs 2.0.3. SQ5+ has 8 SoftKeys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "SQ6+",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_sq",
+          "confidence": "untested",
+          "notes": "Set Model to SQ5+ / SQ6+ / SQ7+: the SQ+ moves every master output to its own parameter numbers. MIDI over TCP needs firmware 2.0.2; RackUltra FX control needs 2.0.3. SQ5+ has 8 SoftKeys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "SQ7+",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_sq",
+          "confidence": "untested",
+          "notes": "Set Model to SQ5+ / SQ6+ / SQ7+: the SQ+ moves every master output to its own parameter numbers. MIDI over TCP needs firmware 2.0.2; RackUltra FX control needs 2.0.3. SQ5+ has 8 SoftKeys."
         }
       ]
     },

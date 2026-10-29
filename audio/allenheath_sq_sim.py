@@ -1,5 +1,5 @@
 """
-Allen & Heath SQ — Simulator.
+Allen & Heath SQ / SQ+ — Simulator.
 
 Implements the SQ MIDI-over-TCP protocol on port 51325 well enough to
 exercise the driver:
@@ -7,7 +7,13 @@ exercise the driver:
   - Raw binary TCP (no delimiter).
   - MIDI 1.0 byte stream with NRPN (CC 63 / 62 / 06 / 26) for mutes,
     levels, pans and assignments.
-  - Bank Select + Program Change for scene recall.
+  - Bank Select + Program Change for scene recall, and for a Cue List
+    position (banks 0A-0C).
+  - Every parameter kept per MIDI channel, so an SQ+'s RackUltra FX
+    units (each on a channel of its own) answer apart from the console.
+  - Address-agnostic: it answers a Get for any parameter number, so it
+    serves the SQ's and the SQ+'s tables alike, and cannot tell a wrong
+    Model setting from a right one.
   - Note On/Off for SoftKey triggers (no state mutation — SoftKeys
     are momentary triggers on real hardware).
   - "Get" requests (CC 60 = 0x7F) echo back the current value as a
@@ -56,10 +62,13 @@ class AllenHeathSQSimulator(TCPSimulator):
         cfg = self.config or {}
         self._midi_channel = max(0, min(15, int(cfg.get("midi_channel", 1)) - 1))
 
-        # Parameter store: keyed by (msb, lsb), value = 14-bit int.
+        # Parameter store: keyed by (MIDI channel, msb, lsb), value = 14-bit
+        # int. The channel matters on an SQ+: a RackUltra FX unit uses the
+        # main channel's LR parameter numbers on a channel of its own.
         # Mutes use 0/1 in the value (vc always 0, vf is the on/off bit).
-        self._params: dict[tuple[int, int], int] = {}
+        self._params: dict[tuple[int, int, int], int] = {}
         self._current_scene = 1
+        self._last_cue = 0
 
         # NRPN aggregator per channel (mirror of the driver).
         self._nrpn: dict[int, dict[str, int]] = {
@@ -73,6 +82,7 @@ class AllenHeathSQSimulator(TCPSimulator):
     def get_state(self) -> dict[str, Any]:
         return {
             "current_scene": self._current_scene,
+            "last_cue": self._last_cue,
             "param_count": len(self._params),
             "midi_channel": self._midi_channel + 1,
         }
@@ -191,38 +201,38 @@ class AllenHeathSQSimulator(TCPSimulator):
         # Mute & assign use VC=0, VF=0/1 — store 0 or 1.
         # Levels & pans use 14-bit (VC<<7)|VF — store full value.
         if vc == 0 and vf in (0, 1):
-            self._params[(msb, lsb)] = vf
+            self._params[(ch, msb, lsb)] = vf
         else:
-            self._params[(msb, lsb)] = ((vc & 0x7F) << 7) | (vf & 0x7F)
+            self._params[(ch, msb, lsb)] = ((vc & 0x7F) << 7) | (vf & 0x7F)
         # Echo so the driver's push parser sees the change.
         return self._build_nrpn(ch, msb, lsb, vc, vf)
 
     def _on_increment(self, ch: int, msb: int, lsb: int) -> bytes | None:
-        cur = self._params.get((msb, lsb), 0)
+        cur = self._params.get((ch, msb, lsb), 0)
         # If current looks like a mute (0/1), toggle it.
         if cur in (0, 1) and self._is_mute_param(msb, lsb):
             new = 0 if cur else 1
-            self._params[(msb, lsb)] = new
+            self._params[(ch, msb, lsb)] = new
             return self._build_nrpn(ch, msb, lsb, 0, new)
         # Otherwise treat as +1 step on a 14-bit value (rough — real
         # console steps in dB). 256 ≈ ~1 fader-position percent, fine
         # enough for sim verification.
         new = min(VALUE_MAX, cur + 256)
-        self._params[(msb, lsb)] = new
+        self._params[(ch, msb, lsb)] = new
         return self._build_nrpn(ch, msb, lsb, (new >> 7) & 0x7F, new & 0x7F)
 
     def _on_decrement(self, ch: int, msb: int, lsb: int) -> bytes | None:
-        cur = self._params.get((msb, lsb), 0)
+        cur = self._params.get((ch, msb, lsb), 0)
         if cur in (0, 1) and self._is_mute_param(msb, lsb):
             new = 0 if cur else 1
-            self._params[(msb, lsb)] = new
+            self._params[(ch, msb, lsb)] = new
             return self._build_nrpn(ch, msb, lsb, 0, new)
         new = max(0, cur - 256)
-        self._params[(msb, lsb)] = new
+        self._params[(ch, msb, lsb)] = new
         return self._build_nrpn(ch, msb, lsb, (new >> 7) & 0x7F, new & 0x7F)
 
     def _reply_get(self, ch: int, msb: int, lsb: int) -> bytes:
-        cur = self._params.get((msb, lsb))
+        cur = self._params.get((ch, msb, lsb))
         if cur is None:
             # Untouched parameter: pans/balances rest at center on a real
             # console (CTR = 3F 7F); everything else starts at 0.
@@ -247,6 +257,11 @@ class AllenHeathSQSimulator(TCPSimulator):
         if ch != self._midi_channel:
             return
         bank = self._last_bank.get(ch, 0)
+        if 0x0A <= bank <= 0x0C:
+            # Cue List position (SQ firmware 1.6, SQ+): banks 0A-0C. The
+            # simulator keeps no Cue List, so it notes the position only.
+            self._last_cue = (bank - 0x0A) * 128 + program + 1
+            return
         scene = bank * 128 + program + 1
         if 1 <= scene <= 300:
             self._current_scene = scene
@@ -261,15 +276,19 @@ class AllenHeathSQSimulator(TCPSimulator):
         msg = bytes([0xB0 | ch, 0x00, bank, 0xC0 | ch, program])
         await self.push(msg)
 
-    async def push_param(self, msb: int, lsb: int, vc: int, vf: int) -> None:
+    async def push_param(self, msb: int, lsb: int, vc: int, vf: int,
+                         ch: int | None = None) -> None:
         """Test hook: push an arbitrary parameter change as if a console
-        fader/mute had moved. Stores the value and broadcasts NRPN.
+        fader/mute had moved. Stores the value and broadcasts NRPN on the
+        console's channel, or on ``ch`` (0-based) for a RackUltra FX unit.
         """
+        if ch is None:
+            ch = self._midi_channel
         if vc == 0 and vf in (0, 1):
-            self._params[(msb, lsb)] = vf
+            self._params[(ch, msb, lsb)] = vf
         else:
-            self._params[(msb, lsb)] = ((vc & 0x7F) << 7) | (vf & 0x7F)
-        await self.push(self._build_nrpn(self._midi_channel, msb, lsb, vc, vf))
+            self._params[(ch, msb, lsb)] = ((vc & 0x7F) << 7) | (vf & 0x7F)
+        await self.push(self._build_nrpn(ch, msb, lsb, vc, vf))
 
     # ── Helpers ─────────────────────────────────────────────────────────
 

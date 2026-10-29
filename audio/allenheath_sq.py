@@ -1,8 +1,8 @@
 """
 OpenAVC Allen & Heath SQ Driver — first-class child-entity edition.
 
-Controls Allen & Heath SQ-5, SQ-6 and SQ-7 digital mixing consoles
-over MIDI-over-TCP/IP on port 51325. The protocol is the standard
+Controls Allen & Heath SQ-5, SQ-6 and SQ-7 and SQ5+, SQ6+ and SQ7+
+digital mixing consoles over MIDI-over-TCP/IP on port 51325. The protocol is the standard
 MIDI 1.0 wire format carried over a raw TCP stream. Mixer parameters
 (mutes, levels, panning, mix assignments) are addressed using NRPN
 (Non-Registered Parameter Number) sequences; scene recall uses Bank
@@ -22,6 +22,31 @@ What makes this driver first-class
   connection down with a typed ``no_response`` fault so the platform
   reconnects and the device card shows the real cause. Pure push
   monitoring alone would leave a silently-dead SQ "online" forever.
+  The probe asks for the LR mute, the one master address the SQ and
+  the SQ+ share, so a wrong Model setting cannot take the console
+  offline.
+
+Two consoles, two address maps:
+    The SQ+ keeps the SQ's MIDI command set, but its tables are not the
+    SQ's. Every master output moved (LR level 4F 50 where the SQ has
+    4F 00; Aux, FX Send, Matrix and DCA masters and the master balances
+    the same way) and the matrix sends were laid out again for six
+    matrices. Neither console identifies itself over MIDI, so the
+    `model` setting picks the map. An SQ+ reporting one of its own
+    master addresses to a driver set to SQ (a surface fader move does)
+    is reported in `last_error`. Everything else (input, group and FX
+    return sends, every mute, scenes, SoftKeys) is the same on both.
+
+    Matrices 4-6 exist on either console once a stereo matrix is
+    switched to mono (SQ firmware 1.6, every SQ+). The SQ takes mute and
+    master level for them but no sends: Allen & Heath's SQ release notes
+    say sends and assignments to Matrices 4-6 have no MIDI address. Only
+    Matrices 1-3 (stereo) have a master balance, on both.
+
+    RackUltra FX (SQ+ firmware 2.0.3) is controlled on a MIDI channel of
+    its own per unit, with the parameter numbers the main channel uses
+    for the LR mix, so the driver keys every route on the channel as
+    well as the parameter number.
 
 Push vs poll:
     Hybrid. When a console-side control moves the SQ emits the matching
@@ -47,30 +72,39 @@ Format choice:
     ConfigurableDriver today.
 
 Models covered:
-    SQ-5  — 8 SoftKeys, 0 Soft Rotaries
-    SQ-6  — 16 SoftKeys, 4 Soft Rotaries
-    SQ-7  — 16 SoftKeys, 8 Soft Rotaries
-    All three share the same MIDI command set and channel counts;
-    per-model differences are physical I/O and surface controls only.
+    SQ-5 / SQ5+  — 8 SoftKeys, 0 Soft Rotaries
+    SQ-6 / SQ6+  — 16 SoftKeys, 4 Soft Rotaries
+    SQ-7 / SQ7+  — 16 SoftKeys, 8 Soft Rotaries
+    Within a generation the three share the same MIDI command set and
+    channel counts; per-model differences are physical I/O and surface
+    controls only. The SQ+ takes MIDI over TCP from firmware 2.0.2.
 
 Scope notes:
-    - Linear NRPN Fader Law only (the SQ default). Audio Taper has
-      a different VC/VF mapping; if a customer needs it, expose a
+    - Linear NRPN Fader Law only (the console's default). Audio Taper
+      has a different VC/VF mapping; if a customer needs it, expose a
       `fader_law` config field and a second mapping table.
     - MIDI fader strips, Soft Rotaries, MMC transport, and DAW-
       Control-channel CC/Note traffic are intentionally not exposed.
       Those are end-user surface controls on the console, not
       integrator-addressable mixer functions.
+    - MIDI Show Control (GO, LOAD, RESET for the Cue List): both
+      documents name the messages and give none of their bytes, so it
+      is not sent. Cues are recalled by position instead (Recall Cue).
     - The protocol has no channel-name access and no model identify,
       so children carry static labels ("Input 1") that the user can
       rename in the project.
-    - The manual's §3.7 "LR Mute" Get example shows parameter 00 00,
-      which per its own §3.3 examples and reference tables is Input 1;
-      LR mute is 00 44. The reference tables are authoritative and are
-      what this driver (and its address helpers) follow.
+    - The manual's "LR Mute" Get example shows parameter 00 00, which
+      per its own Mute examples and reference tables is Input 1; LR
+      mute is 00 44. The SQ+ document's matrix examples were carried
+      over from the SQ's and disagree with its own redrawn tables
+      ("Aux5 to Mtx1" 5E 33 is Aux2 to Mtx4 there). The reference
+      tables are authoritative and are what this driver (and its
+      address helpers) follow.
 
-Source:
-    https://www.allen-heath.com/content/uploads/2023/11/SQ-MIDI-Protocol-Issue5.pdf
+Sources:
+    SQ+: https://support.allen-heath.com/hc/en-gb/articles/47793537575953-SQ-MIDI-Protocol-Firmware-V2-0-3
+    SQ:  https://support.allen-heath.com/hc/en-gb/articles/47793519540497-SQ-MIDI-Protocol-Firmware-V1-6
+         https://www.allen-heath.com/content/uploads/2023/11/SQ-MIDI-Protocol-Issue5.pdf
 """
 
 from __future__ import annotations
@@ -78,7 +112,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from openavc.drivers.base import BaseDriver
+from openavc.drivers.base import BaseDriver, ConnectionFaultError
 from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -88,17 +122,27 @@ log = get_logger(__name__)
 NUM_INPUTS = 48
 NUM_GROUPS = 12
 NUM_AUX = 12
-NUM_MTX = 3
+NUM_MTX = 6          # Mtx1-3 stereo; each one switched to mono adds one of Mtx4-6
+NUM_MTX_STEREO = 3   # only Mtx1-3 have a master balance
 NUM_FX_SENDS = 4
 NUM_FX_RETURNS = 8
 NUM_DCAS = 8
 NUM_MUTE_GROUPS = 8
 
+NUM_UFX = 4          # RackUltra FX units (SQ+ firmware 2.0.3)
+
 NUM_SOFTKEYS = 16  # Max across SQ-7; SQ-5 only has 8 — extra triggers are no-ops on hardware
 
-# Scene
+# Which console's parameter tables the driver speaks (the `model` setting).
+MODEL_SQ = "sq"
+MODEL_SQ_PLUS = "sq_plus"
+
+# Scene, and position in the Cue List (SQ firmware 1.6, SQ+)
 MIN_SCENE = 1
 MAX_SCENE = 300
+MIN_CUE = 1
+MAX_CUE = 300
+CUE_BANK_BASE = 0x0A   # Cue positions 1-128 = bank 0A, 129-256 = 0B, 257-300 = 0C
 
 # 14-bit value range
 VALUE_MAX = 0x3FFF  # 16383
@@ -159,7 +203,7 @@ def mute_fx_send(n: int) -> tuple[int, int]:
 
 
 def mute_mtx_master(n: int) -> tuple[int, int]:
-    return _addr(0x00, 0x55 + (n - 1))                 # Mtx1..3 master → 00 55..57
+    return _addr(0x00, 0x55 + (n - 1))                 # Mtx1..6 master → 00 55..5A (SQ V1.6, SQ+)
 
 
 def mute_dca(n: int) -> tuple[int, int]:
@@ -208,36 +252,65 @@ def level_fx_return_to_fx_send(n: int, m: int) -> tuple[int, int]:
     return _addr(0x4E, 0x04 + (n - 1) * 4 + (m - 1))   # FX1Rtn→FX1Snd → 4E 04
 
 
-def level_lr_to_mtx(m: int) -> tuple[int, int]:
-    return _addr(0x4E, 0x24 + (m - 1))                 # LR→Mtx1..3 → 4E 24..26
+# Matrix sends and master outputs are where the two consoles part. The SQ's
+# "Mix Sends" table gives each source three matrix columns, the SQ+'s six;
+# both start LR at 4E 24, with every Aux row and then every Group row
+# following on at that width:
+#   SQ:  LR→Mtx1 4E 24, Aux1→Mtx1 4E 27, Grp1→Mtx1 4E 4B
+#   SQ+: LR→Mtx1 4E 24, Aux1→Mtx1 4E 2A, Grp1→Mtx1 4E 72 (Grp3→Mtx3 rolls
+#        into 4F 00, Grp12→Mtx6 is 4F 39)
+# Pan (5E) and assignment (6E) use the same LSBs.
+
+MTX_SEND_WIDTH = {MODEL_SQ: 3, MODEL_SQ_PLUS: 6}
+
+# LSB of each master output under MSB 4F (level) and 5F (balance).
+# SQ: Issue 5 and V1.6 "Mix Sends" Output / Control columns (Mtx4-6 at
+# 4F 14-16 from V1.6). SQ+: V2.0.3 "Mix Sends" Output / Control columns.
+MASTER_LSB = {
+    MODEL_SQ: {"lr": 0x00, "aux": 0x01, "fx_send": 0x0D, "matrix": 0x11,
+               "dca": 0x20},
+    MODEL_SQ_PLUS: {"lr": 0x50, "aux": 0x51, "fx_send": 0x5D, "matrix": 0x61,
+                    "dca": 0x67},
+}
 
 
-def level_aux_to_mtx(n: int, m: int) -> tuple[int, int]:
-    return _addr(0x4E, 0x27 + (n - 1) * 3 + (m - 1))   # Aux1→Mtx1 → 4E 27
+def _mtx_send(msb: int, model: str, row: int, m: int) -> tuple[int, int]:
+    """(MSB, LSB) of matrix send ``m`` from table row ``row``: 0 is LR,
+    1-12 Aux1-12, 13-24 Grp1-12."""
+    width = MTX_SEND_WIDTH[model]
+    return _addr(msb, 0x24 + row * width + (m - 1))
 
 
-def level_group_to_mtx(n: int, m: int) -> tuple[int, int]:
-    return _addr(0x4E, 0x4B + (n - 1) * 3 + (m - 1))   # Grp1→Mtx1 → 4E 4B
+def level_lr_to_mtx(m: int, model: str = MODEL_SQ) -> tuple[int, int]:
+    return _mtx_send(0x4E, model, 0, m)                # LR→Mtx1 → 4E 24
 
 
-def level_lr_master() -> tuple[int, int]:
-    return _addr(0x4F, 0x00)                           # LR master → 4F 00
+def level_aux_to_mtx(n: int, m: int, model: str = MODEL_SQ) -> tuple[int, int]:
+    return _mtx_send(0x4E, model, n, m)                # Aux1→Mtx1 → 4E 27 (SQ), 4E 2A (SQ+)
 
 
-def level_aux_master(n: int) -> tuple[int, int]:
-    return _addr(0x4F, 0x01 + (n - 1))                 # Aux1..12 master → 4F 01..0C
+def level_group_to_mtx(n: int, m: int, model: str = MODEL_SQ) -> tuple[int, int]:
+    return _mtx_send(0x4E, model, NUM_AUX + n, m)      # Grp1→Mtx1 → 4E 4B (SQ), 4E 72 (SQ+)
 
 
-def level_fx_send_master(n: int) -> tuple[int, int]:
-    return _addr(0x4F, 0x0D + (n - 1))                 # FX1Snd..4Snd master → 4F 0D..10
+def level_lr_master(model: str = MODEL_SQ) -> tuple[int, int]:
+    return _addr(0x4F, MASTER_LSB[model]["lr"])        # LR master → 4F 00 (SQ), 4F 50 (SQ+)
 
 
-def level_mtx_master(n: int) -> tuple[int, int]:
-    return _addr(0x4F, 0x11 + (n - 1))                 # Mtx1..3 master → 4F 11..13
+def level_aux_master(n: int, model: str = MODEL_SQ) -> tuple[int, int]:
+    return _addr(0x4F, MASTER_LSB[model]["aux"] + (n - 1))
 
 
-def level_dca(n: int) -> tuple[int, int]:
-    return _addr(0x4F, 0x20 + (n - 1))                 # DCA1..8 → 4F 20..27
+def level_fx_send_master(n: int, model: str = MODEL_SQ) -> tuple[int, int]:
+    return _addr(0x4F, MASTER_LSB[model]["fx_send"] + (n - 1))
+
+
+def level_mtx_master(n: int, model: str = MODEL_SQ) -> tuple[int, int]:
+    return _addr(0x4F, MASTER_LSB[model]["matrix"] + (n - 1))
+
+
+def level_dca(n: int, model: str = MODEL_SQ) -> tuple[int, int]:
+    return _addr(0x4F, MASTER_LSB[model]["dca"] + (n - 1))
 
 
 # Pan/balance — MSB 0x50+ (sends) and 0x5F (master outs)
@@ -266,28 +339,35 @@ def pan_fx_return_to_aux(n: int, m: int) -> tuple[int, int]:
     return _addr(0x56, 0x14 + (n - 1) * 12 + (m - 1))
 
 
-def pan_lr_to_mtx(m: int) -> tuple[int, int]:
-    return _addr(0x5E, 0x24 + (m - 1))
+def pan_lr_to_mtx(m: int, model: str = MODEL_SQ) -> tuple[int, int]:
+    return _mtx_send(0x5E, model, 0, m)
 
 
-def pan_aux_to_mtx(n: int, m: int) -> tuple[int, int]:
-    return _addr(0x5E, 0x27 + (n - 1) * 3 + (m - 1))
+def pan_aux_to_mtx(n: int, m: int, model: str = MODEL_SQ) -> tuple[int, int]:
+    return _mtx_send(0x5E, model, n, m)
 
 
-def pan_group_to_mtx(n: int, m: int) -> tuple[int, int]:
-    return _addr(0x5E, 0x4B + (n - 1) * 3 + (m - 1))
+def pan_group_to_mtx(n: int, m: int, model: str = MODEL_SQ) -> tuple[int, int]:
+    return _mtx_send(0x5E, model, NUM_AUX + n, m)
 
 
-def pan_lr_master() -> tuple[int, int]:
-    return _addr(0x5F, 0x00)                           # LR master balance → 5F 00
+def pan_lr_master(model: str = MODEL_SQ) -> tuple[int, int]:
+    return _addr(0x5F, MASTER_LSB[model]["lr"])        # LR master balance → 5F 00 (SQ), 5F 50 (SQ+)
 
 
-def pan_aux_master(n: int) -> tuple[int, int]:
-    return _addr(0x5F, 0x01 + (n - 1))                 # Aux1..12 balance → 5F 01..0C
+def pan_aux_master(n: int, model: str = MODEL_SQ) -> tuple[int, int]:
+    return _addr(0x5F, MASTER_LSB[model]["aux"] + (n - 1))
 
 
-def pan_mtx_master(n: int) -> tuple[int, int]:
-    return _addr(0x5F, 0x11 + (n - 1))                 # Mtx1..3 balance → 5F 11..13
+def pan_mtx_master(n: int, model: str = MODEL_SQ) -> tuple[int, int]:
+    # Mtx1..3 only, on both consoles (Mtx4-6 are mono).
+    return _addr(0x5F, MASTER_LSB[model]["matrix"] + (n - 1))
+
+
+def pan_fx_send_master(n: int) -> tuple[int, int]:
+    # SQ firmware 1.6 only: FX1Snd..4Snd balance → 5F 0D..10. The SQ+
+    # table has no FX Send balance.
+    return _addr(0x5F, MASTER_LSB[MODEL_SQ]["fx_send"] + (n - 1))
 
 
 # Mix assignments — MSB 0x60
@@ -298,6 +378,41 @@ def assign_input_to_aux(n: int, m: int) -> tuple[int, int]:
 
 def assign_input_to_lr(n: int) -> tuple[int, int]:
     return _addr(0x60, n - 1)
+
+
+# RackUltra FX (SQ+ firmware 2.0.3). Each unit is addressed on its own
+# MIDI channel, where the unit's send takes the place the LR mix has on the
+# main channel: a source's send level to the unit is the address of its LR
+# send (Ip1 → 40 00, Grp1 → 40 30, FX1Rtn → 40 3C), pan 50 xx, assignment
+# 60 xx. The unit's own send master and return sit at 4F/5F 50 and 51
+# ("Level / Panning/Balance Parameter Numbers – RackUltra FX").
+
+def level_ufx_send_master() -> tuple[int, int]:
+    return _addr(0x4F, 0x50)                           # UFX*Sn output → 4F 50
+
+
+def pan_ufx_send_master() -> tuple[int, int]:
+    return _addr(0x5F, 0x50)                           # UFX*Sn output balance → 5F 50
+
+
+def level_ufx_return_to_lr() -> tuple[int, int]:
+    return _addr(0x4F, 0x51)                           # UFX*Rt → LR → 4F 51
+
+
+def pan_ufx_return_to_lr() -> tuple[int, int]:
+    return _addr(0x5F, 0x51)                           # UFX*Rt → LR balance → 5F 51
+
+
+def level_ufx_return_to_aux(m: int) -> tuple[int, int]:
+    return _addr(0x40, 0x48 + (m - 1))                 # UFX*Rt → Aux1..12 → 40 48..53
+
+
+def level_ufx_return_to_group(m: int) -> tuple[int, int]:
+    return _addr(0x40, 0x54 + (m - 1))                 # UFX*Rt → Grp1..12 → 40 54..5F
+
+
+def level_ufx_return_to_fx_send(m: int) -> tuple[int, int]:
+    return _addr(0x40, 0x60 + (m - 1))                 # UFX*Rt → FX1Snd..4Snd → 40 60..63
 
 
 # ── Value encoders/decoders ──────────────────────────────────────────────────
@@ -346,6 +461,19 @@ def scene_to_bank_program(scene: int) -> tuple[int, int]:
         raise ValueError(f"Scene {scene} outside 1..{MAX_SCENE}")
     idx = scene - 1
     return idx // 128, idx % 128
+
+
+def cue_to_bank_program(cue: int) -> tuple[int, int]:
+    """Convert a 1-based Cue List position (1..300) to (bank, program).
+
+    Bank 0A = cues 1-128, 0B = 129-256, 0C = 257-300; the program is the
+    0-based position in that range (SQ V1.6 / SQ+ V2.0.3, "Scene change
+    (Cue List)": cue 7 = 0A 06, cue 156 = 0B 1B).
+    """
+    if cue < MIN_CUE or cue > MAX_CUE:
+        raise ValueError(f"Cue {cue} outside {MIN_CUE}..{MAX_CUE}")
+    idx = cue - 1
+    return CUE_BANK_BASE + idx // 128, idx % 128
 
 
 def softkey_to_note(sk: int) -> int:
@@ -445,6 +573,19 @@ CHILD_ENTITY_TYPES: dict[str, dict[str, Any]] = {
         },
         "summary_fields": ["mute"],
     },
+    # SQ+ only, one per unit whose MIDI channel is set in the device config.
+    # The document gives a unit's levels, balances and assignments but no
+    # mute address, so there is no mute here.
+    "rackultra_fx": {
+        "label": "RackUltra FX", "label_plural": "RackUltra FX",
+        "state_variables": {
+            "send_fader": _level_prop("Send Master"),
+            "send_balance": _pan_prop("Send Balance"),
+            "return_level": _level_prop("Return Level (to LR)"),
+            "return_balance": _pan_prop("Return Balance (to LR)"),
+        },
+        "summary_fields": ["send_fader", "return_level"],
+    },
 }
 
 # Children are keyed by string local-ids (in01, aux03, dca1, ...) — declare a
@@ -454,9 +595,11 @@ for _ctype_def in CHILD_ENTITY_TYPES.values():
     _ctype_def["id_format"] = {"type": "string", "max_length": 64}
 
 
-# The static roster: (child_type, count, sid template, label template).
-# The SQ protocol has no model identify and all three SQ models share the
-# same addressable channel set, so the roster is fixed.
+# The main-channel roster: (child_type, count, sid template, label template).
+# The protocol has no model identify and the SQ and the SQ+ share the same
+# channel set (Matrices 4-6 included, used once a matrix is switched to
+# mono), so the roster is fixed. RackUltra FX units are added on an SQ+ for
+# each unit whose MIDI channel is set.
 _ROSTER: list[tuple[str, int, str, str]] = [
     ("input", NUM_INPUTS, "in{n:02d}", "Input {n}"),
     ("group", NUM_GROUPS, "grp{n:02d}", "Group {n}"),
@@ -468,27 +611,61 @@ _ROSTER: list[tuple[str, int, str, str]] = [
     ("mute_group", NUM_MUTE_GROUPS, "mg{n}", "Mute Group {n}"),
 ]
 
-# Per-type (prop -> address function) for the parameters mirrored as child
-# state. Drives registration-time route building AND the Get sweep.
-_TYPE_ADDRS: dict[str, dict[str, Any]] = {
-    "input": {"mute": mute_input, "lr_level": level_input_to_lr,
-              "lr_pan": pan_input_to_lr},
-    "group": {"mute": mute_group, "lr_level": level_group_to_lr,
-              "lr_pan": pan_group_to_lr},
-    "aux": {"mute": mute_aux_master, "fader": level_aux_master,
-            "balance": pan_aux_master},
-    "matrix": {"mute": mute_mtx_master, "fader": level_mtx_master,
-               "balance": pan_mtx_master},
-    "fx_send": {"mute": mute_fx_send, "fader": level_fx_send_master},
-    "fx_return": {"mute": mute_fx_return, "lr_level": level_fx_return_to_lr,
-                  "lr_pan": pan_fx_return_to_lr},
-    "dca": {"mute": mute_dca, "fader": level_dca},
-    "mute_group": {"mute": mute_mgrp},
-}
+def _type_addrs(model: str) -> dict[str, dict[str, Any]]:
+    """Per-type (prop -> address function of the channel number) for the
+    parameters mirrored as child state, in ``model``'s tables. Drives
+    registration-time route building, the Get sweep and the per-strip
+    commands. A function that returns None leaves that number without the
+    prop (Matrices 4-6 have no balance)."""
+    return {
+        "input": {"mute": mute_input, "lr_level": level_input_to_lr,
+                  "lr_pan": pan_input_to_lr},
+        "group": {"mute": mute_group, "lr_level": level_group_to_lr,
+                  "lr_pan": pan_group_to_lr},
+        "aux": {"mute": mute_aux_master,
+                "fader": lambda n: level_aux_master(n, model),
+                "balance": lambda n: pan_aux_master(n, model)},
+        "matrix": {"mute": mute_mtx_master,
+                   "fader": lambda n: level_mtx_master(n, model),
+                   "balance": lambda n: (pan_mtx_master(n, model)
+                                         if n <= NUM_MTX_STEREO else None)},
+        "fx_send": {"mute": mute_fx_send,
+                    "fader": lambda n: level_fx_send_master(n, model)},
+        "fx_return": {"mute": mute_fx_return, "lr_level": level_fx_return_to_lr,
+                      "lr_pan": pan_fx_return_to_lr},
+        "dca": {"mute": mute_dca, "fader": lambda n: level_dca(n, model)},
+        "mute_group": {"mute": mute_mgrp},
+        # Addressed on the unit's own MIDI channel, so the number is unused.
+        "rackultra_fx": {"send_fader": lambda n: level_ufx_send_master(),
+                         "send_balance": lambda n: pan_ufx_send_master(),
+                         "return_level": lambda n: level_ufx_return_to_lr(),
+                         "return_balance": lambda n: pan_ufx_return_to_lr()},
+    }
+
 
 # Which value semantics each child prop carries (for inbound decoding).
 _MUTE_PROPS = {"mute"}
-_PAN_PROPS = {"lr_pan", "balance"}
+_PAN_PROPS = {"lr_pan", "balance", "send_balance", "return_balance"}
+
+_SQ_NO_MTX_SENDS = (
+    "The SQ has no MIDI control of sends to Matrices 4-6; on an SQ, "
+    "matrix sends go to Matrices 1-3."
+)
+_MODEL_MISMATCH = (
+    "This console reported an SQ+ master fader, but Model is set to SQ-5 / "
+    "SQ-6 / SQ-7, so the master faders and matrix sends go to the wrong "
+    "places. Set Model to SQ5+ / SQ6+ / SQ7+ in the device settings."
+)
+
+# The SQ+ masters, under MSB 4F (level) and 5F (balance), sit at LSB 50 and
+# above; the SQ's tables have nothing there.
+_SQ_PLUS_MASTER_MSBS = (0x4F, 0x5F)
+_SQ_PLUS_MASTER_FIRST_LSB = 0x50
+
+_SQ_PLUS_ONLY = (
+    "{what} needs an SQ5+, SQ6+ or SQ7+. If this console is one, set Model "
+    "to SQ5+ / SQ6+ / SQ7+ in the device settings."
+)
 
 
 # ── Command catalog ──────────────────────────────────────────────────────────
@@ -553,6 +730,17 @@ def _chan(label: str, maximum: int, help_text: str | None = None) -> dict[str, A
     }
 
 
+def _mtx_send_param() -> dict[str, Any]:
+    return _chan("Matrix", NUM_MTX,
+                 f"Matrix number (1-{NUM_MTX}; on an SQ-5 / SQ-6 / SQ-7, 1-3).")
+
+
+# RackUltra FX Global Key and Scale take the console's own discrete values
+# ("Global Key Values", "Global Scale Values").
+_GLOBAL_KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+_GLOBAL_SCALES = ["Major", "Minor", "Chromatic"]
+
+
 def _build_commands() -> dict[str, dict[str, Any]]:
     cmds: dict[str, dict[str, Any]] = {}
 
@@ -562,10 +750,16 @@ def _build_commands() -> dict[str, dict[str, Any]]:
 
     # Scene recall.
     add("recall_scene", "Recall Scene",
-        f"Recall a scene {MIN_SCENE}-{MAX_SCENE} via Bank Select + Program "
-        "Change. The scene must exist as a saved scene on the SQ.",
+        f"Recalls a scene {MIN_SCENE}-{MAX_SCENE} from the console's All "
+        "Scenes list. The scene must exist as a saved scene on the console.",
         {"scene": {"type": "integer", "required": True,
                    "min": MIN_SCENE, "max": MAX_SCENE, "label": "Scene"}})
+    add("recall_cue", "Recall Cue",
+        f"Recalls the scene at a position {MIN_CUE}-{MAX_CUE} in the "
+        "console's Cue List. Needs SQ firmware 1.6 or an SQ+, with Scene "
+        "Manager in Cue List mode.",
+        {"cue": {"type": "integer", "required": True,
+                 "min": MIN_CUE, "max": MAX_CUE, "label": "Cue Position"}})
 
     # SoftKeys.
     sk_param = {
@@ -646,14 +840,14 @@ def _build_commands() -> dict[str, dict[str, Any]]:
          "fx": _chan("FX Send", NUM_FX_SENDS), "level": dict(_LEVEL_PARAM)})
     add("set_lr_to_mtx_level", "Set LR → Matrix Level",
         "Set the LR mix's send level to a matrix.",
-        {"mtx": _chan("Matrix", NUM_MTX), "level": dict(_LEVEL_PARAM)})
+        {"mtx": _mtx_send_param(), "level": dict(_LEVEL_PARAM)})
     add("set_aux_to_mtx_level", "Set Aux → Matrix Level",
         "Set an aux master's send level to a matrix.",
-        {"aux": _chan("Aux", NUM_AUX), "mtx": _chan("Matrix", NUM_MTX),
+        {"aux": _chan("Aux", NUM_AUX), "mtx": _mtx_send_param(),
          "level": dict(_LEVEL_PARAM)})
     add("set_group_to_mtx_level", "Set Group → Matrix Level",
         "Set a group's send level to a matrix.",
-        {"group": _chan("Group", NUM_GROUPS), "mtx": _chan("Matrix", NUM_MTX),
+        {"group": _chan("Group", NUM_GROUPS), "mtx": _mtx_send_param(),
          "level": dict(_LEVEL_PARAM)})
     add("set_lr_master_level", "Set LR Master Level",
         "Set the LR (main) master fader.", {"level": dict(_LEVEL_PARAM)})
@@ -699,10 +893,10 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         {"fx": _child_param("fx_return"), "pan": dict(_PAN_PARAM)})
     add("set_lr_to_mtx_balance", "Set LR → Matrix Balance",
         "Balance the LR send into a matrix.",
-        {"mtx": _chan("Matrix", NUM_MTX), "pan": dict(_PAN_PARAM)})
+        {"mtx": _mtx_send_param(), "pan": dict(_PAN_PARAM)})
     add("set_aux_to_mtx_balance", "Set Aux → Matrix Balance",
         "Balance an aux send into a matrix.",
-        {"aux": _chan("Aux", NUM_AUX), "mtx": _chan("Matrix", NUM_MTX),
+        {"aux": _chan("Aux", NUM_AUX), "mtx": _mtx_send_param(),
          "pan": dict(_PAN_PARAM)})
     add("set_lr_balance", "Set LR Master Balance",
         "Balance the LR (main) master output.", {"pan": dict(_PAN_PARAM)})
@@ -710,8 +904,12 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "Balance an aux master output.",
         {"aux": _child_param("aux"), "pan": dict(_PAN_PARAM)})
     add("set_mtx_master_balance", "Set Matrix Master Balance",
-        "Balance a matrix master output.",
+        "Balance a matrix master output (Matrices 1-3, the stereo ones).",
         {"mtx": _child_param("matrix"), "pan": dict(_PAN_PARAM)})
+    add("set_fx_send_master_balance", "Set FX Send Master Balance",
+        "Balance an FX send master output. SQ firmware 1.6; the SQ+ has no "
+        "FX send balance.",
+        {"fx": _child_param("fx_send"), "pan": dict(_PAN_PARAM)})
 
     # Mix assignments.
     add("set_input_to_lr_assign", "Assign Input → LR",
@@ -721,6 +919,84 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "Assign or unassign an input to an aux mix.",
         {"input": _chan("Input", NUM_INPUTS), "aux": _chan("Aux", NUM_AUX),
          "action": dict(_ACTION_PARAM)})
+
+    # RackUltra FX (SQ+ firmware 2.0.3), on each unit's own MIDI channel.
+    ufx = _child_param("rackultra_fx", "RackUltra FX Unit")
+    add("set_rackultra_fx_send_level", "Set RackUltra FX Send Master Level",
+        "Sets a RackUltra FX unit's send master fader.",
+        {"unit": dict(ufx), "level": dict(_LEVEL_PARAM)})
+    add("set_rackultra_fx_send_balance", "Set RackUltra FX Send Balance",
+        "Balances a RackUltra FX unit's send master output.",
+        {"unit": dict(ufx), "pan": dict(_PAN_PARAM)})
+    add("set_rackultra_fx_return_level", "Set RackUltra FX Return → LR Level",
+        "Sets the level of a RackUltra FX unit's return in the LR mix.",
+        {"unit": dict(ufx), "level": dict(_LEVEL_PARAM)})
+    add("set_rackultra_fx_return_balance", "Set RackUltra FX Return → LR Balance",
+        "Balances a RackUltra FX unit's return within the LR mix.",
+        {"unit": dict(ufx), "pan": dict(_PAN_PARAM)})
+    add("set_input_to_rackultra_fx_level", "Set Input → RackUltra FX Level",
+        "Sets an input's send level to a RackUltra FX unit.",
+        {"input": _chan("Input", NUM_INPUTS), "unit": dict(ufx),
+         "level": dict(_LEVEL_PARAM)})
+    add("set_input_to_rackultra_fx_pan", "Set Input → RackUltra FX Pan",
+        "Pans an input within its send to a RackUltra FX unit.",
+        {"input": _chan("Input", NUM_INPUTS), "unit": dict(ufx),
+         "pan": dict(_PAN_PARAM)})
+    add("set_input_to_rackultra_fx_assign", "Assign Input → RackUltra FX",
+        "Assigns or unassigns an input to a RackUltra FX unit's send.",
+        {"input": _chan("Input", NUM_INPUTS), "unit": dict(ufx),
+         "action": dict(_ACTION_PARAM)})
+    add("set_group_to_rackultra_fx_level", "Set Group → RackUltra FX Level",
+        "Sets a group's send level to a RackUltra FX unit.",
+        {"group": _chan("Group", NUM_GROUPS), "unit": dict(ufx),
+         "level": dict(_LEVEL_PARAM)})
+    add("set_fx_return_to_rackultra_fx_level",
+        "Set FX Return → RackUltra FX Level",
+        "Sets an FX return's send level to a RackUltra FX unit.",
+        {"fx_return": _chan("FX Return", NUM_FX_RETURNS), "unit": dict(ufx),
+         "level": dict(_LEVEL_PARAM)})
+    add("set_rackultra_fx_return_to_aux_level",
+        "Set RackUltra FX Return → Aux Level",
+        "Sets the level of a RackUltra FX unit's return in an aux mix.",
+        {"unit": dict(ufx), "aux": _chan("Aux", NUM_AUX),
+         "level": dict(_LEVEL_PARAM)})
+    add("set_rackultra_fx_return_to_group_level",
+        "Set RackUltra FX Return → Group Level",
+        "Sets the level of a RackUltra FX unit's return in a group.",
+        {"unit": dict(ufx), "group": _chan("Group", NUM_GROUPS),
+         "level": dict(_LEVEL_PARAM)})
+    add("set_rackultra_fx_return_to_fx_send_level",
+        "Set RackUltra FX Return → FX Send Level",
+        "Sets the level of a RackUltra FX unit's return into an FX send.",
+        {"unit": dict(ufx), "fx": _chan("FX Send", NUM_FX_SENDS),
+         "level": dict(_LEVEL_PARAM)})
+    add("set_rackultra_fx_parameter", "Set RackUltra FX Parameter",
+        "Sets a parameter of the effect loaded in a RackUltra FX unit. The "
+        "unit's MIDI Setup panel on the console lists what each number "
+        "controls for the loaded model.",
+        {"unit": dict(ufx),
+         "controller": {
+             "type": "integer", "required": True, "min": 0, "max": 5,
+             "label": "Parameter (MIDI CC)",
+             "help": "0 Key, 1 Scale (every model). Vocal Tuner: 2 Retune, "
+                     "3 Transition, 4 Correction, 5 Bypass. Vocal Gridder: "
+                     "2 Speed, 3 Time Tolerance, 4 Pitch Tolerance, "
+                     "5 Bypass. Dual and Quad Harmoniser: Key and Scale only.",
+         },
+         "value": {
+             "type": "integer", "required": True, "min": 0, "max": 127,
+             "label": "Value",
+             "help": "0-127 across the parameter's range. Bypass: 0 off, "
+                     "127 on.",
+         }})
+    add("set_rackultra_fx_global_key", "Set RackUltra FX Global Key",
+        "Sets the global key the RackUltra FX tuning effects follow.",
+        {"key": {"type": "enum", "values": list(_GLOBAL_KEYS), "required": True,
+                 "default": "C", "label": "Key"}})
+    add("set_rackultra_fx_global_scale", "Set RackUltra FX Global Scale",
+        "Sets the global scale the RackUltra FX tuning effects follow.",
+        {"scale": {"type": "enum", "values": list(_GLOBAL_SCALES),
+                   "required": True, "default": "Major", "label": "Scale"}})
 
     # Refresh.
     add("refresh", "Refresh State",
@@ -740,7 +1016,7 @@ SWEEP_GAP_S = 0.01
 
 
 class AllenHeathSQDriver(BaseDriver):
-    """Allen & Heath SQ-5 / SQ-6 / SQ-7 MIDI-over-TCP driver."""
+    """Allen & Heath SQ-5 / SQ-6 / SQ-7 and SQ5+ / SQ6+ / SQ7+ MIDI-over-TCP driver."""
 
     # Liveness: an NRPN Get for the LR master level, awaited by parameter
     # address. Two missed replies force a typed no_response reconnect.
@@ -753,19 +1029,21 @@ class AllenHeathSQDriver(BaseDriver):
         "name": "Allen & Heath SQ Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "2.1.2",
+        "version": "2.2.0",
         "author": "OpenAVC",
         "description": (
-            "Controls Allen & Heath SQ-5, SQ-6 and SQ-7 digital mixing "
-            "consoles via MIDI over TCP/IP on port 51325. Every input, "
-            "group, aux, matrix, FX send/return, DCA and mute group is a "
-            "child entity with live mute / level / pan state and a channel "
-            "picker on its commands. Scene recall (1-300), 1 dB nudges, "
-            "SoftKey triggers, master balances, and bidirectional state — "
-            "console-side moves push back into OpenAVC, and a Get-probe "
-            "watchdog flips the device offline if the console vanishes."
+            "Controls Allen & Heath SQ-5, SQ-6 and SQ-7 and SQ5+, SQ6+ and "
+            "SQ7+ digital mixing consoles via MIDI over TCP/IP on port "
+            "51325. Every input, group, aux, matrix, FX send/return, DCA "
+            "and mute group is a child entity with live mute / level / pan "
+            "state and a channel picker on its commands, and on an SQ+ so "
+            "is each RackUltra FX unit. Scene and Cue List recall, 1 dB "
+            "nudges, SoftKey triggers, master balances, and bidirectional "
+            "state — console-side moves push back into OpenAVC, and a "
+            "Get-probe watchdog flips the device offline if the console "
+            "vanishes."
         ),
-        "source_url": "https://www.allen-heath.com/content/uploads/2023/11/SQ-MIDI-Protocol-Issue5.pdf",
+        "source_url": "https://support.allen-heath.com/hc/en-gb/articles/47793537575953-SQ-MIDI-Protocol-Firmware-V2-0-3",
         "tags": ["mixer", "console", "midi", "nrpn", "allen-heath"],
         "verified": False,
         "simulated": True,
@@ -773,8 +1051,9 @@ class AllenHeathSQDriver(BaseDriver):
         "ports": [51325],
         "transport": "tcp",
         "discovery": {
-            # The SQ is the only Allen & Heath console with 48 inputs, so a Get
-            # for Ip40's mute is a fingerprint no sibling can answer: a
+            # The SQ and the SQ+ are the only Allen & Heath consoles with 48
+            # inputs on this protocol, and both put Ip40's mute at 00 27, so
+            # a Get for it is a fingerprint no sibling can answer: a
             # Qu-5/6/7 shares this protocol but stops at 32 inputs plus
             # ST1/ST2/USB and is silent here (measured on a Qu-5), and the
             # original Qu / Avantis / dLive do not implement the NRPN Get at
@@ -807,7 +1086,19 @@ class AllenHeathSQDriver(BaseDriver):
                 "notes": (
                     "Same MIDI command set and channel counts across all "
                     "three. SQ-5 has 8 SoftKeys (triggers 9-16 are no-ops). "
-                    "SoftKeys are addressed by integer 1-16."
+                    "SoftKeys are addressed by integer 1-16. Matrices 4-6 "
+                    "and Cue List recall need firmware 1.6."
+                ),
+            },
+            {
+                "manufacturer": "Allen & Heath",
+                "models": ["SQ5+", "SQ6+", "SQ7+"],
+                "confidence": "untested",
+                "notes": (
+                    "Set Model to SQ5+ / SQ6+ / SQ7+: the SQ+ moves every "
+                    "master output to its own parameter numbers. MIDI over "
+                    "TCP needs firmware 2.0.2; RackUltra FX control needs "
+                    "2.0.3. SQ5+ has 8 SoftKeys."
                 ),
             },
         ],
@@ -815,7 +1106,12 @@ class AllenHeathSQDriver(BaseDriver):
         "default_config": {
             "host": "",
             "port": 51325,
+            "model": "sq",
             "midi_channel": 1,
+            "ufx1_midi_channel": 0,
+            "ufx2_midi_channel": 0,
+            "ufx3_midi_channel": 0,
+            "ufx4_midi_channel": 0,
             "poll_interval": 60,
         },
         "config_schema": {
@@ -831,6 +1127,20 @@ class AllenHeathSQDriver(BaseDriver):
                 "label": "TCP Port",
                 "description": "MIDI over TCP/IP port. Always 51325 on SQ.",
             },
+            "model": {
+                "type": "enum",
+                "default": "sq",
+                "label": "Model",
+                "values": [
+                    {"value": "sq", "label": "SQ-5 / SQ-6 / SQ-7"},
+                    {"value": "sq_plus", "label": "SQ5+ / SQ6+ / SQ7+"},
+                ],
+                "description": (
+                    "Which console this is. The SQ+ puts every master "
+                    "fader and the matrix sends at different addresses, "
+                    "so the wrong choice moves the wrong faders."
+                ),
+            },
             "midi_channel": {
                 "type": "integer",
                 "default": 1,
@@ -840,6 +1150,54 @@ class AllenHeathSQDriver(BaseDriver):
                 "description": (
                     "Must match the SQ's MIDI Channel setting "
                     "(Utility → General → MIDI). Default 1."
+                ),
+            },
+            "ufx1_midi_channel": {
+                "type": "integer",
+                "default": 0,
+                "min": 0,
+                "max": 16,
+                "label": "RackUltra FX 1 MIDI Channel",
+                "description": (
+                    "SQ+ only. Must match UFX 1 under RackUltra FX Unit MIDI "
+                    "Channels (Utility → General → MIDI). 0 leaves this "
+                    "unit out."
+                ),
+            },
+            "ufx2_midi_channel": {
+                "type": "integer",
+                "default": 0,
+                "min": 0,
+                "max": 16,
+                "label": "RackUltra FX 2 MIDI Channel",
+                "description": (
+                    "SQ+ only. Must match UFX 2 under RackUltra FX Unit MIDI "
+                    "Channels (Utility → General → MIDI). 0 leaves this "
+                    "unit out."
+                ),
+            },
+            "ufx3_midi_channel": {
+                "type": "integer",
+                "default": 0,
+                "min": 0,
+                "max": 16,
+                "label": "RackUltra FX 3 MIDI Channel",
+                "description": (
+                    "SQ+ only. Must match UFX 3 under RackUltra FX Unit MIDI "
+                    "Channels (Utility → General → MIDI). 0 leaves this "
+                    "unit out."
+                ),
+            },
+            "ufx4_midi_channel": {
+                "type": "integer",
+                "default": 0,
+                "min": 0,
+                "max": 16,
+                "label": "RackUltra FX 4 MIDI Channel",
+                "description": (
+                    "SQ+ only. Must match UFX 4 under RackUltra FX Unit MIDI "
+                    "Channels (Utility → General → MIDI). 0 leaves this "
+                    "unit out."
                 ),
             },
             "poll_interval": {
@@ -879,12 +1237,17 @@ class AllenHeathSQDriver(BaseDriver):
                 "2. On the SQ, go to Utility → General → Network and note "
                 "the IP address.\n"
                 "3. Go to Utility → General → MIDI and note the MIDI "
-                "Channel.\n"
-                "4. Enter the IP address and matching MIDI channel in the "
-                "device config. The default port (51325) is correct.\n"
+                "Channel (on an SQ+, also the RackUltra FX Unit MIDI "
+                "Channels).\n"
+                "4. Enter the IP address, pick the Model (SQ-5 / SQ-6 / "
+                "SQ-7 or SQ5+ / SQ6+ / SQ7+) and enter the matching MIDI "
+                "channel. On an SQ+, enter each RackUltra FX unit's channel "
+                "to control it. The default port (51325) is correct.\n"
                 "5. Save. The channels appear under the device with live "
                 "state; rename them in the project as needed (the SQ MIDI "
-                "protocol does not expose console channel names)."
+                "protocol does not expose console channel names).\n"
+                "An SQ+ needs firmware 2.0.2 or later for MIDI over the "
+                "network, and 2.0.3 for RackUltra FX."
             ),
         },
         "state_variables": {
@@ -908,6 +1271,7 @@ class AllenHeathSQDriver(BaseDriver):
                 "min": PAN_LEFT,
                 "max": PAN_RIGHT,
             },
+            "last_error": {"type": "string", "label": "Last Error"},
         },
         "commands": _build_commands(),
     }
@@ -925,21 +1289,66 @@ class AllenHeathSQDriver(BaseDriver):
         self._last_bank = 0
 
         # Child routing, built by _register_topology():
-        #   _route: (MSB, LSB) -> (kind, ctype, sid, prop); ctype "lr" = flat.
+        #   _route: (MIDI channel, MSB, LSB) -> (kind, ctype, sid, prop);
+        #           ctype "lr" = flat. The channel is 0-based.
         #   _child_num: (ctype, sid) -> 1-based channel number.
-        self._route: dict[tuple[int, int], tuple[str, str, str, str]] = {}
+        #   _addrs: the model's per-type address functions (_type_addrs).
+        #   _ufx_ch: RackUltra FX sid -> its 0-based MIDI channel (SQ+ only).
+        self._route: dict[tuple[int, int, int], tuple[str, str, str, str]] = {}
         self._child_num: dict[tuple[str, str], int] = {}
+        self._addrs: dict[str, dict[str, Any]] = _type_addrs(MODEL_SQ)
+        self._ufx_ch: dict[str, int] = {}
 
-        # Liveness probe bookkeeping (see _liveness_probe).
-        self._probe_addr = level_lr_master()
+        # Set once a console set to SQ reports an SQ+ master address.
+        self._model_mismatch = False
+
+        # Liveness probe bookkeeping (see _liveness_probe). The LR mute is
+        # 00 44 on the SQ and the SQ+ alike, so the probe does not depend
+        # on the Model setting.
+        self._probe_addr = mute_lr()
         self._probe_fut: asyncio.Future[None] | None = None
 
     # ── Connection lifecycle ────────────────────────────────────────────
+
+    @property
+    def _model(self) -> str:
+        model = str(self.config.get("model") or MODEL_SQ)
+        return model if model in MTX_SEND_WIDTH else MODEL_SQ
 
     async def _pre_connect(self) -> None:
         if not self.config.get("host"):
             raise ValueError("host is required")
         self._probe_fut = None
+        self._ufx_ch = self._ufx_channels()
+
+    def _ufx_channels(self) -> dict[str, int]:
+        """The RackUltra FX units this device controls: sid -> 0-based MIDI
+        channel. SQ+ only. The document asks for every unit on a channel of
+        its own, apart from the console's and its DAW Control channel (one
+        above the console's), because a unit's parameter numbers are the
+        ones the main channel uses for the LR mix."""
+        if self._model != MODEL_SQ_PLUS:
+            return {}
+        taken = {
+            self._ch: "the console's MIDI Channel",
+            (self._ch + 1) % 16: "the console's MIDI DAW Control Channel",
+        }
+        units: dict[str, int] = {}
+        for u in range(1, NUM_UFX + 1):
+            raw = int(self.config.get(f"ufx{u}_midi_channel") or 0)
+            if not raw:
+                continue
+            ch = raw - 1
+            if ch in taken:
+                raise ConnectionFaultError(
+                    f"RackUltra FX {u} MIDI Channel {raw} is already "
+                    f"{taken[ch]}. Give each RackUltra FX unit a channel of "
+                    "its own, on the console and in the device settings.",
+                    code="invalid_config",
+                )
+            taken[ch] = f"RackUltra FX {u}'s"
+            units[f"ufx{u}"] = ch
+        return units
 
     def _transport_kwargs(
         self, transport_type: str, kwargs: dict[str, Any]
@@ -962,17 +1371,29 @@ class AllenHeathSQDriver(BaseDriver):
         overrides one the user set in the project."""
         self._route = {}
         self._child_num = {}
+        model = self._model
+        self._addrs = _type_addrs(model)
+        main = self._ch
 
-        for ctype, count, sid_tpl, label_tpl in _ROSTER:
-            addrs = _TYPE_ADDRS[ctype]
+        roster = [(ctype, count, sid_tpl, label_tpl, None)
+                  for ctype, count, sid_tpl, label_tpl in _ROSTER]
+        roster += [("rackultra_fx", 1, sid, f"RackUltra FX {sid[3:]}", ch)
+                   for sid, ch in self._ufx_ch.items()]
+
+        for ctype, count, sid_tpl, label_tpl, unit_ch in roster:
+            addrs = self._addrs[ctype]
+            ch = main if unit_ch is None else unit_ch
             for n in range(1, count + 1):
                 sid = sid_tpl.format(n=n)
                 self._child_num[(ctype, sid)] = n
                 for prop, addr_fn in addrs.items():
+                    addr = addr_fn(n)
+                    if addr is None:
+                        continue
                     kind = ("mute" if prop in _MUTE_PROPS
                             else "pan" if prop in _PAN_PROPS
                             else "level")
-                    self._route[addr_fn(n)] = (kind, ctype, sid, prop)
+                    self._route[(ch, *addr)] = (kind, ctype, sid, prop)
                 initial = None
                 project = self._project_child_entities.get(ctype, {}).get(sid)
                 if not (project and project.get("label")):
@@ -980,9 +1401,9 @@ class AllenHeathSQDriver(BaseDriver):
                 self.register_child(ctype, sid, initial_state=initial)
 
         # LR master routes to flat device state.
-        self._route[mute_lr()] = ("mute", "lr", "lr", "lr_mute")
-        self._route[level_lr_master()] = ("level", "lr", "lr", "lr_fader")
-        self._route[pan_lr_master()] = ("pan", "lr", "lr", "lr_balance")
+        self._route[(main, *mute_lr())] = ("mute", "lr", "lr", "lr_mute")
+        self._route[(main, *level_lr_master(model))] = ("level", "lr", "lr", "lr_fader")
+        self._route[(main, *pan_lr_master(model))] = ("pan", "lr", "lr", "lr_balance")
 
     async def refresh_children(self) -> dict[str, Any]:
         """IDE 'Refresh from Device' + the Refresh quick action: re-sweep
@@ -1000,6 +1421,10 @@ class AllenHeathSQDriver(BaseDriver):
         """
         if not self.connected:
             return
+        if self._model_mismatch:
+            # A standing condition: written again every poll, or the
+            # platform clears it after the first clean one.
+            self.set_state("last_error", _MODEL_MISMATCH)
         await self._refresh_all()
 
     # ── Send helpers ────────────────────────────────────────────────────
@@ -1014,46 +1439,57 @@ class AllenHeathSQDriver(BaseDriver):
             return
         await self.transport.send(data)
 
-    def _build_nrpn(self, msb: int, lsb: int, vc: int, vf: int) -> bytes:
+    # Every builder takes the 0-based MIDI channel to send on (a RackUltra
+    # FX unit's own channel); None is the console's.
+
+    def _status(self, ch: int | None) -> int:
+        return 0xB0 | (self._ch if ch is None else ch)
+
+    def _build_nrpn(self, msb: int, lsb: int, vc: int, vf: int,
+                    ch: int | None = None) -> bytes:
         """Full NRPN absolute-value sequence: BN 63 MSB BN 62 LSB BN 06 VC BN 26 VF."""
-        b = 0xB0 | self._ch
+        b = self._status(ch)
         return bytes([b, 0x63, msb & 0x7F, b, 0x62, lsb & 0x7F,
                       b, 0x06, vc & 0x7F, b, 0x26, vf & 0x7F])
 
-    def _build_nrpn_get(self, msb: int, lsb: int) -> bytes:
+    def _build_nrpn_get(self, msb: int, lsb: int, ch: int | None = None) -> bytes:
         """Get-current-value: BN 63 MSB BN 62 LSB BN 60 7F."""
-        b = 0xB0 | self._ch
+        b = self._status(ch)
         return bytes([b, 0x63, msb & 0x7F, b, 0x62, lsb & 0x7F,
                       b, 0x60, 0x7F])
 
-    def _build_nrpn_inc(self, msb: int, lsb: int) -> bytes:
-        b = 0xB0 | self._ch
+    def _build_nrpn_inc(self, msb: int, lsb: int, ch: int | None = None) -> bytes:
+        b = self._status(ch)
         return bytes([b, 0x63, msb & 0x7F, b, 0x62, lsb & 0x7F,
                       b, 0x60, 0x00])
 
-    def _build_nrpn_dec(self, msb: int, lsb: int) -> bytes:
-        b = 0xB0 | self._ch
+    def _build_nrpn_dec(self, msb: int, lsb: int, ch: int | None = None) -> bytes:
+        b = self._status(ch)
         return bytes([b, 0x63, msb & 0x7F, b, 0x62, lsb & 0x7F,
                       b, 0x61, 0x00])
 
     def _build_mute(self, msb: int, lsb: int, on: bool) -> bytes:
         return self._build_nrpn(msb, lsb, 0x00, 0x01 if on else 0x00)
 
-    def _build_assign(self, msb: int, lsb: int, on: bool) -> bytes:
-        return self._build_nrpn(msb, lsb, 0x00, 0x01 if on else 0x00)
+    def _build_assign(self, msb: int, lsb: int, on: bool,
+                      ch: int | None = None) -> bytes:
+        return self._build_nrpn(msb, lsb, 0x00, 0x01 if on else 0x00, ch)
 
     # ── Liveness watchdog (BaseDriver health loop) ──────────────────────
 
     async def _liveness_probe(self) -> None:
-        """Send an NRPN Get for the LR master level and await the reply.
+        """Send an NRPN Get for the LR mute and await the reply.
 
         Pushes only happen when a console-side control moves, and poll
         Gets are fire-and-forget, so an SQ that vanished without a FIN
         would otherwise stay "online" forever. Replies aren't tagged, so
         the probe correlates by parameter address: any absolute for the
-        probed address resolves it (the Get reply — or a console-side
-        move of that same fader, which equally proves the console is
-        alive). A push of any other parameter does NOT satisfy it.
+        probed address on the console's channel resolves it (the Get
+        reply, or a console-side press of that same mute, which equally
+        proves the console is alive). A push of any other parameter does
+        NOT satisfy it. The LR mute is 00 44 on the SQ and the SQ+ alike,
+        so a wrong Model setting cannot fail the probe; 2.1 asked for the
+        LR master level, which the SQ+ moved.
         """
         loop = asyncio.get_running_loop()
         fut: asyncio.Future[None] = loop.create_future()
@@ -1076,11 +1512,37 @@ class AllenHeathSQDriver(BaseDriver):
 
     # ── Channel resolution ──────────────────────────────────────────────
 
-    def _addr_of(self, ctype: str, sid: Any, addr_fn: Any) -> tuple[int, int]:
+    def _child(self, ctype: str, sid: Any) -> int:
         n = self._child_num.get((ctype, str(sid)))
         if n is None:
             raise ValueError(f"Unknown {ctype}: {sid!r}")
-        return addr_fn(n)
+        return n
+
+    def _addr_of(self, ctype: str, sid: Any, prop: str) -> tuple[int, int]:
+        """(MSB, LSB) of a child's mirrored prop, in this model's tables."""
+        addr = self._addrs[ctype][prop](self._child(ctype, sid))
+        if addr is None:
+            raise ValueError(f"{sid} has no {prop}.")
+        return addr
+
+    def _matrix_to_send(self, mtx: Any) -> int:
+        """A matrix number this console can send to over MIDI."""
+        m = int(mtx)
+        if m > MTX_SEND_WIDTH[self._model]:
+            raise ValueError(_SQ_NO_MTX_SENDS)
+        return m
+
+    def _ufx(self, unit: Any) -> int:
+        """0-based MIDI channel of the RackUltra FX unit picked."""
+        if self._model != MODEL_SQ_PLUS:
+            raise ValueError(_SQ_PLUS_ONLY.format(what="RackUltra FX"))
+        ch = self._ufx_ch.get(str(unit))
+        if ch is None:
+            raise ValueError(
+                f"RackUltra FX unit {unit} has no MIDI channel in the device "
+                "settings."
+            )
+        return ch
 
     # ── Commands: scene / SoftKeys ──────────────────────────────────────
 
@@ -1090,6 +1552,13 @@ class AllenHeathSQDriver(BaseDriver):
         c = 0xC0 | self._ch
         await self._send(bytes([b, 0x00, bank, c, program]))
         self.set_state("current_scene", int(scene))
+
+    async def cmd_recall_cue(self, cue: int) -> None:
+        # Which scene a Cue List position holds is the console's to know, so
+        # current_scene changes only when the console reports a scene.
+        bank, program = cue_to_bank_program(int(cue))
+        await self._send(bytes([0xB0 | self._ch, 0x00, bank,
+                                0xC0 | self._ch, program]))
 
     async def cmd_softkey_press(self, softkey: int) -> None:
         note = softkey_to_note(int(softkey))
@@ -1123,28 +1592,28 @@ class AllenHeathSQDriver(BaseDriver):
                                     from_device=False)
 
     async def cmd_mute_input(self, input: Any, action: str = "on") -> None:
-        await self._do_mute(*self._addr_of("input", input, mute_input), action)
+        await self._do_mute(*self._addr_of("input", input, "mute"), action)
 
     async def cmd_mute_group(self, group: Any, action: str = "on") -> None:
-        await self._do_mute(*self._addr_of("group", group, mute_group), action)
+        await self._do_mute(*self._addr_of("group", group, "mute"), action)
 
     async def cmd_mute_aux_master(self, aux: Any, action: str = "on") -> None:
-        await self._do_mute(*self._addr_of("aux", aux, mute_aux_master), action)
+        await self._do_mute(*self._addr_of("aux", aux, "mute"), action)
 
     async def cmd_mute_mtx_master(self, mtx: Any, action: str = "on") -> None:
-        await self._do_mute(*self._addr_of("matrix", mtx, mute_mtx_master), action)
+        await self._do_mute(*self._addr_of("matrix", mtx, "mute"), action)
 
     async def cmd_mute_fx_send(self, fx: Any, action: str = "on") -> None:
-        await self._do_mute(*self._addr_of("fx_send", fx, mute_fx_send), action)
+        await self._do_mute(*self._addr_of("fx_send", fx, "mute"), action)
 
     async def cmd_mute_fx_return(self, fx: Any, action: str = "on") -> None:
-        await self._do_mute(*self._addr_of("fx_return", fx, mute_fx_return), action)
+        await self._do_mute(*self._addr_of("fx_return", fx, "mute"), action)
 
     async def cmd_mute_dca(self, dca: Any, action: str = "on") -> None:
-        await self._do_mute(*self._addr_of("dca", dca, mute_dca), action)
+        await self._do_mute(*self._addr_of("dca", dca, "mute"), action)
 
     async def cmd_mute_mgrp(self, mgrp: Any, action: str = "on") -> None:
-        await self._do_mute(*self._addr_of("mute_group", mgrp, mute_mgrp), action)
+        await self._do_mute(*self._addr_of("mute_group", mgrp, "mute"), action)
 
     async def cmd_mute_lr(self, action: str = "on") -> None:
         await self._do_mute(*mute_lr(), action)
@@ -1166,25 +1635,26 @@ class AllenHeathSQDriver(BaseDriver):
 
     # ── Commands: levels (absolute) ─────────────────────────────────────
 
-    async def _do_level(self, msb: int, lsb: int, level: float) -> None:
+    async def _do_level(self, msb: int, lsb: int, level: float,
+                        ch: int | None = None) -> None:
         vc, vf = level_to_vcvf(float(level))
-        await self._send(self._build_nrpn(msb, lsb, vc, vf))
-        self._dispatch_absolute(msb, lsb, vc, vf, from_device=False)
+        await self._send(self._build_nrpn(msb, lsb, vc, vf, ch))
+        self._dispatch_absolute(msb, lsb, vc, vf, from_device=False, ch=ch)
 
     async def cmd_set_input_to_lr_level(self, input: Any, level: float) -> None:
-        await self._do_level(*self._addr_of("input", input, level_input_to_lr), level)
+        await self._do_level(*self._addr_of("input", input, "lr_level"), level)
 
     async def cmd_set_input_to_aux_level(self, input: int, aux: int, level: float) -> None:
         await self._do_level(*level_input_to_aux(int(input), int(aux)), level)
 
     async def cmd_set_group_to_lr_level(self, group: Any, level: float) -> None:
-        await self._do_level(*self._addr_of("group", group, level_group_to_lr), level)
+        await self._do_level(*self._addr_of("group", group, "lr_level"), level)
 
     async def cmd_set_group_to_aux_level(self, group: int, aux: int, level: float) -> None:
         await self._do_level(*level_group_to_aux(int(group), int(aux)), level)
 
     async def cmd_set_fx_return_to_lr_level(self, fx: Any, level: float) -> None:
-        await self._do_level(*self._addr_of("fx_return", fx, level_fx_return_to_lr), level)
+        await self._do_level(*self._addr_of("fx_return", fx, "lr_level"), level)
 
     async def cmd_set_fx_return_to_aux_level(self, fx: int, aux: int, level: float) -> None:
         await self._do_level(*level_fx_return_to_aux(int(fx), int(aux)), level)
@@ -1197,33 +1667,36 @@ class AllenHeathSQDriver(BaseDriver):
 
     async def cmd_set_fx_return_to_fx_send_level(self, fx_return: int, fx: int,
                                                  level: float) -> None:
-        await self._do_level(*level_fx_return_to_fx_send(int(fx_return), int(fx)), level)
+        await self._do_level(
+            *level_fx_return_to_fx_send(int(fx_return), int(fx)), level)
 
     async def cmd_set_lr_to_mtx_level(self, mtx: int, level: float) -> None:
-        await self._do_level(*level_lr_to_mtx(int(mtx)), level)
+        await self._do_level(*level_lr_to_mtx(self._matrix_to_send(mtx), self._model), level)
 
     async def cmd_set_aux_to_mtx_level(self, aux: int, mtx: int, level: float) -> None:
-        await self._do_level(*level_aux_to_mtx(int(aux), int(mtx)), level)
+        await self._do_level(
+            *level_aux_to_mtx(int(aux), self._matrix_to_send(mtx), self._model), level)
 
     async def cmd_set_group_to_mtx_level(self, group: int, mtx: int, level: float) -> None:
-        await self._do_level(*level_group_to_mtx(int(group), int(mtx)), level)
+        await self._do_level(
+            *level_group_to_mtx(int(group), self._matrix_to_send(mtx), self._model), level)
 
     async def cmd_set_lr_master_level(self, level: float) -> None:
-        await self._do_level(*level_lr_master(), level)
+        await self._do_level(*level_lr_master(self._model), level)
 
     async def cmd_set_aux_master_level(self, aux: Any, level: float) -> None:
-        await self._do_level(*self._addr_of("aux", aux, level_aux_master), level)
+        await self._do_level(*self._addr_of("aux", aux, "fader"), level)
 
     async def cmd_set_mtx_master_level(self, mtx: Any, level: float) -> None:
-        await self._do_level(*self._addr_of("matrix", mtx, level_mtx_master), level)
+        await self._do_level(*self._addr_of("matrix", mtx, "fader"), level)
 
     async def cmd_set_fx_send_master_level(self, fx: Any, level: float) -> None:
-        await self._do_level(*self._addr_of("fx_send", fx, level_fx_send_master), level)
+        await self._do_level(*self._addr_of("fx_send", fx, "fader"), level)
 
     async def cmd_set_dca_level(self, dca: Any, level: float) -> None:
-        await self._do_level(*self._addr_of("dca", dca, level_dca), level)
+        await self._do_level(*self._addr_of("dca", dca, "fader"), level)
 
-    # ── Commands: levels (relative 1 dB step) ───────────────────────────
+    # ── Commands: levels (relative 1 dB) ────────────────────────────────
 
     async def _do_step(self, msb: int, lsb: int, direction: str) -> None:
         if (direction or "up").lower() == "up":
@@ -1234,65 +1707,158 @@ class AllenHeathSQDriver(BaseDriver):
         await self._send(self._build_nrpn_get(msb, lsb))
 
     async def cmd_step_input_to_lr_level(self, input: Any, direction: str = "up") -> None:
-        await self._do_step(*self._addr_of("input", input, level_input_to_lr), direction)
+        await self._do_step(*self._addr_of("input", input, "lr_level"), direction)
 
     async def cmd_step_aux_master_level(self, aux: Any, direction: str = "up") -> None:
-        await self._do_step(*self._addr_of("aux", aux, level_aux_master), direction)
+        await self._do_step(*self._addr_of("aux", aux, "fader"), direction)
 
     async def cmd_step_lr_master_level(self, direction: str = "up") -> None:
-        await self._do_step(*level_lr_master(), direction)
+        await self._do_step(*level_lr_master(self._model), direction)
 
     async def cmd_step_dca_level(self, dca: Any, direction: str = "up") -> None:
-        await self._do_step(*self._addr_of("dca", dca, level_dca), direction)
+        await self._do_step(*self._addr_of("dca", dca, "fader"), direction)
 
     # ── Commands: panning ───────────────────────────────────────────────
 
-    async def _do_pan(self, msb: int, lsb: int, pan: float) -> None:
+    async def _do_pan(self, msb: int, lsb: int, pan: float,
+                      ch: int | None = None) -> None:
         vc, vf = pan_to_vcvf(float(pan))
-        await self._send(self._build_nrpn(msb, lsb, vc, vf))
-        self._dispatch_absolute(msb, lsb, vc, vf, from_device=False)
+        await self._send(self._build_nrpn(msb, lsb, vc, vf, ch))
+        self._dispatch_absolute(msb, lsb, vc, vf, from_device=False, ch=ch)
 
     async def cmd_set_input_to_lr_pan(self, input: Any, pan: float) -> None:
-        await self._do_pan(*self._addr_of("input", input, pan_input_to_lr), pan)
+        await self._do_pan(*self._addr_of("input", input, "lr_pan"), pan)
 
     async def cmd_set_input_to_aux_pan(self, input: int, aux: int, pan: float) -> None:
         await self._do_pan(*pan_input_to_aux(int(input), int(aux)), pan)
 
     async def cmd_set_group_to_lr_pan(self, group: Any, pan: float) -> None:
-        await self._do_pan(*self._addr_of("group", group, pan_group_to_lr), pan)
+        await self._do_pan(*self._addr_of("group", group, "lr_pan"), pan)
 
     async def cmd_set_fx_return_to_lr_pan(self, fx: Any, pan: float) -> None:
-        await self._do_pan(*self._addr_of("fx_return", fx, pan_fx_return_to_lr), pan)
+        await self._do_pan(*self._addr_of("fx_return", fx, "lr_pan"), pan)
 
     async def cmd_set_lr_to_mtx_balance(self, mtx: int, pan: float) -> None:
-        await self._do_pan(*pan_lr_to_mtx(int(mtx)), pan)
+        await self._do_pan(*pan_lr_to_mtx(self._matrix_to_send(mtx), self._model), pan)
 
     async def cmd_set_aux_to_mtx_balance(self, aux: int, mtx: int, pan: float) -> None:
-        await self._do_pan(*pan_aux_to_mtx(int(aux), int(mtx)), pan)
+        await self._do_pan(
+            *pan_aux_to_mtx(int(aux), self._matrix_to_send(mtx), self._model), pan)
 
     async def cmd_set_lr_balance(self, pan: float) -> None:
-        await self._do_pan(*pan_lr_master(), pan)
+        await self._do_pan(*pan_lr_master(self._model), pan)
 
     async def cmd_set_aux_master_balance(self, aux: Any, pan: float) -> None:
-        await self._do_pan(*self._addr_of("aux", aux, pan_aux_master), pan)
+        await self._do_pan(*self._addr_of("aux", aux, "balance"), pan)
 
     async def cmd_set_mtx_master_balance(self, mtx: Any, pan: float) -> None:
-        await self._do_pan(*self._addr_of("matrix", mtx, pan_mtx_master), pan)
+        if self._child("matrix", mtx) > NUM_MTX_STEREO:
+            raise ValueError("Matrices 4-6 are mono, so they have no balance.")
+        await self._do_pan(*self._addr_of("matrix", mtx, "balance"), pan)
+
+    async def cmd_set_fx_send_master_balance(self, fx: Any, pan: float) -> None:
+        if self._model != MODEL_SQ:
+            raise ValueError("The SQ5+, SQ6+ and SQ7+ have no FX send balance.")
+        await self._do_pan(*pan_fx_send_master(self._child("fx_send", fx)), pan)
 
     # ── Commands: mix assignments ───────────────────────────────────────
 
-    async def _do_assign(self, msb: int, lsb: int, action: str) -> None:
+    async def _do_assign(self, msb: int, lsb: int, action: str,
+                         ch: int | None = None) -> None:
         action = (action or "on").lower()
         if action == "toggle":
-            await self._send(self._build_nrpn_inc(msb, lsb))
+            await self._send(self._build_nrpn_inc(msb, lsb, ch))
         else:
-            await self._send(self._build_assign(msb, lsb, action == "on"))
+            await self._send(self._build_assign(msb, lsb, action == "on", ch))
 
     async def cmd_set_input_to_lr_assign(self, input: int, action: str = "on") -> None:
         await self._do_assign(*assign_input_to_lr(int(input)), action)
 
     async def cmd_set_input_to_aux_assign(self, input: int, aux: int, action: str = "on") -> None:
         await self._do_assign(*assign_input_to_aux(int(input), int(aux)), action)
+
+    # ── Commands: RackUltra FX (SQ+) ────────────────────────────────────
+    #
+    # On a unit's own channel its send takes the place of the LR mix, so a
+    # source's send to the unit is addressed as its LR send.
+
+    async def cmd_set_rackultra_fx_send_level(self, unit: Any, level: float) -> None:
+        await self._do_level(*level_ufx_send_master(), level, ch=self._ufx(unit))
+
+    async def cmd_set_rackultra_fx_send_balance(self, unit: Any, pan: float) -> None:
+        await self._do_pan(*pan_ufx_send_master(), pan, ch=self._ufx(unit))
+
+    async def cmd_set_rackultra_fx_return_level(self, unit: Any, level: float) -> None:
+        await self._do_level(*level_ufx_return_to_lr(), level, ch=self._ufx(unit))
+
+    async def cmd_set_rackultra_fx_return_balance(self, unit: Any, pan: float) -> None:
+        await self._do_pan(*pan_ufx_return_to_lr(), pan, ch=self._ufx(unit))
+
+    async def cmd_set_input_to_rackultra_fx_level(self, input: int, unit: Any,
+                                                  level: float) -> None:
+        await self._do_level(*level_input_to_lr(int(input)), level,
+                             ch=self._ufx(unit))
+
+    async def cmd_set_input_to_rackultra_fx_pan(self, input: int, unit: Any,
+                                                pan: float) -> None:
+        await self._do_pan(*pan_input_to_lr(int(input)), pan, ch=self._ufx(unit))
+
+    async def cmd_set_input_to_rackultra_fx_assign(self, input: int, unit: Any,
+                                                   action: str = "on") -> None:
+        await self._do_assign(*assign_input_to_lr(int(input)), action,
+                              ch=self._ufx(unit))
+
+    async def cmd_set_group_to_rackultra_fx_level(self, group: int, unit: Any,
+                                                  level: float) -> None:
+        await self._do_level(*level_group_to_lr(int(group)), level,
+                             ch=self._ufx(unit))
+
+    async def cmd_set_fx_return_to_rackultra_fx_level(self, fx_return: int,
+                                                      unit: Any,
+                                                      level: float) -> None:
+        await self._do_level(*level_fx_return_to_lr(int(fx_return)), level,
+                             ch=self._ufx(unit))
+
+    async def cmd_set_rackultra_fx_return_to_aux_level(self, unit: Any, aux: int,
+                                                       level: float) -> None:
+        await self._do_level(*level_ufx_return_to_aux(int(aux)), level,
+                             ch=self._ufx(unit))
+
+    async def cmd_set_rackultra_fx_return_to_group_level(self, unit: Any,
+                                                         group: int,
+                                                         level: float) -> None:
+        await self._do_level(*level_ufx_return_to_group(int(group)), level,
+                             ch=self._ufx(unit))
+
+    async def cmd_set_rackultra_fx_return_to_fx_send_level(self, unit: Any,
+                                                           fx: int,
+                                                           level: float) -> None:
+        await self._do_level(*level_ufx_return_to_fx_send(int(fx)), level,
+                             ch=self._ufx(unit))
+
+    async def cmd_set_rackultra_fx_parameter(self, unit: Any, controller: int,
+                                             value: int) -> None:
+        # A plain CC on the unit's channel ("RackUltra FX Parameter Control").
+        ch = self._ufx(unit)
+        await self._send(bytes([0xB0 | ch, int(controller) & 0x7F,
+                                int(value) & 0x7F]))
+
+    async def cmd_set_rackultra_fx_global_key(self, key: str) -> None:
+        # CC 0C on the console's own channel, a discrete key 00 (C) - 0B (B).
+        if self._model != MODEL_SQ_PLUS:
+            raise ValueError(_SQ_PLUS_ONLY.format(what="RackUltra FX"))
+        if key not in _GLOBAL_KEYS:
+            raise ValueError(f"Key must be one of {', '.join(_GLOBAL_KEYS)}.")
+        await self._send(bytes([0xB0 | self._ch, 0x0C, _GLOBAL_KEYS.index(key)]))
+
+    async def cmd_set_rackultra_fx_global_scale(self, scale: str) -> None:
+        # CC 0D on the console's own channel: 00 Major, 01 Minor, 02 Chromatic.
+        if self._model != MODEL_SQ_PLUS:
+            raise ValueError(_SQ_PLUS_ONLY.format(what="RackUltra FX"))
+        if scale not in _GLOBAL_SCALES:
+            raise ValueError(f"Scale must be one of {', '.join(_GLOBAL_SCALES)}.")
+        await self._send(bytes([0xB0 | self._ch, 0x0D,
+                                _GLOBAL_SCALES.index(scale)]))
 
     # ── Commands: refresh / get ─────────────────────────────────────────
 
@@ -1302,15 +1868,15 @@ class AllenHeathSQDriver(BaseDriver):
 
     async def _refresh_all(self) -> None:
         """Issue NRPN get requests for every parameter we expose as state,
-        SWEEP_GAP_S apart.
+        SWEEP_GAP_S apart, each on the channel it lives on.
         """
         if not self.connected:
             return
 
-        targets: list[tuple[int, int]] = list(self._route.keys())
-        for i, (msb, lsb) in enumerate(targets):
+        targets: list[tuple[int, int, int]] = list(self._route.keys())
+        for ch, msb, lsb in targets:
             try:
-                await self._send(self._build_nrpn_get(msb, lsb))
+                await self._send(self._build_nrpn_get(msb, lsb, ch))
             except Exception:  # noqa: BLE001
                 break
             await asyncio.sleep(SWEEP_GAP_S)
@@ -1451,12 +2017,13 @@ class AllenHeathSQDriver(BaseDriver):
         elif controller == 0x06:
             nrpn["vc"] = value
         elif controller == 0x26:
-            self._dispatch_absolute(nrpn["msb"], nrpn["lsb"], nrpn["vc"], value)
+            self._dispatch_absolute(nrpn["msb"], nrpn["lsb"], nrpn["vc"], value,
+                                    ch=ch)
         elif controller == 0x60:
             # Increment — toggle (mute/assign) or no-op for an outgoing get.
             # On incoming side, 0x00 is a console-side toggle echo.
             if value == 0x00:
-                self._dispatch_toggle(nrpn["msb"], nrpn["lsb"])
+                self._dispatch_toggle(nrpn["msb"], nrpn["lsb"], ch=ch)
         elif controller == 0x61:
             # Decrement — ignored as an aggregator hint; we update state
             # on the absolute echo the SQ emits afterward.
@@ -1466,6 +2033,9 @@ class AllenHeathSQDriver(BaseDriver):
         # Console-side scene change: Bank Select (B0 00 BK) then Program
         # Change (CN PG). The bank is cached from the preceding CC 0x00.
         if ch != self._ch:
+            return
+        if self._last_bank > 2:
+            # Banks 0A-0C recall by Cue List position, which names no scene.
             return
         scene = self._last_bank * 128 + program + 1
         if MIN_SCENE <= scene <= MAX_SCENE:
@@ -1478,25 +2048,38 @@ class AllenHeathSQDriver(BaseDriver):
     # ── State fan-out ───────────────────────────────────────────────────
 
     def _dispatch_absolute(self, msb: int, lsb: int, vc: int, vf: int,
-                           *, from_device: bool = True) -> None:
-        """Map an absolute (MSB, LSB, VC, VF) tuple to a state update.
+                           *, from_device: bool = True,
+                           ch: int | None = None) -> None:
+        """Map an absolute (MSB, LSB, VC, VF) tuple on MIDI channel ``ch``
+        (0-based; None is the console's) to a state update.
 
         Shared by the inbound parser AND the optimistic write path, so a
         sent value and a received value land in state identically. Only
         what the console sent (``from_device``) answers the liveness
         probe: the driver's own write of the probed address proves nothing.
         """
-        key = (msb, lsb)
+        if ch is None:
+            ch = self._ch
+        on_main = ch == self._ch
 
         # Resolve the liveness probe on a reply for the probed address.
-        if (from_device and self._probe_fut is not None
-                and not self._probe_fut.done() and key == self._probe_addr):
+        if (from_device and on_main and self._probe_fut is not None
+                and not self._probe_fut.done()
+                and (msb, lsb) == self._probe_addr):
             self._probe_fut.set_result(None)
 
-        route = self._route.get(key)
+        # An SQ+ master on a console set to SQ: the master faders and the
+        # matrix sends would go to the wrong places.
+        if (from_device and on_main and self._model == MODEL_SQ
+                and msb in _SQ_PLUS_MASTER_MSBS
+                and lsb >= _SQ_PLUS_MASTER_FIRST_LSB):
+            self._note_model_mismatch()
+
+        route = self._route.get((ch, msb, lsb))
         if route is None:
             # Unknown parameter — ignore. (E.g. send-level matrix cells we
-            # don't expose as state but that another client may set.)
+            # don't expose as state but that another client may set, or a
+            # channel this driver does not listen on.)
             return
         kind, ctype, sid, prop = route
 
@@ -1515,9 +2098,16 @@ class AllenHeathSQDriver(BaseDriver):
         except Exception:  # noqa: BLE001
             pass
 
-    def _dispatch_toggle(self, msb: int, lsb: int) -> None:
+    def _note_model_mismatch(self) -> None:
+        if not self._model_mismatch:
+            self._model_mismatch = True
+            log.warning("[%s] %s", self.device_id, _MODEL_MISMATCH)
+        self.set_state("last_error", _MODEL_MISMATCH)
+
+    def _dispatch_toggle(self, msb: int, lsb: int, *,
+                         ch: int | None = None) -> None:
         """Console-side mute toggle echo. Flip the state we hold."""
-        route = self._route.get((msb, lsb))
+        route = self._route.get((self._ch if ch is None else ch, msb, lsb))
         if route is None:
             return
         kind, ctype, sid, prop = route

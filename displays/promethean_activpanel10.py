@@ -35,8 +35,8 @@ Power model (Promethean's notes, article 2752):
 Model check: the ActivPanel 9 speaks the same frames on the same port,
 and its own article (2586) warns that its power-status query can lock the
 panel's power up. This driver asks the model number at connect and
-refuses to run against an ActivPanel 9, LE or LX, which have their own
-command tables.
+refuses any other ActivPanel (9, LE, LX, the Elements series and older),
+which have their own command tables.
 
 Protocol reference: Promethean support article 2752, "RS232 Control Codes
 for ActivPanel 10" (3 October 2025).
@@ -45,6 +45,7 @@ for ActivPanel 10" (3 October 2025).
 from __future__ import annotations
 
 import asyncio
+import re
 from typing import Any, Optional
 
 from openavc.drivers.base import BaseDriver
@@ -250,12 +251,11 @@ CAMERA_BODIES = {
     "camera_reset": bytes.fromhex("80 01 81 0B 01 AA FF"),
 }
 
-#: Model numbers this driver refuses, with the panel they name.
-_OTHER_PANELS = (
-    ("AP9", "an ActivPanel 9"),
-    ("APLE", "an ActivPanel LE"),
-    ("APLX", "an ActivPanel LX"),
-)
+#: A model number of another ActivPanel: any "AP..." that is not "AP10"
+#: (AP9-, APLE-, APLX-, the Elements series' AP7-, which article 1477 also
+#: prints for the 86-inch ActivPanel 9, and the older AP6-, AP5-, APD1-),
+#: or "ActivPanel <n>" for any n but 10.
+_OTHER_PANEL = re.compile(r"^(?:AP(?!10)|ACTIVPANEL\s*(?!\s|10))", re.IGNORECASE)
 
 
 def _text(data: bytes) -> str:
@@ -278,7 +278,7 @@ class PrometheanActivPanel10Driver(BaseDriver):
         "name": "Promethean ActivPanel 10",
         "manufacturer": "Promethean",
         "category": "display",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         "description": (
             "Controls the Promethean ActivPanel 10 and ActivPanel 10 Premium "
@@ -809,16 +809,15 @@ class PrometheanActivPanel10Driver(BaseDriver):
             return
         self._model_checked = True
         text = _text(model)
-        for prefix, name in _OTHER_PANELS:
-            if text.upper().startswith(prefix):
-                message = (
-                    f"This panel reports model {text}, which is {name}. This "
-                    f"driver is for the ActivPanel 10: choose the driver for "
-                    f"your panel."
-                )
-                if ConnectionFaultError is not None:
-                    raise ConnectionFaultError(message, code="invalid_config")
-                raise ConnectionError(message)
+        if _OTHER_PANEL.match(text):
+            message = (
+                f"This panel reports model {text}, which is not an ActivPanel "
+                f"10. This driver is for the ActivPanel 10 and 10 Premium: "
+                f"choose the driver for your panel."
+            )
+            if ConnectionFaultError is not None:
+                raise ConnectionFaultError(message, code="invalid_config")
+            raise ConnectionError(message)
 
     async def _read_identity(self) -> None:
         """Serial number, firmware, power-on time and network: read once a

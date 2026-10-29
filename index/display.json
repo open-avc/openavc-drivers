@@ -362,7 +362,7 @@
       "name": "Promethean ActivPanel 10",
       "manufacturer": "Promethean",
       "category": "display",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Promethean ActivPanel 10 and ActivPanel 10 Premium interactive displays over the network (TCP port 5000) or RS-232. Power, sleep and Wake-on-LAN, input select, volume and mute, freeze, blank, touch and remote locks, OPS computer power, picture levels, backlight mode, standby and sleep timers, front-panel button locks and the ePTZ camera. Polls for status.",
@@ -370,7 +370,7 @@
       "file": "displays/promethean_activpanel10.py",
       "format": "python",
       "files": {
-        "displays/promethean_activpanel10.py": "38a279ec56ea040da295f6a584d33ee4b309c23a9cd11839e96e43f2e3397a9f",
+        "displays/promethean_activpanel10.py": "d57f6962746ea88d2b9b44091f443123377530ed2b01c4cdaae494e26e855b18",
         "displays/promethean_activpanel10_sim.py": "10392283fcc913e19b7bde7043e1bf17c7a237a958da3c1453d225af7ed41340"
       },
       "ports": [

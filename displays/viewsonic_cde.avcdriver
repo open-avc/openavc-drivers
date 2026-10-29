@@ -4,8 +4,11 @@
 #            publishes per model at manuals.viewsonic.com. The CDE31 series
 #            user guide (viewsonicglobal.com, CDE31_Series_UG_ENG.pdf, June
 #            2026) prints the same Set table up to rev 3.2.6 and no Get table.
-# Protocol: ASCII framed packets, CR terminated, over TCP 5000 (no login) or
-#           RS-232 9600 8N1 (fixed).
+#            The ViewBoard IFP62 page prints the Set table and no Get table;
+#            the IFP110 page prints every table at rev 3.3.3 (the customized
+#            hot keys named) and gives LAN port 7142.
+# Protocol: ASCII framed packets, CR terminated, over TCP 5000 (no login;
+#           7142 on the ViewBoard IFP110) or RS-232 9600 8N1 (fixed).
 #
 # Verified on a CDE8631-1C (firmware 20250609234259, then 20260526125505).
 # What that unit does beyond the document, and what the driver does about it:
@@ -94,22 +97,23 @@ id: viewsonic_cde
 name: ViewSonic Commercial Display
 manufacturer: ViewSonic
 category: display
-version: 2.2.2
+version: 2.3.0
 author: OpenAVC
 description: >-
-  Controls ViewSonic CDE-series commercial displays (and other ViewSonic
-  large-format displays publishing the LFD RS-232 & LAN protocol) on TCP
-  port 5000 or direct RS-232. Power, input select, volume, mute,
+  Controls ViewSonic CDE-series commercial displays, ViewBoard IFP62 and
+  IFP110 interactive displays, and other ViewSonic large-format displays
+  publishing the LFD RS-232 & LAN protocol, over the network (TCP port
+  5000, or 7142 on the IFP110) or direct RS-232. Power, input select, volume, mute,
   brightness, backlight, picture values, freeze and screen blank, PIP,
   video-wall tiling, keypad navigation, control locks, the display's
   clock, ambient sensor readings, and a Wake-on-LAN wake for displays
   whose standby closes the network port. Listens for the display's own
   status pushes and polls for the rest.
 source_url: https://viewsonicvsa.freshdesk.com/support/solutions/articles/43000470279-viewsonic-lfd-rs-232-lan-protocol
-tags: [display, viewsonic, cde, cde31, signage, lfd, rs232, lan-control]
+tags: [display, viewsonic, cde, cde31, viewboard, ifp, interactive-display, signage, lfd, rs232, lan-control]
 verified: true
 simulated: true
-ports: [5000]
+ports: [5000, 7142]
 min_platform_version: "0.37.0"
 compatible_models:
   - manufacturer: ViewSonic
@@ -152,6 +156,28 @@ compatible_models:
       larger.
   - manufacturer: ViewSonic
     models:
+      - IFP6562
+      - IFP7562
+      - IFP8662
+    confidence: untested
+    notes: >-
+      ViewBoard IFP62 series. Network control on TCP port 5000, or RS-232 at
+      9600 8N1 with a null-modem cable. Inputs: HDMI 1-3, VGA, the slot-in
+      PC (OPS), DisplayPort, USB-C and the embedded Android player. Its own
+      protocol page lists the set commands only; the status reads this
+      driver polls come from ViewSonic's brand-wide protocol and are not yet
+      checked on an IFP62.
+  - manufacturer: ViewSonic
+    models:
+      - IFP110
+    confidence: untested
+    notes: >-
+      ViewBoard IFP110. Network control on TCP port 7142: set TCP Port to
+      7142 when adding it. RS-232 at 9600 8N1 with a null-modem cable.
+      Customized hot keys 1-7 open the ViewBoard apps (see Trigger Custom
+      Hot Key).
+  - manufacturer: ViewSonic
+    models:
       - CDE4330
       - CDE5530
       - CDE6530
@@ -168,8 +194,8 @@ compatible_models:
     notes: >-
       The CDE30 and CDE20 series publish this protocol in their per-model
       RS-232 documentation. Every ViewSonic large-format display on the
-      brand-wide LFD RS-232 & LAN protocol, including ViewBoard IFP
-      interactive displays and NMP media players, is expected to work.
+      brand-wide LFD RS-232 & LAN protocol, including the other ViewBoard
+      IFP interactive displays and NMP media players, is expected to work.
       Function support varies by model (PIP and tiling are
       model-dependent); an unsupported command answers a reject the driver
       ignores.
@@ -190,7 +216,7 @@ help:
   setup: >-
     1. Network control: connect the display's LAN port, note the IP address
        from the network settings, and add it here (TCP port 5000, no
-       login). Monitor ID stays 1 for LAN control. On the CDE31 series,
+       login; 7142 on the ViewBoard IFP110). Monitor ID stays 1 for LAN control. On the CDE31 series,
        LAN Control must be On in the Advanced section of the display's
        on-screen menu.
 
@@ -210,8 +236,8 @@ help:
        each display's Monitor ID in its menu and match it here.
   connection: >-
     A display whose standby mode shuts the network down (Hibernate on the
-    CDE31 series) does not answer on TCP 5000 until it is turned on at the
-    display. On models that wake over the network, Wake (Wake-on-LAN)
+    CDE31 series) does not answer on the network until it is turned on at
+    the display. On models that wake over the network, Wake (Wake-on-LAN)
     turns it on; the display's MAC is learned automatically on every
     connection, or can be typed in under Edit Device for a display that has
     never connected.
@@ -220,7 +246,8 @@ discovery:
   # Active fingerprint: the documented communication-link test (Get-ACK)
   # on TCP 5000 answers the framed reply '801rz000', protocol-unique
   # grammar. A display in network-dead standby will not probe; the OUI /
-  # alias hints still surface it.
+  # alias hints still surface it. The ViewBoard IFP110 answers on 7142, which
+  # a driver's one tcp_probe cannot also cover, so it is found by its hints.
   tcp_probe:
     port: 5000
     send_ascii: "801gz000\r"
@@ -250,12 +277,12 @@ config_schema:
     type: string
     required: true
     label: IP Address
-    description: Display IP address. LAN control uses TCP port 5000.
+    description: Display IP address. LAN control uses TCP port 5000 (7142 on the ViewBoard IFP110).
   port:
     type: integer
     default: 5000
     label: TCP Port
-    description: Default 5000 for ViewSonic LAN control (fixed on the display).
+    description: 5000 on most ViewSonic displays, 7142 on the ViewBoard IFP110 (fixed on the display).
   monitor_id:
     type: integer
     default: 1
@@ -871,7 +898,7 @@ commands:
       number: { type: integer, required: true, label: Number (0-9), min: 0, max: 9 }
   custom_hot_key:
     label: Trigger Custom Hot Key
-    help: Runs one of the model's customized hot keys (1 opens the MVBA app on models that have it). Not available on the CDE31 series.
+    help: "Runs one of the display's customized hot keys. On ViewBoard models: 1 opens MVB (myViewBoard) Whiteboard, 2 MVB Display, 3 MVB Manager, 4 vCast, 5 Signage Launcher, 6 RevelDigital Player, 7 XiO Connected; which ones a model has varies. Not available on the CDE31 series."
     send: "sX{key:03d}"
     params:
       key: { type: integer, required: true, label: Hot Key (1-999), min: 1, max: 999 }

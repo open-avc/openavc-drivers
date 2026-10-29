@@ -703,7 +703,7 @@
       "name": "Extron DTP CrossPoint 4K",
       "manufacturer": "Extron",
       "category": "switcher",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Extron DTP CrossPoint 4K scaling presentation matrix switchers (108, 86, 84, 82, and the IPCP SA and MA models). Every output, output connector and input is a child entity: ties, video mutes, each output's audio, signal and HDCP status, plus the Program and Mic Volume group masters in dB, presets and the front panel lock. Works over Telnet (port 23) or RS-232 (9600 8N1), with the switcher's password.\n",
@@ -711,7 +711,7 @@
       "file": "switchers/extron_dtp_crosspoint.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/extron_dtp_crosspoint.avcdriver": "12c7d530d4332235c6f9f8ada172f2f2196a6970c9e1eaebb0e565a371f8194c"
+        "switchers/extron_dtp_crosspoint.avcdriver": "58063580c306891c0b8463d8eb9330ad5b8f77cb5997cb70d87d7b4047e8cf1c"
       },
       "ports": [
         23
@@ -843,7 +843,7 @@
       "name": "Extron SIS Protocol",
       "manufacturer": "Extron",
       "category": "switcher",
-      "version": "1.12.1",
+      "version": "1.13.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Extron products via the SIS (Simple Instruction Set) protocol. Covers crosspoint matrix switchers (DXP, CrossPoint), presentation switchers (IN Series), scalers (DSC, DVS), distribution amplifiers, and DSP products. On matrix models each configured output and input is a child entity with per-output routing and mute state. Works over TCP (port 23) or RS-232 (9600 8N1).\n",
@@ -851,7 +851,7 @@
       "file": "switchers/extron_sis.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/extron_sis.avcdriver": "817831e6f9b7cd78b37710c3c9b4ccde57cbe3edda57f4822881e42d9ddc7adc"
+        "switchers/extron_sis.avcdriver": "a54cc1c2efd1c9c4d007a5827f727fd1d4f6bfd7d124726db539fbefa7f7bb66"
       },
       "ports": [
         23

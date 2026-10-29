@@ -33,6 +33,10 @@
 #     {output}B/Z        — View an output's mute state
 #     Esc I{n}HDCP<CR>   — Input HDCP/source status -> "HdcpI{n}*{0|1|2}"
 #     Front panel pushes: "{oo}Vmt{s}" / "{oo}Amt{s}" / "Qik"
+#     ("Qik": a tie made at the front panel, not named, in the DXP, XTP
+#     CrossPoint and CrossPoint 450 guides; every output's ties are read
+#     again at once on platform 0.38.0 and later, and by the poll on an
+#     older one)
 #
 #   Bulk views (matrix), one reply for many outputs or inputs, which the poll
 #   uses instead of a view per output:
@@ -94,9 +98,10 @@ id: extron_sis
 name: Extron SIS Protocol
 manufacturer: Extron
 category: switcher
-version: 1.12.1
+version: 1.13.0
 author: OpenAVC
-# learned_from on the input and output counts.
+# learned_from on the input and output counts. then_query does not raise it:
+# an older platform ignores it.
 min_platform_version: "0.37.0"
 description: >
   Controls Extron products via the SIS (Simple Instruction Set) protocol.
@@ -446,7 +451,7 @@ commands:
   route_all:
     label: Route Input to All Outputs
     send: "{input}*!"
-    help: "Tie a single input to every output (matrix switchers). Per-output state refreshes on the next poll."
+    help: "Tie a single input to every output (matrix switchers). Each output's tie is then read back from the switcher: at once on OpenAVC 0.38.0 and later, at the next poll before that."
     params:
       input:
         type: integer
@@ -690,9 +695,26 @@ responses:
 
   # Input select / input-to-all ack: "In1 All" (also "In1 Vid"/"In1 Aud"
   # from breakaway-to-all forms). Single-output devices report their
-  # selected input here.
+  # selected input here. On a matrix it does not name the outputs, so every
+  # output's ties are read again at once, by the poll's page reads
+  # (then_query, platform 0.38.0 and later; on an older platform, by the
+  # next poll). A single-output device has no outputs configured, so
+  # nothing is sent.
   - match: '^In(\d+) (?:All|Vid|Aud|RGB)$'
     set: { input: "$1" }
+    then_query:
+      - { each_child: output, page_size: 16, send: "\x1b0*{child_id}*1VC\r", query_for: input }
+      - { each_child: output, page_size: 16, send: "\x1b0*{child_id}*2VC\r", query_for: audio_input }
+  # A tie made at the front panel of a matrix (DXP, XTP CrossPoint and
+  # CrossPoint 450 guides). It does not say which, so every output's ties
+  # are read again the same way. Nothing the driver sends is answered with
+  # Qik (the quick multiple tie and mute, which are, are not used), so a
+  # poll never sets it off.
+  - match: '^Qik$'
+    set: {}
+    then_query:
+      - { each_child: output, page_size: 16, send: "\x1b0*{child_id}*1VC\r", query_for: input }
+      - { each_child: output, page_size: 16, send: "\x1b0*{child_id}*2VC\r", query_for: audio_input }
 
   # The SW HD 4K PLUS answer to the polled Information request I (guide
   # p. 28; "In1 Ausw0 Afmt0 Vmt0" on an SW4 1.02): the selected input, the

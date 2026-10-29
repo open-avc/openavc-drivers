@@ -17,8 +17,9 @@
 # notices (front panel ties, presets, the volume knobs, the lock).
 #
 # Push and poll: hybrid. The switcher announces front panel changes in mode 3
-# (p. 62): "Qik" (a front panel tie; the tie itself is not given, so the
-# poll reads it), "Rpr{nn}" (a preset recalled), "GrpmD{n}*{y}" (the Volume
+# (p. 62): "Qik" (a front panel tie; the tie itself is not given, so every
+# output's ties are read again at once on platform 0.38.0 and later, and by
+# the poll on an older one), "Rpr{nn}" (a preset recalled), "GrpmD{n}*{y}" (the Volume
 # or Mic Volume knob turned) and "Exe{n}" (the lock changed). Ties, mutes,
 # signals and HDCP are polled.
 #
@@ -72,8 +73,9 @@ id: extron_dtp_crosspoint
 name: Extron DTP CrossPoint 4K
 manufacturer: Extron
 category: switcher
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
+# then_query does not raise it: an older platform ignores it.
 min_platform_version: "0.37.0"
 description: >
   Controls Extron DTP CrossPoint 4K scaling presentation matrix switchers
@@ -503,7 +505,7 @@ commands:
   route_all:
     label: Route Input to All Outputs
     send: "{input}*!"
-    help: "Ties an input to every output for video and audio. Each output's tie refreshes on the next poll."
+    help: "Ties an input to every output for video and audio. Each output's tie is then read back from the switcher: at once on OpenAVC 0.38.0 and later, at the next poll before that."
     params:
       input: { type: child_id, child_type: input, required: true, label: Input }
 
@@ -511,7 +513,7 @@ commands:
     label: Clear All Ties
     send: "0*!"
     confirm: "Removes every video and audio tie, so every output goes blank."
-    help: "Removes every video and audio tie. Each output's tie refreshes on the next poll."
+    help: "Removes every video and audio tie. Each output's tie is then read back from the switcher: at once on OpenAVC 0.38.0 and later, at the next poll before that."
 
   # Presets (p. 68): "{n}." answers "Rpr{nn}". 32 global presets, made in
   # DSP Configurator or PCS; recalling one that was never saved is refused.
@@ -819,14 +821,24 @@ responses:
   - match: '^Out(\d+) In(\d+) All$'
     child_set:
       - { type: output, id: "$1", state: { input: "$2", audio_input: "$2" } }
-  # Input to all outputs and clear all: "In05 All", "In00 All". Each
-  # output's tie is read by the next poll.
+  # Input to all outputs and clear all: "In05 All", "In00 All". It does not
+  # name the outputs, so every output's ties are read again at once
+  # (then_query, platform 0.38.0 and later; on an older platform, by the
+  # next poll).
   - match: '^In\d+ (?:All|Vid|Aud)$'
     set: {}
-  # A tie made at the front panel (p. 62). It does not say which, so the
-  # next poll reads the ties.
+    then_query:
+      - { each_child: output, send: "{child_id}%", query_for: input }
+      - { each_child: output, send: "{child_id}$", query_for: audio_input }
+  # A tie made at the front panel (p. 62). It does not say which, so every
+  # output's ties are read again the same way. Nothing the driver sends is
+  # answered with Qik (the quick multiple tie and mute, which are, are not
+  # used), so a poll never sets it off.
   - match: '^Qik$'
     set: {}
+    then_query:
+      - { each_child: output, send: "{child_id}%", query_for: input }
+      - { each_child: output, send: "{child_id}$", query_for: audio_input }
 
   # ── Presets (p. 68) ──
   # "Rpr05": the answer to a recall, and the switcher's notice of a recall

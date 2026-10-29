@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 237,
+    "total_devices": 239,
     "shards": null,
     "category": "audio"
   },
@@ -1818,6 +1818,30 @@
           "id": "onkyo_integra_eiscp",
           "confidence": "untested",
           "notes": "Onkyo absorbed Pioneer's A/V receiver line; current Pioneer network receivers speak the same eISCP command set on TCP 60128. Discovery uses the Onkyo \"!x\" device-search broadcast; Pioneer units also answer a \"!p\" broadcast, so a Pioneer that stays silent to discovery can still be added by IP address."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Poly",
+      "model": "Trio 8300",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "poly_trio",
+          "confidence": "untested",
+          "notes": "Poly Voice Software 8.0 or later with the REST API turned on (apps.restapi.enabled). The Trio C60 takes three keys (Mute, Volume Up, Volume Down); the Trio 8300 its soft keys, line keys, arrows and dial pad too."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Poly",
+      "model": "Trio C60",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "poly_trio",
+          "confidence": "untested",
+          "notes": "Poly Voice Software 8.0 or later with the REST API turned on (apps.restapi.enabled). The Trio C60 takes three keys (Mute, Volume Up, Volume Down); the Trio 8300 its soft keys, line keys, arrows and dial pad too."
         }
       ]
     },

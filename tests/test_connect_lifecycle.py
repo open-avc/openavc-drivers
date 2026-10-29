@@ -110,6 +110,9 @@ _CONFIG: dict[str, dict] = {
     # is auth_failed before any request); its sim accepts anything but
     # "invalid" and serves HTTPS with its own certificate.
     "sennheiser_tccm": {"password": "smokepw"},
+    # The phone's REST API never takes a blank admin password, so the driver
+    # refuses to send one; the sim accepts any password but "invalid".
+    "poly_trio": {"password": "smokepw"},
     # Model has no default (any default is wrong for four models of five), and
     # a camera with none set refuses to connect as invalid_config.
     "crestron_1beyond_camera": {"model": "i12"},

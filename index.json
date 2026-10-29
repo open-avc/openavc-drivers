@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 125,
+    "total_drivers": 126,
     "shards": null
   },
   "drivers": [
@@ -6214,6 +6214,69 @@
           ],
           "confidence": "untested",
           "notes": "VideoOS REST API is identical across the X-series and G7500. Per-model differences (mic count, integrated cameras, bundled mic pods) don't change the command surface \u2014 they just gate which features actually do anything when invoked."
+        }
+      ],
+      "discovery": {
+        "oui": [
+          "00:04:f2",
+          "64:16:7f",
+          "48:25:67",
+          "9c:ad:ef",
+          "00:e0:db"
+        ],
+        "manufacturer_alias": [
+          "poly",
+          "polycom",
+          "hp",
+          "plantronics"
+        ]
+      }
+    },
+    {
+      "id": "poly_trio",
+      "name": "Poly Trio Conference Phone",
+      "manufacturer": "Poly",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Poly (HP) Trio C60 and Trio 8300 conference phones over the phone's REST API: dial, answer, decline, hold, resume, transfer and hang up calls, send DTMF, mute, step the volume, and show who is calling, the call in progress, line registration and do-not-disturb.",
+      "source_url": "https://kaas.hpcloud.hp.com/pdf-public/pdf_14672705_en-US-1.pdf",
+      "file": "audio/poly_trio.py",
+      "format": "python",
+      "files": {
+        "audio/poly_trio.py": "097feb2af19f7081758385917620a7ecb0c2a5ef4ab01e6cfaa7f53a213b0813",
+        "audio/poly_trio_sim.py": "0a3c8d308a3fbb9c60899f6880d509978c20f58391d29a3deb66c673ecda8f1d"
+      },
+      "ports": [
+        443
+      ],
+      "protocols": [
+        "poly_voice_rest"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "poly",
+        "hp",
+        "trio",
+        "conference-phone",
+        "sip",
+        "rest"
+      ],
+      "help": {
+        "overview": "Controls a Poly Trio C60 or Trio 8300 conference phone through its REST API: dial, answer, decline, ignore, hold, resume, transfer and hang up, send DTMF tones, mute and unmute, and step the volume. Shows when a call is ringing in and who is calling, the call in progress and how long it has run, whether the line is registered, do-not-disturb, mute, the display's power state and the phone's model, software and serial number. The phone has no volume reading, so volume is Volume Up and Volume Down only.",
+        "setup": "1. Change the phone's admin password from the default. The REST API refuses every request while it is still the default.\n2. Turn on the REST API: set the configuration parameter apps.restapi.enabled to 1, from your provisioning server or the phone's web interface.\n3. In OpenAVC, enter the phone's IP address and its admin password. The REST API's username is always Polycom, so there is no username to enter.\n4. Leave Use HTTPS on and the port at 443 unless the phone has been set up otherwise."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Poly",
+          "models": [
+            "Trio C60",
+            "Trio 8300"
+          ],
+          "confidence": "untested",
+          "notes": "Poly Voice Software 8.0 or later with the REST API turned on (apps.restapi.enabled). The Trio C60 takes three keys (Mute, Volume Up, Volume Down); the Trio 8300 its soft keys, line keys, arrows and dial pad too."
         }
       ],
       "discovery": {

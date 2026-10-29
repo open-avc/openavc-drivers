@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1052,
+    "total_devices": 1054,
     "shards": null
   },
   "devices": [
@@ -9201,6 +9201,30 @@
           "id": "poly_studio",
           "confidence": "untested",
           "notes": "VideoOS REST API is identical across the X-series and G7500. Per-model differences (mic count, integrated cameras, bundled mic pods) don't change the command surface \u2014 they just gate which features actually do anything when invoked."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Poly",
+      "model": "Trio 8300",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "poly_trio",
+          "confidence": "untested",
+          "notes": "Poly Voice Software 8.0 or later with the REST API turned on (apps.restapi.enabled). The Trio C60 takes three keys (Mute, Volume Up, Volume Down); the Trio 8300 its soft keys, line keys, arrows and dial pad too."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Poly",
+      "model": "Trio C60",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "poly_trio",
+          "confidence": "untested",
+          "notes": "Poly Voice Software 8.0 or later with the REST API turned on (apps.restapi.enabled). The Trio C60 takes three keys (Mute, Volume Up, Volume Down); the Trio 8300 its soft keys, line keys, arrows and dial pad too."
         }
       ]
     },

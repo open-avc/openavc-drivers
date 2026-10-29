@@ -98,6 +98,9 @@ _CONFIG: dict[str, dict] = {
     # transport, which is what this harness is for.
     "netgear_m4250_m4350": {"transport": "tcp"},
     "toa_9000m2": {"transport": "tcp"},
+    # Serial only, like the TOA mixer; tcp is also what a bridge's
+    # pass-through and simulation connect it over.
+    "promethean_activpanel_le": {"transport": "tcp"},
     # Same case as the NETGEAR switch: the NAVigator's SIS interface is SSH on
     # 22023 and the SSH transport shells out to the OS client, while the
     # simulator serves the identical SIS grammar on a plain socket. The driver's

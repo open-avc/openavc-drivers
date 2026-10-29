@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 11,
+    "total_drivers": 12,
     "shards": null,
     "category": "display"
   },
@@ -440,6 +440,57 @@
           "promethean limited"
         ]
       }
+    },
+    {
+      "id": "promethean_activpanel_le",
+      "name": "Promethean ActivPanel LE",
+      "manufacturer": "Promethean",
+      "category": "display",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "serial",
+      "description": "Controls the Promethean ActivPanel LE interactive displays over RS-232, on a serial port or through an IP-to-serial bridge. Power, standby and sleep, input select, volume and mute, and the model, serial number and firmware the panel reports. Polls for status.",
+      "source_url": "https://support.prometheanworld.com/s/article/2905",
+      "file": "displays/promethean_activpanel_le.py",
+      "format": "python",
+      "files": {
+        "displays/promethean_activpanel_le.py": "a87d94b115f17d42e12d8c031c785a583638fd8521fd8aa18985f005598084c1",
+        "displays/promethean_activpanel_le_sim.py": "0191b83d5acbc6f472bf5c41094f696f7176b7cb84db9dec3ba644031e2aa4e0"
+      },
+      "protocols": [
+        "promethean_rs232"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "display",
+        "promethean",
+        "activpanel",
+        "activpanel-le",
+        "ifp",
+        "interactive-display",
+        "rs232",
+        "serial",
+        "bridge",
+        "education"
+      ],
+      "help": {
+        "overview": "Promethean ActivPanel LE interactive displays, controlled over RS-232. Power (on, standby and sleep), input, volume and mute, and the model, serial number and firmware the panel reports. Polls every 15 seconds. Promethean documents RS-232 control only for the LE: wire it to a serial port on the OpenAVC server, or to an IP-to-serial bridge.",
+        "setup": "1. Wire the panel's RS232 port, a 9-pin D-sub at the back of the panel on the underside behind the left side. Pin 2 is the panel's receive, pin 3 its transmit and pin 5 ground: the controller's transmit goes to pin 2 and its receive to pin 3.\n2. Direct serial: set the Serial Port (for example COM3 on Windows or /dev/ttyUSB0 on Linux). Through a bridge: add the bridge first, then choose Through a bridge in this device's Connection settings and pick the port the panel is wired to.\n3. Serial settings: 115200 baud, 8 data bits, no parity, 1 stop bit. They are this driver's defaults; through a bridge, OpenAVC applies them to the bridge's port.\n4. No username or password is needed.\n5. If the panel does not answer with the wiring and settings right, update it to its latest firmware: Promethean notes that some earlier versions do not support every RS-232 command.",
+        "connection": "The panel answers on its RS-232 port only. If it shows offline, check that it has mains power, the wiring (the controller's transmit to pin 2, its receive to pin 3), and the serial settings: 115200 baud, 8 data bits, no parity, 1 stop bit. Through a bridge, check that the bridge's own card shows connected."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Promethean",
+          "models": [
+            "APLE-65",
+            "APLE-75",
+            "APLE-86"
+          ],
+          "confidence": "untested",
+          "notes": "ActivPanel LE. RS-232 only, 115200 8N1, on the 9-pin port labelled RS232 at the back of the panel (underside, behind the left side)."
+        }
+      ]
     },
     {
       "id": "samsung_mdc",

@@ -4782,7 +4782,7 @@
       "name": "LEA Connect Series Amplifier",
       "manufacturer": "LEA Professional",
       "category": "audio",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LEA Professional Connect Series smart amplifiers (Network Connect and Dante Connect) over the LEA Open API on TCP 4321. Each amplifier channel is a child entity with output mute, gain, Hi-Z/Lo-Z mode, input source selection with backup/override, crossover, RMS and peak limiters, load monitoring, and live meters. Amp-wide auto-standby, signal generator, power-supply monitoring, and fault reporting. State is push-driven: the driver subscribes to every element and the amp reports changes as they happen, including changes made from its own web UI.\n",
@@ -4790,7 +4790,7 @@
       "file": "audio/lea_connect.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/lea_connect.avcdriver": "2558980d7ef44f7a9d9f1409da60920961cc64aa09ab63a3d893dea914242dac"
+        "audio/lea_connect.avcdriver": "3014a2db9501865d2b5e9a704da25fd768e299f00cf8eb7bd5c24d490f3f5ff3"
       },
       "ports": [
         4321
@@ -4819,8 +4819,15 @@
         {
           "manufacturer": "LEA Professional",
           "models": [
+            "Connect Series 702 (702N)"
+          ],
+          "confidence": "full",
+          "notes": "Verified on real hardware: a Connect 702N on firmware 3.0.2.15 (discovery, every status value, every command and device setting, and control from the device page). This firmware answers OK to each change and reports a source the amp doesn't have in Last Error.\n"
+        },
+        {
+          "manufacturer": "LEA Professional",
+          "models": [
             "Connect Series 352",
-            "Connect Series 702",
             "Connect Series 124",
             "Connect Series 164",
             "Connect Series 354",

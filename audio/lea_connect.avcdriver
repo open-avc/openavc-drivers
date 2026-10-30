@@ -11,12 +11,12 @@
 #     inputs are available on every Dante model) and the Dante On Ramp control.
 #   - Network Connect models expose only analog sources, and only as many as the
 #     amp has channels (a 354 has no Analog 5-8).
-# Selecting a source the amp doesn't have is benign: current firmware silently
-# ignores it — no error, no change (verified on a Connect 352D running firmware
-# 3.1.7.0). The source picker only offers valid values, so this is reachable only
-# from a macro/script, and it fails silently rather than surfacing in last_error.
-# (The 2020 protocol doc shows an "error: unsupported value: ..." reply here; that
-# behavior is gone on current firmware — a bad enum value is now dropped silently.)
+# Selecting a source the amp doesn't have is benign, but what the amp says about
+# it depends on its firmware. A Connect 352D on 3.1.7.0 drops a bad enum value
+# silently: no error, no change. A Connect 702N on 3.0.2.15 answers it the way the
+# 2020 doc shows ("error:  unsupported value: Dante 1 (/amp/.../primary)"), which
+# lands in last_error. The source picker lists every source the family has (Dante
+# 1-8 and Analog 1-8 on every model), so the wrong one is reachable from it.
 # The power supply's lineWarning is a warning flag: a Connect 352D on firmware
 # 3.1.7.0 reports false at a healthy 121 V. The 2020 doc titles it "AC Line Voltage
 # Ok" (true = OK), so psu_line_warning is labelled as the warning it is.
@@ -28,14 +28,21 @@
 #   Commands and responses are newline-delimited ('\n', 0x0a). A command with
 #   no trailing newline gets NO response at all.
 #     get <url>                -> "<url> <value>"
-#     set <url> <value>        -> (no reply on success — controls only; a
-#                                 subscribed element instead emits a change notice)
+#     set <url> <value>        -> "OK" or nothing, by firmware (below); a
+#                                 subscribed element also emits a change notice
 #     subscribe <url>          -> "<url> <value>", then a fresh line on
 #                                 every change, on this same connection
 #     unsubscribe <url>        -> "OK"
-#   Verbs are case-insensitive; element URLs are case-sensitive. (The 2020 doc
-#   says set answers "OK"; firmware 3.1.7.0 is silent on a successful set — the
-#   only reply is the subscription notice, so the driver never waits on an ack.)
+#   Verbs are case-insensitive; element URLs are case-sensitive. The 2020 doc
+#   says set answers "OK". Firmware 3.0.2.15 (a Connect 702N) does, and applies
+#   the change 0.3 to 1.5 s later, the OK and the change notice arriving
+#   together; firmware 3.1.7.0 (a Connect 352D) is silent on a successful set and
+#   the change notice is the only reply. The driver never waits on an ack: the
+#   notice sets the state, and a rule below reads the OK so it is not reported as
+#   a reply the driver does not understand.
+#   Firmware 3.0.2.15 also accepts a set on a read-only identity element: `set
+#   /amp/deviceInfo/modelID "x"` answers OK and the amp then reports "x". The
+#   driver never writes one.
 #   Values: strings and enums come back double-quoted ("Post Crossover");
 #   booleans as bare true/false; every number is a float, even conceptual ints
 #   ("70.0", "2.0"), often at full precision (-52.78131103515625). String/enum
@@ -61,7 +68,11 @@
 # right cadence for amp telemetry (watts, impedance) as opposed to a live meter.
 #
 # Model naming decodes as <power per channel><channel count>[D]: a 704D is
-# 700 W x 4 channels with Dante; a 168 is 160 W x 8 channels, analog only. Set
+# 700 W x 4 channels with Dante; a 168 is 160 W x 8 channels, analog only. The
+# analog models call themselves N in modelID ("Connect Series Model 702N") where
+# LEA's manual writes "Connect Series 702", so a listing below carries the N in
+# parentheses once a unit has shown it, which lets a Device Audit pick the model
+# from the probe's reply. Set
 # Channels to that last digit (2, 4, or 8) — the amp reports its own count in
 # num_outputs, so a mismatch is visible on the device card.
 
@@ -69,7 +80,7 @@ id: lea_connect
 name: LEA Connect Series Amplifier
 manufacturer: LEA Professional
 category: audio
-version: "1.1.2"
+version: "1.1.3"
 author: OpenAVC
 transport: tcp
 delimiter: "\n"
@@ -95,8 +106,16 @@ ports: [4321]
 compatible_models:
   - manufacturer: LEA Professional
     models:
+      - Connect Series 702 (702N)
+    confidence: full
+    notes: >
+      Verified on real hardware: a Connect 702N on firmware 3.0.2.15 (discovery,
+      every status value, every command and device setting, and control from
+      the device page). This firmware answers OK to each change and reports a
+      source the amp doesn't have in Last Error.
+  - manufacturer: LEA Professional
+    models:
       - Connect Series 352
-      - Connect Series 702
       - Connect Series 124
       - Connect Series 164
       - Connect Series 354
@@ -1007,11 +1026,10 @@ commands:
     send: 'set /amp/channels/{channel}/inputSelector/primary "{source}"\n'
     sets: { primary_source: "{source}" }
     help: >
-      Route an input to a channel. Analog sources beyond the amp's channel count
-      and every Dante source exist only on the models that have them; picking one
-      the amp doesn't have does nothing — current firmware silently ignores a
-      source it can't honor (no error, no change), so double-check the model's
-      real inputs.
+      Route an input to a channel. The list holds every source in the series:
+      Dante sources exist only on D models, and analog sources only up to the
+      amp's channel count. Picking one the amp doesn't have changes nothing.
+      Depending on its firmware, the amp says so in Last Error or ignores it.
     params:
       channel:
         type: child_id
@@ -2119,8 +2137,13 @@ responses:
   - match: '^/amp/signalGenerator/frequency (\d+)(?:\.\d+)?$'
     set: { signal_gen_frequency: "$1" }
 
+  # ── Acknowledgement ──
+  # Firmware 3.0.2.15 answers every successful set (and unsubscribe) with a bare
+  # OK. The change notice carries the value, so this rule only reads the line.
+  - match: '^OK$'
+
   # ── Errors ──
-  # e.g. error: unsupported value: Post Toasties (/amp/.../danteOnRamp)
+  # e.g. error:  unsupported value: Post Toasties (/amp/.../danteOnRamp)
   - match: '^(error: .+)$'
     set: { last_error: "$1" }
 

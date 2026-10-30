@@ -6648,13 +6648,13 @@
     },
     {
       "manufacturer": "LEA Professional",
-      "model": "Connect Series 702",
+      "model": "Connect Series 702 (702N)",
       "category": "audio",
       "drivers": [
         {
           "id": "lea_connect",
-          "confidence": "untested",
-          "notes": "Network Connect Series (analog inputs, no Dante). The last digit of the model number is the channel count (352 = 2 channels, 704 = 4, 168 = 8). Analog sources are limited to the number of channels on the amp.\n"
+          "confidence": "full",
+          "notes": "Verified on real hardware: a Connect 702N on firmware 3.0.2.15 (discovery, every status value, every command and device setting, and control from the device page). This firmware answers OK to each change and reports a source the amp doesn't have in Last Error.\n"
         }
       ]
     },

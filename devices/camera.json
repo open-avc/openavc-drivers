@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 106,
+    "total_devices": 127,
     "shards": null,
     "category": "camera"
   },
@@ -518,13 +518,241 @@
     },
     {
       "manufacturer": "Marshall",
+      "model": "CV355-30X-IP",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "marshall_ptz",
+          "confidence": "untested",
+          "notes": "Named in Marshall's CGI command document, which marks the commands each model lacks (the CV355-30X and CV420-30X take no pan/tilt jog, and the CV420e no focus or iris control). A command the camera does not support is reported as refused. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV355-30X-NDI",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "marshall_ptz",
+          "confidence": "untested",
+          "notes": "Named in Marshall's CGI command document, which marks the commands each model lacks (the CV355-30X and CV420-30X take no pan/tilt jog, and the CV420e no focus or iris control). A command the camera does not support is reported as refused. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV420-30X",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "marshall_ptz",
+          "confidence": "untested",
+          "notes": "Named in Marshall's CGI command document, which marks the commands each model lacks (the CV355-30X and CV420-30X take no pan/tilt jog, and the CV420e no focus or iris control). A command the camera does not support is reported as refused. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV420-30X-IP",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "marshall_ptz",
+          "confidence": "untested",
+          "notes": "Named in Marshall's CGI command document, which marks the commands each model lacks (the CV355-30X and CV420-30X take no pan/tilt jog, and the CV420e no focus or iris control). A command the camera does not support is reported as refused. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV420-30X-NDI",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "marshall_ptz",
+          "confidence": "untested",
+          "notes": "Named in Marshall's CGI command document, which marks the commands each model lacks (the CV355-30X and CV420-30X take no pan/tilt jog, and the CV420e no focus or iris control). A command the camera does not support is reported as refused. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV420e",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "marshall_ptz",
+          "confidence": "untested",
+          "notes": "Named in Marshall's CGI command document, which marks the commands each model lacks (the CV355-30X and CV420-30X take no pan/tilt jog, and the CV420e no focus or iris control). A command the camera does not support is reported as refused. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV620-BI",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "marshall_ptz",
+          "confidence": "untested",
+          "notes": "Earlier CV620 models for which Marshall publishes the same CGI command document. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV620-BI2",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "marshall_ptz",
+          "confidence": "full",
+          "notes": "Verified on a CV620-WI2 (firmware VUG115_VUH109): every command and setting read back from the camera. Image mode is reported but fixed at standard on this model; Smart AF is not available."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
       "model": "CV620-NDI / CV620-IP / CV620-BI",
       "category": "camera",
       "drivers": [
         {
           "id": "visca_ip",
           "confidence": "untested",
-          "notes": "Marshall's CV-series broadcast PTZ cameras list VISCA over IP as a control method in their installation manuals."
+          "notes": "Marshall's CV-series broadcast PTZ cameras list VISCA over IP as a control method in their installation manuals. For the CV620-BI/WI, CV620-BI2/WI2, CV625 and CV730 use the dedicated `marshall_ptz` driver instead. It controls them over Marshall's HTTP CGI, with live pan/tilt/zoom/focus read-back, exposure, white balance and focus settings, tally and SRT/RTMP streaming. The CV620-IP and CV620-NDI continue here."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV620-TBI",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "marshall_ptz",
+          "confidence": "untested",
+          "notes": "Earlier CV620 models for which Marshall publishes the same CGI command document. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV620-TWI",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "marshall_ptz",
+          "confidence": "untested",
+          "notes": "Earlier CV620 models for which Marshall publishes the same CGI command document. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV620-WI",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "marshall_ptz",
+          "confidence": "untested",
+          "notes": "Earlier CV620 models for which Marshall publishes the same CGI command document. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV620-WI2",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "marshall_ptz",
+          "confidence": "full",
+          "notes": "Verified on a CV620-WI2 (firmware VUG115_VUH109): every command and setting read back from the camera. Image mode is reported but fixed at standard on this model; Smart AF is not available."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV625-TB",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "marshall_ptz",
+          "confidence": "untested",
+          "notes": "Marshall publishes the same CGI command document for these cameras. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV625-TBN",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "marshall_ptz",
+          "confidence": "untested",
+          "notes": "Marshall publishes the same CGI command document for these cameras. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV625-TW",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "marshall_ptz",
+          "confidence": "untested",
+          "notes": "Marshall publishes the same CGI command document for these cameras. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV625-TWN",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "marshall_ptz",
+          "confidence": "untested",
+          "notes": "Marshall publishes the same CGI command document for these cameras. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV630-IP",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "marshall_ptz",
+          "confidence": "untested",
+          "notes": "Named in Marshall's CGI command document, which marks the commands each model lacks (the CV355-30X and CV420-30X take no pan/tilt jog, and the CV420e no focus or iris control). A command the camera does not support is reported as refused. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV630-NDI",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "marshall_ptz",
+          "confidence": "untested",
+          "notes": "Named in Marshall's CGI command document, which marks the commands each model lacks (the CV355-30X and CV420-30X take no pan/tilt jog, and the CV420e no focus or iris control). A command the camera does not support is reported as refused. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV730",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "marshall_ptz",
+          "confidence": "untested",
+          "notes": "Named in Marshall's CGI command document, which marks the commands each model lacks (the CV355-30X and CV420-30X take no pan/tilt jog, and the CV420e no focus or iris control). A command the camera does not support is reported as refused. Not yet tested on this hardware."
         }
       ]
     },
@@ -536,7 +764,31 @@
         {
           "id": "visca_ip",
           "confidence": "untested",
-          "notes": "Marshall's CV-series broadcast PTZ cameras list VISCA over IP as a control method in their installation manuals."
+          "notes": "Marshall's CV-series broadcast PTZ cameras list VISCA over IP as a control method in their installation manuals. For the CV620-BI/WI, CV620-BI2/WI2, CV625 and CV730 use the dedicated `marshall_ptz` driver instead. It controls them over Marshall's HTTP CGI, with live pan/tilt/zoom/focus read-back, exposure, white balance and focus settings, tally and SRT/RTMP streaming. The CV620-IP and CV620-NDI continue here."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV730-HN",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "marshall_ptz",
+          "confidence": "untested",
+          "notes": "Named in Marshall's CGI command document, which marks the commands each model lacks (the CV355-30X and CV420-30X take no pan/tilt jog, and the CV420e no focus or iris control). A command the camera does not support is reported as refused. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV730-NDI",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "marshall_ptz",
+          "confidence": "untested",
+          "notes": "Named in Marshall's CGI command document, which marks the commands each model lacks (the CV355-30X and CV420-30X take no pan/tilt jog, and the CV420e no focus or iris control). A command the camera does not support is reported as refused. Not yet tested on this hardware."
         }
       ]
     },
@@ -548,7 +800,7 @@
         {
           "id": "visca_ip",
           "confidence": "untested",
-          "notes": "Marshall's CV-series broadcast PTZ cameras list VISCA over IP as a control method in their installation manuals."
+          "notes": "Marshall's CV-series broadcast PTZ cameras list VISCA over IP as a control method in their installation manuals. For the CV620-BI/WI, CV620-BI2/WI2, CV625 and CV730 use the dedicated `marshall_ptz` driver instead. It controls them over Marshall's HTTP CGI, with live pan/tilt/zoom/focus read-back, exposure, white balance and focus settings, tally and SRT/RTMP streaming. The CV620-IP and CV620-NDI continue here."
         }
       ]
     },

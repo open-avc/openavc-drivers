@@ -1,0 +1,15 @@
+HTTP/1.1 401 Unauthorized
+Server: nginx
+Date: Sat, 01 Jan 2022 00:09:21 GMT
+Content-Type: text/html
+Content-Length: 172
+Connection: close
+WWW-Authenticate: Digest algorithm="MD5", qop="auth", realm="Secure", nonce="4805960461cf9bb1"
+
+<html>
+<head><title>401 Authorization Required</title></head>
+<body>
+<center><h1>401 Authorization Required</h1></center>
+<hr><center>nginx</center>
+</body>
+</html>

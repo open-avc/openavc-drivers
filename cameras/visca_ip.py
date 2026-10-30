@@ -192,7 +192,7 @@ class VISCAIPDriver(BaseDriver):
         "name": "Generic VISCA-IP PTZ Camera",
         "manufacturer": "Generic",
         "category": "camera",
-        "version": "1.3.6",
+        "version": "1.3.7",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
@@ -295,7 +295,13 @@ class VISCAIPDriver(BaseDriver):
                 "confidence": "untested",
                 "notes": (
                     "Marshall's CV-series broadcast PTZ cameras list VISCA over "
-                    "IP as a control method in their installation manuals."
+                    "IP as a control method in their installation manuals. For "
+                    "the CV620-BI/WI, CV620-BI2/WI2, CV625 and CV730 use the "
+                    "dedicated `marshall_ptz` driver instead. It controls them "
+                    "over Marshall's HTTP CGI, with live pan/tilt/zoom/focus "
+                    "read-back, exposure, white balance and focus settings, "
+                    "tally and SRT/RTMP streaming. The CV620-IP and CV620-NDI "
+                    "continue here."
                 ),
             },
         ],

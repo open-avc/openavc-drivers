@@ -119,6 +119,10 @@ _CONFIG: dict[str, dict] = {
     # Model has no default (any default is wrong for four models of five), and
     # a camera with none set refuses to connect as invalid_config.
     "crestron_1beyond_camera": {"model": "i12"},
+    # The camera's Digest sign-in needs a user and a password, and the driver
+    # refuses one with either blank before sending it; this smoke does not
+    # merge default_config (admin). The sim accepts any password but "invalid".
+    "marshall_ptz": {"username": "admin", "password": "smokepw"},
 }
 
 

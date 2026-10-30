@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 130,
+    "total_drivers": 131,
     "shards": null
   },
   "drivers": [
@@ -3923,7 +3923,7 @@
       "name": "Generic VISCA-IP PTZ Camera",
       "manufacturer": "Generic",
       "category": "camera",
-      "version": "1.3.6",
+      "version": "1.3.7",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Generic Sony-specification VISCA-over-IP driver (UDP port 52381). Pan/tilt/zoom/focus, presets, auto-exposure, white balance, backlight, power. Covers Sony SRG/BRC, AVer, Marshall, Lumens and many other pro PTZ cameras that adopt Sony's wire format. PTZOptics uses a different framing on TCP/5678 -- prefer the dedicated `ptzoptics` driver for those.",
@@ -3931,7 +3931,7 @@
       "file": "cameras/visca_ip.py",
       "format": "python",
       "files": {
-        "cameras/visca_ip.py": "6906b8e19a1865996a36db4c80b3fe636b5f3d5695f1893efddac5b07b951df3",
+        "cameras/visca_ip.py": "22a2a9460153cc262501033f7924921183533ee668fdf0f8e12527c192ff8027",
         "cameras/visca_ip_discovery.py": "e579627a0af0646f4c29561471e50514506ae4f787ace7295622c5536bf3a3f0",
         "cameras/visca_ip_sim.py": "6828c91c1b8354591b0a0c60c312398f562cee4d303a92855db17b6d1c0905f9"
       },
@@ -3996,7 +3996,7 @@
             "CV730-BHN / BHN-7"
           ],
           "confidence": "untested",
-          "notes": "Marshall's CV-series broadcast PTZ cameras list VISCA over IP as a control method in their installation manuals."
+          "notes": "Marshall's CV-series broadcast PTZ cameras list VISCA over IP as a control method in their installation manuals. For the CV620-BI/WI, CV620-BI2/WI2, CV625 and CV730 use the dedicated `marshall_ptz` driver instead. It controls them over Marshall's HTTP CGI, with live pan/tilt/zoom/focus read-back, exposure, white balance and focus settings, tally and SRT/RTMP streaming. The CV620-IP and CV620-NDI continue here."
         }
       ],
       "discovery": {
@@ -5164,6 +5164,114 @@
         "manufacturer_alias": [
           "lutron",
           "lutron electronics"
+        ]
+      }
+    },
+    {
+      "id": "marshall_ptz",
+      "name": "Marshall PTZ Camera",
+      "manufacturer": "Marshall",
+      "category": "camera",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Marshall IP PTZ cameras over the camera's HTTP CGI: pan, tilt, zoom and focus with live position read-back, presets and home, power and standby, tally, exposure, white balance and picture settings, focus behaviour, pan/tilt limits, SRT and RTMP streaming, and the camera's RTSP stream as a panel preview.",
+      "source_url": "https://marshall-usa.com/cameras/software/Marshall_CGI_Command-V3.zip",
+      "file": "cameras/marshall_ptz.py",
+      "format": "python",
+      "files": {
+        "cameras/marshall_ptz.py": "043374d56b4304893b20f90a3a025f91f5381cf5972f6710b7eb2115e9381eff",
+        "cameras/marshall_ptz_sim.py": "1b7af06ba9ebb7995d0ade72d1021086f28ca08be89875a3402654614181ffeb"
+      },
+      "ports": [
+        80
+      ],
+      "protocols": [
+        "marshall_cgi"
+      ],
+      "simulated": true,
+      "verified": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "ptz",
+        "camera",
+        "marshall",
+        "cgi",
+        "rtsp",
+        "srt",
+        "tally"
+      ],
+      "help": {
+        "overview": "Controls a Marshall IP PTZ camera over its web API: pan, tilt, zoom and focus, presets and the home position, power and standby, and tally. Exposure, white balance, picture, focus, motion and streaming settings appear on the device page and are read back from the camera, as are the live pan, tilt, zoom and focus positions. The camera's RTSP stream is offered to the Video Panel as a preview. The Pan/Tilt Speed, Zoom Speed and Focus Speed fields set the speed of a move that does not give its own.",
+        "setup": "1. Connect the camera to the network and find its address on the camera's on-screen menu (Menu > Ethernet). With DHCP off, Marshall's manual gives 192.168.100.100 as the factory address.\n2. Enter the camera's IP address here, with the web user name and password (the camera's factory account is admin, password 9999; change it on the camera's web page under System > User).\n3. Leave the port at 80. To use HTTPS instead, turn on Use HTTPS and set the port to 81.\n4. To show the camera on a panel, leave RTSP authentication off on the camera's Stream page."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Marshall",
+          "models": [
+            "CV620-BI2",
+            "CV620-WI2"
+          ],
+          "confidence": "full",
+          "notes": "Verified on a CV620-WI2 (firmware VUG115_VUH109): every command and setting read back from the camera. Image mode is reported but fixed at standard on this model; Smart AF is not available."
+        },
+        {
+          "manufacturer": "Marshall",
+          "models": [
+            "CV625-TB",
+            "CV625-TW",
+            "CV625-TBN",
+            "CV625-TWN"
+          ],
+          "confidence": "untested",
+          "notes": "Marshall publishes the same CGI command document for these cameras. Not yet tested on this hardware."
+        },
+        {
+          "manufacturer": "Marshall",
+          "models": [
+            "CV620-BI",
+            "CV620-WI",
+            "CV620-TBI",
+            "CV620-TWI"
+          ],
+          "confidence": "untested",
+          "notes": "Earlier CV620 models for which Marshall publishes the same CGI command document. Not yet tested on this hardware."
+        },
+        {
+          "manufacturer": "Marshall",
+          "models": [
+            "CV355-30X-IP",
+            "CV355-30X-NDI",
+            "CV420-30X",
+            "CV420-30X-IP",
+            "CV420-30X-NDI",
+            "CV420e",
+            "CV630-IP",
+            "CV630-NDI",
+            "CV730",
+            "CV730-NDI",
+            "CV730-HN"
+          ],
+          "confidence": "untested",
+          "notes": "Named in Marshall's CGI command document, which marks the commands each model lacks (the CV355-30X and CV420-30X take no pan/tilt jog, and the CV420e no focus or iris control). A command the camera does not support is reported as refused. Not yet tested on this hardware."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 81,
+          "tls": true,
+          "send_ascii": "GET / HTTP/1.1\r\nHost: camera\r\nConnection: close\r\n\r\n",
+          "expect": "realm=\"Secure\"",
+          "cert_subject": "Lumens",
+          "cross_vendor": true,
+          "timeout_ms": 3000
+        },
+        "oui": [
+          "00:23:a8"
+        ],
+        "manufacturer_alias": [
+          "marshall",
+          "marshall electronics"
         ]
       }
     },

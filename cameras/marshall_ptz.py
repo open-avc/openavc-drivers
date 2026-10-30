@@ -382,7 +382,7 @@ class MarshallPTZDriver(BaseDriver):
         "name": "Marshall PTZ Camera",
         "manufacturer": "Marshall",
         "category": "camera",
-        "version": "1.0.0",
+        "version": "1.0.1",
         # confirm on preset_clear / factory_reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
@@ -403,17 +403,22 @@ class MarshallPTZDriver(BaseDriver):
         "discovery": {
             # The HTTPS port answers every request with the Digest challenge
             # (realm "Secure") under a certificate whose subject names Lumens,
-            # the maker of the camera platform; a camera with that firmware
-            # under another brand answers the same, so the probe names a
-            # family (cross_vendor) and Marshall's own IEEE block picks the
-            # brand. Seen on a CV620-WI2, firmware VUG115_VUH109.
+            # the maker of the camera platform. Seen on two CV620-WI2s,
+            # firmware VUG115_VUH109.
+            #
+            # Not cross_vendor: these cameras also advertise Dante, whose
+            # service ports are chosen at random, and on one of the two a
+            # Dante service took 4455, the OBS Studio port. A cross-vendor
+            # probe is handed to whichever driver the narrowest hint names,
+            # so that scan identified the camera as OBS Studio. As a
+            # vendor-specific probe it identifies this driver whatever ports
+            # the camera happens to have open.
             "tcp_probe": {
                 "port": 81,
                 "tls": True,
                 "send_ascii": "GET / HTTP/1.1\r\nHost: camera\r\nConnection: close\r\n\r\n",
                 "expect": "realm=\"Secure\"",
                 "cert_subject": "Lumens",
-                "cross_vendor": True,
                 "timeout_ms": 3000,
             },
             # Marshall Electronics' MA-L block (IEEE registry).

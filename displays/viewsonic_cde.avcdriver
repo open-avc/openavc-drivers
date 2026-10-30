@@ -10,15 +10,25 @@
 # Protocol: ASCII framed packets, CR terminated, over TCP 5000 (no login;
 #           7142 on the ViewBoard IFP110) or RS-232 9600 8N1 (fixed).
 #
-# Verified on a CDE8631-1C (firmware 20250609234259, then 20260526125505).
+# Verified on a CDE8631-1C (firmware 20250609234259, then 20260526125505);
+# power and input checked again on three more CDE8631-1C on 20260526125505.
 # What that unit does beyond the document, and what the driver does about it:
 #   - Power: Set Power on from standby takes about 3 s and keeps the
 #     connection. Standby depends on the Advanced menu's Power Save: Sleep
 #     keeps the network and answers everything; Hibernate drops off the
-#     network about 6 s after Power Off. A magic packet woke it in neither
-#     mode with WOL on. While a system update is waiting, Power Off brings up
-#     the update prompt on screen and the display stays on until someone
-#     answers it.
+#     network about 6 s after Power Off. The three other units listed Power
+#     Save as Mode 1 to Mode 4 (seen on 20250609234259), each described on
+#     screen; the one described as "TCP on, WOL off, no wake up by video
+#     signal" kept the network in standby (most likely Mode 4, not
+#     confirmed), and whether the update changes that menu is not known.
+#     Those units reported standby 8-13 s after Power Off, the first unit
+#     within 2 s. A magic packet woke it in neither mode with WOL on.
+#   - System updates: while one is waiting, Power Off brings up the update
+#     prompt on screen and the display stays on until someone answers it;
+#     while one is downloading or installing, Power Off is acked and the
+#     display stays on. With Online System Updates on, the display looks
+#     for an update each time it is turned off (CDE31 user guide), so the
+#     setup help says to turn it off.
 #   - Changes made with the IR remote (volume, mute, input, power) are
 #     pushed like the document says.
 #   - Several TCP connections are served at once, and every one of them
@@ -97,7 +107,7 @@ id: viewsonic_cde
 name: ViewSonic Commercial Display
 manufacturer: ViewSonic
 category: display
-version: 2.3.0
+version: 2.3.1
 author: OpenAVC
 description: >-
   Controls ViewSonic CDE-series commercial displays, ViewBoard IFP62 and
@@ -123,10 +133,12 @@ compatible_models:
       - CDE8631-1B
     confidence: full
     notes: >-
-      Verified on a CDE8631-1C over TCP 5000, on firmware 20250609234259
-      and 20260526125505. Set Power Save to Sleep in the Advanced menu for
-      network control in standby and Power On; in Hibernate the display
-      leaves the network, and it does not wake over Wake-on-LAN.
+      Verified on CDE8631-1C displays over TCP 5000, on firmware
+      20250609234259 and 20260526125505. For network control in standby and
+      Power On, set Power Save in the Advanced menu to Sleep, or, where it
+      lists numbered modes, to the one described as TCP on; in Hibernate the
+      display leaves the network, and it does not wake over Wake-on-LAN.
+      Turn off Online System Updates (Settings, System, About).
       Inputs: HDMI 1-3, USB-C, the embedded Android player, and the slot-in
       PC when one is installed. PIP, surround sound and the customized hot
       keys are not available on this model. Brightness, contrast and
@@ -221,15 +233,21 @@ help:
        on-screen menu.
 
     2. Standby: on the CDE31 series set Power Save in the Advanced menu to
-       Sleep. In Sleep the display keeps answering in standby, and Power On
-       turns it on in about 3 seconds. In Hibernate it leaves the network
-       about 6 seconds after Power Off and has to be turned on with its
-       remote or power key. On other models, check the standby or
+       Sleep, or, where the menu lists numbered modes, to the one described
+       as TCP on. In that mode the display keeps answering in standby, and
+       Power On turns it on in about 3 seconds. In Hibernate it leaves the
+       network about 6 seconds after Power Off and has to be turned on with
+       its remote or power key. On other models, check the standby or
        network-standby setting the same way, or use Wake (Wake-on-LAN) for
        a model whose standby turns the network off (turn WOL on in the
        display's settings; the MAC address is learned on every connection).
 
-    3. Serial control: connect the display's RS-232 port (9-pin male) with a
+    3. Updates: on the CDE31 series turn off Online System Updates
+       (Settings, System, About). With it on, the display looks for an
+       update each time it is turned off, and while an update is waiting or
+       installing it stays on after Power Off.
+
+    4. Serial control: connect the display's RS-232 port (9-pin male) with a
        null-modem cable, or a straight cable plus the null-modem adapter
        that comes with the display, at 9600 8N1 (fixed). On the CDE31
        series turn RS232 On in the Advanced menu. On a daisy chain, set
@@ -322,7 +340,7 @@ state_variables:
     values: ["on", standby]
     label: Power
     control: true
-    help: "on = picture up; standby = off. Whether the display keeps answering in standby depends on its power-save setting (Sleep on the CDE31 series)."
+    help: "on = picture up; standby = off. Whether the display keeps answering in standby depends on its power-save setting (Sleep, or the mode described as TCP on, on the CDE31 series)."
   source:
     type: string
     label: Source
@@ -505,13 +523,13 @@ commands:
   # the state from before the change.
   power_on:
     label: Power On
-    help: Turns the display on, in about 3 seconds on a CDE31. The display has to be answering in standby, so on the CDE31 series set Power Save to Sleep. For a display whose standby turns its network off, use Wake (Wake-on-LAN).
+    help: Turns the display on, in about 3 seconds on a CDE31. The display has to be answering in standby, so on the CDE31 series set Power Save to Sleep, or to the numbered mode described as TCP on. For a display whose standby turns its network off, use Wake (Wake-on-LAN).
     send: "s!001"
     sets: { power: "on" }
   # The magic packet's own command since 2.1.0; in 2.0.0 it was Power On.
   wake_on_lan:
     label: Wake (Wake-on-LAN)
-    help: Sends a Wake-on-LAN packet to the MAC learned on the last connection (or typed in under Edit Device). Runs while the display is off the network, from a macro, schedule or panel button. For ViewSonic displays whose standby turns the network off and that wake this way; turn WOL on in the display's settings. A CDE31 display does not wake this way; use Power On with Power Save set to Sleep.
+    help: Sends a Wake-on-LAN packet to the MAC learned on the last connection (or typed in under Edit Device). Runs while the display is off the network, from a macro, schedule or panel button. For ViewSonic displays whose standby turns the network off and that wake this way; turn WOL on in the display's settings. A CDE31 display does not wake this way; use Power On with Power Save set to Sleep, or to the numbered mode described as TCP on.
     available_offline: true
     udp:
       magic_packet: mac_address
@@ -519,7 +537,7 @@ commands:
   # No read-back get, for the reason given above Power On.
   power_off:
     label: Power Off (Standby)
-    help: Puts the display in standby. While a system update is waiting, the display shows an update prompt instead and stays on until someone answers it on screen. Whether the network stays up in standby depends on the display's power-save setting (Sleep keeps it, Hibernate drops it).
+    help: Puts the display in standby. While a system update is waiting, the display shows an update prompt instead and stays on until someone answers it on screen; while one is downloading or installing, it stays on. Turn off Online System Updates in the display's settings. Whether the network stays up in standby depends on the display's power-save setting (Sleep, or the mode described as TCP on, keeps it; Hibernate drops it).
     send: "s!000"
     sets: { power: standby }
   set_source:

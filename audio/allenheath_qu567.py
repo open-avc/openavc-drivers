@@ -1000,7 +1000,8 @@ class AllenHeathQu567Driver(BaseDriver):
                 "Controls an Allen & Heath Qu-5, Qu-6 or Qu-7 over the network "
                 "using MIDI over TCP/IP. On connect the driver asks the "
                 "console which channels it has and lists each one as a child "
-                "entity with live mute, level and pan state -- bind child "
+                "entity with live mute and level state (and pan on the "
+                "inputs) -- bind child "
                 "state (e.g. device.<id>.input.in05.mute) to panel elements "
                 "and drive mutes, faders, aux sends and scene recall from "
                 "macros and buttons. Levels are published both as a fader "
@@ -1832,6 +1833,12 @@ class AllenHeathQu567Driver(BaseDriver):
         if controller == 0x00:
             if ch == self._ch:
                 self._last_bank = value         # precedes a Program Change
+            return
+
+        # The mixer's parameters arrive on its own MIDI channel. A Soft Key or
+        # Soft Rotary the user set to send CCs goes out on whatever channel it
+        # was given, and would otherwise be read as a change to a mixer value.
+        if ch != self._ch:
             return
 
         nrpn = self._nrpn_state[ch]

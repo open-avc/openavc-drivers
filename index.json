@@ -355,7 +355,7 @@
       "file": "audio/allenheath_qu567.py",
       "format": "python",
       "files": {
-        "audio/allenheath_qu567.py": "245a9bef5bbcff949ad9b1c3292a61d0d0d14939b0431bc938206e27f107c826",
+        "audio/allenheath_qu567.py": "8b49933b2ee6039c06f8d183a3545f193def4e8cd1fdb6e58c453d3de2e89a65",
         "audio/allenheath_qu567_sim.py": "2f5d730b17a68c83de3ab3ce4ee22666f105953e323f4d602f32ac3bd4f02e3a"
       },
       "ports": [
@@ -376,7 +376,7 @@
         "qu"
       ],
       "help": {
-        "overview": "Controls an Allen & Heath Qu-5, Qu-6 or Qu-7 over the network using MIDI over TCP/IP. On connect the driver asks the console which channels it has and lists each one as a child entity with live mute, level and pan state -- bind child state (e.g. device.<id>.input.in05.mute) to panel elements and drive mutes, faders, aux sends and scene recall from macros and buttons. Levels are published both as a fader position and in dB.",
+        "overview": "Controls an Allen & Heath Qu-5, Qu-6 or Qu-7 over the network using MIDI over TCP/IP. On connect the driver asks the console which channels it has and lists each one as a child entity with live mute and level state (and pan on the inputs) -- bind child state (e.g. device.<id>.input.in05.mute) to panel elements and drive mutes, faders, aux sends and scene recall from macros and buttons. Levels are published both as a fader position and in dB.",
         "setup": "1. Connect the Qu to the same network as the OpenAVC server. On a Qu-5D/6D/7D you can use the Dante port instead if Control Network Bridge is on.\n2. On the console, go to SETUP > Network and note the IP address.\n3. Go to UTILITY > General > MIDI and note the MIDI Channel and the NRPN Fader Law.\n4. Enter the IP address, matching MIDI channel and matching fader law here. The default port (51325) is correct.\n5. Save. Within a second or two the channels appear under the device with live state. Rename them in the project as you like -- the Qu MIDI protocol does not expose channel names, and a name you set is never overwritten.\n\nNotes:\n  * The console allows only ONE MIDI-over-TCP client at a time. Close Qu-Pad, QuMixPad or another control system before connecting, or they will keep OpenAVC out.\n  * Requires console firmware V1.1 or later.\n  * If you reconfigure the console's mix buses, run the Re-detect Channels action so the channel list follows.\n  * This driver is for the Qu-5/6/7 only. The original Qu-16, Qu-24, Qu-32, Qu-Pac and Qu-SB use a different protocol -- use the Allen & Heath Qu Digital Mixer driver for those."
       },
       "compatible_models": [

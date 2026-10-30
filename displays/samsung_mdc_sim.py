@@ -207,6 +207,11 @@ class SamsungMdcSimulator(TCPSimulator):
         "category": "display",
         "transport": "tcp",
         "default_port": 1515,
+        # Measured on a DM75E: the display answers only the TCP connection
+        # opened last. Older sockets go silent with no FIN or RST, and closing
+        # the newer one does not hand service back; only a reconnect does.
+        # Platforms before 0.38.0 ignore this key and answer every connection.
+        "single_client": "newest",
         "initial_state": dict(DEFAULT_DISPLAY),
         "delays": {
             "command_response": 0.03,

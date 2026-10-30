@@ -387,7 +387,7 @@ class SamsungMDCDriver(BaseDriver):
         "name": "Samsung MDC Display",
         "manufacturer": "Samsung",
         "category": "display",
-        "version": "1.7.6",
+        "version": "1.7.7",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # `restarts_device_for` on power_on and all_on needs 0.34.0.

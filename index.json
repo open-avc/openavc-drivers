@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 132,
+    "total_drivers": 133,
     "shards": null
   },
   "drivers": [
@@ -8329,6 +8329,53 @@
           "expect_regex": "^:01r0[0-9]{3}"
         }
       }
+    },
+    {
+      "id": "smart_board_t_pro_rs232",
+      "name": "SMART Board T Pro (RS-232)",
+      "manufacturer": "SMART Technologies",
+      "category": "display",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "serial",
+      "description": "SMART Board T Pro interactive displays over RS-232: power, input, volume and mute, brightness, freeze, screen shade and the microphone array, with the display's own reports of changes made at the display.",
+      "source_url": "https://support.smarttech.com/docs/hardware/displays/smart-board-tpro/en/managing-using-rs-232/default.cshtml",
+      "file": "displays/smart_board_t_pro_rs232.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "displays/smart_board_t_pro_rs232.avcdriver": "f7cf52a44579c98b6fc671147d8e4b51ab677dba7f0d2b5a4c766ffa20279f2c"
+      },
+      "protocols": [
+        "smart_board_rs232"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "display",
+        "smart",
+        "smart-board",
+        "interactive-display",
+        "interactive-flat-panel",
+        "education",
+        "rs232"
+      ],
+      "help": {
+        "overview": "SMART Board T Pro interactive displays over the RS-232 port: power, input, volume, mute, brightness, freeze, screen shade and the microphone array. Changes made with the display's buttons, Settings app or remote reach OpenAVC as soon as they happen; everything is also read every 15 seconds, with the screen on or off.",
+        "setup": "1. Connect the display's RS-232 port with a standard (straight-through)\n   RS-232 cable, not a null-modem cable, to a serial port on this computer\n   or to a serial bridge (choose \"Through a bridge\" and pick the bridge's\n   port).\n2. The settings are 19200 baud, 8 data bits, no parity, 1 stop bit. Through\n   a bridge they are applied to the bridge's port for you.\n3. No login.",
+        "connection": "The display is read in every power state: Power Off (Ready) and Power Save turn the screen off, and OpenAVC reading it does not turn it back on. After Power Save the display does not answer for about 20 seconds. If it stops answering for about a minute it shows offline, and comes back as soon as it answers again."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "SMART Technologies",
+          "models": [
+            "SBID-T065-P",
+            "SBID-T075-P",
+            "SBID-T086-P"
+          ],
+          "confidence": "untested",
+          "notes": "SMART Board T Pro, over its RS-232 port. For control over the network instead, use the SMART Board T Pro driver."
+        }
+      ]
     },
     {
       "id": "sonos",

@@ -11397,6 +11397,11 @@
           "id": "smart_board_t_pro",
           "confidence": "untested",
           "notes": "SMART Board T Pro series (IDT65-1 / IDT75-1 / IDT86-1). Network control on TCP 4664. The RS-232 port speaks a different protocol, which this driver does not use."
+        },
+        {
+          "id": "smart_board_t_pro_rs232",
+          "confidence": "untested",
+          "notes": "SMART Board T Pro, over its RS-232 port. For control over the network instead, use the SMART Board T Pro driver."
         }
       ]
     },
@@ -11409,6 +11414,11 @@
           "id": "smart_board_t_pro",
           "confidence": "untested",
           "notes": "SMART Board T Pro series (IDT65-1 / IDT75-1 / IDT86-1). Network control on TCP 4664. The RS-232 port speaks a different protocol, which this driver does not use."
+        },
+        {
+          "id": "smart_board_t_pro_rs232",
+          "confidence": "untested",
+          "notes": "SMART Board T Pro, over its RS-232 port. For control over the network instead, use the SMART Board T Pro driver."
         }
       ]
     },
@@ -11421,6 +11431,11 @@
           "id": "smart_board_t_pro",
           "confidence": "untested",
           "notes": "SMART Board T Pro series (IDT65-1 / IDT75-1 / IDT86-1). Network control on TCP 4664. The RS-232 port speaks a different protocol, which this driver does not use."
+        },
+        {
+          "id": "smart_board_t_pro_rs232",
+          "confidence": "untested",
+          "notes": "SMART Board T Pro, over its RS-232 port. For control over the network instead, use the SMART Board T Pro driver."
         }
       ]
     },

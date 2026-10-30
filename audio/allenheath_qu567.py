@@ -35,7 +35,10 @@ What makes this driver first-class
   desk answers Gets reliably, so every write is followed by a Get and state
   reflects what the console actually took. That matters here because Audio
   Taper quantises a fader to 64-count steps: the value read back is often not
-  the value sent, and mirroring would leave the panel a step off forever.
+  the value sent, and mirroring would leave the panel a step off forever. The
+  Get goes out in the background, so a command returns as soon as its write
+  is on the wire, and a fader dragged on a panel sends every value and reads
+  the fader back once, after the last one.
 * **Get-probe liveness.** The console never speaks unprompted, so a desk that
   vanished without closing the socket would otherwise stay "online" forever.
   The driver probes the LR master on a timer and awaits the reply; two misses
@@ -817,7 +820,7 @@ class AllenHeathQu567Driver(BaseDriver):
         "name": "Allen & Heath Qu-5/6/7 Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.1.2",
+        "version": "1.1.3",
         "author": "OpenAVC",
         "description": (
             "Controls the current Allen & Heath Qu generation (Qu-5, Qu-6, "
@@ -1019,7 +1022,8 @@ class AllenHeathQu567Driver(BaseDriver):
     # console has. The desk answers in milliseconds on a quiet LAN; this is
     # generous so a busy network cannot amputate the channel list.
     DISCOVERY_WINDOW_S = 2.0
-    # Delay between a write and the Get that confirms it.
+    # Delay between a write and the Get that confirms it. The Get goes out in
+    # the background (_confirm_later); no command waits for it.
     CONFIRM_DELAY_S = 0.12
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -1046,6 +1050,11 @@ class AllenHeathQu567Driver(BaseDriver):
 
         self._probe_addr = master_lr()
         self._probe_fut: asyncio.Future[None] | None = None
+
+        # Read-backs still waiting out CONFIRM_DELAY_S, by parameter address,
+        # and every read-back task not yet finished (for teardown).
+        self._readbacks: dict[tuple[int, int], asyncio.Task[None]] = {}
+        self._readback_tasks: set[asyncio.Task[None]] = set()
 
     # ── Config accessors ────────────────────────────────────────────────
 
@@ -1081,6 +1090,14 @@ class AllenHeathQu567Driver(BaseDriver):
     async def _initial_sync(self) -> None:
         await self._discover_roster()
         await self._refresh_all()
+
+    async def _close_session(self) -> None:
+        """Every teardown path: drop the read-backs still pending.
+
+        Their Gets belong to a connection that is gone, and the next connect's
+        sweep reads every value again.
+        """
+        await self._cancel_readbacks()
 
     # ── Roster discovery ────────────────────────────────────────────────
 
@@ -1242,8 +1259,50 @@ class AllenHeathQu567Driver(BaseDriver):
         steps, so the value it keeps is routinely not the value sent.
         """
         await self._send(self._nrpn(msb, lsb, vc, vf))
-        await asyncio.sleep(self.CONFIRM_DELAY_S)
-        await self._send(self._nrpn_get(msb, lsb))
+        self._confirm_later(msb, lsb)
+
+    def _confirm_later(self, msb: int, lsb: int,
+                       delay: float | None = None) -> None:
+        """Get a parameter in the background, CONFIRM_DELAY_S from now.
+
+        The command that wrote it returns without waiting. The platform runs
+        a panel's interactions one at a time, so a command that sat out the
+        delay held every later value of a fader drag behind it, and the
+        console's fader trailed the finger by seconds.
+
+        One read-back per address: a newer write replaces a read-back that
+        is still waiting, so a drag sends every value and reads the fader
+        once, CONFIRM_DELAY_S after the last.
+        """
+        addr = (msb, lsb)
+        waiting = self._readbacks.pop(addr, None)
+        if waiting is not None:
+            waiting.cancel()
+        task = asyncio.get_running_loop().create_task(self._readback(
+            addr, self.CONFIRM_DELAY_S if delay is None else delay))
+        self._readbacks[addr] = task
+        self._readback_tasks.add(task)
+        task.add_done_callback(self._readback_tasks.discard)
+
+    async def _readback(self, addr: tuple[int, int], delay: float) -> None:
+        await asyncio.sleep(delay)
+        # From here the Get is going out: a newer write schedules a read-back
+        # of its own rather than cancelling this one part-way onto the wire.
+        if self._readbacks.get(addr) is asyncio.current_task():
+            del self._readbacks[addr]
+        try:
+            await self._send(self._nrpn_get(*addr))
+        except (ConnectionError, OSError):
+            pass        # the link went down; the reconnect re-reads everything
+
+    async def _cancel_readbacks(self) -> None:
+        self._readbacks.clear()
+        tasks = [t for t in self._readback_tasks
+                 if t is not asyncio.current_task()]
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     # ── Liveness watchdog ───────────────────────────────────────────────
 
@@ -1315,6 +1374,9 @@ class AllenHeathQu567Driver(BaseDriver):
 
     async def cmd_softkey_pulse(self, softkey: int) -> None:
         await self.cmd_softkey_press(softkey)
+        # The gap is how long the key is held. The release is part of this
+        # command, so the command waits for it: a pulse that returned first
+        # could have its release land after the next press of the same key.
         await asyncio.sleep(0.05)
         await self.cmd_softkey_release(softkey)
 
@@ -1326,8 +1388,7 @@ class AllenHeathQu567Driver(BaseDriver):
             # Native toggle, then read back -- the outcome depends on the
             # console's current state, which only it knows.
             await self._send(self._nrpn_inc(msb, lsb))
-            await asyncio.sleep(self.CONFIRM_DELAY_S)
-            await self._send(self._nrpn_get(msb, lsb))
+            self._confirm_later(msb, lsb)
         else:
             await self._write_and_confirm(msb, lsb, 0x00,
                                           0x01 if action == "on" else 0x00)
@@ -1370,11 +1431,9 @@ class AllenHeathQu567Driver(BaseDriver):
             await self._send(self._nrpn(msb, lsb, 0x00, 0x01 if on else 0x00))
             if i % 16 == 15:
                 await asyncio.sleep(0.01)
-        await asyncio.sleep(self.CONFIRM_DELAY_S)
+        # The read-backs keep the same pace: 16 Gets, then 10 ms.
         for i, (msb, lsb) in enumerate(sorted(targets)):
-            await self._send(self._nrpn_get(msb, lsb))
-            if i % 16 == 15:
-                await asyncio.sleep(0.01)
+            self._confirm_later(msb, lsb, self.CONFIRM_DELAY_S + (i // 16) * 0.01)
 
     async def cmd_mute_all_inputs(self) -> None:
         await self._do_mute_all(True)
@@ -1395,8 +1454,7 @@ class AllenHeathQu567Driver(BaseDriver):
         up = (direction or "up").lower() == "up"
         await self._send(self._nrpn_inc(msb, lsb) if up
                          else self._nrpn_dec(msb, lsb))
-        await asyncio.sleep(self.CONFIRM_DELAY_S)
-        await self._send(self._nrpn_get(msb, lsb))
+        self._confirm_later(msb, lsb)
 
     async def cmd_set_mix_fader(self, mix: Any, level: float) -> None:
         await self._do_level(*self._child_addr("mix", mix, "level"), level)
@@ -1548,8 +1606,7 @@ class AllenHeathQu567Driver(BaseDriver):
         action = (action or "on").lower()
         if action == "toggle":
             await self._send(self._nrpn_inc(msb, lsb))
-            await asyncio.sleep(self.CONFIRM_DELAY_S)
-            await self._send(self._nrpn_get(msb, lsb))
+            self._confirm_later(msb, lsb)
         else:
             await self._write_and_confirm(msb, lsb, 0x00,
                                           0x01 if action == "on" else 0x00)

@@ -421,7 +421,7 @@
       "name": "Marshall PTZ Camera",
       "manufacturer": "Marshall",
       "category": "camera",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Marshall IP PTZ cameras over the camera's HTTP CGI: pan, tilt, zoom and focus with live position read-back, presets and home, power and standby, tally, exposure, white balance and picture settings, focus behaviour, pan/tilt limits, SRT and RTMP streaming, and the camera's RTSP stream as a panel preview.",
@@ -429,8 +429,8 @@
       "file": "cameras/marshall_ptz.py",
       "format": "python",
       "files": {
-        "cameras/marshall_ptz.py": "b5e4d8127b2e0c27617a9576f8232acf536593ab5e396f7f6c2e8e8c8774120e",
-        "cameras/marshall_ptz_sim.py": "1b7af06ba9ebb7995d0ade72d1021086f28ca08be89875a3402654614181ffeb"
+        "cameras/marshall_ptz.py": "fb772fba20b7455d703370e606275c20d98b459c4b290c4a6ccdf39f09824a9b",
+        "cameras/marshall_ptz_sim.py": "c5f192715e2e452fe5faabe81c466527bb3d5980ee3275ab5920718fe6fa6da2"
       },
       "ports": [
         80

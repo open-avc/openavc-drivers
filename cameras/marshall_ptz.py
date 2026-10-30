@@ -382,7 +382,7 @@ class MarshallPTZDriver(BaseDriver):
         "name": "Marshall PTZ Camera",
         "manufacturer": "Marshall",
         "category": "camera",
-        "version": "1.0.1",
+        "version": "1.0.2",
         # confirm on preset_clear / factory_reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
@@ -1244,16 +1244,19 @@ class MarshallPTZDriver(BaseDriver):
 
     # ── HTTP plumbing ──
 
-    async def _get(self, path: str) -> str:
+    async def _get(self, path: str, timeout: float | None = None) -> str:
         """One GET under the lock. Returns the body of a 200. A 401 raises the
         typed auth_failed; any other refusal raises CameraRefused; a dead
         link raises ConnectionError."""
         client = self._client
         if client is None:
             raise ConnectionError("Not connected")
+        kwargs: dict[str, Any] = {"auth": self._auth}
+        if timeout is not None:
+            kwargs["timeout"] = httpx.Timeout(timeout, connect=5.0)
         async with self._lock:
             try:
-                resp = await client.get(path, auth=self._auth)
+                resp = await client.get(path, **kwargs)
             except httpx.TransportError as exc:
                 raise ConnectionError(f"{self._host} is not responding: {exc}") from exc
         if resp.status_code == 401:
@@ -1262,12 +1265,12 @@ class MarshallPTZDriver(BaseDriver):
             raise CameraRefused(f"HTTP {resp.status_code}", http_status=resp.status_code)
         return resp.text
 
-    async def _set(self, cgi: str, param: str, value: str, what: str) -> None:
+    async def _set(self, cgi: str, param: str, value: str, what: str, timeout: float | None = None) -> None:
         """``/command/<cgi>.cgi?<param>=<value>``. Raises CommandRefusedError
         when the camera answers NG (or anything but OK)."""
         path = f"/command/{cgi}.cgi?{param}={quote(value, safe=',')}"
         try:
-            body = await self._get(path)
+            body = await self._get(path, timeout)
         except CameraRefused as exc:
             raise CommandRefusedError(f"The camera refused {what} ({exc}).") from exc
         if '"NG"' in body:
@@ -1412,7 +1415,10 @@ class MarshallPTZDriver(BaseDriver):
             await self._set("ptzf", "Move", "stop,motor", "Pan/Tilt Stop")
             await self._read_group("ptzf")
         elif command == "pt_home":
+            # Answered as the camera arrives (about 1.2 s from the pan stop on a
+            # CV620-WI2), so the position read straight after is the new one.
             await self._set("presetposition", "HomePos", "recall", "Home")
+            await self._read_group("ptzf")
         elif command == "zoom_in":
             await self._set("ptzf", "Move", f"tele,{self._speed(params, 'zoom_speed', 4, 7)}", "Zoom In")
         elif command == "zoom_out":
@@ -1422,9 +1428,11 @@ class MarshallPTZDriver(BaseDriver):
             await self._read_group("ptzf")
         elif command == "zoom_direct":
             position = max(0, min(0x7AC0, _as_int(params.get("position"), 0)))
-            # The camera answers once the zoom has arrived (about 1.2 s end to
-            # end on a CV620-WI2), so the position read straight after is final.
-            await self._set("ptzf", "AbsoluteZoom", f"{position:04X}", f"zoom position {position}")
+            # The camera answers once the zoom has arrived, so the position read
+            # straight after is final. That takes up to 7.3 s wide to full
+            # optical and 8.3 s to x12 digital on a CV620-WI2, close to the
+            # client's 10 s, so this request is given 20.
+            await self._set("ptzf", "AbsoluteZoom", f"{position:04X}", f"zoom position {position}", timeout=20.0)
             await self._read_group("ptzf")
         elif command in ("focus_auto", "focus_manual"):
             await self._write_setting("focus_mode", "auto" if command == "focus_auto" else "manual")
@@ -1446,6 +1454,10 @@ class MarshallPTZDriver(BaseDriver):
                 "preset_clear": ("PresetClear", "deleting preset"),
             }[command]
             await self._set("presetposition", param, str(preset), f"{what} {preset}")
+            if command == "preset_recall":
+                # Answered once the camera is at the preset (CV620-WI2: pan
+                # already final when the answer came), so read it now.
+                await self._read_group("ptzf")
         elif command in ("tally_on", "tally_off"):
             await self._write_setting_raw("tally", "TallyControl", "tally", command == "tally_on", "onoff", "the tally lamp")
         elif command == "wb_one_push_trigger":

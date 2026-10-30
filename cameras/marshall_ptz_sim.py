@@ -27,10 +27,18 @@ Sign-in: HTTP Digest, realm "Secure", MD5, qop auth, user ``admin`` (or the
 configured ``username``). With a ``password`` configured only that password is
 accepted; with none, any password but ``invalid`` is.
 
-Motion is computed from when a move started, so positions advance between
-reads with no background task. Power changes ``power_delay`` seconds after the
-command (default 3; the bench unit took 12-19 s). A reboot answers 503 for
-``reboot_downtime`` seconds (default 5).
+Motion follows what a CV620-WI2 measured on 2026-10-30, computed from when a
+move started so positions advance between reads with no background task: pan,
+tilt and zoom speed per speed step (far from linear: pan runs from about 700
+counts/s at speed 0 to 110,000 at 23), the travel stops (pan +/-314,320 counts
+for +/-170 degrees, tilt -42,668 to +128,000 for -30 to +90), the limit angles
+while Pan/Tilt Limits On is on, and when the camera answers: an exact zoom once
+it has arrived (7.3 s wide to full optical, 8.3 s to x12 digital), Home after the trip back (up to
+about 1.2 s), a preset recall after about 0.75 s plus the trip at Preset Speed.
+Power changes ``standby_delay`` seconds after Standby (default 13) and
+``wake_delay`` seconds after Power On (default 16), as measured; both can be
+set lower to test quickly. A reboot answers 503 for ``reboot_downtime`` seconds
+(default 5).
 
 Error modes: ``communication_timeout`` (answers nothing) and
 ``password_changed`` (every request is refused 401).
@@ -41,6 +49,7 @@ Transport: http
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import re
 import secrets
@@ -176,10 +185,44 @@ WRITABLE: dict[tuple[str, str], Any] = {
     ("rtmp", "RtmpServerUrl1"): lambda v: True,
 }
 
-# Pan/tilt/zoom/focus counts per second at speed s: (s + 1) * rate. Bench: pan
-# speed 10 for about 0.6 s moved about 6000; zoom speed 5 for 1 s about 3600.
-_RATE = {"pan": 900, "tilt": 700, "zoom": 600, "focus": 30}
-_LIMIT = {"pan": (-17000, 17000), "tilt": (-3000, 9000), "zoom": (0, 0x4000), "focus": (0, 0x0FFF)}
+# Counts per second at each measured speed step (CV620-WI2, 0.8 s moves from
+# home; speed 10 from six 0.6 s moves); speeds between are interpolated
+# geometrically. Focus is not measured.
+_RATES = {
+    "pan": {0: 702, 3: 1747, 6: 4574, 10: 9200, 12: 18959, 18: 53966, 23: 110312},
+    "tilt": {0: 492, 3: 1295, 6: 3490, 10: 6970, 12: 14861, 18: 40274, 23: 81927},
+    "zoom": {0: 594, 2: 1798, 4: 2943, 7: 4649},
+    "focus": {0: 20, 7: 160},
+}
+# Travel stops in counts (measured), and counts per degree for the limit angles.
+_LIMIT = {"pan": (-314320, 314320), "tilt": (-42668, 128000), "zoom": (0, 0x4000), "focus": (0, 0x0FFF)}
+_PAN_PER_DEGREE = 314320 / 170
+_TILT_PER_DEGREE = 128000 / 90
+# Seconds per zoom count when an exact zoom travels: the wide half of optical
+# took 2.9 s, the tele half 4.35 s, the digital range (to x12) 1.0 s.
+_ZOOM_S_WIDE = 2.9 / 8192
+_ZOOM_S_TELE = 4.35 / 8192
+_ZOOM_S_DIGITAL = 1.0 / (0x7AC0 - 0x4000)
+# Pan/tilt speed of a preset recall, degrees per second, by Preset Speed (workbook).
+_PRESET_DEG_S = {0: 5, 1: 25, 2: 50, 3: 80, 4: 120, 5: 160, 6: 200, 7: 300}
+
+
+def _rate(axis: str, speed: int) -> float:
+    table = _RATES[axis]
+    steps = sorted(table)
+    speed = max(steps[0], min(steps[-1], speed))
+    for lo, hi in zip(steps, steps[1:]):
+        if lo <= speed <= hi:
+            return table[lo] * (table[hi] / table[lo]) ** ((speed - lo) / (hi - lo))
+    return float(table[steps[-1]])
+
+
+def _zoom_seconds(a: int, b: int) -> float:
+    lo, hi = sorted((a, b))
+    wide = max(0, min(hi, 8192) - lo)
+    tele = max(0, min(hi, 0x4000) - max(lo, 8192))
+    digital = max(0, hi - max(lo, 0x4000))
+    return wide * _ZOOM_S_WIDE + tele * _ZOOM_S_TELE + digital * _ZOOM_S_DIGITAL
 
 
 def _hex(value: int) -> str:
@@ -293,7 +336,8 @@ class MarshallPTZSimulator(HTTPSimulator):
         cfg = self.config or {}
         self._username = str(cfg.get("username", "") or "admin")
         self._password = str(cfg.get("password", "") or "")
-        self._power_delay = float(cfg.get("power_delay", 3.0) or 0)
+        self._standby_delay = float(cfg.get("standby_delay", 13.0) or 0)
+        self._wake_delay = float(cfg.get("wake_delay", 16.0) or 0)
         self._reboot_downtime = float(cfg.get("reboot_downtime", 5.0) or 0)
         self._nonces: set[str] = set()
         self._presets: dict[int, tuple[int, int, int, int]] = {}
@@ -301,6 +345,9 @@ class MarshallPTZSimulator(HTTPSimulator):
         self._moves: dict[str, tuple[float, float, int]] = {}
         self._power_change: tuple[str, float] | None = None
         self._down_until = 0.0
+        # Seconds the current request's answer waits (the camera answers an
+        # exact zoom, Home or a preset recall only once it has arrived).
+        self._answer_delay = 0.0
         self.requests: list[str] = []
 
     # ── Positions and power, advanced lazily ──
@@ -311,10 +358,23 @@ class MarshallPTZSimulator(HTTPSimulator):
         if move is None:
             return int(self.state.get(key, 0))
         rate, t0, p0 = move
+        lo, hi = self._travel(axis)
+        return int(max(lo, min(hi, p0 + rate * (time.monotonic() - t0))))
+
+    def _travel(self, axis: str) -> tuple[int, int]:
+        """Where the axis can go: the mechanical stops, the limit angles while
+        they are on, the digital zoom limit."""
         lo, hi = _LIMIT[axis]
         if axis == "zoom":
             hi = self._zoom_max()
-        return int(max(lo, min(hi, p0 + rate * (time.monotonic() - t0))))
+        elif axis in ("pan", "tilt") and self.state.get("PanTiltLimit") == "on":
+            if axis == "pan":
+                lo = max(lo, int(int(self.state.get("PanLeftLimit", -170)) * _PAN_PER_DEGREE))
+                hi = min(hi, int(int(self.state.get("PanRightLimit", 170)) * _PAN_PER_DEGREE))
+            else:
+                lo = max(lo, int(int(self.state.get("TiltDownLimit", -30)) * _TILT_PER_DEGREE))
+                hi = min(hi, int(int(self.state.get("TiltUpLimit", 90)) * _TILT_PER_DEGREE))
+        return lo, hi
 
     def _stop(self, axis: str) -> None:
         if axis in self._moves:
@@ -323,7 +383,7 @@ class MarshallPTZSimulator(HTTPSimulator):
 
     def _start(self, axis: str, direction: int, speed: int) -> None:
         self._stop(axis)
-        self._moves[axis] = (direction * (speed + 1) * _RATE[axis], time.monotonic(), self._axis(axis))
+        self._moves[axis] = (direction * _rate(axis, speed), time.monotonic(), self._axis(axis))
 
     def _zoom_max(self) -> int:
         limit = str(self.state.get("DZoomLimit", "x1"))
@@ -336,7 +396,12 @@ class MarshallPTZSimulator(HTTPSimulator):
 
     def _value(self, name: str) -> str:
         if name == "AbsolutePTZF":
-            return ",".join(_hex(self._axis(a)) for a in ("pan", "tilt", "zoom", "focus")) + ",0005,0005"
+            positions = [self._axis(a) for a in ("pan", "tilt", "zoom", "focus")]
+            # Keep the Simulator UI's indicators moving with the camera.
+            for key, value in zip(("Pan", "Tilt", "Zoom", "Focus"), positions):
+                if self.state.get(key) != value:
+                    self.set_state(key, value)
+            return ",".join(_hex(v) for v in positions) + ",0005,0005"
         value = self.state.get(name, "")
         if isinstance(value, bool):  # a Simulator UI toggle stores a real boolean
             return "on" if value else "off"
@@ -371,6 +436,15 @@ class MarshallPTZSimulator(HTTPSimulator):
         return answer != expected("invalid")
 
     # ── Dispatch ──
+
+    async def respond_http(self, request, method, path, headers, body):
+        """Answer as the camera does: an exact zoom, Home and a preset recall
+        are answered once the camera has arrived."""
+        self._answer_delay = 0.0
+        response = await super().respond_http(request, method, path, headers, body)
+        if self._answer_delay > 0:
+            await asyncio.sleep(self._answer_delay)
+        return response
 
     def handle_request(self, method: str, path: str, headers: dict[str, str], body: str):
         if time.monotonic() < self._down_until:
@@ -450,8 +524,9 @@ class MarshallPTZSimulator(HTTPSimulator):
 
     def _main(self, param: str, value: str):
         if param == "System" and value in ("on", "standby"):
-            self._power_change = (value, time.monotonic() + self._power_delay)
-            if self._power_delay <= 0:
+            delay = self._wake_delay if value == "on" else self._standby_delay
+            self._power_change = (value, time.monotonic() + delay)
+            if delay <= 0:
                 self._settle_power()
             return 200, '{"STATUS":"OK"}'
         if param == "System" and value == "reboot":
@@ -477,6 +552,7 @@ class MarshallPTZSimulator(HTTPSimulator):
                 return ng
             if not standby:
                 self._stop("zoom")
+                self._answer_delay = 0.1 + _zoom_seconds(self._axis("zoom"), position)
                 self.set_state("Zoom", position)
             return ok
         if param != "Move" or "," not in value:
@@ -523,6 +599,9 @@ class MarshallPTZSimulator(HTTPSimulator):
             if self.state.get("Power") != "standby":
                 for axis in ("pan", "tilt"):
                     self._stop(axis)
+                # Measured: about 1.2 s back from the pan stop, 0.8 s from
+                # the top of tilt, 0.2 s from close by.
+                self._answer_delay = max(0.2, abs(self._axis("pan")) / 260000, abs(self._axis("tilt")) / 160000)
                 self.set_state("Pan", 0)
                 self.set_state("Tilt", 0)
             return ok
@@ -538,6 +617,11 @@ class MarshallPTZSimulator(HTTPSimulator):
             if stored is not None:
                 for axis in ("pan", "tilt", "zoom", "focus"):
                     self._stop(axis)
+                # Measured: about 0.75 s plus the trip at Preset Speed.
+                deg_s = _PRESET_DEG_S.get(int(self.state.get("PresetSpeed", 5) or 5), 160)
+                trip = max(abs(self._axis("pan") - stored[0]) / _PAN_PER_DEGREE,
+                           abs(self._axis("tilt") - stored[1]) / _TILT_PER_DEGREE) / deg_s
+                self._answer_delay = 0.75 + trip
                 for key, position in zip(("Pan", "Tilt", "Zoom", "Focus"), stored):
                     self.set_state(key, position)
             self.set_state("last_preset", str(n))

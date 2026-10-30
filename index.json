@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 131,
+    "total_drivers": 132,
     "shards": null
   },
   "drivers": [
@@ -8128,6 +8128,73 @@
           }
         }
       }
+    },
+    {
+      "id": "smart_board_gx_nx",
+      "name": "SMART Board GX Zero / NX",
+      "manufacturer": "SMART Technologies",
+      "category": "display",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "serial",
+      "description": "SMART Board GX Zero, NX and GX (V2) / (V3) interactive displays over RS-232: power, input, volume and mute, brightness, freeze and screen shade, with the display's own reports of changes made at the display.",
+      "source_url": "https://support.smarttech.com/docs/hardware/displays/smart-board-gx-zero/en/managing-using-rs-232/default.cshtml",
+      "file": "displays/smart_board_gx_nx.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "displays/smart_board_gx_nx.avcdriver": "6ff2d416a0ebbc81fc90bef08cc20f29273c74f7905fdb1ee6aea7761420d9ac"
+      },
+      "protocols": [
+        "smart_board_rs232"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "display",
+        "smart",
+        "smart-board",
+        "interactive-display",
+        "interactive-flat-panel",
+        "education",
+        "rs232"
+      ],
+      "help": {
+        "overview": "SMART Board GX Zero, NX and GX (V2) / (V3) interactive displays over the RS-232 port: power, input, volume, mute, brightness, freeze and screen shade. Changes made with the display's buttons, Settings app or remote reach OpenAVC as soon as they happen; everything is also read every 15 seconds, with the screen on or off.",
+        "setup": "1. Connect the display's RS-232 In port with a standard (straight-through)\n   RS-232 cable, not a null-modem cable, to a serial port on this computer\n   or to a serial bridge (choose \"Through a bridge\" and pick the bridge's\n   port).\n2. The settings are 19200 baud, 8 data bits, no parity, 1 stop bit. Through\n   a bridge they are applied to the bridge's port for you.\n3. No login. 4. NX only, for Wake (Wake-on-LAN): connect the display to the network,\n   turn on Wake On LAN in its settings, and type its MAC address (shown in\n   its network settings) under MAC Address.",
+        "connection": "The display is read in every power state: Power Off (Ready) and Power Save turn the screen off, and OpenAVC reading it does not turn it back on. If the display stops answering for about a minute it shows offline, and comes back as soon as it answers again."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "SMART Technologies",
+          "models": [
+            "SBID-GX065-V3",
+            "SBID-GX075-V3",
+            "SBID-GX086-V3"
+          ],
+          "confidence": "untested",
+          "notes": "SMART Board GX Zero (current) and GX (V3) (discontinued), which report the same model number. The GX Zero has no built-in operating system, so it refuses the Android input."
+        },
+        {
+          "manufacturer": "SMART Technologies",
+          "models": [
+            "SBD-NX065",
+            "SBD-NX075",
+            "SBD-NX086"
+          ],
+          "confidence": "untested",
+          "notes": "SMART Board NX. SMART's NX page lists only the Power button or a video signal as ways out of Power Save, so use Power Off (Ready) for a display a control system turns back on, or Wake (Wake-on-LAN) with the display's Wake On LAN setting on."
+        },
+        {
+          "manufacturer": "SMART Technologies",
+          "models": [
+            "SBID-GX065-V2",
+            "SBID-GX075-V2",
+            "SBID-GX086-V2"
+          ],
+          "confidence": "untested",
+          "notes": "SMART Board GX (V2) (discontinued). The same commands as the GX (V3)."
+        }
+      ]
     },
     {
       "id": "smart_board_rx_mx",

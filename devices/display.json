@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 139,
+    "total_devices": 148,
     "shards": null,
     "category": "display"
   },
@@ -959,6 +959,114 @@
           "id": "sharp_nec_display",
           "confidence": "untested",
           "notes": "The G2-generation External Control manual (Rev.2.4) this driver was built from documents these series. Opcode availability varies by model; unsupported opcodes answer result code 01 and the driver stops polling them on that display."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBD-NX065",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_gx_nx",
+          "confidence": "untested",
+          "notes": "SMART Board NX. SMART's NX page lists only the Power button or a video signal as ways out of Power Save, so use Power Off (Ready) for a display a control system turns back on, or Wake (Wake-on-LAN) with the display's Wake On LAN setting on."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBD-NX075",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_gx_nx",
+          "confidence": "untested",
+          "notes": "SMART Board NX. SMART's NX page lists only the Power button or a video signal as ways out of Power Save, so use Power Off (Ready) for a display a control system turns back on, or Wake (Wake-on-LAN) with the display's Wake On LAN setting on."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBD-NX086",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_gx_nx",
+          "confidence": "untested",
+          "notes": "SMART Board NX. SMART's NX page lists only the Power button or a video signal as ways out of Power Save, so use Power Off (Ready) for a display a control system turns back on, or Wake (Wake-on-LAN) with the display's Wake On LAN setting on."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-GX065-V2",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_gx_nx",
+          "confidence": "untested",
+          "notes": "SMART Board GX (V2) (discontinued). The same commands as the GX (V3)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-GX065-V3",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_gx_nx",
+          "confidence": "untested",
+          "notes": "SMART Board GX Zero (current) and GX (V3) (discontinued), which report the same model number. The GX Zero has no built-in operating system, so it refuses the Android input."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-GX075-V2",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_gx_nx",
+          "confidence": "untested",
+          "notes": "SMART Board GX (V2) (discontinued). The same commands as the GX (V3)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-GX075-V3",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_gx_nx",
+          "confidence": "untested",
+          "notes": "SMART Board GX Zero (current) and GX (V3) (discontinued), which report the same model number. The GX Zero has no built-in operating system, so it refuses the Android input."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-GX086-V2",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_gx_nx",
+          "confidence": "untested",
+          "notes": "SMART Board GX (V2) (discontinued). The same commands as the GX (V3)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-GX086-V3",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_gx_nx",
+          "confidence": "untested",
+          "notes": "SMART Board GX Zero (current) and GX (V3) (discontinued), which report the same model number. The GX Zero has no built-in operating system, so it refuses the Android input."
         }
       ]
     },

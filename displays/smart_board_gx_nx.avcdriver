@@ -1,0 +1,604 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-avc/openavc-drivers/main/avcdriver.schema.json
+#
+# SMART Board GX Zero, NX and GX (V2) / (V3) interactive displays (RS-232
+# room control)
+# Reference: SMART's per-model "Managing the display using RS-232" pages on
+#            support.smarttech.com (GX Zero, NX, and the GX page with its
+#            GX (V2) / GX (V3) series selector), and Appendix C of the
+#            installation and maintenance guides: SMART Board GX Zero series
+#            (docs.smarttech.com/kb/171956, May 20, 2026) and NX series
+#            (kb/171969, March 17, 2026). The GX (V2) and (V3) tables are the
+#            same apart from the model numbers; the GX Zero page is the GX (V3)
+#            text without the Android input; the NX page spells the USB-C
+#            inputs usbc1 / usbc2 and differs on Power Save (below).
+# Protocol: ASCII over RS-232, 19200 8N1, no login. A command is
+#           "get <setting>" or "set <setting>=<value>" (or +N / -N for a
+#           level) ended with CR. Commands are not case-sensitive and extra
+#           spacing is ignored. Every reply line is "<setting>=<value>"
+#           wrapped in CR LF, followed by the ">" prompt with no line ending,
+#           so the prompt reaches the driver as a line of its own in front of
+#           the next reply. A word the display does not take is answered
+#           "invalid cmd: <the command>".
+# Push: the display sends "#<setting>=<value>" (no prompt after it) when its
+#       front control panel, Settings app or remote changes power, input,
+#       brightness, freeze, screen shade, volume or mute, and when its power
+#       state changes. Hybrid: those messages, plus a 15-second poll of the
+#       same seven values.
+# Power: on / ready / powersave; these models have no Standby. Unlike the RX
+#        and MX (V5) pages, none of these pages says any command wakes the
+#        display. Each lists the ways out of READY (the Power button, "set
+#        powerstate=on", a video signal) and out of POWERSAVE (the Power
+#        button, and "set powerstate=ready" or "=on" on the GX Zero and GX;
+#        the Power button or a video signal on the NX), and a get is not one
+#        of them. So the poll and the start-up reads run in every power state,
+#        with no state gate, and the liveness probe below runs on every
+#        platform release.
+# Families: one RS-232 grammar runs through every SMART Board, but the words
+#           differ by family. This driver is the GX / NX dialect (power on /
+#           ready / powersave, inputs vga / ops / dp / usbc1 / usbc2, no
+#           microphone and no state reporting). The RX and MX are
+#           smart_board_rx_mx; the GX (V1) speaks an older grammar at 38400
+#           baud (k01gi000) and the GX Plus has no RS-232 page: neither is
+#           covered.
+#
+# Why YAML: plain text get / set lines, one reply line per command, and the
+# display's own change messages in the same form on the same line, which
+# ConfigurableDriver reads with one rule per setting.
+#
+# Not verified on hardware (no SMART Board on the bench). Unverified from the
+# documents alone: that a get leaves a display in READY or POWERSAVE as it is,
+# that the display answers in POWERSAVE (its get powerstate reply lists the
+# value, which says it does), which USB-C spelling a GX reports, what an NX
+# answers to "set powerstate=on" in POWERSAVE, whether Wake-on-LAN brings an
+# NX out of POWERSAVE, and how long the display needs between commands (SMART
+# asks only that each reply and prompt arrive before the next command).
+
+id: smart_board_gx_nx
+name: SMART Board GX Zero / NX
+manufacturer: SMART Technologies
+category: display
+version: 1.0.0
+author: OpenAVC
+description: >-
+  SMART Board GX Zero, NX and GX (V2) / (V3) interactive displays over RS-232:
+  power, input, volume and mute, brightness, freeze and screen shade, with the
+  display's own reports of changes made at the display.
+source_url: https://support.smarttech.com/docs/hardware/displays/smart-board-gx-zero/en/managing-using-rs-232/default.cshtml
+tags: [display, smart, smart-board, interactive-display, interactive-flat-panel, education, rs232]
+verified: false
+simulated: true
+ports: []
+min_platform_version: "0.36.0"
+compatible_models:
+  - manufacturer: SMART Technologies
+    models: [SBID-GX065-V3, SBID-GX075-V3, SBID-GX086-V3]
+    confidence: untested
+    notes: >-
+      SMART Board GX Zero (current) and GX (V3) (discontinued), which report the same model number. The GX Zero
+      has no built-in operating system, so it refuses the Android input.
+  - manufacturer: SMART Technologies
+    models: [SBD-NX065, SBD-NX075, SBD-NX086]
+    confidence: untested
+    notes: >-
+      SMART Board NX. SMART's NX page lists only the Power button or a video signal as ways out of Power Save,
+      so use Power Off (Ready) for a display a control system turns back on, or Wake (Wake-on-LAN) with the
+      display's Wake On LAN setting on.
+  - manufacturer: SMART Technologies
+    models: [SBID-GX065-V2, SBID-GX075-V2, SBID-GX086-V2]
+    confidence: untested
+    notes: SMART Board GX (V2) (discontinued). The same commands as the GX (V3).
+protocols: [smart_board_rs232]
+transport: serial
+delimiter: "\r\n"
+
+help:
+  overview: >-
+    SMART Board GX Zero, NX and GX (V2) / (V3) interactive displays over the
+    RS-232 port: power, input, volume, mute, brightness, freeze and screen
+    shade. Changes made with the display's buttons, Settings app or remote
+    reach OpenAVC as soon as they happen; everything is also read every 15
+    seconds, with the screen on or off.
+  setup: >-
+    1. Connect the display's RS-232 In port with a standard (straight-through)
+       RS-232 cable, not a null-modem cable, to a serial port on this computer
+       or to a serial bridge (choose "Through a bridge" and pick the bridge's
+       port).
+    2. The settings are 19200 baud, 8 data bits, no parity, 1 stop bit. Through
+       a bridge they are applied to the bridge's port for you.
+    3. No login.
+    4. NX only, for Wake (Wake-on-LAN): connect the display to the network,
+       turn on Wake On LAN in its settings, and type its MAC address (shown in
+       its network settings) under MAC Address.
+  connection: >-
+    The display is read in every power state: Power Off (Ready) and Power Save
+    turn the screen off, and OpenAVC reading it does not turn it back on. If
+    the display stops answering for about a minute it shows offline, and comes
+    back as soon as it answers again.
+
+default_config:
+  baudrate: 19200
+  bytesize: 8
+  parity: "N"
+  stopbits: 1
+  poll_interval: 15
+  inter_command_delay: 0.25
+  mac_address: ""
+
+config_schema:
+  baudrate:
+    type: integer
+    default: 19200
+    label: Baud Rate
+    description: 19200 on the GX Zero, NX and GX (V2) / (V3).
+  poll_interval:
+    type: integer
+    default: 15
+    min: 0
+    label: Poll Interval (sec)
+    description: How often to read the display's settings. 0 turns polling off; changes made at the display still arrive.
+  inter_command_delay:
+    type: number
+    default: 0.25
+    min: 0
+    label: Inter-Command Delay (sec)
+    description: Gap between commands. SMART asks for each reply before the next command is sent; raise this if the display misses commands.
+  mac_address:
+    type: string
+    default: ""
+    label: MAC Address (for Wake-on-LAN)
+    description: NX only. The display's network MAC address, used by Wake (Wake-on-LAN). Leave it blank if you do not use that command.
+
+state_variables:
+  power:
+    type: enum
+    values: ["on", ready, powersave]
+    label: Power
+    control: true
+    help: "on = picture up. ready = screen off, and Power On, a video signal or the Power button turns it on. powersave = the lowest-power state; the GX Zero and GX come back with Power On, an NX only with its Power button, a video signal or Wake (Wake-on-LAN)."
+  input:
+    type: enum
+    values: [hdmi1, hdmi2, hdmi3, vga, ops, usbc1, usbc2, dp, android]
+    label: Input
+    control: true
+    help: "The active input: hdmi1 to hdmi3, vga, ops (the slot-in PC), usbc1, usbc2, dp (DisplayPort), or android (the display's own screen, NX and GX (V3))."
+  volume:
+    type: integer
+    label: Volume
+    min: 0
+    max: 100
+    step: 1
+    control: true
+  mute:
+    type: boolean
+    label: Mute
+    control: true
+    help: The speakers are muted.
+  brightness:
+    type: integer
+    label: Brightness
+    min: 0
+    max: 100
+    step: 1
+  video_freeze:
+    type: boolean
+    label: Freeze
+    control: true
+    help: The picture is frozen.
+  screen_shade:
+    type: boolean
+    label: Screen Shade
+    control: true
+    help: The screen shade is covering the picture.
+  model:
+    type: string
+    label: Model
+    help: The model number the display reports. A GX Zero and a GX (V3) report the same one.
+  serial_number:
+    type: string
+    label: Serial Number
+  firmware:
+    type: string
+    label: Firmware
+  part_number:
+    type: string
+    label: Part Number
+  last_error:
+    type: string
+    label: Last Error
+    help: "The display's own words for the last command it did not take, such as \"invalid cmd: setinput=android\" on a GX Zero."
+
+commands:
+  # Power. Every reply carries the new state, so no read-back get follows.
+  power_on:
+    label: Power On
+    help: Turns the display on from Power Off (Ready), and from Power Save on the GX Zero and GX. An NX in Power Save does not take it; use Wake (Wake-on-LAN) or the display's Power button.
+    send: "set powerstate=on\r"
+    sets: { power: "on" }
+  power_off:
+    label: Power Off (Ready)
+    help: Turns the screen off and leaves the display ready to come on with Power On, a video signal or its Power button.
+    send: "set powerstate=ready\r"
+    sets: { power: ready }
+  power_save:
+    label: Power Save
+    help: Puts the display in its lowest-power state. A GX Zero or GX comes back with Power On or Power Off (Ready); an NX only with its Power button, a video signal or Wake (Wake-on-LAN).
+    send: "set powerstate=powersave\r"
+    sets: { power: powersave }
+    confirm: An NX in Power Save does not take Power On. Only its Power button, a video signal, or Wake (Wake-on-LAN) with Wake On LAN turned on in the display brings it back.
+  # The NX's Wake On LAN setting (installation and maintenance guide kb/171969,
+  # Appendix A); the GX Zero guide has no such setting. RS-232 gives no MAC,
+  # so it is typed in. No sets: the guide does not say which power state a
+  # wake leaves the display in.
+  wake_on_lan:
+    label: Wake (Wake-on-LAN)
+    help: Sends a Wake-on-LAN packet to the MAC Address under Edit Device (NX only, with the display on the network and Wake On LAN turned on in its settings). Use it to bring an NX out of Power Save.
+    available_offline: true
+    udp:
+      magic_packet: mac_address
+
+  set_input:
+    label: Select Input
+    help: Selects an input. The GX Zero and GX (V2) refuse Android.
+    send: "set input={input}\r"
+    sets: { input: "{input}" }
+    params:
+      input:
+        type: enum
+        required: true
+        label: Input
+        values:
+          - { value: hdmi1, label: "HDMI 1" }
+          - { value: hdmi2, label: "HDMI 2" }
+          - { value: hdmi3, label: "HDMI 3" }
+          - { value: vga, label: "VGA" }
+          - { value: ops, label: "Slot-in PC (OPS)" }
+          - { value: usbc1, label: "USB-C 1" }
+          - { value: usbc2, label: "USB-C 2" }
+          - { value: dp, label: "DisplayPort" }
+          - { value: android, label: "Android (NX and GX (V3))" }
+
+  set_volume:
+    label: Set Volume
+    help: Sets the speaker volume.
+    send: "set volume={level}\r"
+    sets: { volume: "{level}" }
+    params:
+      level:
+        type: integer
+        required: true
+        label: Volume
+        min: 0
+        max: 100
+  volume_up:
+    label: Volume Up
+    help: Raises the volume by the step given.
+    send: "set volume+{step}\r"
+    params:
+      step:
+        type: integer
+        required: true
+        label: Step
+        default: 1
+        min: 1
+        max: 100
+  volume_down:
+    label: Volume Down
+    help: Lowers the volume by the step given.
+    send: "set volume-{step}\r"
+    params:
+      step:
+        type: integer
+        required: true
+        label: Step
+        default: 1
+        min: 1
+        max: 100
+  mute_on:
+    label: Mute On
+    help: Mutes the speakers.
+    send: "set mute=on\r"
+    sets: { mute: true }
+  mute_off:
+    label: Mute Off
+    help: Unmutes the speakers.
+    send: "set mute=off\r"
+    sets: { mute: false }
+
+  set_brightness:
+    label: Set Brightness
+    help: Sets the screen brightness.
+    send: "set brightness={level}\r"
+    sets: { brightness: "{level}" }
+    params:
+      level:
+        type: integer
+        required: true
+        label: Brightness
+        min: 0
+        max: 100
+  brightness_up:
+    label: Brightness Up
+    help: Raises the brightness by the step given.
+    send: "set brightness+{step}\r"
+    params:
+      step:
+        type: integer
+        required: true
+        label: Step
+        default: 5
+        min: 1
+        max: 100
+  brightness_down:
+    label: Brightness Down
+    help: Lowers the brightness by the step given.
+    send: "set brightness-{step}\r"
+    params:
+      step:
+        type: integer
+        required: true
+        label: Step
+        default: 5
+        min: 1
+        max: 100
+
+  freeze_on:
+    label: Freeze On
+    help: Freezes the picture on screen.
+    send: "set videofreeze=on\r"
+    sets: { video_freeze: true }
+  freeze_off:
+    label: Freeze Off
+    help: Unfreezes the picture.
+    send: "set videofreeze=off\r"
+    sets: { video_freeze: false }
+  screen_shade_on:
+    label: Screen Shade On
+    help: Covers the picture with the screen shade.
+    send: "set screenshade=on\r"
+    sets: { screen_shade: true }
+  screen_shade_off:
+    label: Screen Shade Off
+    help: Removes the screen shade.
+    send: "set screenshade=off\r"
+    sets: { screen_shade: false }
+
+device_settings:
+  brightness:
+    type: integer
+    label: Brightness
+    help: Screen brightness, 0 to 100.
+    state_key: brightness
+    default: 100
+    setup: false
+    min: 0
+    max: 100
+    write:
+      send: "set brightness={value}\r"
+
+quick_actions: [power_on, power_off, mute_on, mute_off]
+
+# Every reply may follow the ">" prompt and a change message starts with
+# "#", so each rule allows both in front. First match wins.
+responses:
+  # The prompt on a line of its own: it carries nothing to read.
+  - match: '^>\s*$'
+    set: {}
+  - match: '(?i:^>?\s*#?\s*powerstate\s*=\s*([a-z]+)\s*$)'
+    set: { power: "$1" }
+  # The GX pages give each USB-C input as "type-c1 [or usbc1]" and the NX
+  # page as usbc1, so either spelling reads as the one the driver sends.
+  - match: '(?i:^>?\s*#?\s*input\s*=\s*(?:type-c|usbc)1\s*$)'
+    set: { input: usbc1 }
+  - match: '(?i:^>?\s*#?\s*input\s*=\s*(?:type-c|usbc)2\s*$)'
+    set: { input: usbc2 }
+  - match: '(?i:^>?\s*#?\s*input\s*=\s*([a-z0-9]+)\s*$)'
+    set: { input: "$1" }
+  - match: '(?i:^>?\s*#?\s*volume\s*=\s*(\d+)\s*$)'
+    set: { volume: "$1" }
+  - match: '(?i:^>?\s*#?\s*mute\s*=\s*(on|off)\s*$)'
+    mappings:
+      - { group: 1, state: mute, map: { "on": true, "off": false, "ON": true, "OFF": false } }
+  # The change message's range is printed as 5 to 100, the set and get as 0
+  # to 100; any number is read.
+  - match: '(?i:^>?\s*#?\s*brightness\s*=\s*(\d+)\s*$)'
+    set: { brightness: "$1" }
+  - match: '(?i:^>?\s*#?\s*videofreeze\s*=\s*(on|off)\s*$)'
+    mappings:
+      - { group: 1, state: video_freeze, map: { "on": true, "off": false, "ON": true, "OFF": false } }
+  - match: '(?i:^>?\s*#?\s*screenshade\s*=\s*(on|off)\s*$)'
+    mappings:
+      - { group: 1, state: screen_shade, map: { "on": true, "off": false, "ON": true, "OFF": false } }
+  - match: '(?i:^>?\s*modelnum\s*=\s*(\S.*?)\s*$)'
+    set: { model: "$1" }
+  - match: '(?i:^>?\s*serialnum\s*=\s*(\S.*?)\s*$)'
+    set: { serial_number: "$1" }
+  - match: '(?i:^>?\s*fwversion\s*=\s*(\S.*?)\s*$)'
+    set: { firmware: "$1" }
+  - match: '(?i:^>?\s*partnum\s*=\s*(\S.*?)\s*$)'
+    set: { part_number: "$1" }
+  - match: '(?i:^>?\s*(invalid cmd\b.*?)\s*$)'
+    set: { last_error: "$1" }
+
+# The CR first is SMART's own way to bring up a fresh prompt; it also ends any
+# half-typed line left in the display's input. No step waits on the power
+# state: a get does not wake these models.
+on_connect:
+  - "\r"
+  - { send: "get modelnum\r", query_for: model }
+  - { send: "get serialnum\r", query_for: serial_number }
+  - { send: "get fwversion\r", query_for: firmware }
+  - { send: "get partnum\r", query_for: part_number }
+
+polling:
+  queries:
+    - { send: "get powerstate\r", query_for: power }
+    - { send: "get input\r", query_for: input }
+    - { send: "get volume\r", query_for: volume }
+    - { send: "get mute\r", query_for: mute }
+    - { send: "get brightness\r", query_for: brightness }
+    - { send: "get videofreeze\r", query_for: video_freeze }
+    - { send: "get screenshade\r", query_for: screen_shade }
+
+# Over a direct serial line nothing else notices a display that stops
+# answering. Any reply counts, an invalid cmd included. Safe in every power
+# state for the reason above the poll; the poll has no state gate for it to
+# wait on.
+liveness:
+  send: "get powerstate\r"
+  interval: 30
+  timeout: 5
+  max_failures: 2
+
+# ── Simulator ──
+# Models a GX Zero: every reply wrapped in CR LF and followed by the ">"
+# prompt, invalid cmd for a word it does not take (Android included), the
+# USB-C inputs reported in the GX pages' type-c spelling, and every command
+# answered in every power state. Only "set powerstate=on" (and "=ready" from
+# POWERSAVE) changes the power state; a get leaves it as it is. Changes made
+# in the Simulator UI arrive as "#" messages like the display's own buttons.
+# Gaps: a bare CR is not answered (the simulator drops empty lines), a change
+# made by a command is announced as well as answered, which the display's
+# documents describe only for its own buttons, and a magic packet is logged
+# and changes nothing (the GX Zero has no Wake On LAN).
+simulator:
+  # The display answers inside the gap the driver leaves between commands
+  # (SMART asks for each reply before the next command). Left unset, the
+  # simulator would answer at the very end of that gap.
+  delays:
+    command_response: 0.05
+  initial_state:
+    power: "on"
+    input: hdmi1
+    volume: 30
+    mute: false
+    brightness: 80
+    video_freeze: false
+    screen_shade: false
+    model: sbid-gx075-v3
+    serial_number: GX75SIM0001
+    firmware: "2.1.0"
+    part_number: 1031200-A
+  controls:
+    - type: select
+      key: power
+      label: Power
+      options: ["on", ready, powersave]
+    - type: select
+      key: input
+      label: Input
+      options: [hdmi1, hdmi2, hdmi3, vga, ops, usbc1, usbc2, dp]
+    - type: slider
+      key: volume
+      label: Volume
+      min: 0
+      max: 100
+    - type: toggle
+      key: mute
+      label: Mute
+    - type: slider
+      key: brightness
+      label: Brightness
+      min: 0
+      max: 100
+    - type: toggle
+      key: video_freeze
+      label: Freeze
+    - type: toggle
+      key: screen_shade
+      label: Screen Shade
+  # The display's change messages, the USB-C inputs in the type-c spelling.
+  notifications:
+    power:
+      "*": "\r\n#powerstate={value}"
+    input:
+      usbc1: "\r\n#input=type-c1"
+      usbc2: "\r\n#input=type-c2"
+      "*": "\r\n#input={value}"
+    volume:
+      "*": "\r\n#volume={value}"
+    brightness:
+      "*": "\r\n#brightness={value}"
+    mute:
+      "true": "\r\n#mute=on"
+      "false": "\r\n#mute=off"
+    video_freeze:
+      "true": "\r\n#videofreeze=on"
+      "false": "\r\n#videofreeze=off"
+    screen_shade:
+      "true": "\r\n#screenshade=on"
+      "false": "\r\n#screenshade=off"
+  command_handlers:
+    # One dispatcher for the whole grammar, so the power words and the
+    # GX Zero's input list are judged in one place.
+    - match: '(?i:\s*(get|set)\s*[a-z]+.*)'
+      handler: |
+        def _run():
+            text = match.group(0)
+            squeezed = re.sub(r"\s+", "", text).lower()
+            m = re.match(r"^(get|set)([a-z]+?)(?:([=+-])(.*))?$", squeezed)
+
+            def say(body):
+                respond("\r\n" + body + "\r\n>")
+
+            def word(flag):
+                return "on" if flag else "off"
+
+            WIRE = {"usbc1": "type-c1", "usbc2": "type-c2"}
+            INPUTS = {"hdmi1": "hdmi1", "hdmi2": "hdmi2", "hdmi3": "hdmi3",
+                      "vga": "vga", "ops": "ops", "dp": "dp",
+                      "usbc1": "usbc1", "usbc2": "usbc2",
+                      "type-c1": "usbc1", "type-c2": "usbc2"}
+            BOOLS = {"mute": "mute", "videofreeze": "video_freeze",
+                     "screenshade": "screen_shade"}
+            LEVELS = {"volume": "volume", "brightness": "brightness"}
+            READS = {"modelnum": "model", "serialnum": "serial_number",
+                     "fwversion": "firmware", "partnum": "part_number"}
+
+            if not m:
+                say("invalid cmd: " + squeezed)
+                return
+            verb, name, op, value = m.group(1), m.group(2), m.group(3), m.group(4) or ""
+
+            if verb == "get":
+                if op:
+                    say("invalid cmd: " + squeezed)
+                elif name == "powerstate":
+                    say("powerstate=" + str(state["power"]))
+                elif name == "input":
+                    current = str(state["input"])
+                    say("input=" + WIRE.get(current, current))
+                elif name in LEVELS:
+                    say(name + "=" + str(int(state[LEVELS[name]])))
+                elif name in BOOLS:
+                    say(name + "=" + word(state[BOOLS[name]]))
+                elif name in READS:
+                    say(name + "=" + str(state[READS[name]]))
+                else:
+                    say("invalid cmd: " + squeezed)
+                return
+
+            # set
+            if name == "powerstate" and op == "=" and value in ("on", "ready", "powersave"):
+                state["power"] = value
+                say("powerstate=" + value)
+            elif name == "input" and op == "=" and value in INPUTS:
+                state["input"] = INPUTS[value]
+                say("input=" + WIRE.get(INPUTS[value], INPUTS[value]))
+            elif name in LEVELS and op == "=" and value.isdigit() and int(value) <= 100:
+                state[LEVELS[name]] = int(value)
+                say(name + "=" + value)
+            elif name in LEVELS and op in ("+", "-") and value.isdigit():
+                step = int(value) if op == "+" else -int(value)
+                level = max(0, min(100, int(state[LEVELS[name]]) + step))
+                state[LEVELS[name]] = level
+                say(name + "=" + str(level))
+            elif name in BOOLS and op == "=" and value in ("on", "off"):
+                state[BOOLS[name]] = (value == "on")
+                say(name + "=" + value)
+            else:
+                say("invalid cmd: " + squeezed)
+        _run()
+    # Anything outside the grammar.
+    - match: '.+'
+      handler: |
+        respond("\r\ninvalid cmd: " + re.sub(r"\s+", "", match.group(0)).lower() + "\r\n>")

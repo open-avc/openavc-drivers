@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 136,
+    "total_devices": 139,
     "shards": null,
     "category": "display"
   },
@@ -1187,6 +1187,42 @@
           "id": "smart_board_rx_mx",
           "confidence": "untested",
           "notes": "SMART Board RX series. Every command in this driver, including State Reporting and Factory Reset."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-T065-P",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_t_pro",
+          "confidence": "untested",
+          "notes": "SMART Board T Pro series (IDT65-1 / IDT75-1 / IDT86-1). Network control on TCP 4664. The RS-232 port speaks a different protocol, which this driver does not use."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-T075-P",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_t_pro",
+          "confidence": "untested",
+          "notes": "SMART Board T Pro series (IDT65-1 / IDT75-1 / IDT86-1). Network control on TCP 4664. The RS-232 port speaks a different protocol, which this driver does not use."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-T086-P",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_t_pro",
+          "confidence": "untested",
+          "notes": "SMART Board T Pro series (IDT65-1 / IDT75-1 / IDT86-1). Network control on TCP 4664. The RS-232 port speaks a different protocol, which this driver does not use."
         }
       ]
     },

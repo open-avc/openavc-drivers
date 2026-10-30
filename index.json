@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 129,
+    "total_drivers": 130,
     "shards": null
   },
   "drivers": [
@@ -8097,6 +8097,63 @@
           "notes": "SMART Board MX (V2) to (V4) and their Pro models (discontinued). No HDMI 4, and the MX (V2) has one USB-C input; Turn Off is not available. They also take Screen Off (Ready) and Power Save, and report Updating while a software update runs. SMART asks for 30 seconds between power changes and the next command on iQ 3.11 or earlier."
         }
       ]
+    },
+    {
+      "id": "smart_board_t_pro",
+      "name": "SMART Board T Pro (Network)",
+      "manufacturer": "SMART Technologies",
+      "category": "display",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "SMART Board T Pro interactive displays over the network (TCP port 4664): power, input, volume, mute, the microphone array, the display's remote keys, and its picture, sound, touch and timer settings.",
+      "source_url": "https://docs.smarttech.com/kb/172095",
+      "file": "displays/smart_board_t_pro.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "displays/smart_board_t_pro.avcdriver": "d188f17ab6023a8707405a6c3b5a1adb4f81f004bdd345918c388209ec8cb6c8"
+      },
+      "ports": [
+        4664
+      ],
+      "protocols": [
+        "smart_board_network"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "display",
+        "smart",
+        "smart-board",
+        "interactive-display",
+        "interactive-flat-panel",
+        "education",
+        "lan"
+      ],
+      "help": {
+        "overview": "SMART Board T Pro interactive displays over the network: power, input, volume, mute, the microphone array and the display's remote keys, plus treble, bass, balance, contrast, backlight, color temperature, language, speakers, touch, the screen timer, automatic brightness and the IR remote sensor as device settings. The display does not report changes by itself, so everything is read every 10 seconds.",
+        "setup": "1. Connect either of the display's RJ45 jacks to the network. On the\n   display, press Input, tap Network, and note the IP address (reserve\n   it in DHCP or set a static address). Ethernet must be Enabled in the\n   display's Network settings.\n\n2. Add the display here with that address. The port is 4664 and there\n   is no login.\n\n3. Keep the display out of Power Save. In Power Save the display does\n   not answer on the network, and only its Power button, the remote or a\n   video signal wakes it. Power Off (Ready) turns the screen off and keeps\n   network control working.\n\n4. Changing Eco mode turns the display's Ethernet off. After changing it\n   at the display, turn Ethernet back on in the display's Network\n   settings.\n\n5. This driver is for network control. The display's RS-232 port uses a\n   different set of commands.",
+        "connection": "The display answers on the network while it is on or in Ready (screen off). In Power Save it answers nothing, so OpenAVC shows it offline until someone presses its Power button, uses the remote, or connects a video source."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "SMART Technologies",
+          "models": [
+            "SBID-T065-P",
+            "SBID-T075-P",
+            "SBID-T086-P"
+          ],
+          "confidence": "untested",
+          "notes": "SMART Board T Pro series (IDT65-1 / IDT75-1 / IDT86-1). Network control on TCP 4664. The RS-232 port speaks a different protocol, which this driver does not use."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 4664,
+          "send_ascii": ":01G0000\r",
+          "expect_regex": "^:01r0[0-9]{3}"
+        }
+      }
     },
     {
       "id": "sonos",

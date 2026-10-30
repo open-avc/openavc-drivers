@@ -1,0 +1,861 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-avc/openavc-drivers/main/avcdriver.schema.json
+#
+# SMART Board T Pro interactive displays (network control protocol)
+# Reference: SMART Board T Pro series "Appendix D: Network control protocol
+#            codes" (docs.smarttech.com/kb/172095, 15 December 2025), the
+#            support page "Managing the display using network control
+#            protocol", and the T Pro installation and maintenance guide
+#            (docs.smarttech.com/kb/172043, 16 December 2025), whose Appendix
+#            A lists the Settings app and Appendix C the network setup.
+# Protocol: fixed ASCII frames over TCP 4664, no login, each ended with CR.
+#             Set  ":01S" <code> <3-character value>  answered "401+" (accepted)
+#                                                    or "401-" (refused)
+#             Get  ":01G" <code> "000"                answered ":01r" <code> <value>
+#           The code is one character (":" is Video Source, so a source set
+#           reads ":01S:001"). Signed values (treble, bass, balance) are a
+#           sign and two digits, "+06" / "-06". SMART asks for each reply
+#           before the next frame is sent and says the display may accept a
+#           value it does not support and change nothing. The frame layout
+#           and the "401+" acknowledgement are the ViewSonic LFD protocol's
+#           (viewsonic_cde), with ":" in place of the length byte and capital
+#           S / G.
+# Push: none. "The display will not send packets autonomously." Everything is
+#       polled (10 s); a set's answer carries no value, and SMART asks for
+#       one frame at a time, so a command does not send a read-back get with
+#       it and its new value appears at the next poll.
+# Power: READY (screen off, network control works, Power On turns it on;
+#        "Transition to ON only works while in READY state"), ON, and
+#        POWERSAVE ("While in POWERSAVE, network control does not function";
+#        the Power button, the remote or a video signal wakes it). A get does
+#        not wake the display, so the poll runs in every power state, and in
+#        POWERSAVE the platform's silence check reports the display offline
+#        (no_response) until it answers again.
+# Eco mode: per the code list's footnote, turning Eco mode on or off turns
+#           the display's Ethernet off, so network control ends until someone
+#           enables Ethernet at the display. The driver reads it and never
+#           writes it.
+# Not covered: the display's RS-232 port speaks the text "get / set" grammar
+#              of the other SMART Boards (with push and identity reads), not
+#              these frames, so a serial T Pro needs its own driver.
+#
+# Why YAML: fixed text frames ended with CR, one reply per frame, each reply
+# naming the code it answers, which ConfigurableDriver reads with one rule per
+# code.
+#
+# Not verified on hardware (no T Pro on the bench). Unverified from the
+# documents alone: how the display writes a signed zero (the driver sends
+# "+00"), which of the two microphone-array codes (47 and 51, described
+# identically) controls what, the Balance code (the code column and the get
+# say 0x33, both set examples print 0x35; the driver uses 0x33), whether the
+# display keeps one TCP connection open between frames, and what it answers
+# to a get while it is changing power state.
+
+id: smart_board_t_pro
+name: SMART Board T Pro (Network)
+manufacturer: SMART Technologies
+category: display
+version: 1.0.0
+author: OpenAVC
+description: >-
+  SMART Board T Pro interactive displays over the network (TCP port 4664):
+  power, input, volume, mute, the microphone array, the display's remote
+  keys, and its picture, sound, touch and timer settings.
+source_url: https://docs.smarttech.com/kb/172095
+tags: [display, smart, smart-board, interactive-display, interactive-flat-panel, education, lan]
+verified: false
+simulated: true
+ports: [4664]
+min_platform_version: "0.37.0"
+compatible_models:
+  - manufacturer: SMART Technologies
+    models: [SBID-T065-P, SBID-T075-P, SBID-T086-P]
+    confidence: untested
+    notes: >-
+      SMART Board T Pro series (IDT65-1 / IDT75-1 / IDT86-1). Network control on TCP 4664. The
+      RS-232 port speaks a different protocol, which this driver does not use.
+protocols: [smart_board_network]
+transport: tcp
+delimiter: "\r"
+
+help:
+  overview: >-
+    SMART Board T Pro interactive displays over the network: power, input,
+    volume, mute, the microphone array and the display's remote keys, plus
+    treble, bass, balance, contrast, backlight, color temperature, language,
+    speakers, touch, the screen timer, automatic brightness and the IR remote
+    sensor as device settings. The display does not report changes by itself,
+    so everything is read every 10 seconds.
+  setup: >-
+    1. Connect either of the display's RJ45 jacks to the network. On the
+       display, press Input, tap Network, and note the IP address (reserve
+       it in DHCP or set a static address). Ethernet must be Enabled in the
+       display's Network settings.
+
+    2. Add the display here with that address. The port is 4664 and there
+       is no login.
+
+    3. Keep the display out of Power Save. In Power Save the display does
+       not answer on the network, and only its Power button, the remote or a
+       video signal wakes it. Power Off (Ready) turns the screen off and keeps
+       network control working.
+
+    4. Changing Eco mode turns the display's Ethernet off. After changing it
+       at the display, turn Ethernet back on in the display's Network
+       settings.
+
+    5. This driver is for network control. The display's RS-232 port uses a
+       different set of commands.
+  connection: >-
+    The display answers on the network while it is on or in Ready (screen
+    off). In Power Save it answers nothing, so OpenAVC shows it offline until
+    someone presses its Power button, uses the remote, or connects a video
+    source.
+
+default_config:
+  host: ""
+  port: 4664
+  poll_interval: 10
+  inter_command_delay: 0.2
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 4664
+    label: Port
+    description: 4664 on the T Pro.
+  poll_interval:
+    type: integer
+    default: 10
+    min: 0
+    label: Poll Interval (sec)
+    description: How often to read the display's settings. The display does not report changes by itself, so a change made at the display appears at the next read. 0 turns polling off.
+  inter_command_delay:
+    type: number
+    default: 0.2
+    min: 0
+    label: Inter-Command Delay (sec)
+    description: Gap between commands. SMART asks for each reply before the next command is sent; raise this if the display misses commands.
+
+state_variables:
+  power:
+    type: enum
+    values: ["on", ready, powersave]
+    label: Power
+    control: true
+    help: "on = picture up. ready = screen off, and Power On turns it on. powersave = lowest power: the display does not answer on the network until its Power button, the remote or a video signal wakes it."
+  input:
+    type: enum
+    values: [hdmi1, hdmi2, hdmi3, ops1, usbc1, usbc2]
+    label: Input
+    control: true
+    help: "The active input: hdmi1 to hdmi3, ops1 (the slot-in PC), usbc1 or usbc2."
+  volume:
+    type: integer
+    label: Volume
+    min: 0
+    max: 30
+    step: 1
+    control: true
+  mute:
+    type: boolean
+    label: Mute
+    control: true
+    help: The speakers are muted.
+  mic_array:
+    type: boolean
+    label: Microphone Array
+    control: true
+    help: The display's microphone array is on (code 47 in SMART's list).
+  mic_array_alt:
+    type: boolean
+    label: Microphone Array (code 51)
+    help: SMART's code list has a second microphone-array code, 51, with the same description as 47.
+  treble:
+    type: integer
+    label: Treble
+    min: -6
+    max: 6
+    step: 1
+  bass:
+    type: integer
+    label: Bass
+    min: -6
+    max: 6
+    step: 1
+  balance:
+    type: integer
+    label: Balance
+    min: -50
+    max: 50
+    step: 1
+    help: Left / right balance of the built-in speakers. Negative is left.
+  contrast:
+    type: integer
+    label: Contrast
+    min: 0
+    max: 100
+    step: 1
+  backlight:
+    type: integer
+    label: Backlight
+    min: 0
+    max: 100
+    step: 1
+  color_temperature:
+    type: enum
+    values: [very_cool, cool, neutral, warm, very_warm]
+    label: Color Temperature
+  language:
+    type: enum
+    values: [english, french, spanish, chinese_simplified, german, dutch, danish, italian, norwegian, finnish]
+    label: Language
+  speaker_output:
+    type: enum
+    values: ["off", "on", auto, subwoofer_off, subwoofer_on]
+    label: Speaker Output
+    help: "The built-in speakers: off, on, or auto (off while an external audio device is connected). SMART's code list puts the subwoofer switch on the same code."
+  touch:
+    type: boolean
+    label: Touch
+    help: Touch input is on.
+  screen_timeout:
+    type: enum
+    values: [never, 1min, 5min, 10min, 30min, 60min, 90min, 5h, 10h]
+    label: Screen Timeout
+    help: How long the display waits before turning the screen off.
+  auto_brightness:
+    type: boolean
+    label: Automatic Brightness
+    help: The display adjusts its brightness to the light in the space.
+  ir_remote:
+    type: boolean
+    label: IR Remote
+    help: The display takes commands from its infrared remote.
+  eco_mode:
+    type: boolean
+    label: Eco Mode
+    help: Eco mode is on (lower screen brightness). Read only. Changing it turns the display's Ethernet off, so change it at the display and turn Ethernet back on afterwards.
+  last_error:
+    type: string
+    label: Last Error
+    help: Set when the display refuses a command or a read (a value it does not take, or a setting this model does not have). Cleared by the next poll that the display answers in full.
+
+commands:
+  # A set's answer is "401+" with no value, so no command reads its value
+  # back; sets: is what the simulator and the device audit check, and the
+  # poll reads the display's own value.
+  power_on:
+    label: Power On
+    help: Turns the display on from Ready. In Power Save the display does not answer on the network.
+    send: ":01S0001\r"
+    sets: { power: "on" }
+  power_off:
+    label: Power Off (Ready)
+    help: Turns the screen off and leaves the display in Ready, where it still answers on the network and Power On turns it back on.
+    send: ":01S0000\r"
+    sets: { power: ready }
+  power_save:
+    label: Power Save
+    help: Puts the display in its lowest-power state. It then stops answering on the network and shows offline until its Power button, the remote or a video signal wakes it.
+    send: ":01S0002\r"
+    sets: { power: powersave }
+    confirm: The display stops answering on the network. OpenAVC cannot turn it back on; only its Power button, the remote or a video signal wakes it.
+
+  set_input:
+    label: Select Input
+    help: Selects an input.
+    send: ":01S:{input}\r"
+    sets: { input: "{input}" }
+    params:
+      input:
+        type: enum
+        required: true
+        label: Input
+        values:
+          - { value: hdmi1, label: "HDMI 1" }
+          - { value: hdmi2, label: "HDMI 2" }
+          - { value: hdmi3, label: "HDMI 3" }
+          - { value: ops1, label: "Slot-in PC (OPS)" }
+          - { value: usbc1, label: "USB-C 1" }
+          - { value: usbc2, label: "USB-C 2" }
+        map: { hdmi1: "001", hdmi2: "002", hdmi3: "021", ops1: "103", usbc1: "104", usbc2: "105" }
+
+  set_volume:
+    label: Set Volume
+    help: Sets the speaker volume, 0 to 30.
+    send: ":01S8{level:03d}\r"
+    sets: { volume: "{level}" }
+    params:
+      level:
+        type: integer
+        required: true
+        label: Volume
+        min: 0
+        max: 30
+  volume_up:
+    label: Volume Up
+    help: Raises the volume one step, like the remote's Volume + key.
+    send: ":01SA000\r"
+  volume_down:
+    label: Volume Down
+    help: Lowers the volume one step, like the remote's Volume - key.
+    send: ":01SA001\r"
+  mute_on:
+    label: Mute On
+    help: Mutes the speakers.
+    send: ":01S9001\r"
+    sets: { mute: true }
+  mute_off:
+    label: Mute Off
+    help: Unmutes the speakers.
+    send: ":01S9000\r"
+    sets: { mute: false }
+
+  mic_array_on:
+    label: Microphone Array On
+    help: Turns the display's microphone array on (code 47).
+    send: ":01SG001\r"
+    sets: { mic_array: true }
+  mic_array_off:
+    label: Microphone Array Off
+    help: Turns the display's microphone array off (code 47). If the microphones stay on, try the Microphone Array (code 51) setting on the device page.
+    send: ":01SG000\r"
+    sets: { mic_array: false }
+
+  remote_key:
+    label: Remote Key
+    help: Presses a key on the display's remote. Freeze, Mute and Screen Shade switch between on and off with each press; the display does not report freeze or screen shade over the network.
+    send: ":01SA{key}\r"
+    params:
+      key:
+        type: enum
+        required: true
+        label: Key
+        values:
+          - { value: volume_up, label: "Volume +" }
+          - { value: volume_down, label: "Volume -" }
+          - { value: up, label: Up }
+          - { value: down, label: Down }
+          - { value: left, label: Left }
+          - { value: right, label: Right }
+          - { value: enter, label: Enter }
+          - { value: menu, label: "Menu / Settings" }
+          - { value: input, label: Input }
+          - { value: back, label: "Back / Exit" }
+          - { value: freeze, label: Freeze }
+          - { value: mute, label: Mute }
+          - { value: home, label: Home }
+          - { value: screen_shade, label: Screen Shade }
+        map:
+          volume_up: "000"
+          volume_down: "001"
+          up: "010"
+          down: "011"
+          left: "012"
+          right: "013"
+          enter: "014"
+          menu: "020"
+          input: "021"
+          back: "022"
+          freeze: "032"
+          mute: "033"
+          home: "034"
+          screen_shade: "100"
+
+  factory_reset:
+    label: Factory Reset
+    help: Resets the display to its factory settings.
+    send: ":01ST001\r"
+    confirm: Erases every setting on the display, its network settings included, and returns it to its factory state. OpenAVC may lose its connection to it.
+
+# Eco mode and Power Save are commands or reads, never settings: a setting
+# queued while the display is offline is sent again on reconnect, and both
+# end network control.
+device_settings:
+  treble:
+    type: integer
+    label: Treble
+    help: Treble, -6 to 6.
+    state_key: treble
+    default: 0
+    setup: false
+    min: -6
+    max: 6
+    write:
+      send: ":01S1{value:+03d}\r"
+  bass:
+    type: integer
+    label: Bass
+    help: Bass, -6 to 6.
+    state_key: bass
+    default: 0
+    setup: false
+    min: -6
+    max: 6
+    write:
+      send: ":01S2{value:+03d}\r"
+  balance:
+    type: integer
+    label: Balance
+    help: Left / right balance of the built-in speakers, -50 (left) to 50 (right).
+    state_key: balance
+    default: 0
+    setup: false
+    min: -50
+    max: 50
+    write:
+      send: ":01S3{value:+03d}\r"
+  contrast:
+    type: integer
+    label: Contrast
+    help: Contrast, 0 to 100.
+    state_key: contrast
+    default: 50
+    setup: false
+    min: 0
+    max: 100
+    write:
+      send: ":01S4{value:03d}\r"
+  backlight:
+    type: integer
+    label: Backlight
+    help: Backlight level, 0 to 100.
+    state_key: backlight
+    default: 100
+    setup: false
+    min: 0
+    max: 100
+    write:
+      send: ":01S?{value:03d}\r"
+  color_temperature:
+    type: enum
+    label: Color Temperature
+    help: Color temperature of the picture.
+    state_key: color_temperature
+    default: neutral
+    setup: false
+    values:
+      - { value: very_cool, label: Very Cool }
+      - { value: cool, label: Cool }
+      - { value: neutral, label: Neutral }
+      - { value: warm, label: Warm }
+      - { value: very_warm, label: Very Warm }
+    map: { cool: "000", neutral: "001", warm: "002", very_cool: "003", very_warm: "004" }
+    write:
+      send: ":01S@{value}\r"
+  language:
+    type: enum
+    label: Language
+    help: The language of the display's menus.
+    state_key: language
+    default: english
+    setup: false
+    values:
+      - { value: english, label: English }
+      - { value: french, label: French }
+      - { value: spanish, label: Spanish }
+      - { value: chinese_simplified, label: Simplified Chinese }
+      - { value: german, label: German }
+      - { value: dutch, label: Dutch }
+      - { value: danish, label: Danish }
+      - { value: italian, label: Italian }
+      - { value: norwegian, label: Norwegian }
+      - { value: finnish, label: Finnish }
+    map:
+      english: "000"
+      french: "001"
+      spanish: "002"
+      chinese_simplified: "004"
+      german: "006"
+      dutch: "007"
+      danish: "011"
+      italian: "013"
+      norwegian: "015"
+      finnish: "016"
+    write:
+      send: ":01S<{value}\r"
+  speaker_output:
+    type: enum
+    label: Speaker Output
+    help: "The built-in speakers: Off, On, or Auto (off while an external audio device is connected), or the subwoofer off or on."
+    state_key: speaker_output
+    default: auto
+    setup: false
+    values:
+      - { value: "off", label: "Off" }
+      - { value: "on", label: "On" }
+      - { value: auto, label: Auto }
+      - { value: subwoofer_off, label: Subwoofer Off }
+      - { value: subwoofer_on, label: Subwoofer On }
+    map: { "off": "000", "on": "001", "auto": "002", "subwoofer_off": "003", "subwoofer_on": "004" }
+    write:
+      send: ":01SC{value}\r"
+  touch:
+    type: boolean
+    label: Touch
+    help: Turns touch input on or off.
+    state_key: touch
+    default: true
+    setup: false
+    map: { "true": "001", "false": "000" }
+    write:
+      send: ":01SD{value}\r"
+  screen_timeout:
+    type: enum
+    label: Screen Timeout
+    help: How long the display waits before turning the screen off.
+    state_key: screen_timeout
+    default: never
+    setup: false
+    values:
+      - { value: never, label: Never }
+      - { value: 1min, label: 1 minute }
+      - { value: 5min, label: 5 minutes }
+      - { value: 10min, label: 10 minutes }
+      - { value: 30min, label: 30 minutes }
+      - { value: 60min, label: 60 minutes }
+      - { value: 90min, label: 90 minutes }
+      - { value: 5h, label: 5 hours }
+      - { value: 10h, label: 10 hours }
+    map: { never: "000", 1min: "001", 5min: "005", 10min: "010", 30min: "030", 60min: "060", 90min: "090", 5h: "300", 10h: "600" }
+    write:
+      send: ":01SF{value}\r"
+  auto_brightness:
+    type: boolean
+    label: Automatic Brightness
+    help: Adjusts the screen brightness to the light in the space.
+    state_key: auto_brightness
+    default: false
+    setup: false
+    map: { "true": "002", "false": "001" }
+    write:
+      send: ":01SR{value}\r"
+  ir_remote:
+    type: boolean
+    label: IR Remote
+    help: Lets the display take commands from its infrared remote.
+    state_key: ir_remote
+    default: true
+    setup: false
+    map: { "true": "000", "false": "001" }
+    write:
+      send: ":01SB{value}\r"
+  mic_array_alt:
+    type: boolean
+    label: Microphone Array (code 51)
+    help: SMART's code list has two microphone-array codes with the same description. The Microphone Array commands use code 47; this setting writes code 51.
+    state_key: mic_array_alt
+    default: true
+    setup: false
+    map: { "true": "001", "false": "000" }
+    write:
+      send: ":01SQ{value}\r"
+
+quick_actions: [power_on, power_off, mute_on, mute_off]
+
+# Each reply names the code it answers. First match wins.
+responses:
+  - match: '^:01r0(00[012])$'
+    mappings:
+      - { group: 1, state: power, map: { "000": ready, "001": "on", "002": powersave } }
+  - match: '^:01r:(001|002|021|103|104|105)$'
+    mappings:
+      - { group: 1, state: input, map: { "001": hdmi1, "002": hdmi2, "021": hdmi3, "103": ops1, "104": usbc1, "105": usbc2 } }
+  - match: '^:01r8(\d{3})$'
+    set: { volume: "$1" }
+  - match: '^:01r9(00[01])$'
+    mappings:
+      - { group: 1, state: mute, map: { "001": "true", "000": "false" } }
+  - match: '^:01rG(00[01])$'
+    mappings:
+      - { group: 1, state: mic_array, map: { "001": "true", "000": "false" } }
+  - match: '^:01rQ(00[01])$'
+    mappings:
+      - { group: 1, state: mic_array_alt, map: { "001": "true", "000": "false" } }
+  # Treble, bass and balance: a sign and two digits; a plain three-digit zero
+  # is read too.
+  - match: '^:01r1([+-]\d{2}|\d{3})$'
+    set: { treble: "$1" }
+  - match: '^:01r2([+-]\d{2}|\d{3})$'
+    set: { bass: "$1" }
+  - match: '^:01r3([+-]\d{2}|\d{3})$'
+    set: { balance: "$1" }
+  - match: '^:01r4(\d{3})$'
+    set: { contrast: "$1" }
+  - match: '^:01r\?(\d{3})$'
+    set: { backlight: "$1" }
+  - match: '^:01r@(00[0-4])$'
+    mappings:
+      - { group: 1, state: color_temperature, map: { "000": cool, "001": neutral, "002": warm, "003": very_cool, "004": very_warm } }
+  - match: '^:01r<(\d{3})$'
+    mappings:
+      - group: 1
+        state: language
+        map:
+          "000": english
+          "001": french
+          "002": spanish
+          "004": chinese_simplified
+          "006": german
+          "007": dutch
+          "011": danish
+          "013": italian
+          "015": norwegian
+          "016": finnish
+  - match: '^:01rC(00[0-4])$'
+    mappings:
+      - { group: 1, state: speaker_output, map: { "000": "off", "001": "on", "002": auto, "003": subwoofer_off, "004": subwoofer_on } }
+  - match: '^:01rD(00[01])$'
+    mappings:
+      - { group: 1, state: touch, map: { "001": "true", "000": "false" } }
+  - match: '^:01rF(000|001|005|010|030|060|090|300|600)$'
+    mappings:
+      - group: 1
+        state: screen_timeout
+        map: { "000": never, "001": 1min, "005": 5min, "010": 10min, "030": 30min, "060": 60min, "090": 90min, "300": 5h, "600": 10h }
+  - match: '^:01rR(00[12])$'
+    mappings:
+      - { group: 1, state: auto_brightness, map: { "002": "true", "001": "false" } }
+  # IR is inverted: 000 = enabled.
+  - match: '^:01rB(00[01])$'
+    mappings:
+      - { group: 1, state: ir_remote, map: { "000": "true", "001": "false" } }
+  - match: '^:01rS(00[12])$'
+    mappings:
+      - { group: 1, state: eco_mode, map: { "002": "true", "001": "false" } }
+  # A set's acknowledgement. Its refusal names neither the code nor the value.
+  - match: '^401\+$'
+    set: {}
+  - match: '^401-$'
+    set: { last_error: "The display refused a command or a read: a value it does not take, or a setting this model does not have." }
+
+# Every get the code list documents, the controls first. One frame at a time,
+# inter_command_delay apart: 19 frames, about 4 s at the default 0.2 s.
+polling:
+  queries:
+    - { send: ":01G0000\r", query_for: power }
+    - { send: ":01G:000\r", query_for: input }
+    - { send: ":01G8000\r", query_for: volume }
+    - { send: ":01G9000\r", query_for: mute }
+    - { send: ":01GG000\r", query_for: mic_array }
+    - { send: ":01GQ000\r", query_for: mic_array_alt }
+    - { send: ":01G1000\r", query_for: treble }
+    - { send: ":01G2000\r", query_for: bass }
+    - { send: ":01G3000\r", query_for: balance }
+    - { send: ":01G4000\r", query_for: contrast }
+    - { send: ":01G?000\r", query_for: backlight }
+    - { send: ":01G@000\r", query_for: color_temperature }
+    - { send: ":01G<000\r", query_for: language }
+    - { send: ":01GC000\r", query_for: speaker_output }
+    - { send: ":01GD000\r", query_for: touch }
+    - { send: ":01GF000\r", query_for: screen_timeout }
+    - { send: ":01GR000\r", query_for: auto_brightness }
+    - { send: ":01GB000\r", query_for: ir_remote }
+    - { send: ":01GS000\r", query_for: eco_mode }
+
+discovery:
+  # The documented power get on the protocol's own port: ":01r0" and three
+  # digits is this protocol's reply. A display in Power Save answers nothing
+  # and is not found.
+  tcp_probe:
+    port: 4664
+    send_ascii: ":01G0000\r"
+    expect_regex: '^:01r0[0-9]{3}'
+
+# ── Simulator ──
+# Models a T Pro: "401+" for an accepted set, "401-" for a frame out of
+# format or a level out of range, an enum code the display does not know
+# accepted and ignored (SMART: "Unsupported values may return a Success
+# response, but do not result in an actual change in state"), Power On
+# answered and ignored unless the display is in Ready, nothing at all answered
+# in Power Save, and a change of Eco mode answered and then the network gone
+# (the Ethernet toggle in the Simulator UI brings it back). Changes made in
+# the Simulator UI are not announced; the driver reads them at its next poll,
+# as with the display's own buttons.
+simulator:
+  # The display answers inside the gap the driver leaves between frames
+  # (SMART asks for each reply before the next frame).
+  delays:
+    command_response: 0.05
+  initial_state:
+    power: "on"
+    input: hdmi1
+    volume: 15
+    mute: false
+    mic_array: true
+    mic_array_alt: true
+    treble: 0
+    bass: 0
+    balance: 0
+    contrast: 50
+    backlight: 80
+    color_temperature: neutral
+    language: english
+    speaker_output: auto
+    touch: true
+    screen_timeout: never
+    auto_brightness: false
+    ir_remote: true
+    eco_mode: false
+    ethernet: true
+  controls:
+    - type: select
+      key: power
+      label: Power
+      options: ["on", ready, powersave]
+    - type: select
+      key: input
+      label: Input
+      options: [hdmi1, hdmi2, hdmi3, ops1, usbc1, usbc2]
+    - type: slider
+      key: volume
+      label: Volume
+      min: 0
+      max: 30
+    - type: toggle
+      key: mute
+      label: Mute
+    - type: toggle
+      key: mic_array
+      label: Microphone Array
+    - type: slider
+      key: backlight
+      label: Backlight
+      min: 0
+      max: 100
+    - type: toggle
+      key: ethernet
+      label: Ethernet
+  command_handlers:
+    # One dispatcher for the whole protocol, because the power state and the
+    # Ethernet setting decide whether anything is answered at all.
+    - match: ':01[SG].*'
+      handler: |
+        def _run():
+            text = match.group(0).strip()
+            if not bool(state["ethernet"]) or str(state["power"]) == "powersave":
+                return
+            m = re.match(r"^:01([SG])(.)(.{3})$", text)
+            if not m:
+                respond("401-\r")
+                return
+            op, code, value = m.group(1), m.group(2), m.group(3)
+
+            LEVELS = {"4": ("contrast", 0, 100), "8": ("volume", 0, 30), "?": ("backlight", 0, 100)}
+            SIGNED = {"1": ("treble", 6), "2": ("bass", 6), "3": ("balance", 50)}
+            ENUMS = {
+                "9": ("mute", {"000": False, "001": True}),
+                ":": ("input", {"001": "hdmi1", "002": "hdmi2", "021": "hdmi3",
+                                "103": "ops1", "104": "usbc1", "105": "usbc2"}),
+                "<": ("language", {"000": "english", "001": "french", "002": "spanish",
+                                   "004": "chinese_simplified", "006": "german", "007": "dutch",
+                                   "011": "danish", "013": "italian", "015": "norwegian",
+                                   "016": "finnish"}),
+                "@": ("color_temperature", {"000": "cool", "001": "neutral", "002": "warm",
+                                            "003": "very_cool", "004": "very_warm"}),
+                "B": ("ir_remote", {"000": True, "001": False}),
+                "C": ("speaker_output", {"000": "off", "001": "on", "002": "auto",
+                                         "003": "subwoofer_off", "004": "subwoofer_on"}),
+                "D": ("touch", {"000": False, "001": True}),
+                "F": ("screen_timeout", {"000": "never", "001": "1min", "005": "5min",
+                                         "010": "10min", "030": "30min", "060": "60min",
+                                         "090": "90min", "300": "5h", "600": "10h"}),
+                "G": ("mic_array", {"000": False, "001": True}),
+                "Q": ("mic_array_alt", {"000": False, "001": True}),
+                "R": ("auto_brightness", {"001": False, "002": True}),
+                "S": ("eco_mode", {"001": False, "002": True}),
+            }
+            POWER = {"000": "ready", "001": "on", "002": "powersave"}
+
+            def wire(table, current):
+                for k in table:
+                    if table[k] == current:
+                        return k
+                return "000"
+
+            if op == "G":
+                if value != "000":
+                    respond("401-\r")
+                elif code == "0":
+                    respond(":01r0" + wire(POWER, str(state["power"])) + "\r")
+                elif code in LEVELS:
+                    respond(":01r" + code + format(int(state[LEVELS[code][0]]), "03d") + "\r")
+                elif code in SIGNED:
+                    respond(":01r" + code + format(int(state[SIGNED[code][0]]), "+03d") + "\r")
+                elif code in ENUMS:
+                    key, table = ENUMS[code]
+                    current = state[key]
+                    if isinstance(current, bool):
+                        current = bool(current)
+                    else:
+                        current = str(current)
+                    respond(":01r" + code + wire(table, current) + "\r")
+                else:
+                    respond("401-\r")
+                return
+
+            # set
+            if code == "0":
+                if value not in POWER:
+                    respond("401+\r")
+                    return
+                target = POWER[value]
+                # Transition to ON only works while in READY.
+                if target != "on" or str(state["power"]) == "ready":
+                    state["power"] = target
+                respond("401+\r")
+            elif code in LEVELS:
+                key, low, high = LEVELS[code]
+                if not value.isdigit() or int(value) < low or int(value) > high:
+                    respond("401-\r")
+                    return
+                state[key] = int(value)
+                respond("401+\r")
+            elif code in SIGNED:
+                key, limit = SIGNED[code]
+                sm = re.match(r"^([+-])(\d\d)$", value)
+                if not sm or int(sm.group(2)) > limit:
+                    respond("401-\r")
+                    return
+                level = int(sm.group(2))
+                state[key] = -level if sm.group(1) == "-" else level
+                respond("401+\r")
+            elif code in ENUMS:
+                key, table = ENUMS[code]
+                if not value.isdigit():
+                    respond("401-\r")
+                    return
+                if value in table:
+                    if code == "S" and table[value] != bool(state["eco_mode"]):
+                        state["eco_mode"] = table[value]
+                        respond("401+\r")
+                        # Changing Eco mode turns the display's Ethernet off.
+                        state["ethernet"] = False
+                        return
+                    state[key] = table[value]
+                respond("401+\r")
+            elif code == "A":
+                if not value.isdigit():
+                    respond("401-\r")
+                    return
+                if value == "000":
+                    state["volume"] = min(30, int(state["volume"]) + 1)
+                elif value == "001":
+                    state["volume"] = max(0, int(state["volume"]) - 1)
+                elif value == "033":
+                    state["mute"] = not bool(state["mute"])
+                respond("401+\r")
+            elif code == "T":
+                respond("401+\r")
+            else:
+                respond("401-\r")
+        _run()
+    # Anything outside the frame format.
+    - match: '.+'
+      handler: |
+        if bool(state["ethernet"]) and str(state["power"]) != "powersave":
+            respond("401-\r")

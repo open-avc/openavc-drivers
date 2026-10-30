@@ -300,6 +300,25 @@ In a Python simulator, the same mapping goes in `SIMULATOR_INFO["capacity"]`.
 
 Capacity is off until **Limit what this device can take in** is ticked under Capacity on the device's card in the Simulator UI, so declaring it changes nothing in an ordinary simulator run. Switched on, a driver that sends a burst faster than the device can take it loses part of it, the way it does on the device. A driver that declares nothing gets the simulator's own numbers, which are not any device's. A message is what the simulator reads as one: a line, a frame ending in its `delimiter`, or one `send_frame` packet. HTTP, MQTT and WebSocket devices have no Capacity setting; every other device does. In a YAML driver it raises the driver's `min_platform_version` to 0.37.0 when the catalog is built.
 
+### One Connection at a Time
+
+Many displays and projectors serve one TCP control connection and no more. What such a device does when a second connection arrives decides whether anything else that connects to it (a scan, a connection test, a second controller) takes it from the controller. Declare what the device was seen to do:
+
+```yaml
+simulator:
+  single_client: newest   # or oldest, or reject
+```
+
+In a Python simulator, the same value goes in `SIMULATOR_INFO["single_client"]`.
+
+| Value | When another connection arrives |
+|-------|---------------------------------|
+| `newest` | The new connection takes over. The one already open gets no more answers and is not closed, so its controller hears nothing until it notices the silence and reconnects. |
+| `oldest` | The connection already open keeps the device. The new one stays open and gets no answers, not even a greeting. |
+| `reject` | The new connection is closed as soon as it opens. |
+
+The simulated device behaves this way from the start, and **Connections** on its card in the Simulator UI changes it per device. A connection that stops getting answers gets none until it reconnects. Leave it out for a device that answers every connection. It applies to TCP devices only, and it does not raise the driver's `min_platform_version`: OpenAVC 0.38.0 and later act on it, and an older release ignores it.
+
 ### Complete Example
 
 Here's a full `simulator:` section for an Extron SIS switcher:

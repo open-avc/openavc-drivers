@@ -1,0 +1,631 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-avc/openavc-drivers/main/avcdriver.schema.json
+#
+# SMART Board RX and MX interactive displays (RS-232 room control)
+# Reference: SMART's per-model "Managing the display using RS-232" pages on
+#            support.smarttech.com, and Appendix A of the installation and
+#            maintenance guides: SMART Board RX series (docs.smarttech.com/kb/
+#            171958, January 2026) and MX (V5) / MX (V5) Pro (kb/171897,
+#            January 2026). The MX page carries the MX (V2) to (V5) tables
+#            behind a series selector; the RX page is built from the MX (V5)
+#            text, and its tables are the same apart from the room commands.
+# Protocol: ASCII over RS-232, 19200 8N1, no login. A command is
+#           "get <setting>" or "set <setting>=<value>" (or +N / -N for a
+#           level) ended with CR. Commands are not case-sensitive and extra
+#           spacing is ignored. Every reply line is "<setting>=<value>"
+#           wrapped in CR LF, followed by the ">" prompt with no line ending,
+#           so the prompt reaches the driver as a line of its own in front of
+#           the next reply. A word the display does not take is answered
+#           "invalid cmd: <the command>".
+# Push: the display sends "#<setting>=<value>" (no prompt after it) when its
+#       convenience panel, Settings app or remote changes power, input,
+#       brightness, freeze, screen shade, volume or mute, and when its power
+#       state changes. Mic mute is not announced, so the poll reads it.
+#       "statereporting" is listed on the RX page with no description; the
+#       driver turns it on at connect as the switch for these messages, and
+#       a model that lacks it answers invalid cmd once. Hybrid: the messages
+#       above, plus a 15-second poll.
+# Standby: SMART says any RS-232 command wakes an RX or MX (V5) from standby
+#          ("Send a command through the RS232 interface" also turns a
+#          display on, per its Energy saving modes page). So the poll and the
+#          start-up reads run only while the display reports on (polling
+#          .when_state); a reconnect while it reads anything else sends
+#          nothing. After a server restart nothing has been reported, so the
+#          first connect reads the display, which wakes one left in standby.
+#          In off the display answers nothing until its Power button is
+#          pressed.
+# Families: one RS-232 grammar runs through every SMART Board, but the words
+#           differ by family, and no Power Off works on all of them. This
+#           driver is the RX / MX dialect (power on / standby / off, inputs
+#           vga1 / ops1 / usbc1 / usbc2 / android). The GX, GX Zero and NX
+#           take ready / powersave and vga / ops / dp, the T Pro has its own
+#           volume range and a LAN protocol on port 4664, and the MX (V1)
+#           speaks an older dialect (OPS / OPSCC / VGA, on / ready): none of
+#           those is covered here.
+#
+# Why YAML: plain text get / set lines, one reply line per command, and the
+# display's own change messages in the same form on the same line, which
+# ConfigurableDriver reads with one rule per setting.
+#
+# Not verified on hardware (no SMART Board on the bench). Unverified from the
+# documents alone: whether "statereporting" is what turns the change messages
+# on, whether a "get" wakes a display in standby as a "set" does, what the
+# display answers to "set powerstate=off" before it goes quiet, and how long
+# it needs between commands (SMART asks only that each reply and prompt
+# arrive before the next command).
+
+id: smart_board_rx_mx
+name: SMART Board RX / MX
+manufacturer: SMART Technologies
+category: display
+version: 1.0.0
+author: OpenAVC
+description: >-
+  SMART Board RX and MX (V2 to V5) interactive displays over RS-232: power,
+  input, volume and mute, brightness, freeze, screen shade and microphone
+  mute, with the display's own reports of changes made at the display.
+source_url: https://support.smarttech.com/docs/hardware/displays/smart-board-rx/en/managing-using-rs-232/default.cshtml
+tags: [display, smart, smart-board, interactive-display, interactive-flat-panel, education, rs232]
+verified: false
+simulated: true
+ports: []
+min_platform_version: "0.37.0"
+compatible_models:
+  - manufacturer: SMART Technologies
+    models: [SBID-RX065, SBID-RX075, SBID-RX086]
+    confidence: untested
+    notes: SMART Board RX series. Every command in this driver, including State Reporting and Factory Reset.
+  - manufacturer: SMART Technologies
+    models: [SBID-MX055-V5, SBID-MX065-V5, SBID-MX075-V5, SBID-MX086-V5]
+    confidence: untested
+    notes: SMART Board MX (V5) and MX (V5) Pro. The same commands as the RX except State Reporting and Factory Reset, which its page does not list.
+  - manufacturer: SMART Technologies
+    models: [SBID-MX055-V4, SBID-MX065-V4, SBID-MX075-V4, SBID-MX086-V4, SBID-MX055-V3, SBID-MX065-V3, SBID-MX075-V3, SBID-MX086-V3, SBID-MX055-V2, SBID-MX065-V2, SBID-MX075-V2, SBID-MX086-V2]
+    confidence: untested
+    notes: >-
+      SMART Board MX (V2) to (V4) and their Pro models (discontinued). No HDMI 4, and the MX (V2) has
+      one USB-C input; Turn Off is not available. They also take Screen Off (Ready) and Power Save, and
+      report Updating while a software update runs. SMART asks for 30 seconds between power changes and
+      the next command on iQ 3.11 or earlier.
+protocols: [smart_board_rs232]
+transport: serial
+delimiter: "\r\n"
+
+help:
+  overview: >-
+    SMART Board RX and MX interactive displays over the RS-232 port: power,
+    input, volume, mute, brightness, freeze, screen shade and the
+    microphone mute. Changes made with the display's buttons, Settings app or
+    remote reach OpenAVC as soon as they happen; everything is also read every
+    15 seconds while the display is on. Nothing is sent to the display while
+    it reports Standby or Off, because any command would wake it.
+  setup: >-
+    1. Connect the display's RS-232 In port with a standard (straight-through)
+       RS-232 cable, not a null-modem cable, to a serial port on this computer
+       or to a serial bridge (choose "Through a bridge" and pick the bridge's
+       port).
+    2. The settings are 19200 baud, 8 data bits, no parity, 1 stop bit. Through
+       a bridge they are applied to the bridge's port for you.
+    3. No login. The display has no network control: RS-232 is the only way
+       in.
+  connection: >-
+    The display answers only while it is on or in Standby, and a command sent
+    in Standby turns it on. After Turn Off it answers nothing until someone
+    presses its Power button. Through a serial bridge, a display that stops
+    answering while it reads On shows offline after three polls; on a direct
+    serial port it stays connected.
+
+default_config:
+  baudrate: 19200
+  bytesize: 8
+  parity: "N"
+  stopbits: 1
+  poll_interval: 15
+  inter_command_delay: 0.25
+
+config_schema:
+  baudrate:
+    type: integer
+    default: 19200
+    label: Baud Rate
+    description: 19200 on the RX and MX.
+  poll_interval:
+    type: integer
+    default: 15
+    min: 0
+    label: Poll Interval (sec)
+    description: How often to read the display's settings while it is on. 0 turns polling off; changes made at the display still arrive.
+  inter_command_delay:
+    type: number
+    default: 0.25
+    min: 0
+    label: Inter-Command Delay (sec)
+    description: Gap between commands. SMART asks for each reply before the next command is sent; raise this if the display misses commands.
+
+state_variables:
+  power:
+    type: enum
+    values: ["on", standby, "off", ready, powersave, updateon, updateready]
+    label: Power
+    control: true
+    help: "on = picture up. standby = screen off, and any command turns it on. off = screen off, and only the display's Power button turns it on. The MX (V2) to (V4) also report ready, powersave, and updateon / updateready while software updates. The poll runs only while this reads on or updateon."
+  input:
+    type: enum
+    values: [hdmi1, hdmi2, hdmi3, hdmi4, vga1, ops1, usbc1, usbc2, android]
+    label: Input
+    control: true
+    help: "The active input: hdmi1 to hdmi4, vga1, ops1 (the slot-in PC), usbc1, usbc2, or android (the display's own iQ screen)."
+  volume:
+    type: integer
+    label: Volume
+    min: 0
+    max: 100
+    step: 1
+    control: true
+  mute:
+    type: boolean
+    label: Mute
+    control: true
+    help: The speakers are muted.
+  brightness:
+    type: integer
+    label: Brightness
+    min: 0
+    max: 100
+    step: 1
+  video_freeze:
+    type: boolean
+    label: Freeze
+    control: true
+    help: The picture is frozen.
+  screen_shade:
+    type: boolean
+    label: Screen Shade
+    control: true
+    help: The screen shade is covering the picture.
+  mic_mute:
+    type: boolean
+    label: Microphone Mute
+    control: true
+    help: The display's microphone array is muted. Read by the poll only; the display does not report it when it changes.
+  state_reporting:
+    type: boolean
+    label: State Reporting
+    help: The display's State Reporting setting, which OpenAVC turns on when it connects (RX).
+  model:
+    type: string
+    label: Model
+  serial_number:
+    type: string
+    label: Serial Number
+  firmware:
+    type: string
+    label: Firmware
+  part_number:
+    type: string
+    label: Part Number
+  last_error:
+    type: string
+    label: Last Error
+    help: "The display's own words for the last command it did not take, such as \"invalid cmd: setinput=hdmi4\" on a model without that input."
+
+commands:
+  # Power. Every reply carries the new state, so no read-back get follows.
+  power_on:
+    label: Power On
+    help: Turns the display on from Standby (or from Screen Off and Power Save on the MX (V2) to (V4)). After Turn Off, only the display's Power button turns it on.
+    send: "set powerstate=on\r"
+    sets: { power: "on" }
+  power_off:
+    label: Power Off (Standby)
+    help: Turns the screen off and puts the display in Standby. Polling pauses until it is on again; any command sent to it, Power On or another, turns it back on.
+    send: "set powerstate=standby\r"
+    sets: { power: standby }
+  turn_off:
+    label: Turn Off
+    help: Turns the display off (RX and MX (V5)). It then answers nothing, and only its Power button turns it on again.
+    send: "set powerstate=off\r"
+    sets: { power: "off" }
+    confirm: The display can be turned on again only with its own Power button or remote. OpenAVC cannot turn it back on.
+  power_ready:
+    label: Screen Off (Ready)
+    help: Turns the screen off and leaves the display ready to come on (MX (V2) to (V4) only). Polling pauses until it is on again.
+    send: "set powerstate=ready\r"
+    sets: { power: ready }
+  power_save:
+    label: Power Save
+    help: Puts the display in its lowest-power state (MX (V2) to (V4) only). Polling pauses until it is on again.
+    send: "set powerstate=powersave\r"
+    sets: { power: powersave }
+
+  set_input:
+    label: Select Input
+    help: Selects an input. The display refuses an input the model does not have (HDMI 4 is on the RX and MX (V5) only).
+    send: "set input={input}\r"
+    sets: { input: "{input}" }
+    params:
+      input:
+        type: enum
+        required: true
+        label: Input
+        values:
+          - { value: hdmi1, label: "HDMI 1" }
+          - { value: hdmi2, label: "HDMI 2" }
+          - { value: hdmi3, label: "HDMI 3" }
+          - { value: hdmi4, label: "HDMI 4" }
+          - { value: vga1, label: "VGA" }
+          - { value: ops1, label: "Slot-in PC (OPS)" }
+          - { value: usbc1, label: "USB-C 1" }
+          - { value: usbc2, label: "USB-C 2" }
+          - { value: android, label: "iQ (the display's own screen)" }
+
+  set_volume:
+    label: Set Volume
+    help: Sets the speaker volume.
+    send: "set volume={level}\r"
+    sets: { volume: "{level}" }
+    params:
+      level:
+        type: integer
+        required: true
+        label: Volume
+        min: 0
+        max: 100
+  volume_up:
+    label: Volume Up
+    help: Raises the volume by the step given.
+    send: "set volume+{step}\r"
+    params:
+      step:
+        type: integer
+        required: true
+        label: Step
+        default: 1
+        min: 1
+        max: 100
+  volume_down:
+    label: Volume Down
+    help: Lowers the volume by the step given.
+    send: "set volume-{step}\r"
+    params:
+      step:
+        type: integer
+        required: true
+        label: Step
+        default: 1
+        min: 1
+        max: 100
+  mute_on:
+    label: Mute On
+    help: Mutes the speakers.
+    send: "set mute=on\r"
+    sets: { mute: true }
+  mute_off:
+    label: Mute Off
+    help: Unmutes the speakers.
+    send: "set mute=off\r"
+    sets: { mute: false }
+
+  set_brightness:
+    label: Set Brightness
+    help: Sets the screen brightness.
+    send: "set brightness={level}\r"
+    sets: { brightness: "{level}" }
+    params:
+      level:
+        type: integer
+        required: true
+        label: Brightness
+        min: 0
+        max: 100
+  brightness_up:
+    label: Brightness Up
+    help: Raises the brightness by the step given.
+    send: "set brightness+{step}\r"
+    params:
+      step:
+        type: integer
+        required: true
+        label: Step
+        default: 5
+        min: 1
+        max: 100
+  brightness_down:
+    label: Brightness Down
+    help: Lowers the brightness by the step given.
+    send: "set brightness-{step}\r"
+    params:
+      step:
+        type: integer
+        required: true
+        label: Step
+        default: 5
+        min: 1
+        max: 100
+
+  freeze_on:
+    label: Freeze On
+    help: Freezes the picture on screen.
+    send: "set videofreeze=on\r"
+    sets: { video_freeze: true }
+  freeze_off:
+    label: Freeze Off
+    help: Unfreezes the picture.
+    send: "set videofreeze=off\r"
+    sets: { video_freeze: false }
+  screen_shade_on:
+    label: Screen Shade On
+    help: Covers the picture with the screen shade.
+    send: "set screenshade=on\r"
+    sets: { screen_shade: true }
+  screen_shade_off:
+    label: Screen Shade Off
+    help: Removes the screen shade.
+    send: "set screenshade=off\r"
+    sets: { screen_shade: false }
+  mic_mute_on:
+    label: Microphone Mute On
+    help: Mutes the display's microphone array.
+    send: "set micmute=on\r"
+    sets: { mic_mute: true }
+  mic_mute_off:
+    label: Microphone Mute Off
+    help: Unmutes the display's microphone array.
+    send: "set micmute=off\r"
+    sets: { mic_mute: false }
+
+  factory_reset:
+    label: Factory Reset
+    help: Resets the display to its factory settings (RX). The display takes the command only with its own serial number, which the device page shows under Serial Number.
+    send: "set factoryreset={serial_number}\r"
+    confirm: Erases every setting on the display and returns it to its factory state.
+    params:
+      serial_number:
+        type: string
+        required: true
+        label: Serial Number
+        help: The display's serial number, exactly as the device page shows it.
+
+device_settings:
+  brightness:
+    type: integer
+    label: Brightness
+    help: Screen brightness, 0 to 100.
+    state_key: brightness
+    default: 100
+    setup: false
+    min: 0
+    max: 100
+    write:
+      send: "set brightness={value}\r"
+
+quick_actions: [power_on, power_off, mute_on, mute_off]
+
+# Every reply may follow the ">" prompt and a change message starts with
+# "#", so each rule allows both in front. First match wins.
+responses:
+  # The prompt on a line of its own: it carries nothing to read.
+  - match: '^>\s*$'
+    set: {}
+  - match: '(?i:^>?\s*#?\s*powerstate\s*=\s*([a-z]+)\s*$)'
+    set: { power: "$1" }
+  - match: '(?i:^>?\s*#?\s*input\s*=\s*([a-z0-9]+)\s*$)'
+    set: { input: "$1" }
+  - match: '(?i:^>?\s*#?\s*volume\s*=\s*(\d+)\s*$)'
+    set: { volume: "$1" }
+  - match: '(?i:^>?\s*#?\s*mute\s*=\s*(on|off)\s*$)'
+    mappings:
+      - { group: 1, state: mute, map: { "on": true, "off": false, "ON": true, "OFF": false } }
+  - match: '(?i:^>?\s*#?\s*brightness\s*=\s*(\d+)\s*$)'
+    set: { brightness: "$1" }
+  - match: '(?i:^>?\s*#?\s*videofreeze\s*=\s*(on|off)\s*$)'
+    mappings:
+      - { group: 1, state: video_freeze, map: { "on": true, "off": false, "ON": true, "OFF": false } }
+  - match: '(?i:^>?\s*#?\s*screenshade\s*=\s*(on|off)\s*$)'
+    mappings:
+      - { group: 1, state: screen_shade, map: { "on": true, "off": false, "ON": true, "OFF": false } }
+  - match: '(?i:^>?\s*#?\s*micmute\s*=\s*(on|off)\s*$)'
+    mappings:
+      - { group: 1, state: mic_mute, map: { "on": true, "off": false, "ON": true, "OFF": false } }
+  - match: '(?i:^>?\s*#?\s*statereporting\s*=\s*(on|off)\s*$)'
+    mappings:
+      - { group: 1, state: state_reporting, map: { "on": true, "off": false, "ON": true, "OFF": false } }
+  - match: '(?i:^>?\s*modelnum\s*=\s*(\S.*?)\s*$)'
+    set: { model: "$1" }
+  - match: '(?i:^>?\s*serialnum\s*=\s*(\S.*?)\s*$)'
+    set: { serial_number: "$1" }
+  - match: '(?i:^>?\s*fwversion\s*=\s*(\S.*?)\s*$)'
+    set: { firmware: "$1" }
+  - match: '(?i:^>?\s*partnum\s*=\s*(\S.*?)\s*$)'
+    set: { part_number: "$1" }
+  # Factory Reset's answer repeats the serial number; nothing to keep.
+  - match: '(?i:^>?\s*factoryreset\s*=.*$)'
+    set: {}
+  - match: '(?i:^>?\s*(invalid cmd\b.*?)\s*$)'
+    set: { last_error: "$1" }
+
+# The CR first is SMART's own way to bring up a fresh prompt; it also ends any
+# half-typed line left in the display's input. Every step waits for the
+# display to read on, like the poll, so a reconnect in standby sends nothing.
+on_connect:
+  - { send: "\r", when_state: { power: ["on", updateon] } }
+  - { send: "set statereporting=on\r", when_state: { power: ["on", updateon] } }
+  - { send: "get modelnum\r", query_for: model, when_state: { power: ["on", updateon] } }
+  - { send: "get serialnum\r", query_for: serial_number, when_state: { power: ["on", updateon] } }
+  - { send: "get fwversion\r", query_for: firmware, when_state: { power: ["on", updateon] } }
+  - { send: "get partnum\r", query_for: part_number, when_state: { power: ["on", updateon] } }
+
+polling:
+  # Any command wakes an RX or MX (V5) from standby, so the poll runs only
+  # while the display reports on; the "#powerstate=" message or Power On's
+  # answer sets it going again.
+  when_state: { power: ["on", updateon] }
+  queries:
+    - { send: "get powerstate\r", query_for: power }
+    - { send: "get input\r", query_for: input }
+    - { send: "get volume\r", query_for: volume }
+    - { send: "get mute\r", query_for: mute }
+    - { send: "get brightness\r", query_for: brightness }
+    - { send: "get videofreeze\r", query_for: video_freeze }
+    - { send: "get screenshade\r", query_for: screen_shade }
+    - { send: "get micmute\r", query_for: mic_mute }
+
+# ── Simulator ──
+# Models an RX: every reply wrapped in CR LF and followed by the ">" prompt,
+# invalid cmd for a word it does not take, any command in standby turning it
+# on first (with the "#powerstate=on" message), and nothing at all answered in
+# off. Changes made in the Simulator UI arrive as "#" messages like the
+# display's own buttons. Gaps: a bare CR is not answered (the simulator drops
+# empty lines), and a change made by a command is announced as well as
+# answered, which the display's documents describe only for its own buttons.
+simulator:
+  # The display answers inside the gap the driver leaves between commands
+  # (SMART asks for each reply before the next command). Left unset, the
+  # simulator would answer at the end of that gap, the moment the next poll
+  # line is weighed against the power state.
+  delays:
+    command_response: 0.05
+  initial_state:
+    power: "on"
+    input: hdmi1
+    volume: 30
+    mute: false
+    brightness: 80
+    video_freeze: false
+    screen_shade: false
+    mic_mute: false
+    state_reporting: false
+    model: SBID-RX075
+    serial_number: RX75SIM0001
+    firmware: "4.2.1"
+    part_number: 1033811-A
+  controls:
+    - type: select
+      key: power
+      label: Power
+      options: ["on", standby, "off"]
+    - type: select
+      key: input
+      label: Input
+      options: [hdmi1, hdmi2, hdmi3, hdmi4, vga1, ops1, usbc1, usbc2, android]
+    - type: slider
+      key: volume
+      label: Volume
+      min: 0
+      max: 100
+    - type: toggle
+      key: mute
+      label: Mute
+    - type: slider
+      key: brightness
+      label: Brightness
+      min: 0
+      max: 100
+    - type: toggle
+      key: video_freeze
+      label: Freeze
+    - type: toggle
+      key: screen_shade
+      label: Screen Shade
+    - type: toggle
+      key: mic_mute
+      label: Microphone Mute
+  # The display's change messages. Mic mute and State Reporting are not
+  # announced by the display, so they have none.
+  notifications:
+    power:
+      "*": "\r\n#powerstate={value}"
+    input:
+      "*": "\r\n#input={value}"
+    volume:
+      "*": "\r\n#volume={value}"
+    brightness:
+      "*": "\r\n#brightness={value}"
+    mute:
+      "true": "\r\n#mute=on"
+      "false": "\r\n#mute=off"
+    video_freeze:
+      "true": "\r\n#videofreeze=on"
+      "false": "\r\n#videofreeze=off"
+    screen_shade:
+      "true": "\r\n#screenshade=on"
+      "false": "\r\n#screenshade=off"
+  command_handlers:
+    # One dispatcher for the whole grammar, because the power state decides
+    # whether anything is answered at all.
+    - match: '(?i:\s*(get|set)\s*[a-z]+.*)'
+      handler: |
+        def _run():
+            text = match.group(0)
+            squeezed = re.sub(r"\s+", "", text).lower()
+            m = re.match(r"^(get|set)([a-z]+?)(?:([=+-])(.*))?$", squeezed)
+
+            def say(body):
+                respond("\r\n" + body + "\r\n>")
+
+            def word(flag):
+                return "on" if flag else "off"
+
+            power = str(state["power"])
+            if power == "off":
+                return
+            if power == "standby":
+                state["power"] = "on"
+            if not m:
+                say("invalid cmd: " + squeezed)
+                return
+            verb, name, op, value = m.group(1), m.group(2), m.group(3), m.group(4) or ""
+
+            BOOLS = {"mute": "mute", "videofreeze": "video_freeze",
+                     "screenshade": "screen_shade", "micmute": "mic_mute",
+                     "statereporting": "state_reporting"}
+            LEVELS = {"volume": "volume", "brightness": "brightness"}
+            READS = {"modelnum": "model", "serialnum": "serial_number",
+                     "fwversion": "firmware", "partnum": "part_number"}
+            INPUTS = ("hdmi1", "hdmi2", "hdmi3", "hdmi4", "vga1", "ops1",
+                      "usbc1", "usbc2", "android")
+
+            if verb == "get":
+                if op:
+                    say("invalid cmd: " + squeezed)
+                elif name == "powerstate":
+                    say("powerstate=" + str(state["power"]))
+                elif name == "input":
+                    say("input=" + str(state["input"]))
+                elif name in LEVELS:
+                    say(name + "=" + str(int(state[LEVELS[name]])))
+                elif name in BOOLS:
+                    say(name + "=" + word(state[BOOLS[name]]))
+                elif name in READS:
+                    say(name + "=" + str(state[READS[name]]))
+                else:
+                    say("invalid cmd: " + squeezed)
+                return
+
+            # set
+            if name == "powerstate" and op == "=" and value in ("on", "standby", "off"):
+                state["power"] = value
+                say("powerstate=" + value)
+            elif name == "input" and op == "=" and value in INPUTS:
+                state["input"] = value
+                say("input=" + value)
+            elif name in LEVELS and op == "=" and value.isdigit() and int(value) <= 100:
+                state[LEVELS[name]] = int(value)
+                say(name + "=" + value)
+            elif name in LEVELS and op in ("+", "-") and value.isdigit():
+                step = int(value) if op == "+" else -int(value)
+                level = max(0, min(100, int(state[LEVELS[name]]) + step))
+                state[LEVELS[name]] = level
+                say(name + "=" + str(level))
+            elif name in BOOLS and op == "=" and value in ("on", "off"):
+                state[BOOLS[name]] = (value == "on")
+                say(name + "=" + value)
+            elif name == "factoryreset" and op == "=" and value == str(state["serial_number"]).lower():
+                say("factoryreset=" + str(state["serial_number"]))
+            else:
+                say("invalid cmd: " + squeezed)
+        _run()
+    # Anything outside the grammar.
+    - match: '.+'
+      handler: |
+        if str(state["power"]) != "off":
+            respond("\r\ninvalid cmd: " + re.sub(r"\s+", "", match.group(0)).lower() + "\r\n>")

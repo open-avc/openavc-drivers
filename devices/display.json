@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 117,
+    "total_devices": 136,
     "shards": null,
     "category": "display"
   },
@@ -959,6 +959,234 @@
           "id": "sharp_nec_display",
           "confidence": "untested",
           "notes": "The G2-generation External Control manual (Rev.2.4) this driver was built from documents these series. Opcode availability varies by model; unsupported opcodes answer result code 01 and the driver stops polling them on that display."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-MX055-V2",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_rx_mx",
+          "confidence": "untested",
+          "notes": "SMART Board MX (V2) to (V4) and their Pro models (discontinued). No HDMI 4, and the MX (V2) has one USB-C input; Turn Off is not available. They also take Screen Off (Ready) and Power Save, and report Updating while a software update runs. SMART asks for 30 seconds between power changes and the next command on iQ 3.11 or earlier."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-MX055-V3",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_rx_mx",
+          "confidence": "untested",
+          "notes": "SMART Board MX (V2) to (V4) and their Pro models (discontinued). No HDMI 4, and the MX (V2) has one USB-C input; Turn Off is not available. They also take Screen Off (Ready) and Power Save, and report Updating while a software update runs. SMART asks for 30 seconds between power changes and the next command on iQ 3.11 or earlier."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-MX055-V4",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_rx_mx",
+          "confidence": "untested",
+          "notes": "SMART Board MX (V2) to (V4) and their Pro models (discontinued). No HDMI 4, and the MX (V2) has one USB-C input; Turn Off is not available. They also take Screen Off (Ready) and Power Save, and report Updating while a software update runs. SMART asks for 30 seconds between power changes and the next command on iQ 3.11 or earlier."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-MX055-V5",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_rx_mx",
+          "confidence": "untested",
+          "notes": "SMART Board MX (V5) and MX (V5) Pro. The same commands as the RX except State Reporting and Factory Reset, which its page does not list."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-MX065-V2",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_rx_mx",
+          "confidence": "untested",
+          "notes": "SMART Board MX (V2) to (V4) and their Pro models (discontinued). No HDMI 4, and the MX (V2) has one USB-C input; Turn Off is not available. They also take Screen Off (Ready) and Power Save, and report Updating while a software update runs. SMART asks for 30 seconds between power changes and the next command on iQ 3.11 or earlier."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-MX065-V3",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_rx_mx",
+          "confidence": "untested",
+          "notes": "SMART Board MX (V2) to (V4) and their Pro models (discontinued). No HDMI 4, and the MX (V2) has one USB-C input; Turn Off is not available. They also take Screen Off (Ready) and Power Save, and report Updating while a software update runs. SMART asks for 30 seconds between power changes and the next command on iQ 3.11 or earlier."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-MX065-V4",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_rx_mx",
+          "confidence": "untested",
+          "notes": "SMART Board MX (V2) to (V4) and their Pro models (discontinued). No HDMI 4, and the MX (V2) has one USB-C input; Turn Off is not available. They also take Screen Off (Ready) and Power Save, and report Updating while a software update runs. SMART asks for 30 seconds between power changes and the next command on iQ 3.11 or earlier."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-MX065-V5",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_rx_mx",
+          "confidence": "untested",
+          "notes": "SMART Board MX (V5) and MX (V5) Pro. The same commands as the RX except State Reporting and Factory Reset, which its page does not list."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-MX075-V2",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_rx_mx",
+          "confidence": "untested",
+          "notes": "SMART Board MX (V2) to (V4) and their Pro models (discontinued). No HDMI 4, and the MX (V2) has one USB-C input; Turn Off is not available. They also take Screen Off (Ready) and Power Save, and report Updating while a software update runs. SMART asks for 30 seconds between power changes and the next command on iQ 3.11 or earlier."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-MX075-V3",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_rx_mx",
+          "confidence": "untested",
+          "notes": "SMART Board MX (V2) to (V4) and their Pro models (discontinued). No HDMI 4, and the MX (V2) has one USB-C input; Turn Off is not available. They also take Screen Off (Ready) and Power Save, and report Updating while a software update runs. SMART asks for 30 seconds between power changes and the next command on iQ 3.11 or earlier."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-MX075-V4",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_rx_mx",
+          "confidence": "untested",
+          "notes": "SMART Board MX (V2) to (V4) and their Pro models (discontinued). No HDMI 4, and the MX (V2) has one USB-C input; Turn Off is not available. They also take Screen Off (Ready) and Power Save, and report Updating while a software update runs. SMART asks for 30 seconds between power changes and the next command on iQ 3.11 or earlier."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-MX075-V5",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_rx_mx",
+          "confidence": "untested",
+          "notes": "SMART Board MX (V5) and MX (V5) Pro. The same commands as the RX except State Reporting and Factory Reset, which its page does not list."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-MX086-V2",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_rx_mx",
+          "confidence": "untested",
+          "notes": "SMART Board MX (V2) to (V4) and their Pro models (discontinued). No HDMI 4, and the MX (V2) has one USB-C input; Turn Off is not available. They also take Screen Off (Ready) and Power Save, and report Updating while a software update runs. SMART asks for 30 seconds between power changes and the next command on iQ 3.11 or earlier."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-MX086-V3",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_rx_mx",
+          "confidence": "untested",
+          "notes": "SMART Board MX (V2) to (V4) and their Pro models (discontinued). No HDMI 4, and the MX (V2) has one USB-C input; Turn Off is not available. They also take Screen Off (Ready) and Power Save, and report Updating while a software update runs. SMART asks for 30 seconds between power changes and the next command on iQ 3.11 or earlier."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-MX086-V4",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_rx_mx",
+          "confidence": "untested",
+          "notes": "SMART Board MX (V2) to (V4) and their Pro models (discontinued). No HDMI 4, and the MX (V2) has one USB-C input; Turn Off is not available. They also take Screen Off (Ready) and Power Save, and report Updating while a software update runs. SMART asks for 30 seconds between power changes and the next command on iQ 3.11 or earlier."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-MX086-V5",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_rx_mx",
+          "confidence": "untested",
+          "notes": "SMART Board MX (V5) and MX (V5) Pro. The same commands as the RX except State Reporting and Factory Reset, which its page does not list."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-RX065",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_rx_mx",
+          "confidence": "untested",
+          "notes": "SMART Board RX series. Every command in this driver, including State Reporting and Factory Reset."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-RX075",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_rx_mx",
+          "confidence": "untested",
+          "notes": "SMART Board RX series. Every command in this driver, including State Reporting and Factory Reset."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SMART Technologies",
+      "model": "SBID-RX086",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "smart_board_rx_mx",
+          "confidence": "untested",
+          "notes": "SMART Board RX series. Every command in this driver, including State Reporting and Factory Reset."
         }
       ]
     },

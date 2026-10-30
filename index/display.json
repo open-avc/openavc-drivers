@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 12,
+    "total_drivers": 13,
     "shards": null,
     "category": "display"
   },
@@ -703,6 +703,83 @@
           "Sharp"
         ]
       }
+    },
+    {
+      "id": "smart_board_rx_mx",
+      "name": "SMART Board RX / MX",
+      "manufacturer": "SMART Technologies",
+      "category": "display",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "serial",
+      "description": "SMART Board RX and MX (V2 to V5) interactive displays over RS-232: power, input, volume and mute, brightness, freeze, screen shade and microphone mute, with the display's own reports of changes made at the display.",
+      "source_url": "https://support.smarttech.com/docs/hardware/displays/smart-board-rx/en/managing-using-rs-232/default.cshtml",
+      "file": "displays/smart_board_rx_mx.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "displays/smart_board_rx_mx.avcdriver": "1bb6aa0f03daebe9f25b106797a721204c1876c6ad8b14cef6b5f6f44d6142b0"
+      },
+      "protocols": [
+        "smart_board_rs232"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "display",
+        "smart",
+        "smart-board",
+        "interactive-display",
+        "interactive-flat-panel",
+        "education",
+        "rs232"
+      ],
+      "help": {
+        "overview": "SMART Board RX and MX interactive displays over the RS-232 port: power, input, volume, mute, brightness, freeze, screen shade and the microphone mute. Changes made with the display's buttons, Settings app or remote reach OpenAVC as soon as they happen; everything is also read every 15 seconds while the display is on. Nothing is sent to the display while it reports Standby or Off, because any command would wake it.",
+        "setup": "1. Connect the display's RS-232 In port with a standard (straight-through)\n   RS-232 cable, not a null-modem cable, to a serial port on this computer\n   or to a serial bridge (choose \"Through a bridge\" and pick the bridge's\n   port).\n2. The settings are 19200 baud, 8 data bits, no parity, 1 stop bit. Through\n   a bridge they are applied to the bridge's port for you.\n3. No login. The display has no network control: RS-232 is the only way\n   in.",
+        "connection": "The display answers only while it is on or in Standby, and a command sent in Standby turns it on. After Turn Off it answers nothing until someone presses its Power button. Through a serial bridge, a display that stops answering while it reads On shows offline after three polls; on a direct serial port it stays connected."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "SMART Technologies",
+          "models": [
+            "SBID-RX065",
+            "SBID-RX075",
+            "SBID-RX086"
+          ],
+          "confidence": "untested",
+          "notes": "SMART Board RX series. Every command in this driver, including State Reporting and Factory Reset."
+        },
+        {
+          "manufacturer": "SMART Technologies",
+          "models": [
+            "SBID-MX055-V5",
+            "SBID-MX065-V5",
+            "SBID-MX075-V5",
+            "SBID-MX086-V5"
+          ],
+          "confidence": "untested",
+          "notes": "SMART Board MX (V5) and MX (V5) Pro. The same commands as the RX except State Reporting and Factory Reset, which its page does not list."
+        },
+        {
+          "manufacturer": "SMART Technologies",
+          "models": [
+            "SBID-MX055-V4",
+            "SBID-MX065-V4",
+            "SBID-MX075-V4",
+            "SBID-MX086-V4",
+            "SBID-MX055-V3",
+            "SBID-MX065-V3",
+            "SBID-MX075-V3",
+            "SBID-MX086-V3",
+            "SBID-MX055-V2",
+            "SBID-MX065-V2",
+            "SBID-MX075-V2",
+            "SBID-MX086-V2"
+          ],
+          "confidence": "untested",
+          "notes": "SMART Board MX (V2) to (V4) and their Pro models (discontinued). No HDMI 4, and the MX (V2) has one USB-C input; Turn Off is not available. They also take Screen Off (Ready) and Power Save, and report Updating while a software update runs. SMART asks for 30 seconds between power changes and the next command on iQ 3.11 or earlier."
+        }
+      ]
     },
     {
       "id": "sony_bravia",

@@ -1,0 +1,1195 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-avc/openavc-drivers/main/avcdriver.schema.json
+#
+# Sennheiser SpeechLine CHG 2N / CHG 4N network chargers
+#
+# Controls the CHG 2N (two bays) and CHG 4N (four bays) over Sennheiser Sound
+# Control (SSC) version 1: JSON objects over UDP port 45, one object per
+# datagram.
+#
+# Protocol reference: "Sennheiser Sound Control Protocol (SSC) - Developer's
+# guide for SpeechLine Digital Wireless", TI 1094 v4.3, chapters 4-6 and
+# 13-15 (CHG 2N / CHG 4N firmware 3.0.0); source_url below.
+#
+# Wire format (§4): every address is a path of JSON keys. A null argument
+# reads it ({"bays":{"charging":null}}), any other value writes it, and the
+# reply carries the value now in force. A refusal is
+# {"osc":{"error":[{"bays":{"serial":[406]}}]}} (§14.4, §15).
+#
+# The bays. Every bay value is one array with an element per bay, in bay
+# order: {"bays":{"bat_gauge":[0,100,64,30]}} (§14.42-14.54). Each bay is a
+# child here, and each element is read into its bay by position. An empty
+# bay reports false, 0 or "" in its element.
+#
+# Push, not polling (§5): the charger notifies a subscribed client of every
+# change on the socket the subscription came from. A subscription lasts the
+# lifetime the client asks for (10 s by default, §14.11) and at most 1000
+# notifications, then ends with error 310 (§5.1); sending the same request
+# again renews it. Every subscribable address is subscribed with a lifetime of
+# 90 s and the poll renews them all (the Poll Interval stops at 30 s, so every
+# lifetime spans three renewals). A 310 subscribes everything again at once.
+# The charger answers every subscription with the current value, so the
+# renewal is also a full resync. Each bay's transmitter type and error state
+# cannot be subscribed (§14.43, §14.54), so they are read on every poll and
+# again whenever the docked bays change (then_query, platform 0.38.0).
+#
+# One address per message. The document's only replies that repeat a name at
+# one level answer a message that asked for several addresses or methods at
+# once: an /osc/xid sent beside the subscription (§14.11 example 1). A JSON
+# reader keeps the last of a repeated name, so OpenAVC 0.38.0 would lose the
+# rest of such a reply. This driver sends one address in each message, reads
+# and subscriptions alike, so nothing in the document repeats; from the
+# release after 0.38.0 a repeated name is read under every copy anyway.
+#
+# Identify (§14.53) takes an array as long as the charger has bays. A command
+# sends one template, so the Identify Bay picker is a list the driver
+# publishes from the product name the charger reports (Identify Options):
+# each choice is that model's own array.
+#
+# Liveness: the method list has no /osc/ping, so the probe asks the product
+# name, a fixed question every unit answers; any reply counts, an error
+# included.
+#
+# Format: YAML. Every address is a fixed JSON string, every value a json: true
+# rule, each bay a literal child id, and the subscriptions are queries like
+# any other.
+#
+# NOT hardware-verified. Built from the document and its own examples.
+
+id: sennheiser_sl_chg
+name: Sennheiser SpeechLine CHG 2N / CHG 4N Charger
+manufacturer: Sennheiser
+category: audio
+version: "1.0.0"
+author: OpenAVC
+min_platform_version: "0.37.0"
+description: >
+  Monitors the Sennheiser SpeechLine CHG 2N and CHG 4N network chargers over
+  Sennheiser Sound Control (JSON over UDP, port 45). For every bay: whether a
+  transmitter is docked, its type, serial number and firmware, whether it is
+  charging, its charge, time to full, battery bars, health and cycles, and the
+  bay's error state (communication, update, overcurrent, charging voltage).
+  Identify a bay, names, restart and factory reset. State is push-driven: the
+  driver subscribes and the charger reports every change as it happens.
+
+source_url: https://assets.sennheiser.com/download/assets/TI_1094_v4.3_Sennheiser_Sound_Control_Protocol_SL_DW_EN.pdf/b2a3c92ce7bb11f088db768ee8e97aea
+tags: [wireless, microphone, charger, speechline, battery, ssc]
+verified: false
+simulated: true
+protocols: [sennheiser_ssc]
+ports: [45]
+
+compatible_models:
+  - manufacturer: Sennheiser
+    models: [CHG 2N, CHG 4N]
+    confidence: untested
+    notes: >
+      Built from Sennheiser's SSC developer guide for charger firmware 3.0.0;
+      not yet run against a charger. The SL MCR 2 / 4 DW and SL Rack Receiver
+      DW receivers use different SSC commands and have their own drivers.
+      Network address configuration and firmware updates belong to Sennheiser
+      Control Cockpit.
+
+transport: udp
+
+help:
+  overview: >
+    Shows each bay of a Sennheiser SpeechLine CHG 2N or CHG 4N charger: whether
+    a transmitter is docked, its type and serial number, whether it is
+    charging, its charge and time to full, its battery health and cycles, and
+    any fault the bay reports. Everything that changes on the charger shows up
+    here as it happens. Identify Bay flashes a bay's LEDs so it can be found.
+  setup: >
+    1. Give the charger a static IP address or a DHCP reservation, and note
+       it.
+    2. Enter that address here. Control uses UDP port 45; leave the port
+       alone.
+    3. Choose the number of bays: 2 for a CHG 2N, 4 for a CHG 4N. Once
+       connected, the charger's model sets it, and it is saved here.
+    4. The charger and the OpenAVC server must be able to exchange UDP traffic
+       on port 45 in both directions. If the charger shows offline while
+       Control Cockpit still sees it, check for a firewall between the two.
+  connection: >
+    The charger answers on UDP port 45. If Control Cockpit sees it and OpenAVC
+    does not, a firewall between the server and the charger is blocking UDP 45.
+
+discovery:
+  # The chargers report "CHG2N" or "CHG4N" (§14.18); the SpeechLine receivers
+  # report "SLDW" and "SLDW" with a channel count. Every SSC device answers
+  # UDP 45, so the port alone proves nothing.
+  udp_probe:
+    port: 45
+    send_ascii: '{"device":{"identity":{"product":null}}}'
+    expect_regex: '"product"\s*:\s*"CHG[24]N"'
+    timeout_ms: 1500
+    extract:
+      model:
+        regex: '"product"\s*:\s*"(CHG[24]N)"'
+        group: 1
+    extract_manufacturer: "Sennheiser"
+  oui:
+    - "00:1b:66"   # Sennheiser electronic GmbH & Co. KG
+  manufacturer_alias:
+    - "sennheiser"
+
+default_config:
+  host: ""
+  port: 45
+  bay_count: 4
+  poll_interval: 30
+  # The document states no minimum gap between messages; this is the
+  # platform's default. Connect sends about thirty messages, one address each.
+  inter_command_delay: 0.05
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 45
+    label: UDP Port
+    help: "Sennheiser Sound Control listens on UDP port 45."
+  bay_count:
+    type: enum
+    values: [2, 4]
+    default: 4
+    label: Charging Bays
+    learned_from: bay_count_reported
+    help: >
+      2 for a CHG 2N, 4 for a CHG 4N. Once connected, the charger's model sets
+      the bay count, and it is saved here.
+  poll_interval:
+    type: integer
+    default: 30
+    min: 5
+    # Each subscription lives 90 s; at 30 s or less every one is renewed at
+    # least twice before it would end.
+    max: 30
+    label: Poll Interval (sec)
+    help: >
+      How often the subscriptions are renewed, which also re-reads every
+      value. The charger reports changes as they happen, so 30 s is plenty.
+  inter_command_delay:
+    type: number
+    default: 0.05
+    min: 0
+    label: Inter-Command Delay (sec)
+    help: "Pause between messages sent to the charger."
+
+liveness:
+  send: '{"device":{"identity":{"product":null}}}'
+  # Any answer proves the charger is there, a refusal included.
+  expect: '"product"|"error"'
+  interval: 20
+  timeout: 5
+  max_failures: 2
+
+# Reads first (none of these can be subscribed), then one subscription per
+# address. Each subscription is written once here, with an anchor; the poll
+# and the rules that subscribe again below reuse the same entries.
+on_connect:
+  - '{"device":{"identity":{"product":null}}}'
+  - '{"device":{"identity":{"version":null}}}'
+  - '{"device":{"identity":{"serial":null}}}'
+  - '{"device":{"identity":{"vendor":null}}}'
+  - '{"interface":{"version":null}}'
+  - '{"device":{"network":{"ether":{"macs":null}}}}'
+  - '{"device":{"network":{"ipv4":{"ipaddr":null}}}}'
+  # ── The charger ──
+  - &sub_name { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"device":{"name":null}}]}}}', query_for: device_name }
+  - &sub_group { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"device":{"group":null}}]}}}', query_for: group }
+  - &sub_location { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"device":{"location":null}}]}}}', query_for: location }
+  - &sub_mdns { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"device":{"network":{"mdns_responder":null}}}]}}}', query_for: mdns_enabled }
+  - &sub_state { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"device":{"state":null}}]}}}', query_for: device_state }
+  - &sub_progress { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"device":{"progress":null}}]}}}', query_for: progress }
+  - &sub_sl_image { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"device":{"ptxversion_sl":null}}]}}}', query_for: sl_firmware_image }
+  - &sub_d1_image { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"device":{"ptxversion_d1":null}}]}}}', query_for: d1_firmware_image }
+  # ── The bays (each answer is an array, one element per bay) ──
+  - &sub_active { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"bays":{"active":null}}]}}}', query_for: transmitters_docked }
+  # Not subscribable: read after the docked bays are known.
+  - &read_types '{"bays":{"device_type":null}}'
+  - &read_bay_state '{"bays":{"state":null}}'
+  # Pre-condition: a transmitter in one of the bays (§14.44).
+  - &sub_serial { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"bays":{"serial":null}}]}}}', when_state: { transmitters_docked: true } }
+  - &sub_version '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"bays":{"version":null}}]}}}'
+  - &sub_charging '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"bays":{"charging":null}}]}}}'
+  - &sub_gauge '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"bays":{"bat_gauge":null}}]}}}'
+  - &sub_timetofull '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"bays":{"bat_timetofull":null}}]}}}'
+  - &sub_bars '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"bays":{"bat_bars":null}}]}}}'
+  - &sub_health '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"bays":{"bat_health":null}}]}}}'
+  - &sub_cycles '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"bays":{"bat_cycles":null}}]}}}'
+  - &sub_identify '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"bays":{"identify":null}}]}}}'
+
+# Renew every subscription each cycle: a renewal is the same request as the
+# first one (§5.1) and its answer carries the current value. The two reads
+# are here too, for the releases without then_query.
+polling:
+  queries:
+    - *sub_name
+    - *sub_group
+    - *sub_location
+    - *sub_mdns
+    - *sub_state
+    - *sub_progress
+    - *sub_sl_image
+    - *sub_d1_image
+    - *sub_active
+    - *read_types
+    - *read_bay_state
+    - *sub_serial
+    - *sub_version
+    - *sub_charging
+    - *sub_gauge
+    - *sub_timetofull
+    - *sub_bars
+    - *sub_health
+    - *sub_cycles
+    - *sub_identify
+
+state_variables:
+  # ── Identity and network ──
+  model:
+    type: string
+    label: Model
+    help: "The charger's product name: CHG2N or CHG4N."
+  bay_count_reported:
+    type: integer
+    label: Bays
+    help: "The number of charging bays, from the model."
+  firmware_version:
+    type: string
+    label: Firmware Version
+  serial_number:
+    type: string
+    label: Serial Number
+  vendor:
+    type: string
+    label: Vendor
+  interface_version:
+    type: string
+    label: SSC Interface Version
+  mac_address:
+    type: string
+    label: MAC Address
+  ip_address:
+    type: string
+    label: IP Address
+  mdns_enabled:
+    type: boolean
+    label: mDNS
+    help: "The charger announces itself for discovery (takes effect after a restart)."
+  # ── Names ──
+  device_name:
+    type: string
+    label: Device Name
+    help: "The charger's name, as shown in Control Cockpit and in device discovery."
+  group:
+    type: string
+    label: Group
+    help: "The charger's group name: up to 8 letters, digits, - and _."
+  location:
+    type: string
+    label: Location
+  # ── Charger ──
+  device_state:
+    type: enum
+    values: [normal, firmware_update]
+    label: Charger State
+    cloud_priority: high
+    help: "normal, or firmware_update while the charger updates its own firmware (it restarts at the end)."
+  progress:
+    type: integer
+    label: Update Progress
+    min: 0
+    max: 100
+    unit: "%"
+    help: "How far the charger's firmware update has got."
+  sl_firmware_image:
+    type: string
+    label: Stored SpeechLine Transmitter Firmware
+    help: "The version of the SpeechLine transmitter firmware the charger holds for updating docked transmitters."
+  d1_firmware_image:
+    type: string
+    label: Stored EW-D1 Transmitter Firmware
+    help: "The version of the evolution wireless D1 transmitter firmware the charger holds for updating docked transmitters."
+  transmitters_docked:
+    type: boolean
+    label: Transmitters Docked
+    help: "At least one bay holds a transmitter."
+  identify_options:
+    type: string
+    label: Identify Options
+    help: "The choices Identify Bay offers for this model, set when the charger reports it."
+  # ── Errors ──
+  last_error:
+    type: string
+    label: Last Error
+    help: "What the charger said about the last request it did not accept."
+  last_error_code:
+    type: integer
+    label: Last Error Code
+
+child_entity_types:
+  bay:
+    label: Bay
+    label_plural: Bays
+    id_format:
+      type: integer
+      min: 1
+      max: 4
+    instances:
+      # The model sets the count (CHG 2N 2, CHG 4N 4); the config field is the
+      # count before the charger has reported.
+      count_from_state: bay_count_reported
+      count_from: bay_count
+      label: "Bay {id}"
+    summary_fields: [docked, tx_type, tx_battery_percent, tx_charge_minutes, tx_charging, status]
+    state_variables:
+      docked:
+        type: boolean
+        label: Transmitter Docked
+        cloud_priority: high
+        help: "A transmitter is in this bay."
+      tx_type:
+        type: enum
+        values: [handheld, bodypack]
+        label: Transmitter Type
+        help: "The docked transmitter's type; empty when the bay is empty."
+      tx_serial:
+        type: string
+        label: Transmitter Serial Number
+        help: "The docked transmitter's serial number; empty when the bay is empty."
+      tx_firmware:
+        type: string
+        label: Transmitter Firmware
+        help: "The docked transmitter's firmware version; empty when the bay is empty."
+      tx_charging:
+        type: boolean
+        label: Charging
+        cloud_priority: high
+        help: "The docked transmitter is charging. False when the bay is empty or the battery is full."
+      tx_battery_percent:
+        type: integer
+        label: Battery Charge
+        min: 0
+        max: 100
+        unit: "%"
+        cloud_priority: high
+        help: "Charge in the docked transmitter's battery; 0 when the bay is empty."
+      tx_charge_minutes:
+        type: integer
+        label: Time to Full Charge
+        unit: min
+        help: "Minutes until the docked transmitter is fully charged; 0 when it is full or the bay is empty."
+      tx_battery_bars:
+        type: integer
+        label: Battery Bars
+        min: 0
+        max: 6
+        help: "Battery bars as the transmitter's display shows them."
+      tx_battery_health_percent:
+        type: integer
+        label: Battery Health
+        min: 0
+        max: 100
+        unit: "%"
+        help: "The docked transmitter's battery health; 0 when the bay is empty."
+      tx_battery_cycles:
+        type: integer
+        label: Battery Cycles
+        help: "Charging cycles of the docked transmitter's battery."
+      identifying:
+        type: boolean
+        label: Identifying
+        help: "The bay's LEDs are flashing to show which bay it is (for 10 seconds)."
+      status:
+        type: enum
+        values: [normal, updating, error]
+        label: Bay Status
+        cloud_priority: high
+        help: "normal, updating (the docked transmitter's firmware is updating), or error (see the four error flags)."
+      communication_error:
+        type: boolean
+        label: Communication Error
+        cloud_priority: high
+        help: "The charger cannot talk to the transmitter in this bay."
+      update_error:
+        type: boolean
+        label: Update Error
+        cloud_priority: high
+        help: "Updating the docked transmitter's firmware failed."
+      overcurrent:
+        type: boolean
+        label: Overcurrent
+        cloud_priority: high
+        help: "The bay detected an overcurrent."
+      no_charging_voltage:
+        type: boolean
+        label: No Charging Voltage
+        cloud_priority: high
+        help: "The bay's 5 V charging voltage is missing."
+
+commands:
+  identify:
+    label: Identify Bay
+    help: >
+      Flashes the LEDs of the chosen bay, or every bay, for 10 seconds so it
+      can be found on the charger. Stop identifying ends it sooner.
+    send: '{"bays":{"identify":[{bay}]}}'
+    params:
+      bay:
+        type: string
+        required: true
+        label: Bay
+        options_state: identify_options
+        # One true, false or null per bay, two or four of them (§14.53).
+        pattern: '^(?:true|false|null)(?:,(?:true|false|null)|(?:,(?:true|false|null)){3})$'
+        help: "Pick a bay. The choices appear once the charger has connected and reported its model."
+  restart:
+    label: Restart Charger
+    help: "Restarts the charger. It is off the network until it is back."
+    send: '{"device":{"reset":true}}'
+    confirm: "Restarts the charger. It is off the network until it is back."
+    # The document gives no boot time; not yet measured on a unit.
+    restarts_device_for: 90
+  factory_reset:
+    label: Factory Reset
+    help: "Returns every setting on the charger to its factory default and restarts it."
+    send: '{"device":{"factory_reset":true}}'
+    confirm: "Returns every setting on the charger to its factory default, its name and network settings included, and restarts it."
+    restarts_device_for: 90
+
+quick_actions: [identify]
+
+actions:
+  - id: identify
+    icon: sun
+
+device_settings:
+  device_name:
+    type: string
+    label: Device Name
+    help: "The charger's name in Control Cockpit and in discovery. No double quotes or backslashes."
+    state_key: device_name
+    default: "CHG4N"
+    regex: '^[^"\\]{1,64}$'
+    setup: false
+    write:
+      send: '{"device":{"name":"{value}"}}'
+  group:
+    type: string
+    label: Group
+    help: "Up to 8 letters, digits, - and _, starting with a letter and ending with a letter or digit."
+    state_key: group
+    default: ""
+    regex: '^(?:[A-Za-z](?:[A-Za-z0-9_-]{0,6}[A-Za-z0-9])?)?$'
+    setup: false
+    write:
+      send: '{"device":{"group":"{value}"}}'
+  location:
+    type: string
+    label: Location
+    help: "Where the charger is. No double quotes or backslashes."
+    state_key: location
+    default: ""
+    regex: '^[^"\\]{0,64}$'
+    setup: false
+    write:
+      send: '{"device":{"location":"{value}"}}'
+  mdns_enabled:
+    type: boolean
+    label: mDNS
+    help: "The charger announces itself for discovery. Takes effect after the charger restarts."
+    state_key: mdns_enabled
+    default: true
+    map: { "true": "true", "false": "false" }
+    setup: false
+    write:
+      send: '{"device":{"network":{"mdns_responder":{value}}}}'
+
+responses:
+  # ── Every value the charger reports about itself ──
+  # Each answer and notification is an address tree; a body without a key
+  # leaves that key's variable alone.
+  - json: true
+    set:
+      model: device.identity.product
+      bay_count_reported:
+        key: device.identity.product
+        map: { "CHG2N": 2, "CHG4N": 4 }
+      # Identify Bay's choices: each is the model's own identify array (one
+      # element per bay, null leaving a bay as it is).
+      identify_options:
+        key: device.identity.product
+        map:
+          "CHG2N": '[{"value":"true,null","label":"Bay 1"},{"value":"null,true","label":"Bay 2"},{"value":"true,true","label":"All bays"},{"value":"false,false","label":"Stop identifying"}]'
+          "CHG4N": '[{"value":"true,null,null,null","label":"Bay 1"},{"value":"null,true,null,null","label":"Bay 2"},{"value":"null,null,true,null","label":"Bay 3"},{"value":"null,null,null,true","label":"Bay 4"},{"value":"true,true,true,true","label":"All bays"},{"value":"false,false,false,false","label":"Stop identifying"}]'
+      firmware_version: device.identity.version
+      serial_number: device.identity.serial
+      vendor: device.identity.vendor
+      interface_version: interface.version
+      mac_address: device.network.ether.macs.0
+      ip_address: device.network.ipv4.ipaddr.0
+      mdns_enabled: device.network.mdns_responder
+      device_name: device.name
+      group: device.group
+      location: device.location
+      device_state:
+        key: device.state
+        map: { "0": normal, "1": firmware_update }
+      progress: device.progress
+      sl_firmware_image: device.ptxversion_sl
+      d1_firmware_image: device.ptxversion_d1
+
+  # ── Every bay value: element n of each array is bay n+1 ──
+  # A CHG 2N's arrays have two elements, so bays 3 and 4 find nothing to read
+  # (and are not on its roster anyway). /bays/state is two arrays: the bay's
+  # state, then its errors as bits (§14.54).
+  - json: true
+    child_set:
+      - type: bay
+        id: 1
+        state:
+          docked: bays.active.0
+          tx_type: { key: bays.device_type.0, map: &tx_types { "0": null, "1": handheld, "2": bodypack } }
+          tx_serial: bays.serial.0
+          tx_firmware: bays.version.0
+          tx_charging: bays.charging.0
+          tx_battery_percent: bays.bat_gauge.0
+          tx_charge_minutes: bays.bat_timetofull.0
+          tx_battery_bars: bays.bat_bars.0
+          tx_battery_health_percent: bays.bat_health.0
+          tx_battery_cycles: bays.bat_cycles.0
+          identifying: bays.identify.0
+          status: { key: bays.state.0.0, map: &bay_states { "0": normal, "1": updating, "2": error } }
+          # Bit 0 communication, bit 1 update, bit 2 overcurrent, bit 3 the 5 V
+          # charging voltage: one map per bit over every 4-bit value.
+          communication_error: { key: bays.state.1.0, map: &bit0 { "0": false, "1": true, "2": false, "3": true, "4": false, "5": true, "6": false, "7": true, "8": false, "9": true, "10": false, "11": true, "12": false, "13": true, "14": false, "15": true } }
+          update_error: { key: bays.state.1.0, map: &bit1 { "0": false, "1": false, "2": true, "3": true, "4": false, "5": false, "6": true, "7": true, "8": false, "9": false, "10": true, "11": true, "12": false, "13": false, "14": true, "15": true } }
+          overcurrent: { key: bays.state.1.0, map: &bit2 { "0": false, "1": false, "2": false, "3": false, "4": true, "5": true, "6": true, "7": true, "8": false, "9": false, "10": false, "11": false, "12": true, "13": true, "14": true, "15": true } }
+          no_charging_voltage: { key: bays.state.1.0, map: &bit3 { "0": false, "1": false, "2": false, "3": false, "4": false, "5": false, "6": false, "7": false, "8": true, "9": true, "10": true, "11": true, "12": true, "13": true, "14": true, "15": true } }
+      - type: bay
+        id: 2
+        state:
+          docked: bays.active.1
+          tx_type: { key: bays.device_type.1, map: *tx_types }
+          tx_serial: bays.serial.1
+          tx_firmware: bays.version.1
+          tx_charging: bays.charging.1
+          tx_battery_percent: bays.bat_gauge.1
+          tx_charge_minutes: bays.bat_timetofull.1
+          tx_battery_bars: bays.bat_bars.1
+          tx_battery_health_percent: bays.bat_health.1
+          tx_battery_cycles: bays.bat_cycles.1
+          identifying: bays.identify.1
+          status: { key: bays.state.0.1, map: *bay_states }
+          communication_error: { key: bays.state.1.1, map: *bit0 }
+          update_error: { key: bays.state.1.1, map: *bit1 }
+          overcurrent: { key: bays.state.1.1, map: *bit2 }
+          no_charging_voltage: { key: bays.state.1.1, map: *bit3 }
+      - type: bay
+        id: 3
+        state:
+          docked: bays.active.2
+          tx_type: { key: bays.device_type.2, map: *tx_types }
+          tx_serial: bays.serial.2
+          tx_firmware: bays.version.2
+          tx_charging: bays.charging.2
+          tx_battery_percent: bays.bat_gauge.2
+          tx_charge_minutes: bays.bat_timetofull.2
+          tx_battery_bars: bays.bat_bars.2
+          tx_battery_health_percent: bays.bat_health.2
+          tx_battery_cycles: bays.bat_cycles.2
+          identifying: bays.identify.2
+          status: { key: bays.state.0.2, map: *bay_states }
+          communication_error: { key: bays.state.1.2, map: *bit0 }
+          update_error: { key: bays.state.1.2, map: *bit1 }
+          overcurrent: { key: bays.state.1.2, map: *bit2 }
+          no_charging_voltage: { key: bays.state.1.2, map: *bit3 }
+      - type: bay
+        id: 4
+        state:
+          docked: bays.active.3
+          tx_type: { key: bays.device_type.3, map: *tx_types }
+          tx_serial: bays.serial.3
+          tx_firmware: bays.version.3
+          tx_charging: bays.charging.3
+          tx_battery_percent: bays.bat_gauge.3
+          tx_charge_minutes: bays.bat_timetofull.3
+          tx_battery_bars: bays.bat_bars.3
+          tx_battery_health_percent: bays.bat_health.3
+          tx_battery_cycles: bays.bat_cycles.3
+          identifying: bays.identify.3
+          status: { key: bays.state.0.3, map: *bay_states }
+          communication_error: { key: bays.state.1.3, map: *bit0 }
+          update_error: { key: bays.state.1.3, map: *bit1 }
+          overcurrent: { key: bays.state.1.3, map: *bit2 }
+          no_charging_voltage: { key: bays.state.1.3, map: *bit3 }
+
+  # Every rule below reads text, and each may meet a reply the json rules
+  # above also read (a subscription's answer can carry its current value), so
+  # every one stays eligible past them (after_json). The first that matches
+  # wins.
+
+  # ── A subscription ended (310, §5.1): subscribe everything again ──
+  # The poll would renew it within 30 s; this does it at once. Reading the
+  # text also catches a 310 that is not valid JSON, as the document's own
+  # multi-address example is not.
+  - match: '"error"\s*:.*?\[\s*310\b'
+    after_json: true
+    set: {}
+    then_query:
+      - *sub_name
+      - *sub_group
+      - *sub_location
+      - *sub_mdns
+      - *sub_state
+      - *sub_progress
+      - *sub_sl_image
+      - *sub_d1_image
+      - *sub_active
+      - *sub_serial
+      - *sub_version
+      - *sub_charging
+      - *sub_gauge
+      - *sub_timetofull
+      - *sub_bars
+      - *sub_health
+      - *sub_cycles
+      - *sub_identify
+
+  # ── A refused read or subscription of the serial numbers ──
+  # They need a transmitter in a bay (§14.44). The driver never writes them,
+  # so a refusal answers a subscription sent as the last transmitter left
+  # (or one the driver last saw docked before a reconnect) and is not an
+  # error to show.
+  - match: '"error"\s*:.*?"serial"\s*:\s*\[\s*\d{3}'
+    after_json: true
+    set: {}
+
+  # ── Any other refusal (§14.4, §15) ──
+  # {"osc":{"error":[{"bays":{"identify":[406]}}]}}, or [400] for a message
+  # the charger could not read; a "desc" may follow the code.
+  - match: '"error"\s*:.*?\[\s*(\d{3})\b'
+    after_json: true
+    mappings:
+      - { group: 1, state: last_error_code, type: integer }
+      - group: 1
+        state: last_error
+        map:
+          "400": "The charger could not read the request (400)."
+          "403": "The charger refused the request (403)."
+          "404": "The charger has no such setting (404)."
+          "406": "The charger did not accept the value, or cannot change it now (406)."
+          "409": "The request conflicts with the charger's current state (409)."
+          "413": "The request was too large for the charger (413)."
+          "414": "The request was too complex for the charger (414)."
+          "422": "The charger could not carry out the request (422)."
+          "423": "The setting is locked on the charger (423)."
+          "450": "The charger's answer would be too long (450)."
+          "454": "The charger keeps that setting hidden (454)."
+          "500": "The charger had an internal error (500)."
+          "501": "The charger does not support that request (501)."
+          "503": "The charger is busy (503)."
+
+  # ── The docked bays (/bays/active, §14.42) ──
+  # Each bay's transmitter type and error state cannot be subscribed, so
+  # they are read again whenever the docked bays are reported (the poll
+  # reads them too, on releases without then_query). The first transmitter
+  # docked also subscribes the serial numbers.
+  - match: '"bays"\s*:\s*\{\s*"active"\s*:\s*\[[^\]]*\btrue\b'
+    after_json: true
+    only_when: { key: transmitters_docked, operator: falsy }
+    set: { transmitters_docked: "true" }
+    then_query:
+      - *sub_serial
+      - *read_types
+      - *read_bay_state
+  - match: '"bays"\s*:\s*\{\s*"active"\s*:\s*\[[^\]]*\btrue\b'
+    after_json: true
+    set: { transmitters_docked: "true" }
+    then_query:
+      - *read_types
+      - *read_bay_state
+  # Every bay empty. The serial numbers are no longer subscribed, so a
+  # transmitter that left while the driver was away would keep its number:
+  # clear them, as the charger itself reports an empty bay.
+  - match: '"bays"\s*:\s*\{\s*"active"\s*:\s*\['
+    after_json: true
+    set: { transmitters_docked: "false" }
+    child_set:
+      - { type: bay, id: 1, state: { tx_serial: "" } }
+      - { type: bay, id: 2, state: { tx_serial: "" } }
+      - { type: bay, id: 3, state: { tx_serial: "" } }
+      - { type: bay, id: 4, state: { tx_serial: "" } }
+    then_query:
+      - *read_types
+      - *read_bay_state
+
+  # ── Restart and Factory Reset are answered with themselves ──
+  - match: '"device"\s*:\s*\{\s*"(?:reset|factory_reset)"\s*:\s*true'
+    after_json: true
+    set: {}
+
+  # ── A subscription's own answer ── carries nothing the rules above have not
+  # read; acknowledged here so it does not count as a reply nobody read.
+  - match: '"osc"\s*:\s*\{\s*"state"\s*:\s*\{\s*"subscribe"'
+    after_json: true
+    set: {}
+
+# ── SIMULATOR ──
+# One script handler is the whole SSC server: it parses the incoming JSON
+# object, walks the address tree against the method table below, answers
+# every address with its value, records subscriptions and answers each with
+# the current value bundled after the echo, and refuses what the document
+# says the charger refuses (404 for an unknown address or a subscription to
+# an address that cannot be subscribed, 406 for a write to a read-only
+# address, an identify array of the wrong length, or the serial numbers with
+# every bay empty).
+#
+# The model follows the device's Charging Bays setting: 2 answers as a CHG
+# 2N, anything else as a CHG 4N. Each bay's values live in bayN_* keys; a bay
+# with no transmitter answers false, 0 or "" whatever its keys hold, as the
+# charger reports an empty bay. Flags are the words "true" and "false", so
+# they go into a notification as JSON.
+#
+# The Simulator UI's bay controls send the whole array for that value as
+# notifications: through the notifications: map below. Those always carry four
+# elements, so a simulated CHG 2N pushes two more than it has (the driver
+# reads its own two); every answer to a read or a subscription has the
+# model's own length. Docking or emptying a bay pushes the docked bays only:
+# its battery and other values follow at the next renewal.
+#
+# Not modelled (the sandbox has no clock): a subscription's lifetime and its
+# 1000-notification limit (the End Subscriptions control sends the 310 the
+# charger would), identify's 10 seconds, a firmware update, and the restart
+# after Restart or Factory Reset. Notifications go out whether or not the
+# address is subscribed.
+simulator:
+  initial_state:
+    _subscriptions: ""
+    end_subscriptions: false
+    firmware_version: "3.0.0"
+    serial_number: "1454100930"
+    vendor: "Sennheiser electronic GmbH & Co. KG"
+    interface_version: "1.0"
+    mac_address: "00:1B:66:7D:F8:99"
+    ip_address: "192.168.1.203"
+    mdns_enabled: true
+    device_name: "CHG4N"
+    group: "room"
+    location: "Meeting Room A"
+    device_state: "normal"
+    progress: 0
+    sl_firmware_image: "0.7.4"
+    d1_firmware_image: "0.7.4"
+    # Bay 1 empty, bay 2 a full handheld, bays 3 and 4 charging.
+    bay1_docked: "false"
+    bay1_type: "none"
+    bay1_serial: ""
+    bay1_version: ""
+    bay1_linkdate: 0
+    bay1_charging: "false"
+    bay1_battery: 0
+    bay1_minutes: 0
+    bay1_bars: 0
+    bay1_health: 0
+    bay1_cycles: 0
+    bay1_identify: "false"
+    bay1_errors: 0
+    bay2_docked: "true"
+    bay2_type: "handheld"
+    bay2_serial: "1106103018"
+    bay2_version: "0.7.3"
+    bay2_linkdate: 1606021157
+    bay2_charging: "false"
+    bay2_battery: 100
+    bay2_minutes: 0
+    bay2_bars: 6
+    bay2_health: 95
+    bay2_cycles: 20
+    bay2_identify: "false"
+    bay2_errors: 0
+    bay3_docked: "true"
+    bay3_type: "bodypack"
+    bay3_serial: "1106103029"
+    bay3_version: "0.7.4"
+    bay3_linkdate: 1605201510
+    bay3_charging: "true"
+    bay3_battery: 64
+    bay3_minutes: 85
+    bay3_bars: 4
+    bay3_health: 100
+    bay3_cycles: 28
+    bay3_identify: "false"
+    bay3_errors: 0
+    bay4_docked: "true"
+    bay4_type: "handheld"
+    bay4_serial: "1106103023"
+    bay4_version: "0.7.3"
+    bay4_linkdate: 1605101917
+    bay4_charging: "true"
+    bay4_battery: 30
+    bay4_minutes: 100
+    bay4_bars: 2
+    bay4_health: 100
+    bay4_cycles: 16
+    bay4_identify: "false"
+    bay4_errors: 0
+
+  delays:
+    command_response: 0.02
+
+  controls:
+    - { type: select, key: device_state, label: Charger State, options: [normal, firmware_update] }
+    - { type: slider, key: progress, label: Update Progress (%), min: 0, max: 100 }
+    - { type: select, key: bay1_docked, label: Bay 1 Transmitter Docked, options: ["true", "false"] }
+    - { type: slider, key: bay1_battery, label: Bay 1 Battery (%), min: 0, max: 100 }
+    - { type: select, key: bay1_charging, label: Bay 1 Charging, options: ["true", "false"] }
+    - { type: slider, key: bay1_errors, label: Bay 1 Error Bits, min: 0, max: 15 }
+    - { type: select, key: bay2_docked, label: Bay 2 Transmitter Docked, options: ["true", "false"] }
+    - { type: slider, key: bay2_battery, label: Bay 2 Battery (%), min: 0, max: 100 }
+    - { type: select, key: bay2_charging, label: Bay 2 Charging, options: ["true", "false"] }
+    - { type: slider, key: bay2_errors, label: Bay 2 Error Bits, min: 0, max: 15 }
+    - { type: select, key: bay3_docked, label: Bay 3 Transmitter Docked, options: ["true", "false"] }
+    - { type: slider, key: bay3_battery, label: Bay 3 Battery (%), min: 0, max: 100 }
+    - { type: select, key: bay3_charging, label: Bay 3 Charging, options: ["true", "false"] }
+    - { type: slider, key: bay3_errors, label: Bay 3 Error Bits, min: 0, max: 15 }
+    - { type: select, key: bay4_docked, label: Bay 4 Transmitter Docked, options: ["true", "false"] }
+    - { type: slider, key: bay4_battery, label: Bay 4 Battery (%), min: 0, max: 100 }
+    - { type: select, key: bay4_charging, label: Bay 4 Charging, options: ["true", "false"] }
+    - { type: slider, key: bay4_errors, label: Bay 4 Error Bits, min: 0, max: 15 }
+    - { type: toggle, key: end_subscriptions, label: End Subscriptions (310) }
+
+  # What the charger sends, unasked, when a value changes. A bay value goes
+  # out as its whole array.
+  notifications:
+    device_name: '{"device":{"name":"{value}"}}'
+    group: '{"device":{"group":"{value}"}}'
+    location: '{"device":{"location":"{value}"}}'
+    mdns_enabled:
+      'true': '{"device":{"network":{"mdns_responder":true}}}'
+      'false': '{"device":{"network":{"mdns_responder":false}}}'
+    device_state:
+      normal: '{"device":{"state":0}}'
+      firmware_update: '{"device":{"state":1}}'
+    progress: '{"device":{"progress":{value}}}'
+    bay1_docked: &push_active '{"bays":{"active":[{state.bay1_docked},{state.bay2_docked},{state.bay3_docked},{state.bay4_docked}]}}'
+    bay2_docked: *push_active
+    bay3_docked: *push_active
+    bay4_docked: *push_active
+    bay1_battery: &push_gauge '{"bays":{"bat_gauge":[{state.bay1_battery},{state.bay2_battery},{state.bay3_battery},{state.bay4_battery}]}}'
+    bay2_battery: *push_gauge
+    bay3_battery: *push_gauge
+    bay4_battery: *push_gauge
+    bay1_charging: &push_charging '{"bays":{"charging":[{state.bay1_charging},{state.bay2_charging},{state.bay3_charging},{state.bay4_charging}]}}'
+    bay2_charging: *push_charging
+    bay3_charging: *push_charging
+    bay4_charging: *push_charging
+    # The charger's end of a subscription (§5.1), on demand.
+    end_subscriptions:
+      'true': '{"osc":{"error":[{"bays":{"active":[310]}}]}}'
+
+  command_handlers:
+    # Everything the socket receives goes through the one SSC server, so a
+    # message that is not JSON gets the document's 400, not silence.
+    - match: '(?s:.*)'
+      handler: |
+        def _run():
+            text = match.group(0)
+
+            # A whole float prints as an integer, as the charger writes it.
+            def plain(v):
+                if v.__class__ is float and v == int(v):
+                    return int(v)
+                if v.__class__ is dict:
+                    return {k: plain(x) for k, x in v.items()}
+                if v.__class__ is list:
+                    return [plain(x) for x in v]
+                return v
+
+            def dumps(v):
+                return json.dumps(plain(v), separators=(",", ":"), ensure_ascii=False)
+
+            count = 2 if str(config.get("bay_count") or "4").strip() == "2" else 4
+            product = "CHG2N" if count == 2 else "CHG4N"
+            BAYS = [1, 2, 3, 4][:count]
+            TYPES = ["none", "handheld", "bodypack"]
+            STATES = ["normal", "firmware_update"]
+
+            def word(v):
+                return v is True or str(v).strip().lower() == "true"
+
+            def bay(n, key):
+                return state["bay%d_%s" % (n, key)]
+
+            def docked(n):
+                return word(bay(n, "docked"))
+
+            def any_docked():
+                for n in BAYS:
+                    if docked(n):
+                        return True
+                return False
+
+            # dotted address -> (kind, state key, extra, pre-condition, subscribable)
+            # Charger kinds: ro (read only), product, list1 (a one-element
+            # list), bool, str, idx (words: the charger's number is the
+            # index), fixed (a constant), trigger (write only). Bay kinds
+            # answer one element per bay: bay_bool, bay_int, bay_str,
+            # bay_type, bay_state (two arrays), identify (writable).
+            LEAVES = {
+                "interface.version": ("ro", "interface_version", None, None, False),
+                "device.identity.product": ("product", None, None, None, False),
+                "device.identity.version": ("ro", "firmware_version", None, None, False),
+                "device.identity.serial": ("ro", "serial_number", None, None, False),
+                "device.identity.vendor": ("ro", "vendor", None, None, False),
+                "device.network.ether.interfaces": ("fixed", None, ["LAN"], None, False),
+                "device.network.ether.macs": ("list1", "mac_address", None, None, False),
+                "device.network.ipv4.ipaddr": ("list1", "ip_address", None, None, False),
+                "device.network.mdns_responder": ("bool", "mdns_enabled", None, None, True),
+                "device.name": ("str", "device_name", None, None, True),
+                "device.group": ("str", "group", None, None, True),
+                "device.location": ("str", "location", None, None, True),
+                "device.language": ("fixed", None, ["en_GB"], None, False),
+                "device.state": ("idx", "device_state", STATES, None, True),
+                "device.progress": ("ro", "progress", None, None, True),
+                "device.ptxversion_sl": ("ro", "sl_firmware_image", None, None, True),
+                "device.ptxversion_d1": ("ro", "d1_firmware_image", None, None, True),
+                "device.warnings": ("fixed", None, [""], None, False),
+                "device.reset": ("trigger", None, None, None, False),
+                "device.factory_reset": ("trigger", None, None, None, False),
+                "bays.active": ("bay_bool", "docked", None, None, True),
+                "bays.device_type": ("bay_type", "type", None, None, False),
+                "bays.serial": ("bay_str", "serial", None, "docked", True),
+                "bays.version": ("bay_str", "version", None, None, True),
+                "bays.linkdate": ("bay_int", "linkdate", None, None, True),
+                "bays.charging": ("bay_bool", "charging", None, None, True),
+                "bays.bat_gauge": ("bay_int", "battery", None, None, True),
+                "bays.bat_timetofull": ("bay_int", "minutes", None, None, True),
+                "bays.bat_bars": ("bay_int", "bars", None, None, True),
+                "bays.bat_health": ("bay_int", "health", None, None, True),
+                "bays.bat_cycles": ("bay_int", "cycles", None, None, True),
+                "bays.identify": ("identify", "identify", None, None, True),
+                "bays.state": ("bay_state", "errors", None, None, False),
+            }
+            OSC = {
+                "osc.version": "1.0",
+                "osc.feature.pattern": "*?",
+                "osc.feature.baseaddr": False,
+                "osc.feature.subscription": True,
+                "osc.feature.timetag": False,
+                "osc.state.prettyprint": False,
+            }
+
+            def holds(pre):
+                if pre == "docked":
+                    return any_docked()
+                return True
+
+            def element(n, kind, key):
+                # An empty bay reports false, 0 or "" whatever its keys hold.
+                if kind == "identify":
+                    return word(bay(n, key))
+                if kind == "bay_bool":
+                    return docked(n) and word(bay(n, key))
+                if not docked(n):
+                    return "" if kind == "bay_str" else 0
+                if kind == "bay_int":
+                    return int(bay(n, key))
+                if kind == "bay_str":
+                    return str(bay(n, key))
+                if kind == "bay_type":
+                    t = bay(n, key)
+                    return TYPES.index(t) if t in TYPES else 0
+                return None
+
+            def current(spec):
+                kind, key, extra = spec[0], spec[1], spec[2]
+                if kind == "product":
+                    return product
+                if kind == "fixed":
+                    return extra
+                if kind == "idx":
+                    w = state[key]
+                    return extra.index(w) if w in extra else 0
+                if kind == "list1":
+                    return [state[key]]
+                if kind == "bool":
+                    return word(state[key])
+                if kind == "bay_state":
+                    errors = [int(bay(n, key)) if docked(n) else 0 for n in BAYS]
+                    return [[2 if e else 0 for e in errors], errors]
+                if kind in ("bay_bool", "bay_int", "bay_str", "bay_type", "identify"):
+                    return [element(n, kind, key) for n in BAYS]
+                if kind == "trigger":
+                    return None
+                return state[key]
+
+            # A refused address is reported under osc.error and left out of
+            # the answer; NO marks it.
+            NO = ("refused",)
+
+            def apply(spec, value):
+                # (result, error code)
+                kind, key = spec[0], spec[1]
+                if kind == "bool":
+                    if value.__class__ is not bool:
+                        return NO, 406
+                    state[key] = value
+                    return value, 0
+                if kind == "str":
+                    if value.__class__ is not str:
+                        return NO, 406
+                    state[key] = value
+                    return value, 0
+                if kind == "trigger":
+                    if value is not True:
+                        return NO, 406
+                    return True, 0
+                if kind == "identify":
+                    if value.__class__ is not list or len(value) != count:
+                        return NO, 406
+                    for v in value:
+                        if v is not None and v.__class__ is not bool:
+                            return NO, 406
+                    i = 0
+                    for n in BAYS:
+                        if value[i] is not None:
+                            state["bay%d_identify" % n] = "true" if value[i] else "false"
+                        i += 1
+                    return current(spec), 0
+                return NO, 406
+
+            members = []
+            errors = []
+
+            def tree(path, value):
+                node = value
+                for seg in path[::-1]:
+                    node = {seg: node}
+                return node
+
+            def member(path, value):
+                members.append(dumps(tree(path, value))[1:-1])
+
+            def fail(path, code):
+                errors.append(tree(path, [code]))
+
+            def leaves_of(node, prefix):
+                out = []
+                for key, val in node.items():
+                    if key == "#":
+                        continue
+                    path = prefix + [key]
+                    dotted = ".".join(path)
+                    if val.__class__ is dict and dotted not in LEAVES:
+                        out.extend(leaves_of(val, path))
+                    else:
+                        out.append((path, val))
+                return out
+
+            def subscriptions():
+                return [p for p in state["_subscriptions"].split(",") if p]
+
+            def subscribe(value):
+                if value is None:
+                    tr = {}
+                    for p in subscriptions():
+                        node = tr
+                        segs = p.split(".")
+                        for seg in segs[:-1]:
+                            node = node.setdefault(seg, {})
+                        node[segs[-1]] = None
+                    member(["osc", "state", "subscribe"], [tr])
+                    return
+                if value.__class__ is not list:
+                    value = [value]
+                subs = subscriptions()
+                echoed = []
+                initial = []
+                for entry in value:
+                    if entry.__class__ is not dict:
+                        continue
+                    params = entry.get("#")
+                    cancel = params.__class__ is dict and params.get("cancel") is True
+                    good = []
+                    for path, _val in leaves_of(entry, []):
+                        dotted = ".".join(path)
+                        spec = LEAVES.get(dotted)
+                        if spec is None or not spec[4]:
+                            fail(["osc", "state", "subscribe"] + path, 404)
+                            continue
+                        if not cancel and not holds(spec[3]):
+                            fail(path, 406)
+                            continue
+                        good.append(path)
+                        if cancel:
+                            subs = [p for p in subs if p != dotted]
+                        else:
+                            if dotted not in subs:
+                                subs.append(dotted)
+                            initial.append((path, current(spec)))
+                    if not good:
+                        continue
+                    # The echo of an entry, one member per address.
+                    parts = []
+                    if params.__class__ is dict:
+                        parts.append(dumps({"#": params})[1:-1])
+                    for path in good:
+                        parts.append(dumps(tree(path, None))[1:-1])
+                    echoed.append("{" + ",".join(parts) + "}")
+                state["_subscriptions"] = ",".join(subs)
+                if echoed:
+                    members.append('"osc":{"state":{"subscribe":[' + ",".join(echoed) + "]}}")
+                for path, val in initial:
+                    member(path, val)
+
+            def handle(path, value):
+                dotted = ".".join(path)
+                if dotted == "osc.xid":
+                    member(path, value)
+                elif dotted == "osc.state.subscribe":
+                    subscribe(value)
+                elif dotted == "osc.state.close":
+                    state["_subscriptions"] = ""
+                    member(path, True)
+                elif dotted in OSC:
+                    if value is not None:
+                        fail(path, 406)
+                    else:
+                        member(path, OSC[dotted])
+                elif dotted in LEAVES:
+                    spec = LEAVES[dotted]
+                    if not holds(spec[3]):
+                        fail(path, 406)
+                    elif value is None:
+                        if spec[0] == "trigger":
+                            fail(path, 406)
+                        else:
+                            member(path, current(spec))
+                    else:
+                        result, code = apply(spec, value)
+                        if result is NO:
+                            fail(path, code)
+                        else:
+                            member(path, result)
+                else:
+                    fail(path, 404)
+
+            try:
+                request = json.loads(text)
+                if request.__class__ is not dict:
+                    raise ValueError("not an object")
+            except ValueError:
+                respond('{"osc":{"error":[400]}}')
+                return
+
+            for path, value in leaves_of(request, []):
+                handle(path, value)
+            if errors:
+                members.append(dumps({"osc": {"error": errors}})[1:-1])
+            respond("{" + ",".join(members) + "}")
+
+        _run()

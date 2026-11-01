@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 41,
+    "total_drivers": 42,
     "shards": null,
     "category": "audio"
   },
@@ -1803,6 +1803,75 @@
               "group": 1
             }
           }
+        },
+        "oui": [
+          "00:1b:66"
+        ],
+        "manufacturer_alias": [
+          "sennheiser"
+        ]
+      }
+    },
+    {
+      "id": "sennheiser_sl_chg",
+      "name": "Sennheiser SpeechLine CHG 2N / CHG 4N Charger",
+      "manufacturer": "Sennheiser",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "udp",
+      "description": "Monitors the Sennheiser SpeechLine CHG 2N and CHG 4N network chargers over Sennheiser Sound Control (JSON over UDP, port 45). For every bay: whether a transmitter is docked, its type, serial number and firmware, whether it is charging, its charge, time to full, battery bars, health and cycles, and the bay's error state (communication, update, overcurrent, charging voltage). Identify a bay, names, restart and factory reset. State is push-driven: the driver subscribes and the charger reports every change as it happens.\n",
+      "source_url": "https://assets.sennheiser.com/download/assets/TI_1094_v4.3_Sennheiser_Sound_Control_Protocol_SL_DW_EN.pdf/b2a3c92ce7bb11f088db768ee8e97aea",
+      "file": "audio/sennheiser_sl_chg.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "audio/sennheiser_sl_chg.avcdriver": "1c6a38c8dbf9eaa17dd99863134d77e33073630cadbc5043fe419f936e325c59"
+      },
+      "ports": [
+        45
+      ],
+      "protocols": [
+        "sennheiser_ssc"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "wireless",
+        "microphone",
+        "charger",
+        "speechline",
+        "battery",
+        "ssc"
+      ],
+      "help": {
+        "overview": "Shows each bay of a Sennheiser SpeechLine CHG 2N or CHG 4N charger: whether a transmitter is docked, its type and serial number, whether it is charging, its charge and time to full, its battery health and cycles, and any fault the bay reports. Everything that changes on the charger shows up here as it happens. Identify Bay flashes a bay's LEDs so it can be found.\n",
+        "setup": "1. Give the charger a static IP address or a DHCP reservation, and note\n   it.\n2. Enter that address here. Control uses UDP port 45; leave the port\n   alone.\n3. Choose the number of bays: 2 for a CHG 2N, 4 for a CHG 4N. Once\n   connected, the charger's model sets it, and it is saved here.\n4. The charger and the OpenAVC server must be able to exchange UDP traffic\n   on port 45 in both directions. If the charger shows offline while\n   Control Cockpit still sees it, check for a firewall between the two.\n",
+        "connection": "The charger answers on UDP port 45. If Control Cockpit sees it and OpenAVC does not, a firewall between the server and the charger is blocking UDP 45.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Sennheiser",
+          "models": [
+            "CHG 2N",
+            "CHG 4N"
+          ],
+          "confidence": "untested",
+          "notes": "Built from Sennheiser's SSC developer guide for charger firmware 3.0.0; not yet run against a charger. The SL MCR 2 / 4 DW and SL Rack Receiver DW receivers use different SSC commands and have their own drivers. Network address configuration and firmware updates belong to Sennheiser Control Cockpit.\n"
+        }
+      ],
+      "discovery": {
+        "udp_probe": {
+          "port": 45,
+          "send_ascii": "{\"device\":{\"identity\":{\"product\":null}}}",
+          "expect_regex": "\"product\"\\s*:\\s*\"CHG[24]N\"",
+          "timeout_ms": 1500,
+          "extract": {
+            "model": {
+              "regex": "\"product\"\\s*:\\s*\"(CHG[24]N)\"",
+              "group": 1
+            }
+          },
+          "extract_manufacturer": "Sennheiser"
         },
         "oui": [
           "00:1b:66"

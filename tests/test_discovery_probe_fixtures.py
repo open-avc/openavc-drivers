@@ -237,7 +237,9 @@ def test_a_captured_reply_matches_no_other_driver_asking_the_same_thing(driver_i
 
 
 @pytest.mark.parametrize(
-    "pair", [pytest.param(p, id="+".join(sorted(p))) for p in INTENDED_OVERLAPS],
+    # Sorted: a set's order differs between processes, and pytest-xdist
+    # refuses a run whose workers collect the parameters in different orders.
+    "pair", [pytest.param(p, id="+".join(sorted(p))) for p in sorted(INTENDED_OVERLAPS, key=sorted)],
 )
 def test_an_intended_overlap_names_two_drivers_asking_the_same_thing(pair):
     assert any(

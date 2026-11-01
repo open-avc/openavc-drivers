@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 39,
+    "total_drivers": 40,
     "shards": null,
     "category": "audio"
   },
@@ -1801,6 +1801,73 @@
             "model": {
               "regex": "\"product\"\\s*:\\s*\"(EWDX[A-Z0-9]+)\"",
               "group": 1
+            }
+          }
+        },
+        "oui": [
+          "00:1b:66"
+        ],
+        "manufacturer_alias": [
+          "sennheiser"
+        ]
+      }
+    },
+    {
+      "id": "sennheiser_sl_mcr_dw",
+      "name": "Sennheiser SpeechLine Multi-Channel Receiver DW",
+      "manufacturer": "Sennheiser",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "udp",
+      "description": "Controls and monitors the Sennheiser SpeechLine Digital Wireless SL MCR 2 DW and SL MCR 4 DW multi-channel receivers over Sennheiser Sound Control (SSC) on UDP port 45. Each receiver channel is a child entity with mute, gain, EQ preset, low cut, mute mode, link state, pairing, walk test, RF quality and warnings, plus the linked transmitter's type, capsule, battery, charging, locks and LED, and opt-in audio meters. Every change is pushed through SSC subscriptions. Standby and Wake-on-LAN wake, Dante and analog output gain, names, LED brightness and restart are covered.",
+      "source_url": "https://assets.sennheiser.com/download/assets/TI_1094_v4.3_Sennheiser_Sound_Control_Protocol_SL_DW_EN.pdf/b2a3c92ce7bb11f088db768ee8e97aea",
+      "file": "audio/sennheiser_sl_mcr_dw.py",
+      "format": "python",
+      "files": {
+        "audio/sennheiser_sl_mcr_dw.py": "a4ed046778e6431a6bd8924d26d78da5f8c0d9aa0fbe41c5b621ebceb288f287",
+        "audio/sennheiser_sl_mcr_dw_sim.py": "81e6e1bb6e6365db5f2c1d01397316818647f2a4640dd70fc20ea7f39e0cf51c"
+      },
+      "ports": [
+        45
+      ],
+      "protocols": [
+        "sennheiser_ssc"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "wireless",
+        "microphone",
+        "receiver",
+        "speechline",
+        "ssc",
+        "dante"
+      ],
+      "help": {
+        "overview": "The SpeechLine Multi-Channel Receiver DW is controlled with Sennheiser Sound Control (SSC) on UDP port 45. Each receiver channel is a child entity with its name, mute, gain, EQ preset, low cut and mute mode, its link state, pairing, walk test and RF quality, and the linked transmitter's type, capsule, battery, charging state, locks and LED. Device-level state covers the names, network, Dante and analog output gain, LED brightness, warnings and standby.\n\nState is push-driven: every value is subscribed, so each change appears as it happens, including changes made in Sennheiser Control Cockpit or on a transmitter. Audio meters stream only when Meter Interval is set or Meters On is sent.",
+        "setup": "1. Give the receiver a static IP address or a DHCP reservation.\n2. In OpenAVC, enter that IP. Port 45 is fixed.\n3. Set Channel Count to 4 for an SL MCR 4 DW or 2 for an SL MCR 2 DW. It is corrected from the receiver's product name on the first connection.\n4. To see live audio meters on a panel, set Meter Interval to a value like 500 ms (0 leaves metering off).\n5. Standby can only be left by Wake-on-LAN. The MAC address Wake uses is filled in when the receiver first connects."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Sennheiser",
+          "models": [
+            "SL MCR 2 DW",
+            "SL MCR 4 DW"
+          ],
+          "confidence": "untested",
+          "notes": "Both share one command set. The SL MCR 4 DW has four channels, the SL MCR 2 DW two; the count is read from the receiver's product name, so Channel Count only matters before the first connection. The SL Rack Receiver DW and the CHG 2N / 4N chargers use different SSC commands and are not covered."
+        }
+      ],
+      "discovery": {
+        "udp_probe": {
+          "port": 45,
+          "send_ascii": "{\"device\":{\"identity\":{\"product\":null}}}",
+          "expect_regex": "\"product\"\\s*:\\s*\"SLDW[^\"]+\"",
+          "extract_manufacturer": "Sennheiser",
+          "extract": {
+            "model": {
+              "regex": "\"product\"\\s*:\\s*\"(SLDW[^\"]+)\""
             }
           }
         },

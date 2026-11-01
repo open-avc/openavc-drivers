@@ -539,7 +539,7 @@ class NetgearM4250M4350Driver(BaseDriver):
         "name": "NETGEAR M4250 / M4350 AV Line Switch",
         "manufacturer": "NETGEAR",
         "category": "utility",
-        "version": "1.4.10",
+        "version": "1.4.11",
         "author": "OpenAVC",
         # confirm on the commands that erase, delete or reset needs 0.36.0;
         # local_address(), which binds the Enable SSH wizard's own telnet
@@ -624,10 +624,11 @@ class NetgearM4250M4350Driver(BaseDriver):
                 "2. Enable SSH: System > Management Access in the web UI, or "
                 "run 'ip ssh server enable' in the CLI. SSH is the secure "
                 "transport this driver uses.\n"
-                "3. Choose auth. Key auth is recommended: set Auth Method to "
-                "'key' and install the OpenAVC public key on the switch. "
-                "Otherwise set Auth Method to 'password' and enter the admin "
-                "password.\n"
+                "3. Sign-in: enter the admin password (Auth Method "
+                "'password', the default). To sign in with a key instead, "
+                "set Auth Method to 'key' and add the key shown under "
+                "OpenAVC SSH key on this device's page to the switch's admin "
+                "account, if your OpenAVC shows that section.\n"
                 "4. Add it here: enter the switch IP and the admin username "
                 "(default 'admin'); leave the port at 22.\n"
                 "5. If the admin account lands in User EXEC mode, set the "
@@ -695,7 +696,7 @@ class NetgearM4250M4350Driver(BaseDriver):
             "port": 22,
             "username": "admin",
             "transport": "ssh",
-            "ssh_auth_method": "key",
+            "ssh_auth_method": "password",
             "poll_interval": 15,
             "detail_poll_interval": 60,
             # SSH connect validates via the banner read below, so skip the
@@ -718,9 +719,10 @@ class NetgearM4250M4350Driver(BaseDriver):
                 "type": "string", "default": "admin", "label": "Username",
             },
             "ssh_auth_method": {
-                "type": "enum", "values": ["key", "password"], "default": "key",
+                "type": "enum", "values": ["password", "key"], "default": "password",
                 "label": "Auth Method",
-                "description": "key (recommended) or password. Ignored for telnet.",
+                "description": "password, or key (OpenAVC's own key, shown under "
+                               "OpenAVC SSH key on the device page). Ignored for telnet.",
             },
             "password": {
                 "type": "password", "label": "Password", "secret": True,
@@ -728,7 +730,8 @@ class NetgearM4250M4350Driver(BaseDriver):
             },
             "key_path": {
                 "type": "string", "label": "SSH Private Key Path",
-                "description": "Path to the OpenAVC private key (key auth).",
+                "description": "Leave blank to use OpenAVC's own key. Only for "
+                               "a key file of your own on this computer.",
             },
             "enable_password": {
                 "type": "password", "label": "Enable Password", "secret": True,

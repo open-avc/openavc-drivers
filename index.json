@@ -5469,7 +5469,7 @@
       "name": "NETGEAR M4250 / M4350 AV Line Switch",
       "manufacturer": "NETGEAR",
       "category": "utility",
-      "version": "1.4.10",
+      "version": "1.4.11",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Monitor and control NETGEAR M4250 and M4350 AV Line managed switches over their CLI: per-port PoE power-cycling and draw, link state, multicast/IGMP health, system health (temperature, fans, PSU, CPU), reboot, and config save. Each port is a child entity.",
@@ -5477,7 +5477,7 @@
       "file": "utility/netgear_m4250_m4350.py",
       "format": "python",
       "files": {
-        "utility/netgear_m4250_m4350.py": "7169c800269725a68654e71acc0ffb24281ce25e4501641ee81d85c2652f95e4",
+        "utility/netgear_m4250_m4350.py": "6db29bc2c81b47215872f866e22dde584eebfef4f3b9f683cda5644cf881ee69",
         "utility/netgear_m4250_m4350_sim.py": "903c955b16528ad958f5ba6f6e58d0b3785a0e9592552e358e385ca3bf53830c"
       },
       "ports": [
@@ -5500,7 +5500,7 @@
       ],
       "help": {
         "overview": "Controls a NETGEAR M4250 or M4350 AV Line managed switch. Add it as one device; every physical port appears as a child entity under the Child Entities tab with its link state, PoE draw, and connected device. The driver auto-detects which family you have.",
-        "setup": "New switches ship with SSH turned off, so turn it on before you add the switch here.\n1. Reach the switch. It asks for an IP by DHCP and falls back to 169.254.100.100 if no DHCP server answers. Open its web UI (or a console session). You are prompted to change the default admin password on first login.\n2. Enable SSH: System > Management Access in the web UI, or run 'ip ssh server enable' in the CLI. SSH is the secure transport this driver uses.\n3. Choose auth. Key auth is recommended: set Auth Method to 'key' and install the OpenAVC public key on the switch. Otherwise set Auth Method to 'password' and enter the admin password.\n4. Add it here: enter the switch IP and the admin username (default 'admin'); leave the port at 22.\n5. If the admin account lands in User EXEC mode, set the Enable Password so the driver can enter Privileged EXEC.\n6. Ports, PoE status, and connected devices are discovered automatically once it connects.",
+        "setup": "New switches ship with SSH turned off, so turn it on before you add the switch here.\n1. Reach the switch. It asks for an IP by DHCP and falls back to 169.254.100.100 if no DHCP server answers. Open its web UI (or a console session). You are prompted to change the default admin password on first login.\n2. Enable SSH: System > Management Access in the web UI, or run 'ip ssh server enable' in the CLI. SSH is the secure transport this driver uses.\n3. Sign-in: enter the admin password (Auth Method 'password', the default). To sign in with a key instead, set Auth Method to 'key' and add the key shown under OpenAVC SSH key on this device's page to the switch's admin account, if your OpenAVC shows that section.\n4. Add it here: enter the switch IP and the admin username (default 'admin'); leave the port at 22.\n5. If the admin account lands in User EXEC mode, set the Enable Password so the driver can enter Privileged EXEC.\n6. Ports, PoE status, and connected devices are discovered automatically once it connects.",
         "connection": "This switch ships with SSH turned off, so a brand-new switch can't connect until SSH is enabled on it. Use the Enable SSH button below to do that automatically \u2014 it connects over telnet, enables SSH, saves, and switches this device to SSH. Or enable it by hand (switch web UI, System > Management Access, or 'ip ssh server enable' in the CLI), then check the IP, the admin username (default 'admin'), and the password."
       },
       "compatible_models": [

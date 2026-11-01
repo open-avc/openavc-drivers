@@ -28,6 +28,13 @@
 # Push or poll: the agent has no notifications. It is polled, and the poll is
 # also what notices the computer has gone off: the agent stops answering.
 #
+# Checked on real equipment (1.1.0): a Windows 11 PC running Sleep-On-LAN
+# 1.1.1 as a service, with the sol.json from the setup help. Basic auth works
+# and a wrong password answers 401; the reply field names above are the real
+# ones; an operation sol.json does not define answers 404; Shut Down and
+# Restart work; Power On wakes the PC from a full shutdown. The agent labels
+# its JSON replies text/plain, which the json: responses below read anyway.
+#
 # Why YAML: plain HTTP GETs with JSON replies and Basic auth, plus a Wake-on-LAN
 # datagram beside the connection, all fit ConfigurableDriver.
 
@@ -35,7 +42,7 @@ id: sleep_on_lan
 name: Computer Power (Sleep-On-LAN)
 manufacturer: Generic
 category: utility
-version: 1.0.0
+version: 1.1.0
 min_platform_version: "0.36.0"
 author: OpenAVC
 description: >
@@ -45,7 +52,7 @@ description: >
 
 source_url: https://github.com/SR-G/sleep-on-lan
 tags: [computer, pc, windows, power, shutdown, sleep, hibernate, wake-on-lan, wol]
-verified: false
+verified: true
 simulated: true
 protocols: [sleep_on_lan_http]
 ports: [8009]
@@ -179,10 +186,15 @@ commands:
     confirm: "Restart the computer? Every program on it closes without saving, a recording or stream included."
     method: GET
     path: "/restart?format=JSON"
+    # Measured on a Windows 11 PC with an NVMe drive: silent 14 s after
+    # Restart, answering again at 41 s. Restart time differs a lot from one
+    # computer to the next (disk, startup programs, updates being installed),
+    # so the window is generous; it ends the moment the computer answers.
+    restarts_device_for: 300
 
   sleep:
     label: Sleep
-    help: "Puts the computer to sleep. Programs stay open; Power On wakes it."
+    help: "Puts the computer to sleep. Programs stay open. Whether Power On wakes it from sleep depends on the computer: test it, and use Shut Down where it does not."
     confirm: "Put the computer to sleep? A recording or stream on it stops."
     method: GET
     path: "/sleep?format=JSON"

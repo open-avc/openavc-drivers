@@ -114,17 +114,26 @@ compatible_models:
       - DTP CrossPoint 86 4K IPCP SA
       - DTP CrossPoint 86 4K IPCP MA
       - DTP CrossPoint 84 4K IPCP SA
-      - DTP CrossPoint 84 4K IPCP MA
       - DTP CrossPoint 82 4K IPCP SA
       - DTP CrossPoint 82 4K IPCP MA
     confidence: untested
     notes: >
-      Built from Extron's user guide. Its status readings and routing were
-      checked against a DTP CrossPoint 84 4K IPCP MA on firmware 2.04; the
-      other commands and models are not yet tested on a switcher. A new unit's
-      password is its serial number: enter it in Password. The switcher reports
-      its size when it connects and the output and input settings fill in. The
-      IPCP models' built-in control processor is a separate device at its own
+      Built from Extron's user guide and not yet tested on these models. A new
+      unit's password is its serial number: enter it in Password. The switcher
+      reports its size when it connects and the output and input settings fill
+      in. The IPCP models' built-in control processor is a separate device at
+      its own address and is not controlled by this driver.
+  - manufacturer: Extron
+    models:
+      - DTP CrossPoint 84 4K IPCP MA
+    confidence: partial
+    notes: >
+      Tested on firmware 2.04: sign-in, status readings, input formats, the
+      front panel Volume and Mic Volume knobs, routing, and recovery from a
+      power cycle and a cable pull. Mutes, volume and audio source commands,
+      presets, HDCP settings and the front panel lock are not yet tested on a
+      switcher. A new unit's password is its serial number: enter it in
+      Password. Its built-in control processor is a separate device at its own
       address and is not controlled by this driver.
 
 transport: tcp

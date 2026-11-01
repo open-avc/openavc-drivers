@@ -711,7 +711,7 @@
       "file": "switchers/extron_dtp_crosspoint.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/extron_dtp_crosspoint.avcdriver": "4d6970fef9f9b961ea7545b84e115019c1f93f63448ff174472d42aa7a5eb9bf"
+        "switchers/extron_dtp_crosspoint.avcdriver": "0bfc5c2544beb9f18939265e8cebd21945a9c414e0d420b3d9e394b40961f61a"
       },
       "ports": [
         23
@@ -745,12 +745,19 @@
             "DTP CrossPoint 86 4K IPCP SA",
             "DTP CrossPoint 86 4K IPCP MA",
             "DTP CrossPoint 84 4K IPCP SA",
-            "DTP CrossPoint 84 4K IPCP MA",
             "DTP CrossPoint 82 4K IPCP SA",
             "DTP CrossPoint 82 4K IPCP MA"
           ],
           "confidence": "untested",
-          "notes": "Built from Extron's user guide. Its status readings and routing were checked against a DTP CrossPoint 84 4K IPCP MA on firmware 2.04; the other commands and models are not yet tested on a switcher. A new unit's password is its serial number: enter it in Password. The switcher reports its size when it connects and the output and input settings fill in. The IPCP models' built-in control processor is a separate device at its own address and is not controlled by this driver.\n"
+          "notes": "Built from Extron's user guide and not yet tested on these models. A new unit's password is its serial number: enter it in Password. The switcher reports its size when it connects and the output and input settings fill in. The IPCP models' built-in control processor is a separate device at its own address and is not controlled by this driver.\n"
+        },
+        {
+          "manufacturer": "Extron",
+          "models": [
+            "DTP CrossPoint 84 4K IPCP MA"
+          ],
+          "confidence": "partial",
+          "notes": "Tested on firmware 2.04: sign-in, status readings, input formats, the front panel Volume and Mic Volume knobs, routing, and recovery from a power cycle and a cable pull. Mutes, volume and audio source commands, presets, HDCP settings and the front panel lock are not yet tested on a switcher. A new unit's password is its serial number: enter it in Password. Its built-in control processor is a separate device at its own address and is not controlled by this driver.\n"
         }
       ],
       "discovery": {

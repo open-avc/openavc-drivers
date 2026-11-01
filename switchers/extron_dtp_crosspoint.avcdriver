@@ -11,8 +11,11 @@
 # Why YAML: SIS is line-oriented text and verbose mode 3 makes every reply
 # say what it is. The guide (p. 76): "If tagged responses is enabled (modes 2
 # and 3), all read commands return the constant string and the value as the
-# set command does". So a tie read "3%" answers "Out03 In01 Vid" like the tie
-# itself, and no reply needs to be matched to the query that asked for it.
+# set command does". So a tie read answers like the tie itself, and no reply
+# needs to be matched to the query that asked for it. A DTP CrossPoint 84 4K
+# IPCP MA on firmware 2.04 (2026-10-29) answered every read the driver sends
+# tagged: "1%" as "Out1 In3 Vid" (the guide draws "Out03 In01"), "X" as
+# "Exe2", "Esc O1AFMT" as "AfmtO01*1", "Esc D1GRPM" as "GrpmD1*0".
 # The driver sends Esc 3CV at connect; mode 3 also turns on the change
 # notices (front panel ties, presets, the volume knobs, the lock).
 #
@@ -20,8 +23,14 @@
 # (p. 62): "Qik" (a front panel tie; the tie itself is not given, so every
 # output's ties are read again at once on platform 0.38.0 and later, and by
 # the poll on an older one), "Rpr{nn}" (a preset recalled), "GrpmD{n}*{y}" (the Volume
-# or Mic Volume knob turned) and "Exe{n}" (the lock changed). Ties, mutes,
-# signals and HDCP are polled.
+# or Mic Volume knob turned) and "Exe{n}" (the lock changed). It announces an
+# input's detected audio format ("40Stat{ii}*{f}", p. 66) and video format
+# ("Ityp{ii}*{f}", p. 67) when they change, so both are read once at connect
+# and then follow the notices. The 84 IPCP MA above also sent, unprompted and
+# not in the guide: the sync line ("Frq00 ...") whenever an input's sync
+# changed, "HplgO{n}" (a display hot plug on an output connector) and
+# "DsD{n}*{v}" beside an audio format notice. Ties, mutes, signals and HDCP
+# are polled.
 #
 # Sizes and output numbering (pp. 12, 63-67). The four sizes differ in more
 # than their counts: on every size but the 108, outputs 3 and up are pairs,
@@ -40,8 +49,9 @@
 # size: every connector's video mute (Esc VM, "Mut" + 10, 8, 6 or 4 digits,
 # p. 67) and every input's sync (0LS, "Frq00 " + 10 or 8 digits, p. 68).
 # Each length has its own rule, which also says which connector each digit
-# is. The Information request I names the model; the guide shows only
-# "DTPCP108", so the other names are not relied on.
+# is. The Information request I names the model, for display only: the guide
+# shows only "DTPCP108", and the 84 IPCP MA above answered "Inf00*DTPCP84 4K
+# IPCP MA 70".
 #
 # Password (pp. 60-62): Extron sets every account's password to the unit's
 # serial number at the factory. On port 23 a protected unit sends its
@@ -73,7 +83,7 @@ id: extron_dtp_crosspoint
 name: Extron DTP CrossPoint 4K
 manufacturer: Extron
 category: switcher
-version: 1.1.0
+version: 1.2.0
 author: OpenAVC
 # then_query does not raise it: an older platform ignores it.
 min_platform_version: "0.37.0"
@@ -81,9 +91,10 @@ description: >
   Controls Extron DTP CrossPoint 4K scaling presentation matrix switchers
   (108, 86, 84, 82, and the IPCP SA and MA models). Every output, output
   connector and input is a child entity: ties, video mutes, each output's
-  audio, signal and HDCP status, plus the Program and Mic Volume group
-  masters in dB, presets and the front panel lock. Works over Telnet (port
-  23) or RS-232 (9600 8N1), with the switcher's password.
+  audio, each input's signal, HDCP status and video and audio format, plus
+  the Program and Mic Volume group masters in dB, presets and the front
+  panel lock. Works over Telnet (port 23) or RS-232 (9600 8N1), with the
+  switcher's password.
 
 source_url: https://media.extron.com/public/download/files/userman/68-2368-02_R.pdf
 tags: [matrix-switcher, scaler, dtp, sis, presentation-switcher]
@@ -108,7 +119,9 @@ compatible_models:
       - DTP CrossPoint 82 4K IPCP MA
     confidence: untested
     notes: >
-      Built from Extron's user guide; not yet tested on a switcher. A new unit's
+      Built from Extron's user guide. Its status readings and routing were
+      checked against a DTP CrossPoint 84 4K IPCP MA on firmware 2.04; the
+      other commands and models are not yet tested on a switcher. A new unit's
       password is its serial number: enter it in Password. The switcher reports
       its size when it connects and the output and input settings fill in. The
       IPCP models' built-in control processor is a separate device at its own
@@ -122,9 +135,9 @@ help:
   overview: >
     Controls an Extron DTP CrossPoint 4K matrix switcher. Each output, output
     connector and input becomes a child entity: what each output is tied to,
-    each connector's video mute and the display it sees, each input's signal,
-    and the Program and Mic Volume levels in dB. On every size but the 108,
-    outputs 3 and up are pairs: one output drives an HDMI connector (A) and a
+    each connector's video mute and the display it sees, each input's signal
+    and format, and the Program and Mic Volume levels in dB. On every size
+    but the 108, outputs 3 and up are pairs: one output drives an HDMI connector (A) and a
     DTP connector (B) with the same picture. Ties use the output number, and
     video mutes use the connector, so each half can be muted on its own.
   setup: >
@@ -145,16 +158,19 @@ help:
 discovery:
   # The copyright line the switcher sends the moment a connection opens
   # (p. 61): "(c) Copyright 20yy, Extron Electronics, DTPCPxx, Vx.xx,
-  # 60-nnnn-nn", where DTPCPxx is the model name. The probe sends nothing.
-  # extron_sis's probe reads any Extron banner and also matches; the two
-  # tie on driver id and this one sorts first, so a scan offers it first.
+  # 60-nnnn-nn", where DTPCPxx is the model name. A DTP CrossPoint 84 4K
+  # IPCP MA (firmware 2.04, 2026-10-29) names itself in full: "(c) Copyright
+  # 2023, Extron Electronics, DTPCP84 4K IPCP MA 70, V2.04, 60-1515-13". The
+  # probe sends nothing. extron_sis's probe reads any Extron banner and also
+  # matches; the two tie on driver id and this one sorts first, so a scan
+  # offers it first.
   tcp_probe:
     port: 23
     expect_regex: '(?:©|\(c\))[^\n]*?\d{4}[^\n]*?Extron\s+Electronics,\s*DTPCP\d+'
     extract_manufacturer: "Extron"
     extract:
       model:
-        regex: '(DTPCP\d+)'
+        regex: '(DTPCP\w+(?: \w+)*)'
       firmware:
         regex: 'V(\d+\.\d+(?:\.\d+)?)'
   oui:
@@ -244,7 +260,9 @@ config_schema:
 # Verbose mode 3 first: change notices on, and every read answers tagged
 # (p. 76). Then the model and firmware, and the settings that change only
 # from a configuration program: each input's HDCP authorization and audio
-# source, and each connector's HDCP mode.
+# source, and each connector's HDCP mode. Last, each input's detected audio
+# and video format, which the switcher announces whenever they change
+# (40Stat and Ityp below), so they are read here and not polled.
 on_connect:
   - "\x1b3CV\r"
   - { send: "I", query_for: model }
@@ -252,6 +270,8 @@ on_connect:
   - { each_child: input, send: "\x1bE{child_id}HDCP\r", query_for: hdcp_authorized }
   - { each_child: input, send: "\x1bI{child_id}AFMT\r", query_for: audio_source }
   - { each_child: connector, send: "\x1bS{child_id}HDCP\r", query_for: hdcp_mode }
+  - { each_child: input, send: "\x1b40*{child_id}STAT\r", query_for: audio_format }
+  - { each_child: input, send: "{child_id}*\\", query_for: video_format }
 
 # The password login, typed at the first prompt (see the header). The second
 # "prompt" is the line break that opens the switcher's answer, and the second
@@ -286,7 +306,7 @@ state_variables:
   model:
     type: string
     label: Model
-    help: "The model name the switcher reports, for example DTPCP108."
+    help: "The model name the switcher reports, for example DTPCP84 4K IPCP MA 70."
   firmware:
     type: string
     label: Firmware Version
@@ -428,7 +448,7 @@ child_entity_types:
         type: enum
         values: ["none", "no_hdcp", "hdcp", "hdcp_encrypted"]
         label: Display
-        help: "What the switcher sees on this connector: none (no display connected), no_hdcp (a display without HDCP), hdcp (an HDCP display, not encrypted), hdcp_encrypted (an HDCP display, encrypted)."
+        help: "What the switcher reports on this connector: none (no display connected), no_hdcp (no HDCP to the display: a display without HDCP, or a display that takes HDCP with some sources routed to it), hdcp (an HDCP display, not encrypted), hdcp_encrypted (an HDCP display, encrypted)."
         cloud_priority: high
       hdcp_mode:
         type: enum
@@ -463,6 +483,16 @@ child_entity_types:
         values: ["auto", "hdmi", "analog"]
         label: Audio Source
         help: "Where this input takes its audio: auto (the digital audio when there is any, else the analog), hdmi, or analog (the input's 2-channel analog audio)."
+      video_format:
+        type: enum
+        values: ["none", "dvi", "hdmi_rgb_full", "hdmi_rgb_limited", "hdmi_yuv444_full", "hdmi_yuv444_limited", "hdmi_yuv422_full", "hdmi_yuv422_limited"]
+        label: Video Format
+        help: "The video the switcher detects on this input: none (no signal), dvi (no audio), or HDMI in RGB, YUV 4:4:4 or YUV 4:2:2, full or limited range."
+      audio_format:
+        type: enum
+        values: ["none", "lpcm_2ch", "lpcm_3ch_or_bitstream"]
+        label: Audio Format
+        help: "The digital audio the switcher detects on this input: none, lpcm_2ch (2-channel PCM), or lpcm_3ch_or_bitstream (PCM with 3 or more channels, or a compressed bitstream)."
     summary_fields: [signal, hdcp]
     instances:
       count_from_state: matrix_inputs
@@ -470,7 +500,8 @@ child_entity_types:
       label: "Input {id}"
 
 commands:
-  # Ties (p. 63). "Out03 In01 All", "Out03 In01 Vid", "Out03 In01 Aud".
+  # Ties (p. 63). The guide draws "Out03 In01 All"; a DTP CrossPoint 84 4K
+  # IPCP MA (firmware 2.04, 2026-10-29) answers "3*1!" with "Out1 In3 All".
   route:
     label: Route Input to Output
     send: "{input}*{output}!"
@@ -802,16 +833,21 @@ responses:
     set: { last_error: "The switcher refused a command a User login may not send. Enter the administrator password." }
 
   # The copyright line and the date line an unprotected switcher sends on
-  # connect (p. 61). With a password the login reads them instead.
-  - match: '^\(c\) Copyright \d{4}, Extron Electronics, (DTPCP\w+), V(\d+\.\d+(?:\.\d+)?)'
+  # connect (p. 61). With a password the login reads them instead. The guide
+  # draws the model "DTPCPxx"; a DTP CrossPoint 84 4K IPCP MA (firmware 2.04,
+  # 2026-10-29) sends "(c) Copyright 2023, Extron Electronics, DTPCP84 4K IPCP
+  # MA 70, V2.04, 60-1515-13", so the whole name up to the comma is read.
+  - match: '^\(c\) Copyright \d{4}, Extron Electronics, (DTPCP\w+(?: \w+)*), V(\d+\.\d+(?:\.\d+)?)'
     set: { model: "$1", firmware: "$2" }
   - match: '^\w{3}, \d{1,2} \w{3} \d{4} \d{1,2}:\d{2}:\d{2}$'
     set: {}
 
   # ── Ties (p. 63) ──
   # The answer to a tie and, in verbose mode 3, to a tie read ("3%", "3$"):
-  # "Out03 In01 Vid". The video and audio forms come first so the simulator
-  # answers each read in its own form.
+  # the guide draws "Out03 In01 Vid"; the 84 IPCP MA above answers "1%"
+  # with "Out1 In3 Vid" and an untied output's read with "Out3 In0 Vid".
+  # The video and audio forms come first so the simulator answers each read
+  # in its own form.
   - match: '^Out(\d+) In(\d+) Vid$'
     child_set:
       - { type: output, id: "$1", state: { input: "$2" } }
@@ -864,8 +900,9 @@ responses:
 
   # Every connector's mute, one digit per connector in the size's own order
   # (Esc VM, "Mut" in verbose mode 3; the guide's 84 example is
-  # "Mut012101"). The number of digits is the size, so each size has a rule
-  # that names its connectors and reports the switcher's outputs.
+  # "Mut012101", and the 84 IPCP MA above answers "Mut000000"). The number
+  # of digits is the size, so each size has a rule that names its
+  # connectors and reports the switcher's outputs.
   # 108: 10 connectors.
   - match: '^Mut ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2]) ?([0-2])$'
     set: { matrix_outputs: "8", matrix_connectors: "1,2,3,4,5A,5B,6A,6B,7,8" }
@@ -914,7 +951,12 @@ responses:
   # ── Signal (p. 68) ──
   # Every input's sync, from input 1 ("Frq00 " in verbose mode 3; the guide
   # draws the digits spaced in its example and does not say). 10 digits on a
-  # 108, 8 on the others, which is how the inputs are counted.
+  # 108, 8 on the others, which is how the inputs are counted. A DTP
+  # CrossPoint 84 4K IPCP MA (firmware 2.04, 2026-10-29) sends them unspaced,
+  # "Frq00 00110000", and also sent this line unprompted when an input's
+  # sync changed (six times; the one other change came in the answer to a
+  # read while it was starting up). Not in the guide; the poll still reads
+  # it.
   - match: '^Frq00 ?((?:[01] ?){10})$'
     set: { matrix_inputs: "10" }
     child_list:
@@ -933,29 +975,38 @@ responses:
         signal: { group: 1, map: { "0": "false", "1": "true" } }
 
   # ── HDCP (pp. 66-67) ──
-  # An input's status, "HdcpI1*2" in verbose mode 3.
+  # An input's status, "HdcpI1*2" in verbose mode 3 ("HdcpI01*2" from the
+  # 84 IPCP MA above). Not announced when it changes: on that unit every
+  # change showed only in a poll read.
   - match: '^HdcpI(\d+)\*([0-2])$'
     child_set:
       - type: input
         id: "$1"
         state:
           hdcp: { group: 2, map: { "0": "none", "1": "hdcp", "2": "non_hdcp" } }
-  # An input's HDCP authorization: "HdcpE1*1".
+  # An input's HDCP authorization: "HdcpE1*1" ("HdcpE01*1" from the 84 IPCP
+  # MA above).
   - match: '^HdcpE(\d+)\*([01])$'
     child_set:
       - type: input
         id: "$1"
         state:
           hdcp_authorized: { group: 2, map: { "0": "false", "1": "true" } }
-  # A connector's display: "HdcpO3A*3" in verbose mode 3. The user guide
-  # says 3 is encrypted; the setup guide says 7.
+  # A connector's display: "HdcpO3A*3" in verbose mode 3; an unpaired
+  # connector is "HdcpO1*3" (the 84 IPCP MA above). The user guide says 3 is
+  # encrypted, the setup guide 7: that unit sent 3 and never 7. The guide's
+  # 1 is "monitor without HDCP", but on that unit, with HDCP mode auto,
+  # connector 2's display (2 or 3 with other sources) read 1 while input 4,
+  # a source without HDCP, was routed to it, and connector 1 read 2 with the
+  # same source; the display help says so.
   - match: '^HdcpO0?([1-9][AB]?)\*([0-37])$'
     child_set:
       - type: connector
         id: "$1"
         state:
           display: { group: 2, map: { "0": "none", "1": "no_hdcp", "2": "hdcp", "3": "hdcp_encrypted", "7": "hdcp_encrypted" } }
-  # A connector's HDCP mode: "HdcpS3A*1".
+  # A connector's HDCP mode: "HdcpS3A*1"; "HdcpS1*0" for an unpaired one
+  # (the 84 IPCP MA above).
   - match: '^HdcpS0?([1-9][AB]?)\*([0-3])$'
     child_set:
       - type: connector
@@ -963,8 +1014,66 @@ responses:
         state:
           hdcp_mode: { group: 2, map: { "0": "auto", "1": "always", "2": "auto_dvi", "3": "always_dvi" } }
 
+  # A display hot plug on an output connector: "HplgO1", "HplgO2". Not in
+  # the guide. A DTP CrossPoint 84 4K IPCP MA (firmware 2.04, 2026-10-29)
+  # sent it unprompted for connectors 1 and 2: in bursts as it started up,
+  # and twice within two seconds of a tie to output 2, after which that
+  # connector's display read differently at the next poll. So every
+  # connector's display is read again at once (then_query, platform 0.38.0
+  # and later; the poll before that). How a paired connector (3A, 3B) is
+  # named was not seen, so the notice is not routed to one connector. A
+  # display can still be settling when the read goes out; a notice inside
+  # two seconds of the last read sends nothing, and the poll reads it again.
+  - match: '^HplgO\w*$'
+    set: {}
+    then_query:
+      - { each_child: connector, send: "\x1bO{child_id}HDCP\r", query_for: display }
+
+  # ── Input formats (pp. 66-67) ──
+  # An input's detected digital audio: "40Stat01*2", the answer to Esc
+  # 40*{in}STAT, and the notice the guide says a change sends (p. 66; it
+  # does not show it). On a DTP CrossPoint 84 4K IPCP MA (firmware 2.04,
+  # 2026-10-29) the notice is this line, the input in two digits; a 2 was
+  # each time followed within 50 ms by a 1. Read at connect, then from the
+  # notices.
+  - match: '^40Stat(\d+)\*([0-2])$'
+    child_set:
+      - type: input
+        id: "$1"
+        state:
+          audio_format: { group: 2, map: { "0": "none", "1": "lpcm_2ch", "2": "lpcm_3ch_or_bitstream" } }
+  # "DsD30000*1": not in the guide, and what it means is not documented. On
+  # the 84 IPCP MA above it came only straight after a 40Stat notice, for
+  # 30000, 30002 and 30006 with inputs 1, 2 and 4 (the guide's DSP table
+  # numbers input n's left line input gain 30000 + 2(n-1), p. 159), 1 when
+  # the input's audio became LPCM-2Ch and 0 when it became none. Read so it
+  # is not an unread reply; nothing is set from it.
+  - match: '^DsD\d+\*-?\d+$'
+    set: {}
+  # An input's video format: "Ityp01*2", the answer to {in}*\ (p. 67, which
+  # shows it as "Ityp X$*X1*" for modes 2 and 3) and, on the 84 IPCP MA
+  # above, the switcher's notice when it changes (not in the guide). Read at
+  # connect, then from the notices. The input's HDCP status can change with
+  # it (a source arriving or leaving) and is not announced, so it is read
+  # again at once (then_query, platform 0.38.0 and later; the poll before
+  # that). Its sync needs no read: on that unit the sync line came by itself
+  # within a second of each such notice. The reads at connect match this
+  # rule too, so each sets off one HDCP read for its input. The guide's
+  # table gives 4 to 7 as "HDMI YUV Full / Limited" with "(RGB 444 ...)" for
+  # 4 and 5 and "(RGB 422 ...)" for 6 and 7, read here as YUV 4:4:4 and
+  # 4:2:2.
+  - match: '^Ityp ?(\d+)\*([0-7])$'
+    child_set:
+      - type: input
+        id: "$1"
+        state:
+          video_format: { group: 2, map: { "0": "none", "1": "dvi", "2": "hdmi_rgb_full", "3": "hdmi_rgb_limited", "4": "hdmi_yuv444_full", "5": "hdmi_yuv444_limited", "6": "hdmi_yuv422_full", "7": "hdmi_yuv422_limited" } }
+    then_query:
+      - { send: "\x1bI{child_id}HDCP\r", query_for: hdcp }
+
   # ── Audio source (pp. 64, 66) ──
-  # An output's: "AfmtO03*2". An input's: "AfmtI01*2".
+  # An output's: "AfmtO03*2". An input's: "AfmtI01*2". The 84 IPCP MA above
+  # answers the reads tagged the same way ("AfmtO01*1", "AfmtI01*0").
   - match: '^AfmtO(\d+)\*([0-2])$'
     child_set:
       - type: output
@@ -979,7 +1088,8 @@ responses:
           audio_source: { group: 2, map: { "0": "auto", "1": "hdmi", "2": "analog" } }
 
   # ── Group masters (p. 167) ──
-  # Each group's type first: "GrpmP1*6" (6 gain, 12 mute).
+  # Each group's type first: "GrpmP1*6" (6 gain, 12 mute). Tagged in mode 3,
+  # type and level alike, on the 84 IPCP MA above ("GrpmP1*6", "GrpmD1*0").
   - match: '^GrpmP1\*(6|12)$'
     mappings:
       - { state: group_1_type, group: 1, map: { "6": "gain", "12": "mute" } }
@@ -1001,8 +1111,9 @@ responses:
     set: {}
 
   # ── Front panel lock (p. 69) ──
-  # The answer to a set and, in verbose mode 3, to the read X; also the
-  # switcher's notice of a change at the front panel.
+  # The answer to a set and, in verbose mode 3, to the read X ("Exe2" from
+  # the 84 IPCP MA above); also the switcher's notice of a change at the
+  # front panel.
   - match: '^Exe([0-2])$'
     set: { front_panel_lock: "$1" }
 
@@ -1025,12 +1136,13 @@ responses:
   # and the internal temperature (the prefix only in verbose mode 2 or 3).
   - match: '^(?:Sts\d+\*)?(\d+\.\d+) (\d+\.\d+) \d+ \d+$'
     set: { supply_voltage: "$1", temperature: "$2" }
-  # The Information request I: "DTPCP108" (the guide's only sample; it does
-  # not show the tagged form).
-  - match: '^(?:[A-Za-z]+\d*\*)?(DTPCP\w+)'
+  # The Information request I: "DTPCP108" (the guide's only sample, not
+  # tagged). A DTP CrossPoint 84 4K IPCP MA (firmware 2.04, 2026-10-29)
+  # answers "Inf00*DTPCP84 4K IPCP MA 70", and the whole name is read.
+  - match: '^(?:[A-Za-z]+\d*\*)?(DTPCP\w+(?: \w+)*)\s*$'
     set: { model: "$1" }
   # Firmware, the answer to Q: "1.23" (the guide does not show the tagged
-  # form; an SW4 HD 4K PLUS tags it "Ver01*1.02").
+  # form; the 84 IPCP MA above answers "Ver01*2.04").
   - match: '^(?:Ver\d*\*)?(\d+\.\d+(?:\.\d+)?)$'
     set: { firmware: "$1" }
 
@@ -1066,13 +1178,17 @@ polling:
 # Seeding the child keys rosters them, so the per-output and per-connector
 # reads (declared with query_for) answer from each child's own state; the
 # handlers below cover the replies that carry many children or need a rule.
-# Its I answer, "DTPCP84", follows the guide's 108 sample; the guide does not
-# show an 84's.
+# Its replies follow a DTP CrossPoint 84 4K IPCP MA on firmware 2.04
+# (2026-10-29) where that unit answered: unpadded ties, a tagged I and Q, the
+# input in two digits in 40Stat and Ityp. A change made in the Simulator UI
+# is sent the way the rule that reads it is written (push_state), so a
+# changed input format goes out as "Ityp1*1", which the driver reads like
+# the switcher's "Ityp01*1".
 simulator:
   push_state: true
   initial_state:
-    model: "DTPCP84"
-    firmware: "1.23"
+    model: "DTPCP84 4K IPCP MA 70"
+    firmware: "2.04"
     volume: 0
     mic_volume: -10
     group_1_type: gain
@@ -1148,6 +1264,22 @@ simulator:
     input.6.audio_source: auto
     input.7.audio_source: auto
     input.8.audio_source: auto
+    input.1.video_format: hdmi_rgb_full
+    input.2.video_format: hdmi_rgb_limited
+    input.3.video_format: hdmi_rgb_limited
+    input.4.video_format: none
+    input.5.video_format: none
+    input.6.video_format: none
+    input.7.video_format: dvi
+    input.8.video_format: none
+    input.1.audio_format: lpcm_2ch
+    input.2.audio_format: lpcm_2ch
+    input.3.audio_format: none
+    input.4.audio_format: none
+    input.5.audio_format: none
+    input.6.audio_format: none
+    input.7.audio_format: none
+    input.8.audio_format: none
 
   delays:
     command_response: 0.02
@@ -1174,6 +1306,14 @@ simulator:
     - type: toggle
       key: input.1.signal
       label: Input 1 Signal
+    - type: select
+      key: input.1.video_format
+      label: Input 1 Video Format
+      options: ["none", "dvi", "hdmi_rgb_full", "hdmi_rgb_limited", "hdmi_yuv444_full", "hdmi_yuv444_limited", "hdmi_yuv422_full", "hdmi_yuv422_limited"]
+    - type: select
+      key: input.1.audio_format
+      label: Input 1 Audio Format
+      options: ["none", "lpcm_2ch", "lpcm_3ch_or_bitstream"]
     - type: indicator
       key: temperature
       label: Temperature
@@ -1184,8 +1324,9 @@ simulator:
       handler: |
         respond("Vrb" + match.group(1) + "\r\n")
 
-    # Ties: "{i}*{o}!" / "%" / "$" -> "Out{oo} In{ii} All|Vid|Aud"; input 0
-    # unties. An output the switcher lacks is E12, an input E01.
+    # Ties: "{i}*{o}!" / "%" / "$" -> "Out{o} In{i} All|Vid|Aud", unpadded as
+    # the 84 IPCP MA answers (the guide draws "Out03 In01"); input 0 unties.
+    # An output the switcher lacks is E12, an input E01.
     - match: '(\d+)\*(\d+)([!%$])'
       handler: |
         def _run():
@@ -1203,10 +1344,11 @@ simulator:
             if kind in "!$":
                 state[f"output.{out}.audio_input"] = inp
             word = {"!": "All", "%": "Vid", "$": "Aud"}[kind]
-            respond(f"Out{out:02d} In{inp:02d} {word}\r\n")
+            respond(f"Out{out} In{inp} {word}\r\n")
         _run()
 
-    # Input to all outputs, or clear all with input 0: "{i}*!" -> "In{ii} All".
+    # Input to all outputs, or clear all with input 0: "{i}*!" -> "In{ii} All",
+    # the guide's form (no switcher has answered it yet).
     - match: '(\d+)\*!'
       handler: |
         inp = int(match.group(1))
@@ -1228,11 +1370,13 @@ simulator:
             respond("E12\r\n")
 
     # Global video mute, and the read of every connector that rides with it:
-    # "1*B" -> "Vmt1", Esc VM -> "Mut" + a digit per connector.
+    # "1*B" -> "Vmt1", Esc VM -> "Mut" + a digit per connector. With no
+    # connector setting (a device config left empty) the connectors are an
+    # 84's, the size the simulator models.
     - match: '([0-2])\*B(?:\x1bVM)?'
       handler: |
         val = int(match.group(1))
-        ids = [c.strip() for c in str(config.get("connector_ids") or "").split(",") if c.strip()]
+        ids = [c.strip() for c in str(config.get("connector_ids") or "1,2,3A,3B,4A,4B").split(",") if c.strip()]
         for conn in ids:
             state[f"connector.{conn}.video_mute"] = val != 0
             state[f"connector.{conn}.sync_mute"] = val == 2
@@ -1245,7 +1389,7 @@ simulator:
         respond(reply)
     - match: '\x1bVM'
       handler: |
-        ids = [c.strip() for c in str(config.get("connector_ids") or "").split(",") if c.strip()]
+        ids = [c.strip() for c in str(config.get("connector_ids") or "1,2,3A,3B,4A,4B").split(",") if c.strip()]
         digits = ""
         for conn in ids:
             digits += "2" if state.get(f"connector.{conn}.sync_mute") else ("1" if state.get(f"connector.{conn}.video_mute") else "0")
@@ -1302,15 +1446,38 @@ simulator:
       handler: |
         respond(f"Exe{int(state.get('front_panel_lock') or 0)}\r\n")
 
-    # Identity: I -> the model name of the configured size, Q -> the
-    # firmware (the guide's untagged forms).
+    # Identity, tagged as the 84 IPCP MA answers: I -> "Inf00*" + the model
+    # name of the configured size (that unit's full name for an 84, the
+    # guide's names for the others), Q -> "Ver01*" + the firmware.
     - match: 'I'
       handler: |
-        names = {"1,2,3,4,5A,5B,6A,6B,7,8": "DTPCP108", "1,2,3A,3B,4A,4B,5,6": "DTPCP86", "1,2,3A,3B,4A,4B": "DTPCP84", "1A,1B,2A,2B": "DTPCP82"}
-        respond(names.get(str(config.get("connector_ids") or ""), "DTPCP84") + "\r\n")
+        names = {"1,2,3,4,5A,5B,6A,6B,7,8": "DTPCP108", "1,2,3A,3B,4A,4B,5,6": "DTPCP86", "1,2,3A,3B,4A,4B": "DTPCP84 4K IPCP MA 70", "1A,1B,2A,2B": "DTPCP82"}
+        respond("Inf00*" + names.get(str(config.get("connector_ids") or "1,2,3A,3B,4A,4B"), "DTPCP84 4K IPCP MA 70") + "\r\n")
     - match: 'Q'
       handler: |
-        respond(str(state.get("firmware") or "1.23") + "\r\n")
+        respond("Ver01*" + str(state.get("firmware") or "2.04") + "\r\n")
+
+    # An input's detected audio and video format, the input in two digits
+    # as in the 84 IPCP MA's own notices: Esc 40*{i}STAT -> "40Stat{ii}*{f}",
+    # {i}*\ -> "Ityp{ii}*{f}". An input the switcher lacks is E01.
+    - match: '\x1b40\*(\d+)STAT'
+      handler: |
+        inp = int(match.group(1))
+        if 1 <= inp <= int(config.get("input_count") or 8):
+            fmt = ["none", "lpcm_2ch", "lpcm_3ch_or_bitstream"]
+            value = state.get(f"input.{inp}.audio_format")
+            respond(f"40Stat{inp:02d}*{fmt.index(value) if value in fmt else 0}\r\n")
+        else:
+            respond("E01\r\n")
+    - match: '(\d+)\*\\'
+      handler: |
+        inp = int(match.group(1))
+        if 1 <= inp <= int(config.get("input_count") or 8):
+            fmt = ["none", "dvi", "hdmi_rgb_full", "hdmi_rgb_limited", "hdmi_yuv444_full", "hdmi_yuv444_limited", "hdmi_yuv422_full", "hdmi_yuv422_limited"]
+            value = state.get(f"input.{inp}.video_format")
+            respond(f"Ityp{inp:02d}*{fmt.index(value) if value in fmt else 0}\r\n")
+        else:
+            respond("E01\r\n")
 
     # Presets: "{n}." -> "Rpr{nn}"; Esc {n}ZG -> "Zpg{nn}". 1 to 32.
     - match: '(\d+)\.'
@@ -1348,7 +1515,7 @@ simulator:
     - match: '\x1bS(\d[AB]?)\*([0-3])HDCP'
       handler: |
         conn = match.group(1).lstrip("0") or "0"
-        ids = [c.strip() for c in str(config.get("connector_ids") or "").split(",") if c.strip()]
+        ids = [c.strip() for c in str(config.get("connector_ids") or "1,2,3A,3B,4A,4B").split(",") if c.strip()]
         if conn in ids:
             state[f"connector.{conn}.hdcp_mode"] = ["auto", "always", "auto_dvi", "always_dvi"][int(match.group(2))]
             respond(f"HdcpS{conn}*{match.group(2)}\r\n")

@@ -703,15 +703,15 @@
       "name": "Extron DTP CrossPoint 4K",
       "manufacturer": "Extron",
       "category": "switcher",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls Extron DTP CrossPoint 4K scaling presentation matrix switchers (108, 86, 84, 82, and the IPCP SA and MA models). Every output, output connector and input is a child entity: ties, video mutes, each output's audio, signal and HDCP status, plus the Program and Mic Volume group masters in dB, presets and the front panel lock. Works over Telnet (port 23) or RS-232 (9600 8N1), with the switcher's password.\n",
+      "description": "Controls Extron DTP CrossPoint 4K scaling presentation matrix switchers (108, 86, 84, 82, and the IPCP SA and MA models). Every output, output connector and input is a child entity: ties, video mutes, each output's audio, each input's signal, HDCP status and video and audio format, plus the Program and Mic Volume group masters in dB, presets and the front panel lock. Works over Telnet (port 23) or RS-232 (9600 8N1), with the switcher's password.\n",
       "source_url": "https://media.extron.com/public/download/files/userman/68-2368-02_R.pdf",
       "file": "switchers/extron_dtp_crosspoint.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/extron_dtp_crosspoint.avcdriver": "58063580c306891c0b8463d8eb9330ad5b8f77cb5997cb70d87d7b4047e8cf1c"
+        "switchers/extron_dtp_crosspoint.avcdriver": "4d6970fef9f9b961ea7545b84e115019c1f93f63448ff174472d42aa7a5eb9bf"
       },
       "ports": [
         23
@@ -729,7 +729,7 @@
         "presentation-switcher"
       ],
       "help": {
-        "overview": "Controls an Extron DTP CrossPoint 4K matrix switcher. Each output, output connector and input becomes a child entity: what each output is tied to, each connector's video mute and the display it sees, each input's signal, and the Program and Mic Volume levels in dB. On every size but the 108, outputs 3 and up are pairs: one output drives an HDMI connector (A) and a DTP connector (B) with the same picture. Ties use the output number, and video mutes use the connector, so each half can be muted on its own.\n",
+        "overview": "Controls an Extron DTP CrossPoint 4K matrix switcher. Each output, output connector and input becomes a child entity: what each output is tied to, each connector's video mute and the display it sees, each input's signal and format, and the Program and Mic Volume levels in dB. On every size but the 108, outputs 3 and up are pairs: one output drives an HDMI connector (A) and a DTP connector (B) with the same picture. Ties use the output number, and video mutes use the connector, so each half can be muted on its own.\n",
         "setup": "1. Connect the switcher to the network, or to its rear RS-232 port (9600 8N1) directly or through a bridge. A new switcher is at 192.168.254.254 with DHCP off; give it an address on your network first. 2. Use port 23 for network control. 3. Enter the switcher's password in Password. A new unit's password is its serial number, printed on its label. Leave Password blank if the switcher has no password, and always on RS-232, which never asks for one. 4. The switcher reports its size when it connects, and Inputs, Outputs and Output Connectors fill in. To build a project before the switcher is connected, set all three to its model (an 84 is the default). 5. Volume and Mic Volume are the switcher's group masters 1 and 2, as it leaves the factory. If they were set up differently in DSP Configurator, the levels stay blank and the group commands still work.\n"
       },
       "compatible_models": [
@@ -750,7 +750,7 @@
             "DTP CrossPoint 82 4K IPCP MA"
           ],
           "confidence": "untested",
-          "notes": "Built from Extron's user guide; not yet tested on a switcher. A new unit's password is its serial number: enter it in Password. The switcher reports its size when it connects and the output and input settings fill in. The IPCP models' built-in control processor is a separate device at its own address and is not controlled by this driver.\n"
+          "notes": "Built from Extron's user guide. Its status readings and routing were checked against a DTP CrossPoint 84 4K IPCP MA on firmware 2.04; the other commands and models are not yet tested on a switcher. A new unit's password is its serial number: enter it in Password. The switcher reports its size when it connects and the output and input settings fill in. The IPCP models' built-in control processor is a separate device at its own address and is not controlled by this driver.\n"
         }
       ],
       "discovery": {
@@ -760,7 +760,7 @@
           "extract_manufacturer": "Extron",
           "extract": {
             "model": {
-              "regex": "(DTPCP\\d+)"
+              "regex": "(DTPCP\\w+(?: \\w+)*)"
             },
             "firmware": {
               "regex": "V(\\d+\\.\\d+(?:\\.\\d+)?)"

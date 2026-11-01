@@ -174,6 +174,10 @@ INTENDED_OVERLAPS = {
     # panasonic_display: "NTCONTROL is shared with Panasonic projectors, so a
     # projector scan may surface both this driver and panasonic_pt".
     frozenset({"panasonic_display", "panasonic_pt"}),
+    # extron_dtp_crosspoint: "extron_sis's probe reads any Extron banner and
+    # also matches; the two tie on driver id and this one sorts first, so a
+    # scan offers it first."
+    frozenset({"extron_dtp_crosspoint", "extron_sis"}),
 }
 
 

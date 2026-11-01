@@ -1,0 +1,273 @@
+# Computer power control through Sleep-On-LAN.
+#
+# Sleep-On-LAN (https://github.com/SR-G/sleep-on-lan, Apache-2.0) is a small
+# service for Windows and Linux that runs a configured command when it gets an
+# HTTP request. Installed on a computer (a vMix or presentation PC, a signage
+# player), it lets OpenAVC shut the computer down, restart it, or put it to
+# sleep or hibernation gracefully. Power On is a Wake-on-LAN magic packet sent
+# from OpenAVC, so it works while the computer is off.
+#
+# Protocol, from the project's README and its source at tag 1.1.1-RELEASE
+# (src/listener_http.go, src/sleeper_windows.go, src/utils_system.go):
+#   - HTTP on port 8009 (the "HTTP:8009" listener). Every route is a GET.
+#   - Basic auth on every route once the config file has an "Auth" block.
+#   - GET /<operation> runs the command configured under that operation name
+#     and answers at once, before the command finishes (it runs in a
+#     goroutine). Reply with ?format=JSON: {"Operation":"<name>","Result":true}.
+#     An operation that is not configured has no route: 404.
+#   - "sleep" is configured by default (a SetSuspendState call on Windows).
+#     Any other operation exists only when the computer's sol.json defines it.
+#     This driver expects shutdown, restart and hibernate; the setup help says
+#     what to put in sol.json.
+#   - GET /state/local?format=JSON answers {"State":"online","Host":"localhost"}.
+#   - GET /?format=JSON answers the agent's identity: Application, Version,
+#     Commit, its network interfaces, listeners and configured commands.
+#   - A configured command is split on spaces and run directly, with no shell,
+#     so a path with spaces in it cannot be used (sol.json's own note).
+#
+# Push or poll: the agent has no notifications. It is polled, and the poll is
+# also what notices the computer has gone off: the agent stops answering.
+#
+# Why YAML: plain HTTP GETs with JSON replies and Basic auth, plus a Wake-on-LAN
+# datagram beside the connection, all fit ConfigurableDriver.
+
+id: sleep_on_lan
+name: Computer Power (Sleep-On-LAN)
+manufacturer: Generic
+category: utility
+version: 1.0.0
+min_platform_version: "0.36.0"
+author: OpenAVC
+description: >
+  Turn a Windows or Linux computer on and off from OpenAVC: Wake-on-LAN to
+  power it on, and shut down, restart, sleep or hibernate through the free
+  Sleep-On-LAN service installed on the computer.
+
+source_url: https://github.com/SR-G/sleep-on-lan
+tags: [computer, pc, windows, power, shutdown, sleep, hibernate, wake-on-lan, wol]
+verified: false
+simulated: true
+protocols: [sleep_on_lan_http]
+ports: [8009]
+
+transport: http
+
+help:
+  overview: >
+    Turns a computer on and off. Power On sends a Wake-on-LAN packet, so it
+    works while the computer is off. Shut Down, Restart, Sleep and Hibernate go
+    to the Sleep-On-LAN service on the computer, which closes Windows properly
+    instead of cutting the power. The device shows as offline while the
+    computer is off or asleep.
+  setup: >
+    On the computer:
+    1. Download Sleep-On-LAN 1.1.1 (github.com/SR-G/sleep-on-lan, Releases)
+    and unzip it to a folder with no spaces in its path, such as C:\SleepOnLAN.
+    2. Next to sol.exe, create sol.json with a login and the commands this
+    driver uses:
+    {"Listeners": ["HTTP:8009"], "Auth": {"Login": "openavc", "Password":
+    "choose-one"}, "HTTPOutput": "JSON", "Commands": [
+    {"Operation": "sleep", "Type": "internal-dll"},
+    {"Operation": "shutdown", "Command": "C:\\Windows\\System32\\shutdown.exe /s /t 0 /f"},
+    {"Operation": "restart", "Command": "C:\\Windows\\System32\\shutdown.exe /r /t 0 /f"},
+    {"Operation": "hibernate", "Command": "C:\\Windows\\System32\\shutdown.exe /h"}]}
+    3. Install it as a Windows service so it runs before anyone signs in (the
+    project's README shows how, with NSSM), and allow TCP 8009 in Windows
+    Firewall.
+    4. For Power On: turn on Wake on LAN in the computer's BIOS, turn off
+    Windows Fast Startup, and allow the network adapter to wake the computer
+    with a magic packet. Use the wired network port.
+
+    In OpenAVC: enter the computer's IP address, the login and password from
+    sol.json, and the MAC address of its wired network adapter.
+
+    Shut Down and Restart close every program without asking, so stop a
+    recording or a stream first.
+
+default_config:
+  host: ""
+  port: 8009
+  ssl: false
+  verify_ssl: true
+  auth_type: "basic"
+  username: ""
+  password: ""
+  mac_address: ""
+  timeout: 5.0
+  poll_interval: 10
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+    description: "The computer's IP address. Give it a fixed address so OpenAVC can always find it."
+  port:
+    type: integer
+    default: 8009
+    label: Port
+    description: "The port in sol.json's Listeners (HTTP:8009 unless you changed it)."
+  auth_type:
+    type: enum
+    values: ["none", "basic"]
+    default: "basic"
+    label: Authentication
+    description: "Basic when sol.json has an Auth login (recommended); none when it has no Auth block."
+  username:
+    type: string
+    default: ""
+    label: Login
+    description: "The Login in sol.json's Auth block."
+  password:
+    type: string
+    default: ""
+    label: Password
+    description: "The Password in sol.json's Auth block."
+    secret: true
+  mac_address:
+    type: string
+    default: ""
+    label: MAC Address
+    description: "The computer's wired network adapter, for Power On (Wake-on-LAN). Shown by 'ipconfig /all' as Physical Address."
+  timeout:
+    type: number
+    default: 5.0
+    label: Request Timeout (sec)
+  poll_interval:
+    type: integer
+    default: 10
+    label: Poll Interval (sec)
+    description: "How often OpenAVC checks that the computer is on."
+
+state_variables:
+  agent_state:
+    type: string
+    label: Computer State
+    help: "online while the Sleep-On-LAN service answers."
+  agent_version:
+    type: string
+    label: Sleep-On-LAN Version
+  last_operation:
+    type: string
+    label: Last Command
+    help: "The last power command the computer accepted (shutdown, restart, sleep, hibernate)."
+  last_operation_ok:
+    type: boolean
+    label: Last Command Accepted
+
+commands:
+  power_on:
+    label: Power On
+    help: >
+      Sends a Wake-on-LAN packet to the computer's MAC address. The computer
+      starts up (or wakes from sleep or hibernation) if Wake on LAN is set up
+      on it. Works while the computer is off.
+    available_offline: true
+    udp:
+      magic_packet: mac_address
+
+  shut_down:
+    label: Shut Down
+    help: "Shuts the computer down. Programs close without asking, so unsaved work, a recording or a stream stops."
+    confirm: "Shut the computer down? Every program on it closes without saving, a recording or stream included."
+    method: GET
+    path: "/shutdown?format=JSON"
+
+  restart:
+    label: Restart
+    help: "Restarts the computer. Programs close without asking."
+    confirm: "Restart the computer? Every program on it closes without saving, a recording or stream included."
+    method: GET
+    path: "/restart?format=JSON"
+
+  sleep:
+    label: Sleep
+    help: "Puts the computer to sleep. Programs stay open; Power On wakes it."
+    confirm: "Put the computer to sleep? A recording or stream on it stops."
+    method: GET
+    path: "/sleep?format=JSON"
+
+  hibernate:
+    label: Hibernate
+    help: "Hibernates the computer: it saves what is open and turns off. Power On wakes it with programs as they were."
+    confirm: "Hibernate the computer? A recording or stream on it stops."
+    method: GET
+    path: "/hibernate?format=JSON"
+
+  run_operation:
+    label: Run Operation
+    help: "Runs another command set up in sol.json, by its Operation name."
+    method: GET
+    path: "/{operation}?format=JSON"
+    params:
+      operation:
+        type: string
+        required: true
+        label: Operation
+        help: "The Operation name from sol.json's Commands list."
+        pattern: "^[A-Za-z0-9_-]+$"
+
+  query_status:
+    label: Query Status
+    help: "Asks the Sleep-On-LAN service whether it is running."
+    method: GET
+    path: "/state/local?format=JSON"
+
+  query_agent:
+    label: Query Agent
+    help: "Reads the Sleep-On-LAN version."
+    method: GET
+    path: "/?format=JSON"
+
+quick_actions: [power_on, shut_down, sleep]
+
+responses:
+  # GET /state/local
+  - json: true
+    require: State
+    set:
+      agent_state: State
+
+  # GET /<operation>: the agent accepted the operation (it runs afterwards).
+  - json: true
+    require: Operation
+    set:
+      last_operation: Operation
+      last_operation_ok: Result
+
+  # GET /: the agent's identity.
+  - json: true
+    require: Application
+    set:
+      agent_version: Version
+
+on_connect:
+  - query_agent
+  - query_status
+
+polling:
+  queries:
+    - query_status
+
+simulator:
+  initial_state:
+    agent_state: online
+    agent_version: "1.1.1-RELEASE"
+    last_operation: ""
+    last_operation_ok: false
+
+  command_handlers:
+    - match: '^GET /state/local(\?.*)?$'
+      handler: |
+        respond('{"State":"' + str(state["agent_state"]) + '","Host":"localhost"}')
+
+    - match: '^GET /(shutdown|restart|sleep|hibernate)(\?.*)?$'
+      handler: |
+        op = match.group(1)
+        state["last_operation"] = op
+        state["last_operation_ok"] = True
+        respond('{"Operation":"' + op + '","Result":true}')
+
+    - match: '^GET /(\?.*)?$'
+      handler: |
+        respond('{"Application":"sleep-on-lan","Version":"' + str(state["agent_version"]) + '","Commit":""}')

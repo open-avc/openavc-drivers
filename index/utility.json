@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 9,
+    "total_drivers": 10,
     "shards": null,
     "category": "utility"
   },
@@ -87,6 +87,45 @@
           "avpro edge",
           "avproglobal"
         ]
+      }
+    },
+    {
+      "id": "sleep_on_lan",
+      "name": "Computer Power (Sleep-On-LAN)",
+      "manufacturer": "Generic",
+      "category": "utility",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Turn a Windows or Linux computer on and off from OpenAVC: Wake-on-LAN to power it on, and shut down, restart, sleep or hibernate through the free Sleep-On-LAN service installed on the computer.\n",
+      "source_url": "https://github.com/SR-G/sleep-on-lan",
+      "file": "utility/sleep_on_lan.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "utility/sleep_on_lan.avcdriver": "6af88676c743487e3a181bf71b105c614c248e76a3c17e04fe255581a48dcf53"
+      },
+      "ports": [
+        8009
+      ],
+      "protocols": [
+        "sleep_on_lan_http"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "computer",
+        "pc",
+        "windows",
+        "power",
+        "shutdown",
+        "sleep",
+        "hibernate",
+        "wake-on-lan",
+        "wol"
+      ],
+      "help": {
+        "overview": "Turns a computer on and off. Power On sends a Wake-on-LAN packet, so it works while the computer is off. Shut Down, Restart, Sleep and Hibernate go to the Sleep-On-LAN service on the computer, which closes Windows properly instead of cutting the power. The device shows as offline while the computer is off or asleep.\n",
+        "setup": "On the computer: 1. Download Sleep-On-LAN 1.1.1 (github.com/SR-G/sleep-on-lan, Releases) and unzip it to a folder with no spaces in its path, such as C:\\SleepOnLAN. 2. Next to sol.exe, create sol.json with a login and the commands this driver uses: {\"Listeners\": [\"HTTP:8009\"], \"Auth\": {\"Login\": \"openavc\", \"Password\": \"choose-one\"}, \"HTTPOutput\": \"JSON\", \"Commands\": [ {\"Operation\": \"sleep\", \"Type\": \"internal-dll\"}, {\"Operation\": \"shutdown\", \"Command\": \"C:\\\\Windows\\\\System32\\\\shutdown.exe /s /t 0 /f\"}, {\"Operation\": \"restart\", \"Command\": \"C:\\\\Windows\\\\System32\\\\shutdown.exe /r /t 0 /f\"}, {\"Operation\": \"hibernate\", \"Command\": \"C:\\\\Windows\\\\System32\\\\shutdown.exe /h\"}]} 3. Install it as a Windows service so it runs before anyone signs in (the project's README shows how, with NSSM), and allow TCP 8009 in Windows Firewall. 4. For Power On: turn on Wake on LAN in the computer's BIOS, turn off Windows Fast Startup, and allow the network adapter to wake the computer with a magic packet. Use the wired network port.\nIn OpenAVC: enter the computer's IP address, the login and password from sol.json, and the MAC address of its wired network adapter.\nShut Down and Restart close every program without asking, so stop a recording or a stream first.\n"
       }
     },
     {

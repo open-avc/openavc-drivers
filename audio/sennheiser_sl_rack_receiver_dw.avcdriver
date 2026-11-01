@@ -1,0 +1,1765 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-avc/openavc-drivers/main/avcdriver.schema.json
+#
+# Sennheiser SpeechLine SL Rack Receiver DW (single-channel digital wireless)
+#
+# Controls the SL Rack Receiver DW over Sennheiser Sound Control (SSC)
+# version 1: JSON objects over UDP port 45, one object per datagram.
+#
+# Protocol reference: "Sennheiser Sound Control Protocol (SSC) - Developer's
+# guide for SpeechLine Digital Wireless", TI 1094 v4.3, chapters 4-9 (SL Rack
+# Receiver DW firmware 4.1.1); source_url below.
+#
+# Wire format (§4): every address is a path of JSON keys. A null argument
+# reads it ({"rx1":{"mute_state":null}}), any other value writes it, and the
+# reply carries the value now in force, so a set's answer is its read-back.
+# A refusal is {"osc":{"error":[{"rx1":{"mute_mode":[406]}}]}} (§8.4, §9).
+# Values here are numbers where the multi-channel receiver has words: mute
+# mode 0-4, sensitivity 0-6, output gain as an index 0-6 (-24 to +12 dB),
+# EQ preset 0-4, transmitter type 0-3, display brightness 0-100.
+#
+# Push, not polling (§5): the receiver notifies a subscribed client of every
+# change on the socket the subscription came from. A subscription lasts the
+# lifetime the client asks for (10 s by default, §8.11) and at most 1000
+# notifications, then ends with error 310 (§5.1); sending the same request
+# again renews it. Every subscribable address is subscribed with a lifetime of
+# 90 s and the poll renews them all (the Poll Interval stops at 30 s, so every
+# lifetime spans three renewals). A 310 subscribes everything again at once.
+# The receiver answers every subscription with the current value, so the
+# renewal is also a full resync.
+#
+# One address per message. The document's only replies that repeat a name at
+# one level answer a message that asked for several addresses or methods at
+# once: a subscription listing several addresses, or an /osc/xid sent beside
+# the subscription (§8.11 examples 1 and 3). A JSON reader keeps the last of a
+# repeated name, so OpenAVC 0.38.0 would lose the rest of such a reply. This
+# driver sends one address in each message, reads and subscriptions alike, so
+# nothing in the document repeats; from the release after 0.38.0 a repeated
+# name is read under every copy anyway.
+#
+# The transmitter. /mates/active reports whether a transmitter is linked
+# (§8.52). Most transmitter values have that link as a pre-condition, so they
+# are subscribed only while a transmitter is linked, and the moment one links
+# (then_query, platform 0.38.0; the poll subscribes them on older releases).
+# When the link drops, every value only a linked transmitter reports is
+# cleared. Sensitivity and auto power off have no link pre-condition: the
+# receiver keeps them, so they are always subscribed and settable.
+#
+# Level meter: /audio/out1/level_db streams while subscribed, so it is opt-in
+# (Enable Level Meter, or Meter On / Meter Off at runtime) and throttled here;
+# TI 1094 documents no rate parameter for a SpeechLine subscription.
+#
+# Liveness: the receiver has no /osc/ping, so the probe asks the product name,
+# a fixed question every unit answers; any reply counts, an error included.
+#
+# Format: YAML. Every address is a fixed JSON string, every value a json: true
+# rule, and the subscriptions are queries like any other.
+#
+# NOT hardware-verified. Built from the document and its own examples.
+
+id: sennheiser_sl_rack_receiver_dw
+name: Sennheiser SpeechLine SL Rack Receiver DW
+manufacturer: Sennheiser
+category: audio
+version: "1.0.0"
+author: OpenAVC
+min_platform_version: "0.37.0"
+description: >
+  Controls the Sennheiser SpeechLine SL Rack Receiver DW, the single-channel
+  SpeechLine Digital Wireless receiver, over Sennheiser Sound Control (JSON
+  over UDP, port 45). Mute and mute mode, output level, EQ preset and low
+  cut, pairing, walk test and identify, the linked transmitter's type,
+  capsule, battery, charging, sensitivity, locks and LED, RF quality and
+  warnings, names, display brightness and restart. State is push-driven: the
+  driver subscribes and the receiver reports every change as it happens,
+  including changes made on the receiver, in Control Cockpit or on a
+  transmitter.
+
+source_url: https://assets.sennheiser.com/download/assets/TI_1094_v4.3_Sennheiser_Sound_Control_Protocol_SL_DW_EN.pdf/b2a3c92ce7bb11f088db768ee8e97aea
+tags: [wireless, microphone, receiver, speechline, ssc]
+verified: false
+simulated: true
+protocols: [sennheiser_ssc]
+ports: [45]
+
+compatible_models:
+  - manufacturer: Sennheiser
+    models: [SL Rack Receiver DW]
+    confidence: untested
+    notes: >
+      Built from Sennheiser's SSC developer guide for firmware 4.1.1; not yet
+      run against a receiver. The SL MCR 2 / 4 DW multi-channel receivers and
+      the CHG 2N / 4N chargers use different SSC commands and have their own
+      drivers. Network address configuration and firmware updates belong to
+      Sennheiser Control Cockpit.
+
+transport: udp
+
+help:
+  overview: >
+    Controls the Sennheiser SpeechLine SL Rack Receiver DW: mute it, choose
+    what the transmitter's mute switch does, set its output level, EQ preset
+    and low cut, pair a transmitter, run a walk test, and read the linked
+    transmitter's type, capsule, battery and warnings. Everything that
+    changes on the receiver, in Control Cockpit or on a transmitter shows up
+    here as it happens.
+  setup: >
+    1. Give the receiver a static IP address or a DHCP reservation, and note
+       it.
+    2. Enter that address here. Control uses UDP port 45; leave the port
+       alone.
+    3. The audio level meter is off by default. It makes the receiver stream
+       continuously, so turn on Enable Level Meter only when a panel shows
+       it. The Meter On and Meter Off commands switch it while running.
+    4. The receiver and the OpenAVC server must be able to exchange UDP
+       traffic on port 45 in both directions. If the receiver shows offline
+       while Control Cockpit still sees it, check for a firewall between the
+       two.
+  connection: >
+    The receiver answers on UDP port 45. If Control Cockpit sees it and
+    OpenAVC does not, a firewall between the server and the receiver is
+    blocking UDP 45.
+
+discovery:
+  # The SL Rack Receiver DW reports the bare product name "SLDW" (§8.18); the
+  # SL MCR DW reports "SLDW" with a channel count after it ("SLDW4CH"), which
+  # the closing quote here leaves out. Every SSC device answers UDP 45, so the
+  # port alone proves nothing.
+  udp_probe:
+    port: 45
+    send_ascii: '{"device":{"identity":{"product":null}}}'
+    expect_regex: '"product"\s*:\s*"SLDW"'
+    timeout_ms: 1500
+    extract:
+      model:
+        regex: '"product"\s*:\s*"(SLDW)"'
+        group: 1
+    extract_manufacturer: "Sennheiser"
+  oui:
+    - "00:1b:66"   # Sennheiser electronic GmbH & Co. KG
+  manufacturer_alias:
+    - "sennheiser"
+
+default_config:
+  host: ""
+  port: 45
+  poll_interval: 30
+  # The document states no minimum gap between messages; this is the
+  # platform's default. Connect sends about fifty messages, one address each.
+  inter_command_delay: 0.05
+  enable_level_meter: false
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 45
+    label: UDP Port
+    help: "Sennheiser Sound Control listens on UDP port 45."
+  poll_interval:
+    type: integer
+    default: 30
+    min: 5
+    # Each subscription lives 90 s; at 30 s or less every one is renewed at
+    # least twice before it would end.
+    max: 30
+    label: Poll Interval (sec)
+    help: >
+      How often the subscriptions are renewed, which also re-reads every
+      value. The receiver reports changes as they happen, so 30 s is plenty.
+  inter_command_delay:
+    type: number
+    default: 0.05
+    min: 0
+    label: Inter-Command Delay (sec)
+    help: "Pause between messages sent to the receiver."
+  enable_level_meter:
+    type: boolean
+    default: false
+    label: Enable Level Meter
+    help: >
+      Stream the receiver's output level into OpenAVC (Audio Level). The
+      receiver sends it continuously once enabled, so leave it off unless a
+      panel shows it.
+
+liveness:
+  send: '{"device":{"identity":{"product":null}}}'
+  # Any answer proves the receiver is there, a refusal included.
+  expect: '"product"|"error"'
+  interval: 20
+  timeout: 5
+  max_failures: 2
+
+# Reads first (none of these can be subscribed), then one subscription per
+# address. Each subscription is written once here, with an anchor; the poll
+# and the two rules that subscribe again below reuse the same entries.
+on_connect:
+  - '{"device":{"identity":{"product":null}}}'
+  - '{"device":{"identity":{"version":null}}}'
+  - '{"device":{"identity":{"serial":null}}}'
+  - '{"device":{"identity":{"vendor":null}}}'
+  - '{"interface":{"version":null}}'
+  - '{"device":{"network":{"ether":{"macs":null}}}}'
+  - '{"device":{"network":{"ipv4":{"ipaddr":null}}}}'
+  # ── The receiver ──
+  - &sub_name { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"device":{"name":null}}]}}}', query_for: device_name }
+  - &sub_group { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"device":{"group":null}}]}}}', query_for: group }
+  - &sub_location { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"device":{"location":null}}]}}}', query_for: location }
+  - &sub_mdns { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"device":{"network":{"mdns_responder":null}}}]}}}', query_for: mdns_enabled }
+  - &sub_state { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"device":{"state":null}}]}}}', query_for: device_state }
+  # Pre-condition: pairing or an update running (§8.36).
+  - &sub_progress { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"device":{"progress":null}}]}}}', when_state: { device_state: [pairing, receiver_update, transmitter_update] }, query_for: progress }
+  - &sub_brightness { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"brightness":null}]}}}', query_for: display_brightness }
+  # ── The channel ──
+  - &sub_identify { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"rx1":{"identify":null}}]}}}', query_for: identifying }
+  - &sub_pair { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"rx1":{"pair":null}}]}}}', query_for: pairing }
+  - &sub_rf_quality { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"rx1":{"rf_quality":null}}]}}}', query_for: rf_quality_percent }
+  - &sub_walktest { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"rx1":{"walktest":null}}]}}}', query_for: walktest }
+  - &sub_mute_switch { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"rx1":{"mute_switch_active":null}}]}}}', query_for: mute_switch_active }
+  - &sub_sync { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"rx1":{"sync_info":null}}]}}}', query_for: sync_info }
+  - &sub_rfpi { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"rx1":{"rfpi":null}}]}}}', query_for: rfpi }
+  - &sub_ipei { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"rx1":{"last_paired_ipei":null}}]}}}', query_for: last_paired_ipei }
+  - &sub_autolock { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"rx1":{"autolock":null}}]}}}', query_for: autolock }
+  - &sub_rx_warnings { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"rx1":{"warnings":null}}]}}}', query_for: bad_link }
+  - &sub_mute_mode { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"rx1":{"mute_mode":null}}]}}}', query_for: mute_mode }
+  - &sub_mute { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"rx1":{"mute_state":null}}]}}}', query_for: mute }
+  - &sub_gain { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"audio":{"out1":{"gain_db":null}}}]}}}', query_for: gain }
+  - &sub_eq { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"audio":{"equalizer":{"preset":null}}}]}}}', query_for: eq_preset }
+  - &sub_low_cut { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"audio":{"low_cut":null}}]}}}', query_for: low_cut }
+  # ── The transmitter: link, and the settings the receiver keeps ──
+  - &sub_active { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"mates":{"active":null}}]}}}', query_for: tx_linked }
+  - &sub_agc { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"mates":{"tx1":{"agc":null}}}]}}}', query_for: tx_sensitivity }
+  - &sub_auto_off { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"mates":{"tx1":{"auto_power_off":null}}}]}}}', query_for: tx_auto_power_off }
+  # ── The linked transmitter (pre-condition: a link, §8.53-8.72) ──
+  # Not subscribable: read once a link is known.
+  - &read_switch_label { send: '{"mates":{"tx1":{"switch1":{"label":null}}}}', when_state: { tx_linked: true }, query_for: tx_switch_label }
+  - &sub_tx_type { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"mates":{"tx1":{"device_type":null}}}]}}}', when_state: { tx_linked: true }, query_for: tx_type }
+  - &sub_bat_type { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"mates":{"tx1":{"bat_type":null}}}]}}}', when_state: { tx_linked: true }, query_for: tx_battery_type }
+  - &sub_bat_gauge { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"mates":{"tx1":{"bat_gauge":null}}}]}}}', when_state: { tx_linked: true }, query_for: tx_battery_percent }
+  - &sub_bat_lifetime { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"mates":{"tx1":{"bat_lifetime":null}}}]}}}', when_state: { tx_linked: true }, query_for: tx_battery_minutes }
+  - &sub_bat_bars { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"mates":{"tx1":{"bat_bars":null}}}]}}}', when_state: { tx_linked: true }, query_for: tx_battery_bars }
+  - &sub_bat_health { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"mates":{"tx1":{"bat_health":null}}}]}}}', when_state: { tx_linked: true }, query_for: tx_battery_health_percent }
+  - &sub_bat_cycles { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"mates":{"tx1":{"bat_cycles":null}}}]}}}', when_state: { tx_linked: true }, query_for: tx_battery_cycles }
+  - &sub_bat_charging { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"mates":{"tx1":{"bat_charging":null}}}]}}}', when_state: { tx_linked: true }, query_for: tx_charging }
+  - &sub_switch { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"mates":{"tx1":{"switch1":{"state":null}}}}]}}}', when_state: { tx_linked: true }, query_for: tx_switch_state }
+  - &sub_acoustic { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"mates":{"tx1":{"acoustic":null}}}]}}}', when_state: { tx_linked: true }, query_for: tx_capsule }
+  - &sub_tx_warnings { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"mates":{"tx1":{"warnings":null}}}]}}}', when_state: { tx_linked: true }, query_for: tx_low_battery }
+  - &sub_gooseneck { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"mates":{"tx1":{"gooseneck_state":null}}}]}}}', when_state: { tx_linked: true }, query_for: tx_gooseneck_attached }
+  - &sub_power_lock { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"mates":{"tx1":{"power_lock":null}}}]}}}', when_state: { tx_linked: true }, query_for: tx_power_lock }
+  - &sub_pairing_lock { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"mates":{"tx1":{"pairing_lock":null}}}]}}}', when_state: { tx_linked: true }, query_for: tx_pairing_lock }
+  - &sub_led { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"mates":{"tx1":{"led_active":null}}}]}}}', when_state: { tx_linked: true }, query_for: tx_led }
+  # ── Level meter (opt-in) ──
+  - send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"audio":{"out1":{"level_db":null}}}]}}}'
+    when: enable_level_meter
+    query_for: level_dbfs
+
+# Renew every subscription each cycle: a renewal is the same request as the
+# first one (§5.1) and its answer carries the current value.
+polling:
+  queries:
+    - *sub_name
+    - *sub_group
+    - *sub_location
+    - *sub_mdns
+    - *sub_state
+    - *sub_progress
+    - *sub_brightness
+    - *sub_identify
+    - *sub_pair
+    - *sub_rf_quality
+    - *sub_walktest
+    - *sub_mute_switch
+    - *sub_sync
+    - *sub_rfpi
+    - *sub_ipei
+    - *sub_autolock
+    - *sub_rx_warnings
+    - *sub_mute_mode
+    - *sub_mute
+    - *sub_gain
+    - *sub_eq
+    - *sub_low_cut
+    - *sub_active
+    - *sub_agc
+    - *sub_auto_off
+    - *sub_tx_type
+    - *sub_bat_type
+    - *sub_bat_gauge
+    - *sub_bat_lifetime
+    - *sub_bat_bars
+    - *sub_bat_health
+    - *sub_bat_cycles
+    - *sub_bat_charging
+    - *sub_switch
+    - *sub_acoustic
+    - *sub_tx_warnings
+    - *sub_gooseneck
+    - *sub_power_lock
+    - *sub_pairing_lock
+    - *sub_led
+    # Not subscribable: read each cycle, so a transmitter that links between
+    # connects shows its label on a release without then_query too.
+    - *read_switch_label
+    # The meter is renewed while the receiver confirmed it on (Meter On, or
+    # Enable Level Meter at connect), and not after Meter Off.
+    - &sub_meter { send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"audio":{"out1":{"level_db":null}}}]}}}', when_state: { metering: true }, query_for: level_dbfs }
+
+state_variables:
+  # ── Identity and network ──
+  model:
+    type: string
+    label: Model
+    help: "The receiver's product name (SLDW)."
+  firmware_version:
+    type: string
+    label: Firmware Version
+  serial_number:
+    type: string
+    label: Serial Number
+  vendor:
+    type: string
+    label: Vendor
+  interface_version:
+    type: string
+    label: SSC Interface Version
+  mac_address:
+    type: string
+    label: MAC Address
+  ip_address:
+    type: string
+    label: IP Address
+  mdns_enabled:
+    type: boolean
+    label: mDNS
+    help: "The receiver announces itself for discovery (takes effect after a restart)."
+  # ── Names ──
+  device_name:
+    type: string
+    label: Device Name
+    help: "The receiver's name, as shown in Control Cockpit and in device discovery."
+  group:
+    type: string
+    label: Group
+    help: "The receiver's group name, its Location menu item: up to 8 letters, digits, - and _."
+  location:
+    type: string
+    label: Location
+  # ── Receiver ──
+  device_state:
+    type: enum
+    values: [normal, pairing, receiver_update, transmitter_update, transmitter_update_confirmation, transmitter_update_failed]
+    label: Receiver State
+    cloud_priority: high
+    help: >
+      normal; pairing; receiver_update (the receiver's firmware is updating);
+      transmitter_update (the transmitter's firmware is updating);
+      transmitter_update_confirmation (an update is waiting: Approve or
+      Reject it); transmitter_update_failed.
+  progress:
+    type: integer
+    label: Progress
+    min: 0
+    max: 100
+    unit: "%"
+    help: "The progress bar the receiver shows while pairing or updating."
+  display_brightness:
+    type: integer
+    label: Display Brightness
+    min: 0
+    max: 100
+    step: 1
+    unit: "%"
+  identifying:
+    type: boolean
+    label: Identifying
+    help: "The receiver is flashing to show which unit it is."
+  pairing:
+    type: boolean
+    label: Pairing
+    help: "The receiver is waiting for a transmitter to pair."
+  walktest:
+    type: boolean
+    label: Walk Test
+  rf_quality_percent:
+    type: integer
+    label: RF Quality
+    min: 0
+    max: 100
+    unit: "%"
+    cloud_priority: low
+  sync_info:
+    type: enum
+    values: [unknown, master, follower, unsynced_follower]
+    label: Sync
+    help: "How the receiver is synchronized: unknown, master, follower, or unsynced_follower (it lost its master)."
+  rfpi:
+    type: string
+    label: RFPI
+    help: "The receiver's radio identity."
+  last_paired_ipei:
+    type: string
+    label: Last Paired Transmitter
+    help: "Radio identity (IPEI) of the last transmitter linked to the receiver."
+  autolock:
+    type: boolean
+    label: Auto Lock
+    help: "The receiver's controls lock by themselves (its Auto Lock menu item)."
+  mute_switch_active:
+    type: boolean
+    label: Transmitter Mute Switch
+    help: "The transmitter's mute switch works (its Mute Switch menu item)."
+  hw_failure:
+    type: boolean
+    label: Hardware Failure
+    cloud_priority: high
+    help: "The receiver found a hardware failure when it started."
+  bad_link:
+    type: boolean
+    label: Bad Link
+    cloud_priority: high
+    help: "The radio link to the transmitter is poor."
+  no_fw_image:
+    type: boolean
+    label: No Transmitter Firmware
+    help: "The receiver has no firmware image to update the linked transmitter with."
+  link_disabled:
+    type: boolean
+    label: Link Disabled
+    help: "The receiver's radio is switched off."
+  # ── Audio ──
+  mute:
+    type: boolean
+    label: Mute
+    control: true
+    cloud_priority: high
+    help: "The receiver's mute, set from here or by the transmitter's mute switch."
+  mute_mode:
+    type: enum
+    values: ["off", "on", push_to_talk, push_to_mute, room_mute]
+    label: Mute Mode
+    control: true
+    help: >
+      What the transmitter's mute switch does: off (no mute), on (the switch
+      mutes), push_to_talk, push_to_mute, or room_mute (location-based mute).
+  gain:
+    type: integer
+    label: Output Level
+    min: -24
+    max: 12
+    step: 6
+    unit: dB
+    control: true
+    # The receiver's own number is an index, 0 = -24 dB to 6 = +12 dB (§8.75).
+    scale: 6
+    offset: -24
+    help: "The receiver's audio output level (its Audio Level menu item), -24 to +12 dB in 6 dB steps."
+  eq_preset:
+    type: enum
+    values: ["off", female_speech, male_speech, media, custom]
+    label: EQ Preset
+    control: true
+    help: "The receiver's sound profile."
+  low_cut:
+    type: boolean
+    label: Low Cut
+    control: true
+  metering:
+    type: boolean
+    label: Metering
+    help: "The receiver is streaming its audio level."
+  level_dbfs:
+    type: number
+    label: Audio Level
+    min: -60
+    max: 0
+    unit: dBFS
+    cloud_priority: low
+    help: "The receiver's output level, -60 to 0, while metering is on."
+  # ── Transmitter ──
+  tx_linked:
+    type: boolean
+    label: Transmitter Linked
+    cloud_priority: high
+    help: "A transmitter has a link to the receiver."
+  no_link:
+    type: boolean
+    label: No Link
+    cloud_priority: high
+    help: "No transmitter is linked."
+  tx_type:
+    type: enum
+    values: [handheld, bodypack, table_stand, boundary]
+    label: Transmitter Type
+  tx_capsule:
+    type: string
+    label: Capsule
+    help: "The microphone or input of the linked transmitter (MD42, MME865, GOOSENECK and so on); INCOMPATIBLE for an unsupported capsule, empty when none is connected."
+  tx_battery_type:
+    type: enum
+    values: [battery, rechargeable]
+    label: Battery Type
+  tx_battery_percent:
+    type: integer
+    label: Battery Level
+    min: 0
+    max: 100
+    unit: "%"
+    cloud_priority: high
+    help: "Charge of a rechargeable battery, or the voltage level of a primary battery."
+  tx_battery_minutes:
+    type: integer
+    label: Battery Runtime
+    unit: min
+    cloud_priority: high
+    # The receiver reports seconds (§8.58).
+    scale: 0.016666666666666666
+    help: "Estimated runtime left on a rechargeable battery; not known for a while after power-on."
+  tx_battery_bars:
+    type: integer
+    label: Battery Bars
+    min: 0
+    max: 5
+    help: "Battery bars as the receiver shows them (rechargeable batteries)."
+  tx_battery_health_percent:
+    type: integer
+    label: Battery Health
+    min: 0
+    max: 100
+    unit: "%"
+  tx_battery_cycles:
+    type: integer
+    label: Battery Cycles
+  tx_charging:
+    type: boolean
+    label: Charging
+    help: "A table-stand or boundary microphone's battery is charging."
+  tx_gooseneck_attached:
+    type: boolean
+    label: Gooseneck Attached
+    help: "A table-stand transmitter has its gooseneck attached."
+  tx_switch_label:
+    type: string
+    label: Switch Label
+    help: "The function of the transmitter's switch."
+  tx_switch_state:
+    type: boolean
+    label: Transmitter Switch
+    help: "The transmitter's switch (its mute switch) is on."
+  tx_low_battery:
+    type: boolean
+    label: Low Battery
+    cloud_priority: high
+    help: "The transmitter reports a low battery."
+  tx_sensitivity:
+    type: enum
+    values: [automatic, 0db, -6db, -12db, -18db, -24db, -30db]
+    label: Transmitter Sensitivity
+    control: true
+    help: "Automatic gain control, or a fixed sensitivity (the Sensitivity menu item)."
+  tx_auto_power_off:
+    type: enum
+    values: ["off", 10min, 20min, 30min]
+    label: Transmitter Auto Power Off
+    help: "The transmitter switches off after this long without a link."
+  tx_power_lock:
+    type: boolean
+    label: Power Button Locked
+  tx_pairing_lock:
+    type: boolean
+    label: Pairing Button Locked
+  tx_led:
+    type: boolean
+    label: Transmitter LED
+    help: "The LED of a handheld or bodypack transmitter is on."
+  # ── Errors ──
+  last_error:
+    type: string
+    label: Last Error
+    help: "What the receiver said about the last request it did not accept."
+  last_error_code:
+    type: integer
+    label: Last Error Code
+
+commands:
+  # ── Mute ──
+  mute_on:
+    label: Mute
+    help: "Mutes the receiver."
+    send: '{"rx1":{"mute_state":true}}'
+    sets: { mute: true }
+  mute_off:
+    label: Unmute
+    help: "Unmutes the receiver."
+    send: '{"rx1":{"mute_state":false}}'
+    sets: { mute: false }
+  set_mute_mode:
+    label: Set Mute Mode
+    help: "Chooses what the transmitter's mute switch does."
+    send: '{"rx1":{"mute_mode":{mode}}}'
+    sets: { mute_mode: "{mode}" }
+    params:
+      mode:
+        type: enum
+        values: ["off", "on", push_to_talk, push_to_mute, room_mute]
+        required: true
+        label: Mute Mode
+        map: { "off": "0", "on": "1", "push_to_talk": "2", "push_to_mute": "3", "room_mute": "4" }
+
+  # ── Audio ──
+  set_gain:
+    label: Set Output Level
+    help: "Sets the receiver's audio output level, -24 to +12 dB in 6 dB steps; a value between steps goes to the nearest one."
+    send: '{"audio":{"out1":{"gain_db":{gain}}}}'
+    sets: { gain: "{gain}" }
+    params:
+      gain:
+        type: integer
+        required: true
+        label: Level
+        min: -24
+        max: 12
+        unit: dB
+        scale: 6
+        offset: -24
+  set_eq_preset:
+    label: Set EQ Preset
+    help: "Chooses the receiver's sound profile."
+    send: '{"audio":{"equalizer":{"preset":{preset}}}}'
+    sets: { eq_preset: "{preset}" }
+    params:
+      preset:
+        type: enum
+        values: ["off", female_speech, male_speech, media, custom]
+        required: true
+        label: Preset
+        map: { "off": "0", "female_speech": "1", "male_speech": "2", "media": "3", "custom": "4" }
+  low_cut_on:
+    label: Low Cut On
+    help: "Switches the low-cut filter on."
+    send: '{"audio":{"low_cut":true}}'
+    sets: { low_cut: true }
+  low_cut_off:
+    label: Low Cut Off
+    help: "Switches the low-cut filter off."
+    send: '{"audio":{"low_cut":false}}'
+    sets: { low_cut: false }
+  set_tx_sensitivity:
+    label: Set Transmitter Sensitivity
+    help: "Sets the transmitter's sensitivity: automatic gain control, or a fixed level."
+    send: '{"mates":{"tx1":{"agc":{sensitivity}}}}'
+    sets: { tx_sensitivity: "{sensitivity}" }
+    params:
+      sensitivity:
+        type: enum
+        values: [automatic, 0db, -6db, -12db, -18db, -24db, -30db]
+        required: true
+        label: Sensitivity
+        map: { "automatic": "0", "0db": "1", "-6db": "2", "-12db": "3", "-18db": "4", "-24db": "5", "-30db": "6" }
+
+  # ── Level meter ──
+  meter_on:
+    label: Meter On
+    help: "Starts the receiver streaming its audio level into Audio Level."
+    send: '{"osc":{"state":{"subscribe":[{"#":{"lifetime":90},"audio":{"out1":{"level_db":null}}}]}}}'
+    sets: { metering: true }
+  meter_off:
+    label: Meter Off
+    help: "Stops the audio level stream."
+    send: '{"osc":{"state":{"subscribe":[{"#":{"cancel":true},"audio":{"out1":{"level_db":null}}}]}}}'
+    sets: { metering: false }
+
+  # ── Pairing, walk test, identify ──
+  identify:
+    label: Identify Receiver
+    help: "Flashes the receiver so it can be found in the rack. Not while pairing or in a walk test."
+    send: '{"rx1":{"identify":true}}'
+    sets: { identifying: true }
+  identify_off:
+    label: Stop Identifying
+    help: "Stops the receiver flashing."
+    send: '{"rx1":{"identify":false}}'
+    sets: { identifying: false }
+  start_pairing:
+    label: Start Pairing
+    help: "Puts the receiver in pairing mode, so a transmitter in pairing mode links to it. Not during a walk test."
+    send: '{"rx1":{"pair":true}}'
+    sets: { pairing: true }
+  stop_pairing:
+    label: Stop Pairing
+    help: "Ends pairing mode."
+    send: '{"rx1":{"pair":false}}'
+    sets: { pairing: false }
+  walktest_on:
+    label: Start Walk Test
+    help: "Starts a walk test: the receiver reports the link quality while someone walks the room with the transmitter. Not while pairing or identifying."
+    send: '{"rx1":{"walktest":true}}'
+    sets: { walktest: true }
+  walktest_off:
+    label: Stop Walk Test
+    help: "Ends the walk test."
+    send: '{"rx1":{"walktest":false}}'
+    sets: { walktest: false }
+
+  # ── Transmitter ──
+  power_down_tx:
+    label: Switch Off Transmitter
+    help: "Switches the linked transmitter off. Its audio stops until someone switches it on again."
+    send: '{"mates":{"tx1":{"power_down":true}}}'
+    confirm: "Switches the linked transmitter off. It can only be switched on again at the transmitter."
+  approve_tx_update:
+    label: Approve Transmitter Update
+    help: "Lets the receiver update the linked transmitter's firmware, while Receiver State is transmitter_update_confirmation."
+    send: '{"device":{"update":{"confirmation":true}}}'
+  reject_tx_update:
+    label: Reject Transmitter Update
+    help: "Declines the waiting transmitter firmware update."
+    send: '{"device":{"update":{"confirmation":false}}}'
+
+  # ── Receiver ──
+  restart:
+    label: Restart Receiver
+    help: "Restarts the receiver. Its audio stops until it is back."
+    send: '{"device":{"reset":true}}'
+    confirm: "Restarts the receiver. Its audio stops until it is back."
+    # The document gives no boot time; not yet measured on a unit.
+    restarts_device_for: 90
+  factory_reset:
+    label: Factory Reset
+    help: "Returns every setting on the receiver to its factory default and restarts it."
+    send: '{"device":{"factory_reset":true}}'
+    confirm: "Returns every setting on the receiver to its factory default, its name and network settings included, and restarts it."
+    restarts_device_for: 90
+  restore_audio_defaults:
+    label: Reset Audio Effects
+    help: "Restores the receiver's audio effects to their defaults, as its Effects Reset menu item does."
+    send: '{"audio":{"effects_reset":true}}'
+    confirm: "Restores the receiver's audio effects to their defaults."
+
+quick_actions: [mute_on, mute_off, identify]
+
+actions:
+  - id: mute_on
+    icon: mic-off
+    visible_when: { key: "device.$id.mute", operator: falsy }
+  - id: mute_off
+    icon: mic
+    visible_when: { key: "device.$id.mute", operator: truthy }
+  - id: identify
+    icon: sun
+
+device_settings:
+  # ── Names ──
+  device_name:
+    type: string
+    label: Device Name
+    help: "The receiver's name in Control Cockpit and in discovery. No double quotes or backslashes."
+    state_key: device_name
+    default: "SLDW"
+    regex: '^[^"\\]{1,64}$'
+    setup: false
+    write:
+      send: '{"device":{"name":"{value}"}}'
+  group:
+    type: string
+    label: Group
+    help: "Up to 8 letters, digits, - and _, starting with a letter and ending with a letter or digit."
+    state_key: group
+    default: ""
+    regex: '^(?:[A-Za-z](?:[A-Za-z0-9_-]{0,6}[A-Za-z0-9])?)?$'
+    setup: false
+    write:
+      send: '{"device":{"group":"{value}"}}'
+  location:
+    type: string
+    label: Location
+    help: "Where the receiver is. No double quotes or backslashes."
+    state_key: location
+    default: ""
+    regex: '^[^"\\]{0,64}$'
+    setup: false
+    write:
+      send: '{"device":{"location":"{value}"}}'
+  display_brightness:
+    type: integer
+    label: Display Brightness (%)
+    state_key: display_brightness
+    default: 100
+    min: 0
+    max: 100
+    setup: false
+    write:
+      send: '{"brightness":{value}}'
+  mdns_enabled:
+    type: boolean
+    label: mDNS
+    help: "The receiver announces itself for discovery. Takes effect after the receiver restarts."
+    state_key: mdns_enabled
+    default: true
+    map: { "true": "true", "false": "false" }
+    setup: false
+    write:
+      send: '{"device":{"network":{"mdns_responder":{value}}}}'
+  autolock:
+    type: boolean
+    label: Auto Lock
+    help: "The receiver's controls lock by themselves."
+    state_key: autolock
+    default: false
+    map: { "true": "true", "false": "false" }
+    setup: false
+    write:
+      send: '{"rx1":{"autolock":{value}}}'
+  # ── Audio ──
+  mute_mode:
+    type: enum
+    values:
+      - { value: "off", label: "Off (no mute)" }
+      - { value: "on", label: "On (the switch mutes)" }
+      - { value: push_to_talk, label: Push to talk }
+      - { value: push_to_mute, label: Push to mute }
+      - { value: room_mute, label: Location-based mute }
+    label: Mute Mode
+    state_key: mute_mode
+    default: "on"
+    map: { "off": "0", "on": "1", "push_to_talk": "2", "push_to_mute": "3", "room_mute": "4" }
+    setup: false
+    write:
+      send: '{"rx1":{"mute_mode":{value}}}'
+  mute_switch_active:
+    type: boolean
+    label: Transmitter Mute Switch
+    help: "The transmitter's mute switch works."
+    state_key: mute_switch_active
+    default: true
+    map: { "true": "true", "false": "false" }
+    setup: false
+    write:
+      send: '{"rx1":{"mute_switch_active":{value}}}'
+  gain:
+    type: integer
+    label: Output Level (dB)
+    help: "-24 to +12 dB in 6 dB steps; a value between steps goes to the nearest one."
+    state_key: gain
+    default: 0
+    min: -24
+    max: 12
+    setup: false
+    write:
+      send: '{"audio":{"out1":{"gain_db":{value}}}}'
+  eq_preset:
+    type: enum
+    values:
+      - { value: "off", label: "Off" }
+      - { value: female_speech, label: Female speech }
+      - { value: male_speech, label: Male speech }
+      - { value: media, label: Media }
+      - { value: custom, label: Custom }
+    label: EQ Preset
+    state_key: eq_preset
+    default: "off"
+    map: { "off": "0", "female_speech": "1", "male_speech": "2", "media": "3", "custom": "4" }
+    setup: false
+    write:
+      send: '{"audio":{"equalizer":{"preset":{value}}}}'
+  low_cut:
+    type: boolean
+    label: Low Cut
+    state_key: low_cut
+    default: false
+    map: { "true": "true", "false": "false" }
+    setup: false
+    write:
+      send: '{"audio":{"low_cut":{value}}}'
+  # ── Transmitter (kept by the receiver; the locks and LED need a link) ──
+  tx_sensitivity:
+    type: enum
+    values:
+      - { value: automatic, label: Automatic }
+      - { value: 0db, label: "0 dB" }
+      - { value: -6db, label: "-6 dB" }
+      - { value: -12db, label: "-12 dB" }
+      - { value: -18db, label: "-18 dB" }
+      - { value: -24db, label: "-24 dB" }
+      - { value: -30db, label: "-30 dB" }
+    label: Transmitter Sensitivity
+    state_key: tx_sensitivity
+    default: automatic
+    map: { "automatic": "0", "0db": "1", "-6db": "2", "-12db": "3", "-18db": "4", "-24db": "5", "-30db": "6" }
+    setup: false
+    write:
+      send: '{"mates":{"tx1":{"agc":{value}}}}'
+  tx_auto_power_off:
+    type: enum
+    values:
+      - { value: "off", label: "Off" }
+      - { value: 10min, label: "After 10 minutes" }
+      - { value: 20min, label: "After 20 minutes" }
+      - { value: 30min, label: "After 30 minutes" }
+    label: Transmitter Auto Power Off
+    help: "The transmitter switches off after this long without a link."
+    state_key: tx_auto_power_off
+    default: "off"
+    map: { "off": "0", "10min": "1", "20min": "2", "30min": "3" }
+    setup: false
+    write:
+      send: '{"mates":{"tx1":{"auto_power_off":{value}}}}'
+  tx_power_lock:
+    type: boolean
+    label: Power Button Locked
+    help: "The transmitter's power button does nothing. Needs a linked transmitter."
+    state_key: tx_power_lock
+    default: false
+    map: { "true": "true", "false": "false" }
+    setup: false
+    write:
+      send: '{"mates":{"tx1":{"power_lock":{value}}}}'
+  tx_pairing_lock:
+    type: boolean
+    label: Pairing Button Locked
+    help: "The transmitter's pairing button does nothing. Needs a linked transmitter."
+    state_key: tx_pairing_lock
+    default: false
+    map: { "true": "true", "false": "false" }
+    setup: false
+    write:
+      send: '{"mates":{"tx1":{"pairing_lock":{value}}}}'
+  tx_led:
+    type: boolean
+    label: Transmitter LED
+    help: "The LED of a handheld or bodypack transmitter is on. Needs a linked transmitter."
+    state_key: tx_led
+    default: true
+    map: { "true": "true", "false": "false" }
+    setup: false
+    write:
+      send: '{"mates":{"tx1":{"led_active":{value}}}}'
+
+responses:
+  # ── Every value the receiver reports ──
+  # Each answer and notification is an address tree; a body without a key
+  # leaves that key's variable alone.
+  - json: true
+    set:
+      model: device.identity.product
+      firmware_version: device.identity.version
+      serial_number: device.identity.serial
+      vendor: device.identity.vendor
+      interface_version: interface.version
+      mac_address: device.network.ether.macs.0
+      ip_address: device.network.ipv4.ipaddr.0
+      mdns_enabled: device.network.mdns_responder
+      device_name: device.name
+      group: device.group
+      location: device.location
+      device_state:
+        key: device.state
+        map: { "0": normal, "1": pairing, "2": receiver_update, "3": transmitter_update, "4": transmitter_update_confirmation, "5": transmitter_update_failed }
+      progress: device.progress
+      display_brightness: brightness
+      identifying: rx1.identify
+      pairing: rx1.pair
+      rf_quality_percent: rx1.rf_quality
+      walktest: rx1.walktest
+      mute_switch_active: rx1.mute_switch_active
+      sync_info:
+        key: rx1.sync_info
+        map: { "0": unknown, "1": master, "2": follower, "3": unsynced_follower }
+      rfpi: rx1.rfpi
+      last_paired_ipei: rx1.last_paired_ipei
+      autolock: rx1.autolock
+      # A list of warning names (§8.49); one flag each.
+      hw_failure: { key: rx1.warnings, contains: "HW Failure" }
+      bad_link: { key: rx1.warnings, contains: "Bad Link" }
+      no_fw_image: { key: rx1.warnings, contains: "No FW Image" }
+      link_disabled: { key: rx1.warnings, contains: "Link Disabled" }
+      mute_mode:
+        key: rx1.mute_mode
+        map: { "0": "off", "1": "on", "2": push_to_talk, "3": push_to_mute, "4": room_mute }
+      mute: rx1.mute_state
+      gain: audio.out1.gain_db
+      eq_preset:
+        key: audio.equalizer.preset
+        map: { "0": "off", "1": female_speech, "2": male_speech, "3": media, "4": custom }
+      low_cut: audio.low_cut
+      tx_sensitivity:
+        key: mates.tx1.agc
+        map: { "0": automatic, "1": 0db, "2": -6db, "3": -12db, "4": -18db, "5": -24db, "6": -30db }
+      # The document's example answers "1" (a string) where the type is a
+      # number; either reads the same here.
+      tx_auto_power_off:
+        key: mates.tx1.auto_power_off
+        map: { "0": "off", "1": 10min, "2": 20min, "3": 30min }
+      tx_type:
+        key: mates.tx1.device_type
+        map: { "0": handheld, "1": bodypack, "2": table_stand, "3": boundary }
+      tx_battery_type:
+        key: mates.tx1.bat_type
+        map: { "0": battery, "1": rechargeable }
+      tx_battery_percent: mates.tx1.bat_gauge
+      tx_battery_minutes: mates.tx1.bat_lifetime
+      tx_battery_bars: mates.tx1.bat_bars
+      tx_battery_health_percent: mates.tx1.bat_health
+      tx_battery_cycles: mates.tx1.bat_cycles
+      tx_charging: mates.tx1.bat_charging
+      tx_gooseneck_attached: mates.tx1.gooseneck_state
+      tx_switch_label: mates.tx1.switch1.label
+      tx_switch_state: mates.tx1.switch1.state
+      tx_capsule: mates.tx1.acoustic
+      tx_low_battery: { key: mates.tx1.warnings, contains: "Low Bat" }
+      tx_power_lock: mates.tx1.power_lock
+      tx_pairing_lock: mates.tx1.pairing_lock
+      tx_led: mates.tx1.led_active
+
+  # ── Level meter: a continuous feed while subscribed ──
+  # The throttle writes the newest frame when each window ends, so the last
+  # level of a burst is never lost.
+  - json: true
+    throttle: 0.25
+    set:
+      level_dbfs: audio.out1.level_db
+
+  # Every rule below reads text, and each may meet a reply the json rules
+  # above also read (a subscription's answer can carry its current value), so
+  # every one stays eligible past them (after_json). The first that matches
+  # wins.
+
+  # ── A subscription ended (310, §5.1): subscribe everything again ──
+  # The poll would renew it within 30 s; this does it at once. Reading the
+  # text also catches the document's own 310 examples, which are not valid
+  # JSON.
+  - match: '"error"\s*:.*?\[\s*310\b'
+    after_json: true
+    set: {}
+    then_query:
+      - *sub_name
+      - *sub_group
+      - *sub_location
+      - *sub_mdns
+      - *sub_state
+      - *sub_progress
+      - *sub_brightness
+      - *sub_identify
+      - *sub_pair
+      - *sub_rf_quality
+      - *sub_walktest
+      - *sub_mute_switch
+      - *sub_sync
+      - *sub_rfpi
+      - *sub_ipei
+      - *sub_autolock
+      - *sub_rx_warnings
+      - *sub_mute_mode
+      - *sub_mute
+      - *sub_gain
+      - *sub_eq
+      - *sub_low_cut
+      - *sub_active
+      - *sub_agc
+      - *sub_auto_off
+      - *sub_tx_type
+      - *sub_bat_type
+      - *sub_bat_gauge
+      - *sub_bat_lifetime
+      - *sub_bat_bars
+      - *sub_bat_health
+      - *sub_bat_cycles
+      - *sub_bat_charging
+      - *sub_switch
+      - *sub_acoustic
+      - *sub_tx_warnings
+      - *sub_gooseneck
+      - *sub_power_lock
+      - *sub_pairing_lock
+      - *sub_led
+      - *sub_meter
+
+  # ── A refused read or subscription of a value the driver never writes ──
+  # The linked transmitter's values need a link, battery runtime, bars,
+  # health and cycles a rechargeable battery, charging a table-stand or
+  # boundary on one, the gooseneck a table-stand, and the progress bar
+  # pairing or an update. The driver never writes any of these, so a refusal
+  # of one answers a read or a subscription (the link can drop between two
+  # messages) and is not an error to show. The transmitter settings the
+  # driver writes (its locks and LED) are not listed: their refusal is.
+  - match: '"error"\s*:.*?"(?:device_type|bat_type|bat_gauge|bat_lifetime|bat_bars|bat_health|bat_cycles|bat_charging|label|state|acoustic|warnings|gooseneck_state|progress)"\s*:\s*\[\s*\d{3}'
+    after_json: true
+    set: {}
+
+  # ── Any other refusal (§8.4, §9) ──
+  # {"osc":{"error":[{"rx1":{"mute_mode":[406]}}]}}, or [400] for a message
+  # the receiver could not read; a "desc" may follow the code.
+  - match: '"error"\s*:.*?\[\s*(\d{3})\b'
+    after_json: true
+    mappings:
+      - { group: 1, state: last_error_code, type: integer }
+      - group: 1
+        state: last_error
+        map:
+          "400": "The receiver could not read the request (400)."
+          "403": "The receiver refused the request (403)."
+          "404": "The receiver has no such setting (404)."
+          "406": "The receiver did not accept the value, or cannot change it now (406)."
+          "409": "The request conflicts with the receiver's current state (409)."
+          "413": "The request was too large for the receiver (413)."
+          "414": "The request was too complex for the receiver (414)."
+          "422": "The receiver could not carry out the request (422)."
+          "423": "The setting is locked on the receiver (423)."
+          "450": "The receiver's answer would be too long (450)."
+          "454": "The receiver keeps that setting hidden (454)."
+          "500": "The receiver had an internal error (500)."
+          "501": "The receiver does not support that request (501)."
+          "503": "The receiver is busy (503)."
+
+  # ── The level meter, as the receiver confirmed it (the subscription echo) ──
+  - match: '"subscribe"\s*:.*"cancel"\s*:\s*true.*"level_db"'
+    after_json: true
+    set: { metering: "false" }
+  - match: '"subscribe"\s*:.*"lifetime".*"level_db"\s*:\s*null'
+    after_json: true
+    set: { metering: "true" }
+
+  # ── The transmitter link (/mates/active, §8.52) ──
+  # A link where there was none: subscribe the linked transmitter's values at
+  # once (the poll subscribes them too, on releases without then_query).
+  - match: '"mates"\s*:\s*\{\s*"active"\s*:\s*\[\s*"tx1"'
+    after_json: true
+    only_when: { key: tx_linked, operator: falsy }
+    set: { tx_linked: "true", no_link: "false" }
+    then_query:
+      - *read_switch_label
+      - *sub_tx_type
+      - *sub_bat_type
+      - *sub_bat_gauge
+      - *sub_bat_lifetime
+      - *sub_bat_bars
+      - *sub_bat_health
+      - *sub_bat_cycles
+      - *sub_bat_charging
+      - *sub_switch
+      - *sub_acoustic
+      - *sub_tx_warnings
+      - *sub_gooseneck
+      - *sub_power_lock
+      - *sub_pairing_lock
+      - *sub_led
+  # Still linked (every renewal answers with the current list).
+  - match: '"mates"\s*:\s*\{\s*"active"\s*:\s*\[\s*"tx1"'
+    after_json: true
+    set: { tx_linked: "true", no_link: "false" }
+  # No link: clear what only a linked transmitter reports. Sensitivity and
+  # auto power off stay, as the receiver keeps them.
+  - match: '"mates"\s*:\s*\{\s*"active"\s*:\s*\[\s*\]'
+    after_json: true
+    set:
+      tx_linked: "false"
+      no_link: "true"
+      tx_type: null
+      tx_capsule: null
+      tx_battery_type: null
+      tx_battery_percent: null
+      tx_battery_minutes: null
+      tx_battery_bars: null
+      tx_battery_health_percent: null
+      tx_battery_cycles: null
+      tx_charging: null
+      tx_gooseneck_attached: null
+      tx_switch_label: null
+      tx_switch_state: null
+      tx_low_battery: null
+      tx_power_lock: null
+      tx_pairing_lock: null
+      tx_led: null
+
+  # ── Pairing or an update started: its progress bar can be subscribed now ──
+  - match: '"device"\s*:\s*\{\s*"state"\s*:\s*[123]\b'
+    after_json: true
+    set: {}
+    then_query:
+      - *sub_progress
+
+  # ── A subscription's own answer ── carries nothing the rules above have not
+  # read; acknowledged here so it does not count as a reply nobody read.
+  - match: '"osc"\s*:\s*\{\s*"state"\s*:\s*\{\s*"subscribe"'
+    after_json: true
+    set: {}
+
+# ── SIMULATOR ──
+# One script handler is the whole SSC server: it parses the incoming JSON
+# object, walks the address tree against the method table below, answers
+# every address with its value, records subscriptions and answers each with
+# the current value bundled after the echo, and refuses what the document
+# says the receiver refuses (404 for an unknown address, /osc/ping included;
+# 406 for a write to a read-only address, a value off its range or a method
+# whose pre-condition does not hold, such as a transmitter value with no
+# transmitter linked). Every change also goes out as a notification through
+# the notifications: map below, which is what the receiver does after it
+# answers a set.
+#
+# Answers are written the way the document writes a bundle: one member per
+# address, so a message that asks for several addresses under one name gets
+# that name repeated (§8.11 example 3), and an /osc/xid beside another osc
+# method repeats "osc" (example 1). The driver sends one address per message,
+# so it never draws one; anything else that talks to this simulator does.
+#
+# Not modelled (the sandbox has no clock): a subscription's lifetime and its
+# 1000-notification limit (the End Subscriptions control sends the 310 the
+# receiver would), the pairing countdown, and the restart after Restart or
+# Factory Reset. Notifications go out whether or not the address is
+# subscribed, and a warning flag's notification lists only that warning.
+simulator:
+  initial_state:
+    _subscriptions: ""
+    end_subscriptions: false
+    model: "SLDW"
+    firmware_version: "4.1.1"
+    serial_number: "1454100930"
+    vendor: "Sennheiser electronic GmbH & Co. KG"
+    interface_version: "1.2"
+    mac_address: "00:1B:66:7D:F8:99"
+    ip_address: "192.168.1.203"
+    mdns_enabled: true
+    device_name: "SLDW"
+    group: "room"
+    location: "Meeting Room A"
+    device_state: "normal"
+    progress: 0
+    display_brightness: 75
+    identifying: false
+    pairing: false
+    rf_quality_percent: 80
+    walktest: false
+    mute_switch_active: true
+    sync_info: "master"
+    rfpi: "028112cf28"
+    last_paired_ipei: "028110a938"
+    autolock: false
+    hw_failure: false
+    bad_link: false
+    no_fw_image: false
+    link_disabled: false
+    mute_mode: "on"
+    mute: false
+    gain: 0
+    eq_preset: "off"
+    low_cut: false
+    level_dbfs: -60
+    tx_linked: true
+    tx_type: "table_stand"
+    tx_capsule: "GOOSENECK"
+    tx_battery_type: "rechargeable"
+    tx_battery_percent: 83
+    tx_battery_minutes: 641
+    tx_battery_bars: 4
+    tx_battery_health_percent: 100
+    tx_battery_cycles: 6
+    tx_charging: false
+    tx_gooseneck_attached: true
+    tx_switch_label: "Mute"
+    tx_switch_state: false
+    tx_low_battery: false
+    tx_sensitivity: "automatic"
+    tx_auto_power_off: "off"
+    tx_power_lock: false
+    tx_pairing_lock: false
+    tx_led: true
+
+  delays:
+    command_response: 0.02
+
+  controls:
+    - { type: toggle, key: tx_linked, label: Transmitter Linked }
+    - { type: toggle, key: mute, label: Muted }
+    - { type: select, key: mute_mode, label: Mute Mode, options: ["off", "on", push_to_talk, push_to_mute, room_mute] }
+    - { type: slider, key: rf_quality_percent, label: RF Quality (%), min: 0, max: 100 }
+    - { type: toggle, key: bad_link, label: Bad Link }
+    - { type: toggle, key: hw_failure, label: Hardware Failure }
+    - { type: select, key: tx_type, label: Transmitter Type, options: [handheld, bodypack, table_stand, boundary] }
+    - { type: select, key: tx_battery_type, label: Battery Type, options: [battery, rechargeable] }
+    - { type: slider, key: tx_battery_percent, label: Battery Level (%), min: 0, max: 100 }
+    - { type: slider, key: tx_battery_minutes, label: Battery Runtime (min), min: 0, max: 900 }
+    - { type: toggle, key: tx_low_battery, label: Low Battery }
+    - { type: toggle, key: tx_charging, label: Charging }
+    - { type: toggle, key: tx_switch_state, label: Transmitter Switch }
+    - { type: select, key: device_state, label: Receiver State, options: [normal, pairing, receiver_update, transmitter_update, transmitter_update_confirmation, transmitter_update_failed] }
+    - { type: slider, key: progress, label: Progress (%), min: 0, max: 100 }
+    - { type: slider, key: level_dbfs, label: Audio Level (dBFS), min: -60, max: 0 }
+    - { type: toggle, key: end_subscriptions, label: End Subscriptions (310) }
+
+  # What the receiver sends, unasked, when a value changes. Booleans and the
+  # numbered values need a template per value (the JSON literal); gain and
+  # battery runtime go out in the receiver's own numbers (an index, seconds).
+  notifications:
+    device_name: '{"device":{"name":"{value}"}}'
+    group: '{"device":{"group":"{value}"}}'
+    location: '{"device":{"location":"{value}"}}'
+    mdns_enabled:
+      'true': '{"device":{"network":{"mdns_responder":true}}}'
+      'false': '{"device":{"network":{"mdns_responder":false}}}'
+    device_state:
+      normal: '{"device":{"state":0}}'
+      pairing: '{"device":{"state":1}}'
+      receiver_update: '{"device":{"state":2}}'
+      transmitter_update: '{"device":{"state":3}}'
+      transmitter_update_confirmation: '{"device":{"state":4}}'
+      transmitter_update_failed: '{"device":{"state":5}}'
+    progress: '{"device":{"progress":{value}}}'
+    display_brightness: '{"brightness":{value}}'
+    identifying:
+      'true': '{"rx1":{"identify":true}}'
+      'false': '{"rx1":{"identify":false}}'
+    pairing:
+      'true': '{"rx1":{"pair":true}}'
+      'false': '{"rx1":{"pair":false}}'
+    rf_quality_percent: '{"rx1":{"rf_quality":{value}}}'
+    walktest:
+      'true': '{"rx1":{"walktest":true}}'
+      'false': '{"rx1":{"walktest":false}}'
+    mute_switch_active:
+      'true': '{"rx1":{"mute_switch_active":true}}'
+      'false': '{"rx1":{"mute_switch_active":false}}'
+    sync_info:
+      unknown: '{"rx1":{"sync_info":0}}'
+      master: '{"rx1":{"sync_info":1}}'
+      follower: '{"rx1":{"sync_info":2}}'
+      unsynced_follower: '{"rx1":{"sync_info":3}}'
+    autolock:
+      'true': '{"rx1":{"autolock":true}}'
+      'false': '{"rx1":{"autolock":false}}'
+    hw_failure:
+      'true': '{"rx1":{"warnings":["HW Failure"]}}'
+      'false': '{"rx1":{"warnings":[]}}'
+    bad_link:
+      'true': '{"rx1":{"warnings":["Bad Link"]}}'
+      'false': '{"rx1":{"warnings":[]}}'
+    mute_mode:
+      'off': '{"rx1":{"mute_mode":0}}'
+      'on': '{"rx1":{"mute_mode":1}}'
+      push_to_talk: '{"rx1":{"mute_mode":2}}'
+      push_to_mute: '{"rx1":{"mute_mode":3}}'
+      room_mute: '{"rx1":{"mute_mode":4}}'
+    mute:
+      'true': '{"rx1":{"mute_state":true}}'
+      'false': '{"rx1":{"mute_state":false}}'
+    gain: '{"audio":{"out1":{"gain_db":{value}}}}'
+    eq_preset:
+      'off': '{"audio":{"equalizer":{"preset":0}}}'
+      female_speech: '{"audio":{"equalizer":{"preset":1}}}'
+      male_speech: '{"audio":{"equalizer":{"preset":2}}}'
+      media: '{"audio":{"equalizer":{"preset":3}}}'
+      custom: '{"audio":{"equalizer":{"preset":4}}}'
+    low_cut:
+      'true': '{"audio":{"low_cut":true}}'
+      'false': '{"audio":{"low_cut":false}}'
+    level_dbfs: '{"audio":{"out1":{"level_db":{value}}}}'
+    tx_linked:
+      'true': '{"mates":{"active":["tx1"]}}'
+      'false': '{"mates":{"active":[]}}'
+    tx_type:
+      handheld: '{"mates":{"tx1":{"device_type":0}}}'
+      bodypack: '{"mates":{"tx1":{"device_type":1}}}'
+      table_stand: '{"mates":{"tx1":{"device_type":2}}}'
+      boundary: '{"mates":{"tx1":{"device_type":3}}}'
+    tx_battery_type:
+      battery: '{"mates":{"tx1":{"bat_type":0}}}'
+      rechargeable: '{"mates":{"tx1":{"bat_type":1}}}'
+    tx_battery_percent: '{"mates":{"tx1":{"bat_gauge":{value}}}}'
+    tx_battery_minutes: '{"mates":{"tx1":{"bat_lifetime":{value}}}}'
+    tx_battery_bars: '{"mates":{"tx1":{"bat_bars":{value}}}}'
+    tx_battery_health_percent: '{"mates":{"tx1":{"bat_health":{value}}}}'
+    tx_battery_cycles: '{"mates":{"tx1":{"bat_cycles":{value}}}}'
+    tx_charging:
+      'true': '{"mates":{"tx1":{"bat_charging":true}}}'
+      'false': '{"mates":{"tx1":{"bat_charging":false}}}'
+    tx_gooseneck_attached:
+      'true': '{"mates":{"tx1":{"gooseneck_state":true}}}'
+      'false': '{"mates":{"tx1":{"gooseneck_state":false}}}'
+    tx_switch_state:
+      'true': '{"mates":{"tx1":{"switch1":{"state":true}}}}'
+      'false': '{"mates":{"tx1":{"switch1":{"state":false}}}}'
+    tx_capsule: '{"mates":{"tx1":{"acoustic":"{value}"}}}'
+    tx_low_battery:
+      'true': '{"mates":{"tx1":{"warnings":["Low Bat"]}}}'
+      'false': '{"mates":{"tx1":{"warnings":[]}}}'
+    tx_sensitivity:
+      automatic: '{"mates":{"tx1":{"agc":0}}}'
+      0db: '{"mates":{"tx1":{"agc":1}}}'
+      -6db: '{"mates":{"tx1":{"agc":2}}}'
+      -12db: '{"mates":{"tx1":{"agc":3}}}'
+      -18db: '{"mates":{"tx1":{"agc":4}}}'
+      -24db: '{"mates":{"tx1":{"agc":5}}}'
+      -30db: '{"mates":{"tx1":{"agc":6}}}'
+    tx_auto_power_off:
+      'off': '{"mates":{"tx1":{"auto_power_off":0}}}'
+      10min: '{"mates":{"tx1":{"auto_power_off":1}}}'
+      20min: '{"mates":{"tx1":{"auto_power_off":2}}}'
+      30min: '{"mates":{"tx1":{"auto_power_off":3}}}'
+    tx_power_lock:
+      'true': '{"mates":{"tx1":{"power_lock":true}}}'
+      'false': '{"mates":{"tx1":{"power_lock":false}}}'
+    tx_pairing_lock:
+      'true': '{"mates":{"tx1":{"pairing_lock":true}}}'
+      'false': '{"mates":{"tx1":{"pairing_lock":false}}}'
+    tx_led:
+      'true': '{"mates":{"tx1":{"led_active":true}}}'
+      'false': '{"mates":{"tx1":{"led_active":false}}}'
+    # The receiver's end of a subscription (§8.11), on demand.
+    end_subscriptions:
+      'true': '{"osc":{"error":[{"rx1":{"mute_state":[310]}}]}}'
+
+  command_handlers:
+    # Everything the socket receives goes through the one SSC server, so a
+    # message that is not JSON gets the document's 400, not silence.
+    - match: '(?s:.*)'
+      handler: |
+        def _run():
+            text = match.group(0)
+
+            # A whole float prints as an integer, as the receiver writes it.
+            def plain(v):
+                if v.__class__ is float and v == int(v):
+                    return int(v)
+                if v.__class__ is dict:
+                    return {k: plain(x) for k, x in v.items()}
+                if v.__class__ is list:
+                    return [plain(x) for x in v]
+                return v
+
+            def dumps(v):
+                return json.dumps(plain(v), separators=(",", ":"), ensure_ascii=False)
+
+            MUTE_MODES = ["off", "on", "push_to_talk", "push_to_mute", "room_mute"]
+            EQ = ["off", "female_speech", "male_speech", "media", "custom"]
+            AGC = ["automatic", "0db", "-6db", "-12db", "-18db", "-24db", "-30db"]
+            AUTO_OFF = ["off", "10min", "20min", "30min"]
+            TX_TYPES = ["handheld", "bodypack", "table_stand", "boundary"]
+            BAT_TYPES = ["battery", "rechargeable"]
+            SYNC = ["unknown", "master", "follower", "unsynced_follower"]
+            STATES = ["normal", "pairing", "receiver_update", "transmitter_update",
+                      "transmitter_update_confirmation", "transmitter_update_failed"]
+
+            # dotted address -> (kind, state key, extra, pre-condition, subscribable)
+            # kinds: ro (read only), bool, int (lo, hi), idx (words: the
+            # receiver's number is the index), str, gain (dB in state, index
+            # 0-6 on the wire), seconds (minutes in state, seconds on the
+            # wire), list1 (a one-element list), warn (flags -> names),
+            # active (the link as a list), trigger (write only)
+            LEAVES = {
+                "interface.version": ("ro", "interface_version", None, None, False),
+                "device.identity.product": ("ro", "model", None, None, False),
+                "device.identity.version": ("ro", "firmware_version", None, None, False),
+                "device.identity.serial": ("ro", "serial_number", None, None, False),
+                "device.identity.vendor": ("ro", "vendor", None, None, False),
+                "device.network.ether.macs": ("list1", "mac_address", None, None, False),
+                "device.network.ipv4.ipaddr": ("list1", "ip_address", None, None, False),
+                "device.network.mdns_responder": ("bool", "mdns_enabled", None, None, True),
+                "device.name": ("str", "device_name", None, None, True),
+                "device.group": ("str", "group", None, None, True),
+                "device.location": ("str", "location", None, None, True),
+                "device.state": ("ro_idx", "device_state", STATES, None, True),
+                "device.progress": ("ro", "progress", None, "busy", True),
+                "device.update.confirmation": ("confirm", None, None, "confirmation", False),
+                "device.reset": ("trigger", None, None, None, False),
+                "device.factory_reset": ("trigger", None, None, None, False),
+                "brightness": ("int", "display_brightness", (0, 100), None, True),
+                "rx1.identify": ("bool", "identifying", None, "not_pair_walk", True),
+                "rx1.pair": ("pair", "pairing", None, "not_walk", True),
+                "rx1.rf_quality": ("ro", "rf_quality_percent", None, None, True),
+                "rx1.walktest": ("bool", "walktest", None, "not_pair_identify", True),
+                "rx1.mute_switch_active": ("bool", "mute_switch_active", None, None, True),
+                "rx1.sync_info": ("ro_idx", "sync_info", SYNC, None, True),
+                "rx1.rfpi": ("ro", "rfpi", None, None, True),
+                "rx1.last_paired_ipei": ("ro", "last_paired_ipei", None, None, True),
+                "rx1.autolock": ("bool", "autolock", None, None, True),
+                "rx1.warnings": ("warn", None, [("hw_failure", "HW Failure"), ("bad_link", "Bad Link"), ("no_fw_image", "No FW Image"), ("link_disabled", "Link Disabled")], None, True),
+                "rx1.mute_mode": ("idx", "mute_mode", MUTE_MODES, None, True),
+                "rx1.mute_state": ("bool", "mute", None, None, True),
+                "mates.active": ("active", "tx_linked", None, None, True),
+                "mates.tx1.device_type": ("ro_idx", "tx_type", TX_TYPES, "link", True),
+                "mates.tx1.bat_type": ("ro_idx", "tx_battery_type", BAT_TYPES, "link", True),
+                "mates.tx1.bat_charging": ("ro", "tx_charging", None, "charging", True),
+                "mates.tx1.bat_gauge": ("ro", "tx_battery_percent", None, "link", True),
+                "mates.tx1.bat_lifetime": ("seconds", "tx_battery_minutes", None, "recharge", True),
+                "mates.tx1.bat_bars": ("ro", "tx_battery_bars", None, "recharge", True),
+                "mates.tx1.bat_health": ("ro", "tx_battery_health_percent", None, "recharge", True),
+                "mates.tx1.bat_cycles": ("ro", "tx_battery_cycles", None, "recharge", True),
+                "mates.tx1.switch1.label": ("ro", "tx_switch_label", None, "link", False),
+                "mates.tx1.switch1.state": ("ro", "tx_switch_state", None, "link", True),
+                "mates.tx1.acoustic": ("ro", "tx_capsule", None, "link", True),
+                "mates.tx1.warnings": ("warn", None, [("tx_low_battery", "Low Bat")], "link", True),
+                "mates.tx1.gooseneck_state": ("ro", "tx_gooseneck_attached", None, "tablestand", True),
+                "mates.tx1.agc": ("idx", "tx_sensitivity", AGC, None, True),
+                "mates.tx1.power_lock": ("bool", "tx_power_lock", None, "link", True),
+                "mates.tx1.power_down": ("power_down", None, None, "link", False),
+                "mates.tx1.pairing_lock": ("bool", "tx_pairing_lock", None, "link", True),
+                "mates.tx1.auto_power_off": ("idx", "tx_auto_power_off", AUTO_OFF, None, True),
+                "mates.tx1.led_active": ("bool", "tx_led", None, "link", True),
+                "audio.out1.label": ("label", None, None, None, False),
+                "audio.out1.level_db": ("ro", "level_dbfs", None, None, True),
+                "audio.out1.gain_db": ("gain", "gain", None, None, True),
+                "audio.equalizer.preset": ("idx", "eq_preset", EQ, None, True),
+                "audio.low_cut": ("bool", "low_cut", None, None, True),
+                "audio.effects_reset": ("trigger", None, None, None, False),
+            }
+            OSC = {
+                "osc.version": "1.0",
+                "osc.feature.pattern": "*?",
+                "osc.feature.baseaddr": False,
+                "osc.feature.subscription": True,
+                "osc.feature.timetag": False,
+                "osc.state.prettyprint": False,
+            }
+
+            def holds(pre):
+                if pre is None:
+                    return True
+                linked = bool(state["tx_linked"])
+                if pre == "link":
+                    return linked
+                if pre == "recharge":
+                    return linked and state["tx_battery_type"] == "rechargeable"
+                if pre == "charging":
+                    return (linked and state["tx_battery_type"] == "rechargeable"
+                            and state["tx_type"] in ("table_stand", "boundary"))
+                if pre == "tablestand":
+                    return linked and state["tx_type"] == "table_stand"
+                if pre == "busy":
+                    return state["device_state"] in ("pairing", "receiver_update", "transmitter_update")
+                if pre == "confirmation":
+                    return state["device_state"] == "transmitter_update_confirmation"
+                if pre == "not_pair_walk":
+                    return not state["pairing"] and not state["walktest"]
+                if pre == "not_walk":
+                    return not state["walktest"]
+                if pre == "not_pair_identify":
+                    return not state["pairing"] and not state["identifying"]
+                return True
+
+            def current(spec):
+                kind, key, extra = spec[0], spec[1], spec[2]
+                if kind in ("idx", "ro_idx"):
+                    word = state[key]
+                    return extra.index(word) if word in extra else 0
+                if kind == "gain":
+                    return int((state[key] + 24) // 6)
+                if kind == "seconds":
+                    return int(state[key] * 60)
+                if kind == "list1":
+                    return [state[key]]
+                if kind == "warn":
+                    return [name for flag, name in extra if state[flag]]
+                if kind == "active":
+                    return ["tx1"] if state[key] else []
+                if kind == "label":
+                    return ["AF OUT BAL +18 dBu max", "AF OUT UNBAL"]
+                if kind in ("trigger", "confirm", "power_down"):
+                    return None
+                return state[key]
+
+            # A refused address is reported under osc.error and left out of
+            # the answer; NO marks it.
+            NO = ("refused",)
+
+            def index_of(value, count):
+                if value.__class__ is bool:
+                    return None
+                try:
+                    n = int(value)
+                except (TypeError, ValueError):
+                    return None
+                if n != float(value) or n < 0 or n >= count:
+                    return None
+                return n
+
+            def apply(spec, value):
+                # (result, error code)
+                kind, key, extra = spec[0], spec[1], spec[2]
+                if kind in ("ro", "ro_idx", "list1", "warn", "active", "label", "seconds"):
+                    return NO, 406
+                if kind == "bool":
+                    if value.__class__ is not bool:
+                        return NO, 406
+                    state[key] = value
+                    return value, 0
+                if kind == "pair":
+                    if value.__class__ is not bool:
+                        return NO, 406
+                    state[key] = value
+                    if value:
+                        state["progress"] = 0
+                        state["device_state"] = "pairing"
+                    elif state["device_state"] == "pairing":
+                        state["device_state"] = "normal"
+                    return value, 0
+                if kind == "int":
+                    n = index_of(value, extra[1] + 1)
+                    if n is None or n < extra[0]:
+                        return NO, 406
+                    state[key] = n
+                    return n, 0
+                if kind == "idx":
+                    n = index_of(value, len(extra))
+                    if n is None:
+                        return NO, 406
+                    state[key] = extra[n]
+                    return n, 0
+                if kind == "gain":
+                    n = index_of(value, 7)
+                    if n is None:
+                        return NO, 406
+                    state[key] = n * 6 - 24
+                    return n, 0
+                if kind == "str":
+                    if value.__class__ is not str:
+                        return NO, 406
+                    state[key] = value
+                    return value, 0
+                if kind == "trigger":
+                    if value is not True:
+                        return NO, 406
+                    return True, 0
+                if kind == "confirm":
+                    if value.__class__ is not bool:
+                        return NO, 406
+                    state["progress"] = 0
+                    state["device_state"] = "transmitter_update" if value else "normal"
+                    return value, 0
+                if kind == "power_down":
+                    if value is not True:
+                        return NO, 406
+                    state["tx_linked"] = False
+                    return True, 0
+                return NO, 406
+
+            members = []
+            errors = []
+
+            def tree(path, value):
+                node = value
+                for seg in path[::-1]:
+                    node = {seg: node}
+                return node
+
+            def member(path, value):
+                members.append(dumps(tree(path, value))[1:-1])
+
+            def fail(path, code):
+                errors.append(tree(path, [code]))
+
+            def leaves_of(node, prefix):
+                out = []
+                for key, val in node.items():
+                    if key == "#":
+                        continue
+                    path = prefix + [key]
+                    dotted = ".".join(path)
+                    if val.__class__ is dict and dotted not in LEAVES:
+                        out.extend(leaves_of(val, path))
+                    else:
+                        out.append((path, val))
+                return out
+
+            def subscriptions():
+                return [p for p in state["_subscriptions"].split(",") if p]
+
+            def subscribe(value):
+                if value is None:
+                    tr = {}
+                    for p in subscriptions():
+                        node = tr
+                        segs = p.split(".")
+                        for seg in segs[:-1]:
+                            node = node.setdefault(seg, {})
+                        node[segs[-1]] = None
+                    member(["osc", "state", "subscribe"], [tr])
+                    return
+                if value.__class__ is not list:
+                    value = [value]
+                subs = subscriptions()
+                echoed = []
+                initial = []
+                for entry in value:
+                    if entry.__class__ is not dict:
+                        continue
+                    params = entry.get("#")
+                    cancel = params.__class__ is dict and params.get("cancel") is True
+                    good = []
+                    for path, _val in leaves_of(entry, []):
+                        dotted = ".".join(path)
+                        spec = LEAVES.get(dotted)
+                        if spec is None or not spec[4]:
+                            fail(["osc", "state", "subscribe"] + path, 404)
+                            continue
+                        if not cancel and not holds(spec[3]):
+                            fail(path, 406)
+                            continue
+                        good.append(path)
+                        if cancel:
+                            subs = [p for p in subs if p != dotted]
+                        else:
+                            if dotted not in subs:
+                                subs.append(dotted)
+                            initial.append((path, current(spec)))
+                    if not good:
+                        continue
+                    # The echo of an entry, one member per address.
+                    parts = []
+                    if params.__class__ is dict:
+                        parts.append(dumps({"#": params})[1:-1])
+                    for path in good:
+                        parts.append(dumps(tree(path, None))[1:-1])
+                    echoed.append("{" + ",".join(parts) + "}")
+                state["_subscriptions"] = ",".join(subs)
+                if echoed:
+                    members.append('"osc":{"state":{"subscribe":[' + ",".join(echoed) + "]}}")
+                for path, val in initial:
+                    member(path, val)
+
+            def handle(path, value):
+                dotted = ".".join(path)
+                if dotted == "osc.xid":
+                    member(path, value)
+                elif dotted == "osc.state.subscribe":
+                    subscribe(value)
+                elif dotted == "osc.state.close":
+                    state["_subscriptions"] = ""
+                    member(path, True)
+                elif dotted in OSC:
+                    if value is not None:
+                        fail(path, 406)
+                    else:
+                        member(path, OSC[dotted])
+                elif dotted in LEAVES:
+                    spec = LEAVES[dotted]
+                    if not holds(spec[3]):
+                        fail(path, 406)
+                    elif value is None:
+                        if spec[0] in ("trigger", "confirm", "power_down"):
+                            fail(path, 406)
+                        else:
+                            member(path, current(spec))
+                    else:
+                        result, code = apply(spec, value)
+                        if result is NO:
+                            fail(path, code)
+                        else:
+                            member(path, result)
+                else:
+                    fail(path, 404)
+
+            try:
+                request = json.loads(text)
+                if request.__class__ is not dict:
+                    raise ValueError("not an object")
+            except ValueError:
+                respond('{"osc":{"error":[400]}}')
+                return
+
+            for path, value in leaves_of(request, []):
+                handle(path, value)
+            if errors:
+                members.append(dumps({"osc": {"error": errors}})[1:-1])
+            respond("{" + ",".join(members) + "}")
+
+        _run()

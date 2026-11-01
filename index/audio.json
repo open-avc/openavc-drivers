@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 40,
+    "total_drivers": 41,
     "shards": null,
     "category": "audio"
   },
@@ -1870,6 +1870,73 @@
               "regex": "\"product\"\\s*:\\s*\"(SLDW[^\"]+)\""
             }
           }
+        },
+        "oui": [
+          "00:1b:66"
+        ],
+        "manufacturer_alias": [
+          "sennheiser"
+        ]
+      }
+    },
+    {
+      "id": "sennheiser_sl_rack_receiver_dw",
+      "name": "Sennheiser SpeechLine SL Rack Receiver DW",
+      "manufacturer": "Sennheiser",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "udp",
+      "description": "Controls the Sennheiser SpeechLine SL Rack Receiver DW, the single-channel SpeechLine Digital Wireless receiver, over Sennheiser Sound Control (JSON over UDP, port 45). Mute and mute mode, output level, EQ preset and low cut, pairing, walk test and identify, the linked transmitter's type, capsule, battery, charging, sensitivity, locks and LED, RF quality and warnings, names, display brightness and restart. State is push-driven: the driver subscribes and the receiver reports every change as it happens, including changes made on the receiver, in Control Cockpit or on a transmitter.\n",
+      "source_url": "https://assets.sennheiser.com/download/assets/TI_1094_v4.3_Sennheiser_Sound_Control_Protocol_SL_DW_EN.pdf/b2a3c92ce7bb11f088db768ee8e97aea",
+      "file": "audio/sennheiser_sl_rack_receiver_dw.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "audio/sennheiser_sl_rack_receiver_dw.avcdriver": "8e40ea1fd4474727c193cfd5cbd81dbadda2efd6cf06e6df6e0c58c23b47a51f"
+      },
+      "ports": [
+        45
+      ],
+      "protocols": [
+        "sennheiser_ssc"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "wireless",
+        "microphone",
+        "receiver",
+        "speechline",
+        "ssc"
+      ],
+      "help": {
+        "overview": "Controls the Sennheiser SpeechLine SL Rack Receiver DW: mute it, choose what the transmitter's mute switch does, set its output level, EQ preset and low cut, pair a transmitter, run a walk test, and read the linked transmitter's type, capsule, battery and warnings. Everything that changes on the receiver, in Control Cockpit or on a transmitter shows up here as it happens.\n",
+        "setup": "1. Give the receiver a static IP address or a DHCP reservation, and note\n   it.\n2. Enter that address here. Control uses UDP port 45; leave the port\n   alone.\n3. The audio level meter is off by default. It makes the receiver stream\n   continuously, so turn on Enable Level Meter only when a panel shows\n   it. The Meter On and Meter Off commands switch it while running.\n4. The receiver and the OpenAVC server must be able to exchange UDP\n   traffic on port 45 in both directions. If the receiver shows offline\n   while Control Cockpit still sees it, check for a firewall between the\n   two.\n",
+        "connection": "The receiver answers on UDP port 45. If Control Cockpit sees it and OpenAVC does not, a firewall between the server and the receiver is blocking UDP 45.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Sennheiser",
+          "models": [
+            "SL Rack Receiver DW"
+          ],
+          "confidence": "untested",
+          "notes": "Built from Sennheiser's SSC developer guide for firmware 4.1.1; not yet run against a receiver. The SL MCR 2 / 4 DW multi-channel receivers and the CHG 2N / 4N chargers use different SSC commands and have their own drivers. Network address configuration and firmware updates belong to Sennheiser Control Cockpit.\n"
+        }
+      ],
+      "discovery": {
+        "udp_probe": {
+          "port": 45,
+          "send_ascii": "{\"device\":{\"identity\":{\"product\":null}}}",
+          "expect_regex": "\"product\"\\s*:\\s*\"SLDW\"",
+          "timeout_ms": 1500,
+          "extract": {
+            "model": {
+              "regex": "\"product\"\\s*:\\s*\"(SLDW)\"",
+              "group": 1
+            }
+          },
+          "extract_manufacturer": "Sennheiser"
         },
         "oui": [
           "00:1b:66"

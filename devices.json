@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1113,
+    "total_devices": 1114,
     "shards": null
   },
   "devices": [
@@ -10221,6 +10221,18 @@
           "id": "sennheiser_sl_mcr_dw",
           "confidence": "untested",
           "notes": "Both share one command set. The SL MCR 4 DW has four channels, the SL MCR 2 DW two; the count is read from the receiver's product name, so Channel Count only matters before the first connection. The SL Rack Receiver DW and the CHG 2N / 4N chargers use different SSC commands and are not covered."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sennheiser",
+      "model": "SL Rack Receiver DW",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sennheiser_sl_rack_receiver_dw",
+          "confidence": "untested",
+          "notes": "Built from Sennheiser's SSC developer guide for firmware 4.1.1; not yet run against a receiver. The SL MCR 2 / 4 DW multi-channel receivers and the CHG 2N / 4N chargers use different SSC commands and have their own drivers. Network address configuration and firmware updates belong to Sennheiser Control Cockpit.\n"
         }
       ]
     },

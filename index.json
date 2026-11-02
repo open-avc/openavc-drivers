@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 138,
+    "total_drivers": 139,
     "shards": null
   },
   "drivers": [
@@ -2603,6 +2603,82 @@
           "bose professional",
           "bose corporation",
           "controlspace"
+        ]
+      }
+    },
+    {
+      "id": "bose_videobar",
+      "name": "Bose Professional Videobar",
+      "manufacturer": "Bose Professional",
+      "category": "video",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Bose Professional Videobar VB1 and VB-S conferencing bars over the bar's REST API: microphone and loudspeaker mute, volume, camera pan, tilt, zoom and presets, autoframing and Bluetooth. Shows when a computer is in a call over USB and, on a VB1, how many people the camera counts.",
+      "source_url": "https://assets.boseprofessional.com/m/380d978c3e7034f3/original/ug_videobar_rest_api.pdf",
+      "file": "video/bose_videobar.py",
+      "format": "python",
+      "files": {
+        "video/bose_videobar.py": "dbee7af1222be05357f0314bacaa5718c35a690c6814ce09ab6d2d50fc7ba964",
+        "video/bose_videobar_sim.py": "e0a7d0a9d450bc9c33541484d7e986ced1ae74fed1703efced71900581f9429b"
+      },
+      "ports": [
+        443
+      ],
+      "protocols": [
+        "bose_videobar_rest"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "bose",
+        "bose-professional",
+        "videobar",
+        "vb1",
+        "vb-s",
+        "video-bar",
+        "conferencing",
+        "camera",
+        "rest"
+      ],
+      "help": {
+        "overview": "Controls a Bose Professional Videobar VB1 or VB-S: microphone and loudspeaker mute, loudspeaker volume, the camera's pan, tilt and zoom, its Home, Preset 1 and Preset 2 positions, autoframing, Bluetooth pairing and a reboot. Shows whether a computer is connected over USB and in a call, the camera's state, Bluetooth and network status and, on a VB1, how many people the camera counts and the GPI mute input. Mute and the call states are read every few seconds, so a press of the bar's own mute button shows within one poll.",
+        "setup": "1. In the Bose Videobar Configuration app (over USB), the Videobar Administration app or the bar's web page, open Network > API, turn on API access and set an API username and password.\n2. Give the bar a fixed IP address or a DHCP reservation. A VB-S is on the network over Wi-Fi only.\n3. In OpenAVC, enter the bar's IP address and the API username and password, and pick the model. Once the bar has connected, the model it reports is saved in its place.\n4. Leave Verify SSL Certificate off unless the bar has a certificate this computer trusts."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Bose Professional",
+          "models": [
+            "Videobar VB1",
+            "Videobar VB-S"
+          ],
+          "confidence": "untested",
+          "notes": "REST API Guide v1.5. API access is off until it is turned on under Network > API with an API username and password. The people count, GPI mute, HDMI output and Ethernet interface are on the VB1 only; a VB-S is on the network over Wi-Fi."
+        }
+      ],
+      "discovery": {
+        "oui": [
+          "00:0c:8a",
+          "04:52:c7",
+          "08:df:1f",
+          "28:11:a5",
+          "2c:41:a1",
+          "48:22:1d",
+          "4c:87:5d",
+          "60:ab:d2",
+          "68:f2:1f",
+          "78:2b:64",
+          "ac:bf:71",
+          "bc:87:fa",
+          "c8:7b:23",
+          "e4:58:bc",
+          "48:5e:0e:c"
+        ],
+        "manufacturer_alias": [
+          "bose",
+          "bose professional",
+          "bose corporation",
+          "videobar"
         ]
       }
     },

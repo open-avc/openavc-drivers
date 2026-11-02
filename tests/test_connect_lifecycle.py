@@ -126,6 +126,9 @@ _CONFIG: dict[str, dict] = {
     # refuses one with either blank before sending it; this smoke does not
     # merge default_config (admin). The sim accepts any password but "invalid".
     "marshall_ptz": {"username": "admin", "password": "smokepw"},
+    # The API needs a username and password; a blank one is refused before it
+    # is sent. The sim accepts any but "invalid" when its config sets none.
+    "bose_videobar": {"username": "admin", "password": "smokepw"},
 }
 
 

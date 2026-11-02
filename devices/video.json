@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 55,
+    "total_devices": 57,
     "shards": null,
     "category": "video"
   },
@@ -104,6 +104,30 @@
         {
           "id": "birddog_codec",
           "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "Videobar VB-S",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "bose_videobar",
+          "confidence": "untested",
+          "notes": "REST API Guide v1.5. API access is off until it is turned on under Network > API with an API username and password. The people count, GPI mute, HDMI output and Ethernet interface are on the VB1 only; a VB-S is on the network over Wi-Fi."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "Videobar VB1",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "bose_videobar",
+          "confidence": "untested",
+          "notes": "REST API Guide v1.5. API access is off until it is turned on under Network > API with an API username and password. The people count, GPI mute, HDMI output and Ethernet interface are on the VB1 only; a VB-S is on the network over Wi-Fi."
         }
       ]
     },

@@ -1817,7 +1817,7 @@
       "name": "Sennheiser SpeechLine CHG 2N / CHG 4N Charger",
       "manufacturer": "Sennheiser",
       "category": "audio",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Monitors the Sennheiser SpeechLine CHG 2N and CHG 4N network chargers over Sennheiser Sound Control (JSON over UDP, port 45). For every bay: whether a transmitter is docked, its type, serial number and firmware, whether it is charging, its charge, time to full, battery bars, health and cycles, and the bay's error state (communication, update, overcurrent, charging voltage). Identify a bay, names, restart and factory reset. State is push-driven: the driver subscribes and the charger reports every change as it happens.\n",
@@ -1825,7 +1825,7 @@
       "file": "audio/sennheiser_sl_chg.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/sennheiser_sl_chg.avcdriver": "1c6a38c8dbf9eaa17dd99863134d77e33073630cadbc5043fe419f936e325c59"
+        "audio/sennheiser_sl_chg.avcdriver": "db935374a266209375118eba97c11f2ea0d96dbed2b86b9bb665b0fa38535e6e"
       },
       "ports": [
         45

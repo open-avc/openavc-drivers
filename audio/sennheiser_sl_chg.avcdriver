@@ -59,7 +59,7 @@ id: sennheiser_sl_chg
 name: Sennheiser SpeechLine CHG 2N / CHG 4N Charger
 manufacturer: Sennheiser
 category: audio
-version: "1.0.0"
+version: "1.0.1"
 author: OpenAVC
 min_platform_version: "0.37.0"
 description: >
@@ -543,9 +543,11 @@ responses:
       d1_firmware_image: device.ptxversion_d1
 
   # ── Every bay value: element n of each array is bay n+1 ──
-  # A CHG 2N's arrays have two elements, so bays 3 and 4 find nothing to read
-  # (and are not on its roster anyway). /bays/state is two arrays: the bay's
-  # state, then its errors as bits (§14.54).
+  # Bays 1 and 2 here; bays 3 and 4 in the rule after it, which stops reading
+  # once the charger has reported two bays (a CHG 2N has neither, and its
+  # roster drops them). Until the model is reported, all four are read.
+  # /bays/state is two arrays: the bay's state, then its errors as bits
+  # (§14.54).
   - json: true
     child_set:
       - type: bay
@@ -588,6 +590,9 @@ responses:
           update_error: { key: bays.state.1.1, map: *bit1 }
           overcurrent: { key: bays.state.1.1, map: *bit2 }
           no_charging_voltage: { key: bays.state.1.1, map: *bit3 }
+  - json: true
+    only_when: { any: [{ key: bay_count_reported, value: 4 }, { key: bay_count_reported, operator: falsy }] }
+    child_set:
       - type: bay
         id: 3
         state:
@@ -714,15 +719,26 @@ responses:
       - *read_bay_state
   # Every bay empty. The serial numbers are no longer subscribed, so a
   # transmitter that left while the driver was away would keep its number:
-  # clear them, as the charger itself reports an empty bay.
+  # clear them, as the charger itself reports an empty bay: two bays on a
+  # charger that has reported two, else four.
   - match: '"bays"\s*:\s*\{\s*"active"\s*:\s*\['
     after_json: true
+    only_when: { any: [{ key: bay_count_reported, value: 4 }, { key: bay_count_reported, operator: falsy }] }
     set: { transmitters_docked: "false" }
     child_set:
       - { type: bay, id: 1, state: { tx_serial: "" } }
       - { type: bay, id: 2, state: { tx_serial: "" } }
       - { type: bay, id: 3, state: { tx_serial: "" } }
       - { type: bay, id: 4, state: { tx_serial: "" } }
+    then_query:
+      - *read_types
+      - *read_bay_state
+  - match: '"bays"\s*:\s*\{\s*"active"\s*:\s*\['
+    after_json: true
+    set: { transmitters_docked: "false" }
+    child_set:
+      - { type: bay, id: 1, state: { tx_serial: "" } }
+      - { type: bay, id: 2, state: { tx_serial: "" } }
     then_query:
       - *read_types
       - *read_bay_state

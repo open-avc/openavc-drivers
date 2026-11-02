@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 127,
+    "total_devices": 128,
     "shards": null,
     "category": "camera"
   },
@@ -501,6 +501,18 @@
           "id": "crestron_1beyond_camera",
           "confidence": "untested",
           "notes": "PTZ cameras. Set Model to P12 or P20 for mount mode and the zoom ratio."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epiphan",
+      "model": "EC20",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "epiphan_ec20",
+          "confidence": "untested",
+          "notes": "EC20 REST API v1 (firmware 3.6.44 was current when this driver was written). Not yet tested on this hardware."
         }
       ]
     },

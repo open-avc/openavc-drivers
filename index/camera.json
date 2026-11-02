@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 12,
+    "total_drivers": 13,
     "shards": null,
     "category": "camera"
   },
@@ -319,6 +319,68 @@
           "expect_regex": "^\\x90\\x50[\\x02\\x03]\\xff",
           "timeout_ms": 1500
         }
+      }
+    },
+    {
+      "id": "epiphan_ec20",
+      "name": "Epiphan EC20 PTZ Camera",
+      "manufacturer": "Epiphan",
+      "category": "camera",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls the Epiphan EC20 4K PTZ camera over its REST API: power and standby, pan, tilt, zoom and focus with position read-back, presets and home, AI auto-tracking and presenter selection, the tally light, recording, exposure, white balance and picture settings, and RTMP, SRT, multicast and ONVIF streaming. Offers the camera's RTSP stream as a panel preview.",
+      "source_url": "https://epiphan-video.github.io/pearl_api_swagger_ui/api/ec20/v1/openapi.yml",
+      "file": "cameras/epiphan_ec20.py",
+      "format": "python",
+      "files": {
+        "cameras/epiphan_ec20.py": "91abfd01a791948469411e55c1f7af38ca51c7b14701bc11045c1611338e30fa",
+        "cameras/epiphan_ec20_sim.py": "68ca0c75624859ae3b394358b8627d5cfcfc7b73673f504c3fc7bc1b90f28736"
+      },
+      "ports": [
+        80
+      ],
+      "protocols": [
+        "epiphan_ec20_rest"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "epiphan",
+        "ec20",
+        "ptz",
+        "camera",
+        "rest",
+        "auto-tracking",
+        "lecture-capture",
+        "rtsp",
+        "srt",
+        "tally"
+      ],
+      "help": {
+        "overview": "Controls an Epiphan EC20 PTZ camera: power and standby, pan, tilt, zoom and focus, presets and the home position, AI auto-tracking and presenter selection, the tally light, recording and freeze. Exposure, white balance, picture, focus, tracking and streaming settings appear on the device page and are read back from the camera, as are the pan, tilt, zoom and focus positions. The camera's RTSP stream is offered to the Video Panel as a preview. The Pan Speed, Tilt Speed, Zoom Speed and Focus Speed fields set the speed of a move that does not give its own.",
+        "setup": "1. Connect the camera to the network. It takes an address from DHCP and shows it on its front screen; with DHCP off its address is 192.168.100.88.\n2. Enter the camera's IP address here with its web user name and password (the factory account is admin, password admin; change it on the camera's web page under System).\n3. If the camera's HTTP port was changed under Network > Port, enter it in Port.\n4. To show the camera on a panel, leave RTSP authentication off on the camera's Network > RTSP page, and set RTSP Port if it was changed from 554."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Epiphan",
+          "models": [
+            "EC20"
+          ],
+          "confidence": "untested",
+          "notes": "EC20 REST API v1 (firmware 3.6.44 was current when this driver was written). Not yet tested on this hardware."
+        }
+      ],
+      "discovery": {
+        "oui": [
+          "58:95:d8:7"
+        ],
+        "manufacturer_alias": [
+          "Epiphan",
+          "Epiphan Systems",
+          "Epiphan Systems Inc",
+          "Epiphan Video"
+        ]
       }
     },
     {

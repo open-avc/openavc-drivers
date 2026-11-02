@@ -57,7 +57,7 @@ id: smart_board_rx_mx
 name: SMART Board RX / MX
 manufacturer: SMART Technologies
 category: display
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 description: >-
   SMART Board RX and MX (V2 to V5) interactive displays over RS-232: power,
@@ -68,7 +68,10 @@ tags: [display, smart, smart-board, interactive-display, interactive-flat-panel,
 verified: false
 simulated: true
 ports: []
-min_platform_version: "0.37.0"
+# The liveness probe below: 0.38.0 holds it while the poll is held (anything
+# but on), and an older platform would send it in every state and wake the
+# display. The contract check computes 0.37.0.
+min_platform_version: "0.38.0"
 compatible_models:
   - manufacturer: SMART Technologies
     models: [SBID-RX065, SBID-RX075, SBID-RX086]
@@ -110,9 +113,9 @@ help:
   connection: >-
     The display answers only while it is on or in Standby, and a command sent
     in Standby turns it on. After Turn Off it answers nothing until someone
-    presses its Power button. Through a serial bridge, a display that stops
-    answering while it reads On shows offline after three polls; on a direct
-    serial port it stays connected.
+    presses its Power button. A display that stops answering while it reads
+    On shows offline within about a minute, on a direct serial port or
+    through a bridge.
 
 default_config:
   baudrate: 19200
@@ -453,6 +456,17 @@ on_connect:
   - { send: "get serialnum\r", query_for: serial_number, when_state: { power: ["on", updateon] } }
   - { send: "get fwversion\r", query_for: firmware, when_state: { power: ["on", updateon] } }
   - { send: "get partnum\r", query_for: part_number, when_state: { power: ["on", updateon] } }
+
+# Over a direct serial port nothing checks a poll for a reply, so a display
+# that stopped answering read connected. The power state, which every RX and
+# MX answers, is asked on its own clock, and any reply counts: the prompt, an
+# invalid cmd, a "#" message. It is held while the poll is (the display reads
+# anything but on), so it never wakes a display in standby.
+liveness:
+  send: "get powerstate\r"
+  interval: 30
+  timeout: 5
+  max_failures: 2
 
 polling:
   # Any command wakes an RX or MX (V5) from standby, so the poll runs only

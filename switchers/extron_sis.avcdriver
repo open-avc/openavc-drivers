@@ -98,11 +98,13 @@ id: extron_sis
 name: Extron SIS Protocol
 manufacturer: Extron
 category: switcher
-version: 1.13.0
+version: 1.14.0
 author: OpenAVC
-# learned_from on the input and output counts. then_query does not raise it:
-# an older platform ignores it.
-min_platform_version: "0.37.0"
+# The liveness probe below: 0.38.0 holds it while the poll is held (power save
+# mode 1), and an older platform would send it in every state and end the
+# mode. The contract check computes 0.37.0 (learned_from on the input and
+# output counts); then_query does not raise it, an older platform ignores it.
+min_platform_version: "0.38.0"
 description: >
   Controls Extron products via the SIS (Simple Instruction Set) protocol.
   Covers crosspoint matrix switchers (DXP, CrossPoint), presentation
@@ -279,6 +281,21 @@ auth:
   success_pattern: "Login "
   line_ending: "\r"
   timeout_seconds: 5
+
+# Over direct RS-232 nothing checks a poll for a reply, so a switcher that
+# stopped answering read connected. The firmware query Q, which every SIS
+# product answers whatever its setup (DXP, DSC 301, SW HD 4K PLUS, XTP
+# CrossPoint and CrossPoint 450 guides; "Ver01*1.02" on the bench SW4), is
+# asked on its own clock, and any reply counts, an error or a password prompt
+# included. It is held while polling.when_state holds the poll (power save
+# mode 1, which any SIS command ends). With a probe declared it alone decides
+# on the network too, in place of the three silent 10 s polls, so it asks
+# every 15 s and two misses in a row take the switcher offline.
+liveness:
+  send: "Q"
+  interval: 15
+  timeout: 5
+  max_failures: 2
 
 state_variables:
   input:

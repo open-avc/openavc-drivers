@@ -3695,7 +3695,7 @@
       "name": "Extron SIS Protocol",
       "manufacturer": "Extron",
       "category": "switcher",
-      "version": "1.13.0",
+      "version": "1.14.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Extron products via the SIS (Simple Instruction Set) protocol. Covers crosspoint matrix switchers (DXP, CrossPoint), presentation switchers (IN Series), scalers (DSC, DVS), distribution amplifiers, and DSP products. On matrix models each configured output and input is a child entity with per-output routing and mute state. Works over TCP (port 23) or RS-232 (9600 8N1).\n",
@@ -3703,7 +3703,7 @@
       "file": "switchers/extron_sis.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/extron_sis.avcdriver": "a54cc1c2efd1c9c4d007a5827f727fd1d4f6bfd7d124726db539fbefa7f7bb66"
+        "switchers/extron_sis.avcdriver": "bf52ccafc5f2926182d363e8a8dc0b1d36465346b7da8816bb15bea021013194"
       },
       "ports": [
         23
@@ -3712,7 +3712,7 @@
         "extron_sis"
       ],
       "simulated": true,
-      "min_platform_version": "0.37.0",
+      "min_platform_version": "0.38.0",
       "tags": [
         "matrix-switcher",
         "scaler",
@@ -8602,7 +8602,7 @@
       "name": "SMART Board RX / MX",
       "manufacturer": "SMART Technologies",
       "category": "display",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "serial",
       "description": "SMART Board RX and MX (V2 to V5) interactive displays over RS-232: power, input, volume and mute, brightness, freeze, screen shade and microphone mute, with the display's own reports of changes made at the display.",
@@ -8610,13 +8610,13 @@
       "file": "displays/smart_board_rx_mx.avcdriver",
       "format": "avcdriver",
       "files": {
-        "displays/smart_board_rx_mx.avcdriver": "1bb6aa0f03daebe9f25b106797a721204c1876c6ad8b14cef6b5f6f44d6142b0"
+        "displays/smart_board_rx_mx.avcdriver": "6a2a34c4976ec2f83c4b652ebaf89b5817afd5704cc8d6078a8c22a42f74446c"
       },
       "protocols": [
         "smart_board_rs232"
       ],
       "simulated": true,
-      "min_platform_version": "0.37.0",
+      "min_platform_version": "0.38.0",
       "tags": [
         "display",
         "smart",
@@ -8629,7 +8629,7 @@
       "help": {
         "overview": "SMART Board RX and MX interactive displays over the RS-232 port: power, input, volume, mute, brightness, freeze, screen shade and the microphone mute. Changes made with the display's buttons, Settings app or remote reach OpenAVC as soon as they happen; everything is also read every 15 seconds while the display is on. Nothing is sent to the display while it reports Standby or Off, because any command would wake it.",
         "setup": "1. Connect the display's RS-232 In port with a standard (straight-through)\n   RS-232 cable, not a null-modem cable, to a serial port on this computer\n   or to a serial bridge (choose \"Through a bridge\" and pick the bridge's\n   port).\n2. The settings are 19200 baud, 8 data bits, no parity, 1 stop bit. Through\n   a bridge they are applied to the bridge's port for you.\n3. No login. The display has no network control: RS-232 is the only way\n   in.",
-        "connection": "The display answers only while it is on or in Standby, and a command sent in Standby turns it on. After Turn Off it answers nothing until someone presses its Power button. Through a serial bridge, a display that stops answering while it reads On shows offline after three polls; on a direct serial port it stays connected."
+        "connection": "The display answers only while it is on or in Standby, and a command sent in Standby turns it on. After Turn Off it answers nothing until someone presses its Power button. A display that stops answering while it reads On shows offline within about a minute, on a direct serial port or through a bridge."
       },
       "compatible_models": [
         {

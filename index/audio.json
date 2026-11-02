@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 42,
+    "total_drivers": 43,
     "shards": null,
     "category": "audio"
   },
@@ -890,6 +890,75 @@
         "manufacturer_alias": [
           "audio-technica",
           "audio technica"
+        ]
+      }
+    },
+    {
+      "id": "behringer_wing",
+      "name": "Behringer WING",
+      "manufacturer": "Behringer",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "osc",
+      "description": "Controls Behringer WING, WING Compact and WING Rack digital mixing consoles over OSC: every channel, aux, bus, main, matrix, DCA and mute group as a child entity with name, mute, fader, pan and solo, scene recall, the USB player and recorder, and the console's status. Changes made anywhere are pushed to OpenAVC as they happen.",
+      "source_url": "https://cdn-media.empowertribe.com/2106004e217b8eb2639d93672823eef5/WING_Remote-Protocols-3.1-03.pdf",
+      "file": "audio/behringer_wing.py",
+      "format": "python",
+      "files": {
+        "audio/behringer_wing.py": "5e8ffd989f2364c1e4ced72eb3378f01bb617f929febb164fef9a4d457322899",
+        "audio/behringer_wing_sim.py": "9bf235fda1eaa7a9607a91c51178ac8233fe6d77760a8f81f10d4965a62b4807"
+      },
+      "ports": [
+        2223
+      ],
+      "simulated": true,
+      "min_platform_version": "0.25.0",
+      "tags": [
+        "mixer",
+        "console",
+        "osc",
+        "wing"
+      ],
+      "help": {
+        "overview": "Controls a Behringer WING, WING Compact or WING Rack over the network with OSC. Every channel, aux, bus, main, matrix, DCA and mute group is a child entity with its name, mute, fader and, for strips, pan and solo, so panel controls bind to device.<id>.channel.1.mute and the like. Scenes of the open show can be recalled by number or tag, or stepped with Next and Previous; the USB player and recorder have their own controls; and the console's name, model, firmware, clock lock and AES50 ports are shown on the device page.\n\nChanges made on the console, in WING Co-Pilot or anywhere else appear as they happen. The console sends its change notices to one OSC client at a time, so with another OSC app subscribed the two take turns; every value is also read again at Full Re-read Interval.",
+        "setup": "1. On the console, open Setup > Network and note the IP address (a fixed address is best).\n2. Enter it as the IP Address. The OSC port is always 2223.\n3. Check that Setup > Remote > Remote Lock is not set to make OSC read-only: while it is, the console ignores every change and OpenAVC refuses to send one.\nScene commands need a show open on the console."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Behringer",
+          "models": [
+            "WING",
+            "WING-BK",
+            "WING Compact",
+            "WING Rack"
+          ],
+          "confidence": "untested",
+          "notes": "All four run the same OSC remote protocol on firmware 3.1 and later, with the same 40 channels, 8 auxes, 16 buses, 4 mains, 8 matrices, 16 DCAs and 8 mute groups. Not the X32 or M32, which have their own driver."
+        }
+      ],
+      "discovery": {
+        "udp_probe": {
+          "port": 2222,
+          "send_ascii": "WING?",
+          "expect_regex": "^WING,",
+          "extract_manufacturer": "Behringer",
+          "extract": {
+            "model": {
+              "regex": "^WING,[^,]*,[^,]*,([^,]+),"
+            },
+            "name": {
+              "regex": "^WING,[^,]*,([^,]*),"
+            }
+          },
+          "timeout_ms": 1500
+        },
+        "oui": [
+          "00:15:64"
+        ],
+        "manufacturer_alias": [
+          "behringer",
+          "music tribe"
         ]
       }
     },

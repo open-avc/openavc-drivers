@@ -64,6 +64,9 @@ _CONFIG: dict[str, dict] = {
     # QLab ignores the generic OSC reachability probe, which is why the
     # driver's own default_config turns it off; the login is its first answer.
     "qlab": {"verify_timeout": 0},
+    # The WING's document has no /info, which the generic OSC probe sends, so
+    # the driver turns it off and asks /? (the console's identity) instead.
+    "behringer_wing": {"verify_timeout": 0},
     # The Pearl driver refuses a login with no account before touching the
     # device; the platform merges default_config (admin) in but this smoke
     # does not. The sim accepts any password while its auth check is off.

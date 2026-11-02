@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 248,
+    "total_devices": 252,
     "shards": null,
     "category": "audio"
   },
@@ -790,6 +790,54 @@
           "id": "at_atnd1061",
           "confidence": "partial",
           "notes": "Same command set, and the same connection. Audio-Technica LINK carries audio and the microphone's power only, so an LK is controlled over its own NETWORK port on TCP 17300 exactly like a DAN \u2014 not through the ATDM mixer it feeds, which exposes nothing about it. Add it as its own device. Not bench-tested: everything here was verified on a DAN. What differs is Dante. The LK has none, so Dante Tx5, Dante Tx6 and the Dante IP readout do not apply; expect those three to stay blank, and a Dante Tx setting written from OpenAVC may be refused. That is a real difference rather than a gap \u2014 on the LINK bus the LK carries the six beams, Auto Mix and Voice Lift Out on dedicated channels, so there is nothing for a Tx sharing setting to do. Nothing else should be affected: the Dante Tx6 field is matched as an optional group so an empty one cannot take the rest of the audio-system settings down with it. Discovery is an exact match on the modelName string \"ATND1061LK\", which is inferred from the DAN's naming scheme rather than captured, so it may simply not fire; adding the microphone by IP always works.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Behringer",
+      "model": "WING",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_wing",
+          "confidence": "untested",
+          "notes": "All four run the same OSC remote protocol on firmware 3.1 and later, with the same 40 channels, 8 auxes, 16 buses, 4 mains, 8 matrices, 16 DCAs and 8 mute groups. Not the X32 or M32, which have their own driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Behringer",
+      "model": "WING Compact",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_wing",
+          "confidence": "untested",
+          "notes": "All four run the same OSC remote protocol on firmware 3.1 and later, with the same 40 channels, 8 auxes, 16 buses, 4 mains, 8 matrices, 16 DCAs and 8 mute groups. Not the X32 or M32, which have their own driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Behringer",
+      "model": "WING Rack",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_wing",
+          "confidence": "untested",
+          "notes": "All four run the same OSC remote protocol on firmware 3.1 and later, with the same 40 channels, 8 auxes, 16 buses, 4 mains, 8 matrices, 16 DCAs and 8 mute groups. Not the X32 or M32, which have their own driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Behringer",
+      "model": "WING-BK",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_wing",
+          "confidence": "untested",
+          "notes": "All four run the same OSC remote protocol on firmware 3.1 and later, with the same 40 channels, 8 auxes, 16 buses, 4 mains, 8 matrices, 16 DCAs and 8 mute groups. Not the X32 or M32, which have their own driver."
         }
       ]
     },

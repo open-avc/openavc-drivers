@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1116,
+    "total_devices": 1120,
     "shards": null
   },
   "devices": [
@@ -2138,6 +2138,54 @@
           "id": "barco_pulse",
           "confidence": "untested",
           "notes": "Barco lists these as Pulse-platform projectors (same JSON-RPC API, per-family catalog editions). Expected to work identically; not verified against hardware. The Pulse API self-describes \u2014 use the Get Property / Invoke Method commands with the projector's own catalog for model-specific extras."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Behringer",
+      "model": "WING",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_wing",
+          "confidence": "untested",
+          "notes": "All four run the same OSC remote protocol on firmware 3.1 and later, with the same 40 channels, 8 auxes, 16 buses, 4 mains, 8 matrices, 16 DCAs and 8 mute groups. Not the X32 or M32, which have their own driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Behringer",
+      "model": "WING Compact",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_wing",
+          "confidence": "untested",
+          "notes": "All four run the same OSC remote protocol on firmware 3.1 and later, with the same 40 channels, 8 auxes, 16 buses, 4 mains, 8 matrices, 16 DCAs and 8 mute groups. Not the X32 or M32, which have their own driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Behringer",
+      "model": "WING Rack",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_wing",
+          "confidence": "untested",
+          "notes": "All four run the same OSC remote protocol on firmware 3.1 and later, with the same 40 channels, 8 auxes, 16 buses, 4 mains, 8 matrices, 16 DCAs and 8 mute groups. Not the X32 or M32, which have their own driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Behringer",
+      "model": "WING-BK",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_wing",
+          "confidence": "untested",
+          "notes": "All four run the same OSC remote protocol on firmware 3.1 and later, with the same 40 channels, 8 auxes, 16 buses, 4 mains, 8 matrices, 16 DCAs and 8 mute groups. Not the X32 or M32, which have their own driver."
         }
       ]
     },

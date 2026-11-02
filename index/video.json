@@ -134,7 +134,7 @@
       "name": "Bose Professional Videobar",
       "manufacturer": "Bose Professional",
       "category": "video",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Bose Professional Videobar VB1 and VB-S conferencing bars over the bar's REST API: microphone and loudspeaker mute, volume, camera pan, tilt, zoom and presets, autoframing and Bluetooth. Shows when a computer is in a call over USB and, on a VB1, how many people the camera counts.",
@@ -142,7 +142,7 @@
       "file": "video/bose_videobar.py",
       "format": "python",
       "files": {
-        "video/bose_videobar.py": "dbee7af1222be05357f0314bacaa5718c35a690c6814ce09ab6d2d50fc7ba964",
+        "video/bose_videobar.py": "82199f6a77ad38bb99fbd549afb9353228c671d03d33a5c2e437e183721541e1",
         "video/bose_videobar_sim.py": "e0a7d0a9d450bc9c33541484d7e986ced1ae74fed1703efced71900581f9429b"
       },
       "ports": [

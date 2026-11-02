@@ -24,8 +24,8 @@ it changed back at once.
 Why Python
 ----------
 Recalling a camera preset is two requests in order: camera.activePreset is
-set, then camera.applyActivePreset moves the camera there (the guide; Bose's
-Extron module does the same). A YAML command is one request. Every write is
+set, then camera.applyActivePreset moves the camera there (the guide). A YAML
+command is one request. Every write is
 also read back in the same command (a write's answer carries a code, not the
 new value, and Volume Up and Volume Down unmute the loudspeaker), each
 property's refusal code is read out of an answer that covers several at once,
@@ -238,7 +238,7 @@ class BoseVideobarDriver(BaseDriver):
         "name": "Bose Professional Videobar",
         "manufacturer": "Bose Professional",
         "category": "video",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (

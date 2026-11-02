@@ -347,16 +347,16 @@
       "name": "Allen & Heath Qu-5/6/7 Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.1.3",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls the current Allen & Heath Qu generation (Qu-5, Qu-6, Qu-7 and the Dante -5D/-6D/-7D variants) via MIDI over TCP/IP on port 51325. On connect the driver probes the console and registers exactly the channels it really has, so any model and any mix-bus configuration comes up correct with nothing to declare. Every input, stereo input, mix, matrix, FX send/return, DCA and mute group is a child entity with live mute / level / dB / pan state. Mute, fader (position or dB), 1 dB nudges, pan and balance, aux and FX sends, mix assignments, scene recall (1-300) and Soft Key triggers -- with every write confirmed by reading the console back, and a Get-probe watchdog that flips the device offline if the console vanishes.",
+      "description": "Controls the current Allen & Heath Qu generation (Qu-5, Qu-6, Qu-7 and the Dante -5D/-6D/-7D variants) via MIDI over TCP/IP on port 51325. On connect the driver probes the console and registers exactly the channels it really has, so any model and any mix-bus configuration comes up correct with nothing to declare. Every input, stereo input, mix, matrix, FX send/return, DCA and mute group is a child entity with live mute / level / dB state, and pan on the inputs. Mute, fader (position or dB), 1 dB nudges, pan, aux and FX sends, mix assignments, scene recall (1-300) and Soft Key triggers -- with every write confirmed by reading the console back, and a Get-probe watchdog that flips the device offline if the console vanishes.",
       "source_url": "https://www.allen-heath.com/content/uploads/2025/06/Qu567_MIDI_Protocol_Iss2.pdf",
       "file": "audio/allenheath_qu567.py",
       "format": "python",
       "files": {
-        "audio/allenheath_qu567.py": "947857d577b5269b074b8d433f127fa1a0e7fc966d5fe2efddeb479c04267184",
-        "audio/allenheath_qu567_sim.py": "c1dc8d6a6d28847f6259b73311a08d8063fa4dfc10252ce444f72fbc2311b680"
+        "audio/allenheath_qu567.py": "245a9bef5bbcff949ad9b1c3292a61d0d0d14939b0431bc938206e27f107c826",
+        "audio/allenheath_qu567_sim.py": "2f5d730b17a68c83de3ab3ce4ee22666f105953e323f4d602f32ac3bd4f02e3a"
       },
       "ports": [
         51325
@@ -387,7 +387,7 @@
             "Qu-5D"
           ],
           "confidence": "full",
-          "notes": "Verified end-to-end against a real Qu-5: the whole parameter map swept address by address, channel roster discovery, mute / level round-trips confirmed by reading the console back, and surface moves on the desk arriving as live state."
+          "notes": "Verified end-to-end against a real Qu-5: the whole parameter map swept address by address, channel roster discovery, mute / level round-trips confirmed by reading the console back, and surface moves on the desk arriving as live state. A Qu-5D answered the same parameter map and passed the same mute, fader, dB, pan and channel detection checks, and a network scan identified it."
         },
         {
           "manufacturer": "Allen & Heath",

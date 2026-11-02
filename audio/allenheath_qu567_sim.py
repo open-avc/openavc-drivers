@@ -26,9 +26,12 @@ driver has to get right and a friendlier simulator would hide:
      transmit surface moves, not the changes a controller sends them. A
      simulator that echoed would let a driver mirror what it sent and appear
      correct, which is exactly the bug this driver avoids by reading back.
-  3. **Audio Taper quantises a level to 64-count steps.** So the value read
-     back after a write is routinely not the value written, which is the whole
-     reason the driver confirms rather than assumes.
+  3. **Audio Taper quantises a level to 64-count steps, and every pan snaps
+     to one of 75 positions.** So the value read back after a write is
+     routinely not the value written, which is the whole reason the driver
+     confirms rather than assumes. A pan is rounded DOWN to its position, so
+     the document's centre (3F 7F) lands one position left, as it does on a
+     Qu-5D.
 
 Console-side moves can be injected with ``push_param()`` so the driver's push
 parser can be exercised end to end.
@@ -48,6 +51,7 @@ logger = logging.getLogger(__name__)
 VALUE_MAX = 0x3FFF
 AUDIO_STEP = 64          # Audio Taper's quantisation, measured on hardware
 PAN_CENTRE = 0x1FFF      # CTR = 3F 7F
+PAN_STEPS = 74           # 75 pan positions, measured on a Qu-5D
 
 # Plane bases, mirroring the driver.
 PLANE_MUTE, PLANE_LEVEL, PLANE_PAN, PLANE_ASSIGN = 0x00, 0x40, 0x50, 0x60
@@ -69,11 +73,14 @@ class AllenHeathQu567Simulator(TCPSimulator):
         "name": "Allen & Heath Qu-5/6/7 Mixer (sim)",
         "transport": "tcp",
         "default_port": 51325,
+        # The console accepts a second MIDI connection and resets it within
+        # about 20 ms; the first keeps working (a Qu-5 and a Qu-5D). Platforms
+        # before 0.38.0 ignore this key and answer every connection.
+        "single_client": "reject",
         "initial_state": {
             "current_scene": 1,
             "lr_mute": False,
             "lr_fader": 0.766,       # 62 00 -- 0 dB on the Audio Taper curve
-            "lr_balance": 0.0,
         },
     }
 
@@ -332,8 +339,13 @@ class AllenHeathQu567Simulator(TCPSimulator):
         self._params[key] = self._quantise(msb, new)
 
     def _quantise(self, msb: int, raw: int) -> int:
-        """Audio Taper resolves a level to 64-count steps; pans do not."""
-        if self._law != "audio" or self._is_pan(msb):
+        """Audio Taper resolves a level to 64-count steps. A pan goes down to
+        position floor(raw * 74 / 16383) and reads back as int(position *
+        221.4), which is what a Qu-5D reported for all 75 positions."""
+        if self._is_pan(msb):
+            step = raw * PAN_STEPS // VALUE_MAX
+            return min(VALUE_MAX, int(step * 221.4))
+        if self._law != "audio":
             return raw
         return min(VALUE_MAX, (raw // AUDIO_STEP) * AUDIO_STEP)
 

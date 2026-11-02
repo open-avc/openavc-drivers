@@ -77,10 +77,17 @@ def test_taper_tables_hit_the_published_values():
 
 
 def test_pan_hits_the_documented_anchors():
-    """Qu-5/6/7 MIDI Protocol Issue 2 §3.6, Absolute Panning Control: 00 00 full left, 3F 7F centre, 7F 7F full right."""
+    """Qu-5/6/7 MIDI Protocol Issue 2 §3.6, Absolute Panning Control: 00 00 full left, 3F 7F centre, 7F 7F full right.
+
+    Centre is written 40 00, not the document's 3F 7F: a Qu-5D (2026-10-30)
+    keeps a pan at one of 75 positions and rounds a written value down to the
+    one at or below it, so 3F 7F (8191, half a count under centre) left the
+    pan one position left. It reports centre as 3F 7F, which reads as 0.0.
+    """
     assert qu.pan_to_vcvf(-1.0) == (0x00, 0x00)
-    assert qu.pan_to_vcvf(0.0) == (0x3F, 0x7F)
+    assert qu.pan_to_vcvf(0.0) == (0x40, 0x00)
     assert qu.pan_to_vcvf(1.0) == (0x7F, 0x7F)
+    assert qu.vcvf_to_pan(0x3F, 0x7F) == 0.0
 
 
 def test_scene_and_softkey_encoding():

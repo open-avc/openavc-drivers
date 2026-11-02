@@ -38,7 +38,9 @@ What makes this driver first-class
   the value sent, and mirroring would leave the panel a step off forever. The
   Get goes out in the background, so a command returns as soon as its write
   is on the wire, and a fader dragged on a panel sends every value and reads
-  the fader back once, after the last one.
+  the fader back once, after the last one. A write the console never answers
+  is refused rather than reported as done: that is a send to a mix the desk
+  has set up as a group, or one it lacks.
 * **Get-probe liveness.** The console never speaks unprompted, so a desk that
   vanished without closing the socket would otherwise stay "online" forever.
   The driver probes the LR master on a timer and awaits the reply; two misses
@@ -93,6 +95,18 @@ Scope notes:
     - The console has no channel-name access, so children carry positional
       labels ("Input 1") that the user renames in the project. A label the
       user sets is never overwritten.
+    - **Pans move in 75 positions** (37 each side of centre), and the
+      console rounds a written value down to the position at or below it.
+      The document's own values sit just under their positions, so each one
+      lands a position low: its centre, 3F 7F, leaves a pan one position
+      left. The driver writes the lowest value of the position it wants
+      (centre is 40 00) and reads a reply as the position it names.
+    - **No master balance.** The document has no balance table for the LR,
+      mix or matrix masters, and the console answers a Get there (always
+      centre) but ignores a write, so none is offered.
+    - **A scene recall is followed by a full re-read**, because the console
+      sends nothing when a scene changes its values. It runs in the
+      background, a second after the recall, so the command returns at once.
     - **Discovery identifies this console by what it does NOT answer.** Every
       console of this protocol generation answers a Get for the LR master
       mute, the SQ family included, and the Qu's address map is a subset of
@@ -120,6 +134,11 @@ from typing import Any
 from openavc.drivers.base import BaseDriver
 from openavc.utils.logger import get_logger
 
+try:
+    from openavc.drivers.base import CommandRefusedError
+except ImportError:  # OpenAVC before 0.37.1
+    CommandRefusedError = RuntimeError
+
 log = get_logger(__name__)
 
 
@@ -144,6 +163,7 @@ VALUE_MAX = 0x3FFF       # 16383, the 14-bit NRPN ceiling
 
 LEVEL_MIN, LEVEL_MAX = 0.0, 1.0
 PAN_LEFT, PAN_CENTER, PAN_RIGHT = -1.0, 0.0, 1.0
+PAN_STEPS = 74           # 75 pan positions, 37 each side of centre
 
 # dB endpoints of both taper tables. -inf is represented by DB_MIN.
 DB_MIN, DB_MAX = -90.0, 10.0
@@ -410,17 +430,24 @@ def raw_to_vcvf(raw: int) -> tuple[int, int]:
 def pan_to_vcvf(pan: float) -> tuple[int, int]:
     """Pan -1.0 (full L) .. 0.0 (centre) .. +1.0 (full R) -> (VC, VF).
 
-    The document's anchors are L100% = 00 00, CTR = 3F 7F (8191) and
-    R100% = 7F 7F (16383); flooring hits all three, where rounding would put
-    centre half an LSB right of the console's own value.
+    The console keeps a pan at one of 75 positions, k * 16383 / 74, and
+    rounds a written value DOWN to the position at or below it (measured on
+    a Qu-5D, 2026-10-30, on every pan the driver sends). The document's centre,
+    3F 7F = 8191, is half a count under position 37 (8191.5), so writing it
+    left the pan one position left of centre, and so did writing back a
+    value the console had just reported. So: pick the nearest position and
+    write the smallest value that rounds down onto it. Centre is 40 00.
     """
     pan = max(PAN_LEFT, min(PAN_RIGHT, float(pan)))
-    value = min(VALUE_MAX, int((pan + 1.0) / 2.0 * VALUE_MAX))
+    step = round((pan + 1.0) / 2.0 * PAN_STEPS)
+    value = min(VALUE_MAX, -(-step * VALUE_MAX // PAN_STEPS))
     return (value >> 7) & 0x7F, value & 0x7F
 
 
 def vcvf_to_pan(vc: int, vf: int) -> float:
-    return (vcvf_to_raw(vc, vf) / VALUE_MAX) * 2.0 - 1.0
+    """The position the console reports, as -1.0..+1.0 (centre reads 0.0)."""
+    step = round(vcvf_to_raw(vc, vf) * PAN_STEPS / VALUE_MAX)
+    return step / (PAN_STEPS / 2) - 1.0
 
 
 def scene_to_bank_program(scene: int) -> tuple[int, int]:
@@ -481,7 +508,6 @@ def _master_channel(fader_label: str = "Master Fader") -> dict[str, dict[str, An
         "mute": _mute_prop(),
         "fader": _level_prop(fader_label),
         "fader_db": _db_prop(f"{fader_label} (dB)"),
-        "balance": _pan_prop("Balance"),
     }
 
 
@@ -544,7 +570,7 @@ for _ctype_def in CHILD_ENTITY_TYPES.values():
 
 
 _MUTE_PROPS = {"mute"}
-_PAN_PROPS = {"lr_pan", "balance"}
+_PAN_PROPS = {"lr_pan"}
 _DB_PROPS = {"lr_level_db", "fader_db"}
 
 # Which state key carries the dB twin of each position key.
@@ -591,7 +617,7 @@ def _build_candidates() -> list[_Candidate]:
 
     for n in range(1, NUM_MIXES + 1):
         out.append(("mix", f"mix{n:02d}", f"Mix {n}", mute_addr(_src_mix(n)),
-                    master_mix(n), master_mix(n, PLANE_PAN)))
+                    master_mix(n), None))
 
     for n in range(1, NUM_FX_SENDS + 1):
         out.append(("fx_send", f"fxs{n}", f"FX Send {n}",
@@ -599,8 +625,7 @@ def _build_candidates() -> list[_Candidate]:
 
     for n in range(1, NUM_MATRICES + 1):
         out.append(("matrix", f"mtx{n}", f"Matrix {n}",
-                    mute_addr(_src_matrix(n)), master_matrix(n),
-                    master_matrix(n, PLANE_PAN)))
+                    mute_addr(_src_matrix(n)), master_matrix(n), None))
 
     for n in range(1, NUM_DCAS + 1):
         out.append(("dca", f"dca{n}", f"DCA {n}", mute_dca(n), master_dca(n), None))
@@ -646,7 +671,9 @@ _DB_PARAM = {
 _PAN_PARAM = {
     "type": "number", "min": PAN_LEFT, "max": PAN_RIGHT, "default": PAN_CENTER,
     "required": True, "label": "Pan",
-    "help": "-1.0 full left, 0.0 centre, +1.0 full right.",
+    "help": "-1.0 full left, 0.0 centre, +1.0 full right. The console moves "
+            "a pan in 37 steps each side of centre, so it lands on the "
+            "nearest one.",
 }
 
 
@@ -778,15 +805,6 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         {"mix": _num("Mix", NUM_MIXES), "matrix": _num("Matrix", NUM_MATRICES),
          "level": dict(_LEVEL_PARAM)})
 
-    # Master balances.
-    add("set_lr_balance", "Set LR Master Balance",
-        "Balance the LR (main) master output.", {"pan": dict(_PAN_PARAM)})
-    for ctype in ("mix", "matrix"):
-        label = _MASTER_TYPES[ctype]
-        add(f"set_{ctype}_balance", f"Set {label} Balance",
-            f"Balance a {label.lower()} master output.",
-            {ctype: _child_param(ctype), "pan": dict(_PAN_PARAM)})
-
     # Assignments.
     add("assign_input_to_lr", "Assign Input -> LR",
         "Assign or unassign an input to the LR mix.",
@@ -806,6 +824,18 @@ def _build_commands() -> dict[str, dict[str, Any]]:
     return cmds
 
 
+def _no_mix_send(what: str) -> str:
+    """The sentence a send to a mix the console never answered is refused with."""
+    return (f"The Qu has no {what}. A mix set up as a group, or the second "
+            "mix of a stereo pair, takes no sends.")
+
+
+def _no_matrix_send(what: str) -> str:
+    """The sentence a send to a matrix the console never answered is refused with."""
+    return (f"The Qu has no {what}. Matrices pair up as 1-2 and 3-4, and a "
+            "pair takes sends on its first matrix: use Matrix 1 or Matrix 3.")
+
+
 # ── Driver ───────────────────────────────────────────────────────────────────
 
 class AllenHeathQu567Driver(BaseDriver):
@@ -820,7 +850,7 @@ class AllenHeathQu567Driver(BaseDriver):
         "name": "Allen & Heath Qu-5/6/7 Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.1.3",
+        "version": "1.2.1",
         "author": "OpenAVC",
         "description": (
             "Controls the current Allen & Heath Qu generation (Qu-5, Qu-6, "
@@ -830,8 +860,8 @@ class AllenHeathQu567Driver(BaseDriver):
             "any mix-bus configuration comes up correct with nothing to "
             "declare. Every input, stereo input, mix, matrix, FX send/return, "
             "DCA and mute group is a child entity with live mute / level / dB "
-            "/ pan state. Mute, fader (position or dB), 1 dB nudges, pan and "
-            "balance, aux and FX sends, mix assignments, scene recall (1-300) "
+            "state, and pan on the inputs. Mute, fader (position or dB), 1 dB "
+            "nudges, pan, aux and FX sends, mix assignments, scene recall (1-300) "
             "and Soft Key triggers -- with every write confirmed by reading "
             "the console back, and a Get-probe watchdog that flips the device "
             "offline if the console vanishes."
@@ -886,7 +916,9 @@ class AllenHeathQu567Driver(BaseDriver):
                     "parameter map swept address by address, channel roster "
                     "discovery, mute / level round-trips confirmed by reading "
                     "the console back, and surface moves on the desk arriving "
-                    "as live state."
+                    "as live state. A Qu-5D answered the same parameter map "
+                    "and passed the same mute, fader, dB, pan and channel "
+                    "detection checks, and a network scan identified it."
                 ),
             },
             {
@@ -1012,8 +1044,6 @@ class AllenHeathQu567Driver(BaseDriver):
             "lr_fader_db": {"type": "number", "label": "LR Master Fader (dB)",
                             "min": DB_MIN, "max": DB_MAX, "unit": "dB",
                             "control": True},
-            "lr_balance": {"type": "number", "label": "LR Master Balance",
-                           "min": PAN_LEFT, "max": PAN_RIGHT, "control": True},
         },
         "commands": _build_commands(),
     }
@@ -1023,8 +1053,15 @@ class AllenHeathQu567Driver(BaseDriver):
     # generous so a busy network cannot amputate the channel list.
     DISCOVERY_WINDOW_S = 2.0
     # Delay between a write and the Get that confirms it. The Get goes out in
-    # the background (_confirm_later); no command waits for it.
+    # the background (_confirm_later); only a send to an address the console
+    # has not yet answered for waits for it (_confirm).
     CONFIRM_DELAY_S = 0.12
+    # How long a send's confirming Get may take before the send is refused.
+    # The console answers in about 20 ms.
+    CONFIRM_TIMEOUT_S = 1.0
+    # Wait after a scene recall before reading every value again. A guess:
+    # no recall has been timed on a console yet. The poll corrects a late one.
+    SCENE_SETTLE_S = 1.0
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -1050,6 +1087,14 @@ class AllenHeathQu567Driver(BaseDriver):
 
         self._probe_addr = master_lr()
         self._probe_fut: asyncio.Future[None] | None = None
+        # Sends waiting for the console to answer their confirming Get.
+        self._waiters: dict[tuple[int, int], list[asyncio.Future[None]]] = {}
+        # Every address the console has answered for since the roster was
+        # last read: a send to one of these is known to land.
+        self._answered: set[tuple[int, int]] = set()
+        # The re-read after a scene recall, while it waits for the recall to
+        # settle.
+        self._scene_reread_task: asyncio.Task[None] | None = None
 
         # Read-backs still waiting out CONFIRM_DELAY_S, by parameter address,
         # and every read-back task not yet finished (for teardown).
@@ -1116,6 +1161,7 @@ class AllenHeathQu567Driver(BaseDriver):
         behaviour rather than to no channels.
         """
         self._seen.clear()
+        self._answered.clear()
         self._collecting = True
         try:
             probes: list[tuple[int, int]] = []
@@ -1125,12 +1171,11 @@ class AllenHeathQu567Driver(BaseDriver):
                 # consoles measured, but inferring one from the other would be
                 # a guess where asking costs one more message. During the
                 # build this asked only about mutes and levels, so no pan
-                # address was ever answered and every pan and balance route
-                # was silently dropped: the state existed and never moved.
+                # address was ever answered and every pan route was
+                # silently dropped: the state existed and never moved.
                 probes.extend(a for a in (mute, level, pan) if a is not None)
             probes.append(master_lr())
             probes.append(mute_addr(SRC_LR))
-            probes.append(master_lr(PLANE_PAN))
 
             for i, addr in enumerate(probes):
                 try:
@@ -1185,14 +1230,13 @@ class AllenHeathQu567Driver(BaseDriver):
 
             props = CHILD_ENTITY_TYPES[ctype]["state_variables"]
             level_key = "fader" if "fader" in props else "lr_level"
-            pan_key = "balance" if "balance" in props else "lr_pan"
 
             if present(mute):
                 self._route[mute] = ("mute", ctype, sid, "mute")
             if present(level) and level_key in props:
                 self._route[level] = ("level", ctype, sid, level_key)
-            if present(pan) and pan_key in props:
-                self._route[pan] = ("pan", ctype, sid, pan_key)
+            if present(pan) and "lr_pan" in props:
+                self._route[pan] = ("pan", ctype, sid, "lr_pan")
 
             initial = None
             project = self._project_child_entities.get(ctype, {}).get(sid)
@@ -1203,7 +1247,6 @@ class AllenHeathQu567Driver(BaseDriver):
         # LR master routes to flat device state.
         self._route[mute_addr(SRC_LR)] = ("mute", "lr", "lr", "lr_mute")
         self._route[master_lr()] = ("level", "lr", "lr", "lr_fader")
-        self._route[master_lr(PLANE_PAN)] = ("pan", "lr", "lr", "lr_balance")
 
     async def refresh_children(self) -> dict[str, Any]:
         """IDE 'Refresh from Device': re-probe the roster, then re-sweep."""
@@ -1249,8 +1292,8 @@ class AllenHeathQu567Driver(BaseDriver):
         b = 0xB0 | self._ch
         return bytes([b, 0x63, msb & 0x7F, b, 0x62, lsb & 0x7F, b, 0x61, 0x00])
 
-    async def _write_and_confirm(self, msb: int, lsb: int,
-                                 vc: int, vf: int) -> None:
+    async def _write_and_confirm(self, msb: int, lsb: int, vc: int, vf: int,
+                                 refusal: str | None = None) -> None:
         """Set a parameter, then read it back.
 
         The console does not echo a change it received over MIDI, so a driver
@@ -1259,7 +1302,41 @@ class AllenHeathQu567Driver(BaseDriver):
         steps, so the value it keeps is routinely not the value sent.
         """
         await self._send(self._nrpn(msb, lsb, vc, vf))
-        self._confirm_later(msb, lsb)
+        await self._confirm(msb, lsb, refusal)
+
+    async def _confirm(self, msb: int, lsb: int,
+                       refusal: str | None = None) -> None:
+        """Read a parameter back after a write. Given ``refusal``, refuse the
+        command with that sentence if the console has never answered for it.
+
+        Only a send passes one: its address the roster probe never asked
+        about. The console ignores a write to an address it does not have and
+        stays silent on the Get, so without this a send to a mix set up as a
+        group (Mixes 9-12 on a Qu-5D, 2026-10-30) reported success and changed
+        nothing. Once the console has answered for an address on this
+        connection it has that address, so later writes to it read back in the
+        background like any other: a send fader dragged on a panel waits once,
+        on its first value.
+        """
+        if refusal is None or (msb, lsb) in self._answered:
+            self._confirm_later(msb, lsb)
+            return
+        await asyncio.sleep(self.CONFIRM_DELAY_S)
+        fut: asyncio.Future[None] = asyncio.get_running_loop().create_future()
+        waiting = self._waiters.setdefault((msb, lsb), [])
+        waiting.append(fut)
+        try:
+            await self._send(self._nrpn_get(msb, lsb))
+            await asyncio.wait_for(fut, self.CONFIRM_TIMEOUT_S)
+        except asyncio.TimeoutError:
+            if not self.connected:
+                raise ConnectionError(f"[{self.device_id}] Not connected") from None
+            raise CommandRefusedError(refusal) from None
+        finally:
+            if fut in waiting:
+                waiting.remove(fut)
+            if not waiting:
+                self._waiters.pop((msb, lsb), None)
 
     def _confirm_later(self, msb: int, lsb: int,
                        delay: float | None = None) -> None:
@@ -1297,6 +1374,7 @@ class AllenHeathQu567Driver(BaseDriver):
 
     async def _cancel_readbacks(self) -> None:
         self._readbacks.clear()
+        self._scene_reread_task = None
         tasks = [t for t in self._readback_tasks
                  if t is not asyncio.current_task()]
         for task in tasks:
@@ -1365,6 +1443,24 @@ class AllenHeathQu567Driver(BaseDriver):
         c = 0xC0 | self._ch
         await self._send(bytes([b, 0x00, bank, c, program]))
         self.set_state("current_scene", int(scene))
+        # The console sends nothing when a scene changes its values (a Qu-5D,
+        # 2026-10-30), so every value would stay stale until the next poll.
+        # The re-read runs in the background so a macro that recalls a scene
+        # moves straight on; a newer recall replaces one still waiting.
+        waiting = self._scene_reread_task
+        if waiting is not None:
+            waiting.cancel()
+        task = asyncio.get_running_loop().create_task(self._scene_reread())
+        self._scene_reread_task = task
+        self._readback_tasks.add(task)
+        task.add_done_callback(self._readback_tasks.discard)
+
+    async def _scene_reread(self) -> None:
+        await asyncio.sleep(self.SCENE_SETTLE_S)
+        # From here the sweep is going out: a newer recall schedules its own.
+        if self._scene_reread_task is asyncio.current_task():
+            self._scene_reread_task = None
+        await self._refresh_all()
 
     async def cmd_softkey_press(self, softkey: int) -> None:
         await self._send(bytes([0x90 | self._ch, softkey_to_note(int(softkey)), 0x7F]))
@@ -1443,12 +1539,14 @@ class AllenHeathQu567Driver(BaseDriver):
 
     # ── Commands: levels ────────────────────────────────────────────────
 
-    async def _do_level(self, msb: int, lsb: int, level: float) -> None:
-        await self._write_and_confirm(msb, lsb, *level_to_vcvf(level))
+    async def _do_level(self, msb: int, lsb: int, level: float,
+                        refusal: str | None = None) -> None:
+        await self._write_and_confirm(msb, lsb, *level_to_vcvf(level), refusal)
 
-    async def _do_level_db(self, msb: int, lsb: int, db: float) -> None:
+    async def _do_level_db(self, msb: int, lsb: int, db: float,
+                           refusal: str | None = None) -> None:
         await self._write_and_confirm(
-            msb, lsb, *raw_to_vcvf(db_to_raw(float(db), self._law)))
+            msb, lsb, *raw_to_vcvf(db_to_raw(float(db), self._law)), refusal)
 
     async def _do_step(self, msb: int, lsb: int, direction: str) -> None:
         up = (direction or "up").lower() == "up"
@@ -1549,36 +1647,44 @@ class AllenHeathQu567Driver(BaseDriver):
 
     async def cmd_set_input_to_mix_level(self, input: int, mix: int,
                                          level: float) -> None:
-        await self._do_level(*to_mix(_src_input(int(input)), int(mix)), level)
+        await self._do_level(*to_mix(_src_input(int(input)), int(mix)), level,
+                             _no_mix_send(f"send from Input {input} to Mix {mix}"))
 
     async def cmd_set_input_to_mix_level_db(self, input: int, mix: int,
                                             db: float) -> None:
-        await self._do_level_db(*to_mix(_src_input(int(input)), int(mix)), db)
+        await self._do_level_db(*to_mix(_src_input(int(input)), int(mix)), db,
+                                _no_mix_send(f"send from Input {input} to Mix {mix}"))
 
     async def cmd_set_input_to_mix_pan(self, input: int, mix: int,
                                        pan: float) -> None:
         await self._do_pan(
-            *to_mix(_src_input(int(input)), int(mix), PLANE_PAN), pan)
+            *to_mix(_src_input(int(input)), int(mix), PLANE_PAN), pan,
+            _no_mix_send(f"send from Input {input} to Mix {mix}"))
 
     async def cmd_set_group_to_mix_level(self, group: int, mix: int,
                                          level: float) -> None:
-        await self._do_level(*to_mix(_src_group(int(group)), int(mix)), level)
+        await self._do_level(*to_mix(_src_group(int(group)), int(mix)), level,
+                             _no_mix_send(f"send from Group {group} to Mix {mix}"))
 
     async def cmd_set_input_to_fx_send_level(self, input: int, fx: int,
                                              level: float) -> None:
-        await self._do_level(*to_fx_send(_src_input(int(input)), int(fx)), level)
+        await self._do_level(*to_fx_send(_src_input(int(input)), int(fx)), level,
+                             f"The Qu has no send from Input {input} to FX Send {fx}.")
 
     async def cmd_set_lr_to_matrix_level(self, matrix: int, level: float) -> None:
-        await self._do_level(*to_matrix(0, int(matrix)), level)
+        await self._do_level(*to_matrix(0, int(matrix)), level,
+                             _no_matrix_send(f"send from LR to Matrix {matrix}"))
 
     async def cmd_set_mix_to_matrix_level(self, mix: int, matrix: int,
                                           level: float) -> None:
-        await self._do_level(*to_matrix(int(mix), int(matrix)), level)
+        await self._do_level(*to_matrix(int(mix), int(matrix)), level,
+                             _no_matrix_send(f"send from Mix {mix} to Matrix {matrix}"))
 
-    # ── Commands: pan / balance ─────────────────────────────────────────
+    # ── Commands: pan ───────────────────────────────────────────────────
 
-    async def _do_pan(self, msb: int, lsb: int, pan: float) -> None:
-        await self._write_and_confirm(msb, lsb, *pan_to_vcvf(pan))
+    async def _do_pan(self, msb: int, lsb: int, pan: float,
+                      refusal: str | None = None) -> None:
+        await self._write_and_confirm(msb, lsb, *pan_to_vcvf(pan), refusal)
 
     async def cmd_set_input_lr_pan(self, input: Any, pan: float) -> None:
         await self._do_pan(*self._child_addr("input", input, "pan"), pan)
@@ -1591,34 +1697,29 @@ class AllenHeathQu567Driver(BaseDriver):
     async def cmd_set_fx_return_lr_pan(self, fx_return: Any, pan: float) -> None:
         await self._do_pan(*self._child_addr("fx_return", fx_return, "pan"), pan)
 
-    async def cmd_set_lr_balance(self, pan: float) -> None:
-        await self._do_pan(*master_lr(PLANE_PAN), pan)
-
-    async def cmd_set_mix_balance(self, mix: Any, pan: float) -> None:
-        await self._do_pan(*self._child_addr("mix", mix, "pan"), pan)
-
-    async def cmd_set_matrix_balance(self, matrix: Any, pan: float) -> None:
-        await self._do_pan(*self._child_addr("matrix", matrix, "pan"), pan)
-
     # ── Commands: assignments ───────────────────────────────────────────
 
-    async def _do_assign(self, msb: int, lsb: int, action: str) -> None:
+    async def _do_assign(self, msb: int, lsb: int, action: str,
+                         refusal: str) -> None:
         action = (action or "on").lower()
         if action == "toggle":
             await self._send(self._nrpn_inc(msb, lsb))
-            self._confirm_later(msb, lsb)
+            await self._confirm(msb, lsb, refusal)
         else:
             await self._write_and_confirm(msb, lsb, 0x00,
-                                          0x01 if action == "on" else 0x00)
+                                          0x01 if action == "on" else 0x00,
+                                          refusal)
 
     async def cmd_assign_input_to_lr(self, input: int, action: str = "on") -> None:
         await self._do_assign(
-            *to_lr(_src_input(int(input)), PLANE_ASSIGN), action)
+            *to_lr(_src_input(int(input)), PLANE_ASSIGN), action,
+            f"The Qu has no route from Input {input} to LR.")
 
     async def cmd_assign_input_to_mix(self, input: int, mix: int,
                                       action: str = "on") -> None:
         await self._do_assign(
-            *to_mix(_src_input(int(input)), int(mix), PLANE_ASSIGN), action)
+            *to_mix(_src_input(int(input)), int(mix), PLANE_ASSIGN), action,
+            _no_mix_send(f"route from Input {input} to Mix {mix}"))
 
     # ── Commands: maintenance ───────────────────────────────────────────
 
@@ -1765,10 +1866,15 @@ class AllenHeathQu567Driver(BaseDriver):
 
         if self._collecting:
             self._seen.add(key)
+        self._answered.add(key)
 
         if (self._probe_fut is not None and not self._probe_fut.done()
                 and key == self._probe_addr):
             self._probe_fut.set_result(None)
+
+        for fut in self._waiters.pop(key, ()):
+            if not fut.done():
+                fut.set_result(None)
 
         route = self._route.get(key)
         if route is None:

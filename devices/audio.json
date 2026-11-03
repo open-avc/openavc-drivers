@@ -904,7 +904,7 @@
         {
           "id": "biamp_tesira_ttp",
           "confidence": "untested",
-          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's Device Maintenance \u2192 Network Settings, enable Discovery and Telnet or SSH (all default OFF). Telnet takes no credentials, so leave System Security disabled for it; SSH signs in with a Tesira user and works with System Security on or off. SSH has not yet been run on a Tesira."
         }
       ]
     },
@@ -916,7 +916,7 @@
         {
           "id": "biamp_tesira_ttp",
           "confidence": "untested",
-          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's Device Maintenance \u2192 Network Settings, enable Discovery and Telnet or SSH (all default OFF). Telnet takes no credentials, so leave System Security disabled for it; SSH signs in with a Tesira user and works with System Security on or off. SSH has not yet been run on a Tesira."
         }
       ]
     },
@@ -928,7 +928,7 @@
         {
           "id": "biamp_tesira_ttp",
           "confidence": "untested",
-          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's Device Maintenance \u2192 Network Settings, enable Discovery and Telnet or SSH (all default OFF). Telnet takes no credentials, so leave System Security disabled for it; SSH signs in with a Tesira user and works with System Security on or off. SSH has not yet been run on a Tesira."
         }
       ]
     },
@@ -940,7 +940,7 @@
         {
           "id": "biamp_tesira_ttp",
           "confidence": "untested",
-          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's Device Maintenance \u2192 Network Settings, enable Discovery and Telnet or SSH (all default OFF). Telnet takes no credentials, so leave System Security disabled for it; SSH signs in with a Tesira user and works with System Security on or off. SSH has not yet been run on a Tesira."
         }
       ]
     },
@@ -952,7 +952,7 @@
         {
           "id": "biamp_tesira_ttp",
           "confidence": "untested",
-          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's Device Maintenance \u2192 Network Settings, enable Discovery and Telnet or SSH (all default OFF). Telnet takes no credentials, so leave System Security disabled for it; SSH signs in with a Tesira user and works with System Security on or off. SSH has not yet been run on a Tesira."
         }
       ]
     },
@@ -964,7 +964,7 @@
         {
           "id": "biamp_tesira_ttp",
           "confidence": "untested",
-          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's Device Maintenance \u2192 Network Settings, enable Discovery and Telnet or SSH (all default OFF). Telnet takes no credentials, so leave System Security disabled for it; SSH signs in with a Tesira user and works with System Security on or off. SSH has not yet been run on a Tesira."
         }
       ]
     },
@@ -976,7 +976,7 @@
         {
           "id": "biamp_tesira_ttp",
           "confidence": "untested",
-          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's Device Maintenance \u2192 Network Settings, enable Discovery and Telnet or SSH (all default OFF). Telnet takes no credentials, so leave System Security disabled for it; SSH signs in with a Tesira user and works with System Security on or off. SSH has not yet been run on a Tesira."
         }
       ]
     },
@@ -988,7 +988,7 @@
         {
           "id": "biamp_tesira_ttp",
           "confidence": "untested",
-          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's Device Maintenance \u2192 Network Settings, enable Discovery and Telnet or SSH (all default OFF). Telnet takes no credentials, so leave System Security disabled for it; SSH signs in with a Tesira user and works with System Security on or off. SSH has not yet been run on a Tesira."
         }
       ]
     },
@@ -1000,7 +1000,7 @@
         {
           "id": "biamp_tesira_ttp",
           "confidence": "untested",
-          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's Device Maintenance \u2192 Network Settings, enable Discovery and Telnet or SSH (all default OFF). Telnet takes no credentials, so leave System Security disabled for it; SSH signs in with a Tesira user and works with System Security on or off. SSH has not yet been run on a Tesira."
         }
       ]
     },
@@ -1012,7 +1012,7 @@
         {
           "id": "biamp_tesira_ttp",
           "confidence": "untested",
-          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's Device Maintenance \u2192 Network Settings, enable Discovery and Telnet or SSH (all default OFF). Telnet takes no credentials, so leave System Security disabled for it; SSH signs in with a Tesira user and works with System Security on or off. SSH has not yet been run on a Tesira."
         }
       ]
     },
@@ -1024,7 +1024,7 @@
         {
           "id": "biamp_tesira_ttp",
           "confidence": "untested",
-          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's Device Maintenance \u2192 Network Settings, enable Discovery and Telnet or SSH (all default OFF). Telnet takes no credentials, so leave System Security disabled for it; SSH signs in with a Tesira user and works with System Security on or off. SSH has not yet been run on a Tesira."
         }
       ]
     },
@@ -1036,7 +1036,7 @@
         {
           "id": "biamp_tesira_ttp",
           "confidence": "untested",
-          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's Device Maintenance \u2192 Network Settings, enable Discovery and Telnet or SSH (all default OFF). Telnet takes no credentials, so leave System Security disabled for it; SSH signs in with a Tesira user and works with System Security on or off. SSH has not yet been run on a Tesira."
         }
       ]
     },
@@ -1048,7 +1048,7 @@
         {
           "id": "biamp_tesira_ttp",
           "confidence": "untested",
-          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's Device Maintenance \u2192 Network Settings, enable Discovery and Telnet or SSH (all default OFF). Telnet takes no credentials, so leave System Security disabled for it; SSH signs in with a Tesira user and works with System Security on or off. SSH has not yet been run on a Tesira."
         }
       ]
     },
@@ -1060,7 +1060,7 @@
         {
           "id": "biamp_tesira_ttp",
           "confidence": "untested",
-          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's Device Maintenance \u2192 Network Settings, enable Discovery and Telnet or SSH (all default OFF). Telnet takes no credentials, so leave System Security disabled for it; SSH signs in with a Tesira user and works with System Security on or off. SSH has not yet been run on a Tesira."
         }
       ]
     },
@@ -1072,7 +1072,7 @@
         {
           "id": "biamp_tesira_ttp",
           "confidence": "untested",
-          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's Device Maintenance \u2192 Network Settings, enable Discovery and Telnet or SSH (all default OFF). Telnet takes no credentials, so leave System Security disabled for it; SSH signs in with a Tesira user and works with System Security on or off. SSH has not yet been run on a Tesira."
         }
       ]
     },
@@ -1084,7 +1084,7 @@
         {
           "id": "biamp_tesira_ttp",
           "confidence": "untested",
-          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's Device Maintenance \u2192 Network Settings, enable Discovery and Telnet or SSH (all default OFF). Telnet takes no credentials, so leave System Security disabled for it; SSH signs in with a Tesira user and works with System Security on or off. SSH has not yet been run on a Tesira."
         }
       ]
     },

@@ -1,8 +1,9 @@
 """
 Biamp Tesira Text Protocol (TTP) Driver.
 
-Controls Biamp Tesira and TesiraFORTÉ DSPs over the Tesira Text Protocol on
-TCP port 23 (Telnet). Comprehensive coverage of the block types AV
+Controls Biamp Tesira and TesiraFORTÉ DSPs over the Tesira Text Protocol,
+by Telnet on TCP port 23 (the default) or by SSH on TCP port 22 (the
+device's Connection setting). Comprehensive coverage of the block types AV
 integrators commonly wire into a Tesira design: Mute, Level, Source
 Selector, Standard / Matrix Mixer (crosspoints), Auto Mixer, Router, Logic
 and Logic Meter, AEC, Room Combiner, Audio Meter (Peak/RMS), Signal Present
@@ -50,24 +51,45 @@ Telnet IAC handshake:
     parser for normal command/response framing — same pattern that
     ConfigurableDriver uses for its declarative auth handshake.
 
+SSH:
+    Biamp's TTP document (v4.2, "SSH"): port 22, enabled in Device
+    Maintenance > Network Settings, a case-sensitive user and password.
+    On a system without System Security its SSH section says the user is
+    "default" and no password is needed, while its TTP Security and
+    Troubleshooting sections (and both help pages online) give "default"
+    and "default". So the user defaults to `default` and the password is
+    the integrator's; with System Security on, a Controller-level user's
+    credentials (the "default" user is downgraded to Observer). Sign-in is
+    the SSH protocol's own (the platform's ssh client), so no in-band
+    login runs. The platform SSH transport is a raw byte pipe with no
+    frame parser, so on that path the driver frames lines itself, on LF
+    (a remote pty may turn a line ending into CR CR LF). Nothing Biamp
+    publishes says whether the welcome banner is printed over SSH, so the
+    handshake waits for it as on Telnet and goes on without it while the
+    session stays up; Telnet IAC stripping is a no-op on SSH's clean text.
+    Algorithms: firmware 4.7.2 removed deprecated SSH ciphers and 5.0.0 to
+    5.7.1 run OpenSSH 9.9p2 to 10.4p1 (Tesira release notes), so a current
+    client needs nothing older. Telnet stays the default because 0.38.0's
+    Docker image, Linux installer and appliance hardware have no SSH
+    client. Checked against a test SSH server and the simulator; not yet
+    run on a Tesira over SSH.
+
 Sources:
     - https://support.biamp.com/Tesira/Control/Tesira_Text_Protocol
     - https://support.biamp.com/Tesira/Control/Telnet_session_negotiation_in_Tesira
     - https://support.biamp.com/Tesira/Control/Tesira_Text_Protocol/Tesira_DSP_blocks_that_support_subscriptions
     - https://support.biamp.com/Tesira/Control/Tesira_network_ports_and_protocols
+    - Tesira Text Protocol v4.2 (2 Dec 2021), "SSH" and "TTP Security":
+      https://downloads.biamp.com/assets/docs/default-source/control/tesira_text_protocol_v4-2_jan22.pdf
+    - https://support.biamp.com/Tesira/Miscellaneous/Tesira_release_notes
     - Bitfocus Companion module (real-hardware reference for IAC handling
       and publishToken format):
       https://github.com/bitfocus/companion-module-biamp-tesira
 
 Out of scope (deferred, tracked):
-    - SSH transport (port 22). Tesira's raw TCP-on-22 is real SSH and our
-      TCPTransport is raw bytes. Telnet (port 23) is the recommended path
-      when System Security is disabled (default), and is what every reference
-      implementation uses. SSH support is tracked in driver-roadmap/rules.md
-      "Drivers shipped Python pending platform-transport extension".
-    - System Security login prompt (optional `Login:` prompt before banner
-      when System Security is enabled). Default OFF on Tesira; document
-      "leave System Security disabled" in setup help.
+    - The Telnet login prompt a system with System Security shows before
+      the banner. Over SSH the same credentials sign in through the SSH
+      protocol instead, so a protected system is connected over SSH.
     - VoIP call control beyond CallState observation (call placement,
       hold, transfer, etc.). The current driver exposes basic Dialer
       commands (dial, hangup, answer, dtmf) but doesn't model the full
@@ -96,6 +118,10 @@ WONT = 0xFC
 
 WELCOME_BANNER = b"Welcome to the Tesira Text Protocol Server"
 LINE_DELIMITER = b"\r\n"
+# Over SSH the driver frames lines itself (the transport is a raw pipe).
+# LF ends every form a remote pty can deliver (LF, CR LF, CR CR LF); the
+# reply reader strips the CRs.
+SSH_LINE_DELIMITER = b"\n"
 
 # Default subscription rate in milliseconds. 250ms matches Companion's default
 # and balances responsiveness against bandwidth on AEC / meter blocks.
@@ -878,7 +904,7 @@ class BiampTesiraTTPDriver(BaseDriver):
         "name": "Biamp Tesira TTP",
         "manufacturer": "Biamp",
         "category": "audio",
-        "version": "3.1.8",
+        "version": "3.2.0",
         # Set by hand (the contract check cannot see a method call): the
         # Test Connection socket binds to BaseDriver.local_address(), which
         # landed in 0.37.0 (supersedes the lifecycle-hook 0.24.0 requirement).
@@ -886,7 +912,8 @@ class BiampTesiraTTPDriver(BaseDriver):
         "author": "OpenAVC",
         "description": (
             "Controls Biamp Tesira and TesiraFORTÉ DSPs over the Tesira "
-            "Text Protocol on TCP port 23 (Telnet). Supports Mute, Level, "
+            "Text Protocol, by Telnet (port 23) or SSH (port 22). Supports "
+            "Mute, Level, "
             "Source Selector, Matrix Mixer (crosspoints), Auto Mixer, "
             "Router, Logic, AEC, Room Combiner, Audio Meter, Signal "
             "Present Meter, Tone Generator, Preset recall, and basic VoIP "
@@ -900,8 +927,12 @@ class BiampTesiraTTPDriver(BaseDriver):
         "verified": False,
         "simulated": True,
         "protocols": ["biamp_tesira"],
-        "ports": [23],
+        "ports": [23, 22],
+        # Telnet is the default: it needs nothing on the computer running
+        # OpenAVC, and on 0.38.0 the Docker image, the Linux installer and
+        # appliance hardware have no SSH client (default_config agrees).
         "transport": "tcp",
+        "transports": ["tcp", "ssh"],
         "discovery": {
             # Tesira's TCP/23 banner read is preceded by Telnet IAC
             # negotiation that the declarative tcp_probe runner can't
@@ -937,17 +968,20 @@ class BiampTesiraTTPDriver(BaseDriver):
                     "Every Tesira / TesiraFORTÉ DSP that runs Tesira "
                     "software shares the same TTP protocol. Driver covers "
                     "the block types AV integrators commonly use for room "
-                    "control. Setup: in Tesira's System Manager → Network "
-                    "Settings, enable Discovery and Telnet (both default "
-                    "OFF). Leave System Security disabled for the "
-                    "no-credentials path used by this driver."
+                    "control. Setup: in Tesira's Device Maintenance → Network "
+                    "Settings, enable Discovery and Telnet or SSH (all "
+                    "default OFF). Telnet takes no credentials, so leave "
+                    "System Security disabled for it; SSH signs in with a "
+                    "Tesira user and works with System Security on or off. "
+                    "SSH has not yet been run on a Tesira."
                 ),
             },
         ],
         "help": {
             "overview": (
-                "Comprehensive Biamp Tesira / TesiraFORTÉ control over TTP "
-                "(Telnet, port 23). The driver subscribes to per-block, "
+                "Comprehensive Biamp Tesira / TesiraFORTÉ control over TTP, "
+                "by Telnet (port 23) or SSH (port 22). The driver subscribes "
+                "to per-block, "
                 "per-channel state changes — UI bindings update in "
                 "real-time without polling. Declare every Tesira block you "
                 "want to monitor or control in the 'DSP Block List' table "
@@ -960,10 +994,14 @@ class BiampTesiraTTPDriver(BaseDriver):
                 "STEP 1 — Enable network control on the DSP.\n"
                 "Open Tesira software, connect to the unit, and go to "
                 "Tools → Device Maintenance → Network Settings. Tick "
-                "'Discovery Service' and 'Telnet' (both default OFF). "
-                "Leave 'System Security' OFF too — this driver expects an "
-                "unauthenticated Telnet session, which matches the standard "
-                "deployment when the DSP is on a private AV VLAN. Apply.\n"
+                "'Discovery Service', and 'Telnet' or 'SSH' (all default "
+                "OFF). Apply.\n"
+                "    • Telnet: leave 'System Security' OFF. This driver "
+                "signs in to Telnet without credentials.\n"
+                "    • SSH: encrypted, with System Security on or off. On a "
+                "system without System Security the user is 'default'; with "
+                "it, use a Tesira user of Controller level or higher (the "
+                "'default' user can then only read values).\n"
                 "\n"
                 "STEP 2 — Find your Instance Tags.\n"
                 "Open the Tesira design (.tmf file) for this DSP. Each "
@@ -975,7 +1013,9 @@ class BiampTesiraTTPDriver(BaseDriver):
                 "note how many channels are wired up — that's the channel "
                 "count you'll declare below.\n"
                 "\n"
-                "STEP 3 — Enter the device IP address above.\n"
+                "STEP 3 — Enter the device IP address above. For SSH, set "
+                "Connection to ssh, Port to 22, and the Username and "
+                "Password.\n"
                 "\n"
                 "STEP 4 — Declare your blocks in the 'DSP Block List' "
                 "table on the device page.\n"
@@ -1001,11 +1041,12 @@ class BiampTesiraTTPDriver(BaseDriver):
                 "the block, then its control) in macros and panel buttons.\n"
                 "\n"
                 "Troubleshooting:\n"
-                "    • 'Connection lost' loop on port 22 — that's SSH, not "
-                "      supported. Use port 23 (Telnet).\n"
+                "    • Can't connect — check that Connection and Port "
+                "      agree (tcp is Telnet on 23, ssh is SSH on 22) and "
+                "      that the same service is ticked in Network "
+                "      Settings.\n"
                 "    • Device shows Connected but no state variables — "
-                "      check that Telnet is enabled in System Manager AND "
-                "      that your Instance Tags match exactly (case "
+                "      check that your Instance Tags match exactly (case "
                 "      matters).\n"
                 "    • Some channels don't update — verify the channel "
                 "      count in your block list matches the actual wired "
@@ -1015,10 +1056,28 @@ class BiampTesiraTTPDriver(BaseDriver):
                 "      Attribute' commands — anything Tesira's command "
                 "      string calculator generates will work."
             ),
+            "connection": (
+                "Check that Connection and Port agree: 'tcp' is Telnet on "
+                "port 23, 'ssh' is SSH on port 22, and that the same service "
+                "is ticked in Tesira's Network Settings. For SSH, check the "
+                "Username ('default' on a system without System Security) "
+                "and the Password, and that the computer running OpenAVC "
+                "has the OpenSSH client. Then check the IP address."
+            ),
         },
+        # Must agree with config_schema below: this block is what a one-click
+        # install and the runtime get, config_schema is the Add Device form.
         "default_config": {
             "host": "",
+            "transport": "tcp",
             "port": 23,
+            "username": "default",
+            "ssh_auth_method": "password",
+            "host_key_policy": "accept-new",
+            # Over SSH the welcome-banner handshake in _post_connect is the
+            # readiness check, so skip the generic post-open settle (TCP has
+            # none to skip).
+            "verify_timeout": 0,
             "blocks": DEFAULT_BLOCKS,
             "subscribe_rate_ms": DEFAULT_SUBSCRIBE_RATE_MS,
             "inter_command_delay": DEFAULT_INTER_COMMAND_DELAY,
@@ -1030,16 +1089,60 @@ class BiampTesiraTTPDriver(BaseDriver):
                 "required": True,
                 "label": "IP Address",
             },
+            "transport": {
+                "type": "enum",
+                "values": ["tcp", "ssh"],
+                "default": "tcp",
+                "label": "Connection",
+                "description": (
+                    "tcp = Telnet on port 23, with no sign-in. ssh = "
+                    "encrypted, on port 22, signing in with the Username "
+                    "and Password below; it needs the OpenSSH client on the "
+                    "computer running OpenAVC. Change Port to match, and "
+                    "tick the same service in Tesira's Network Settings."
+                ),
+            },
             "port": {
                 "type": "integer",
                 "default": 23,
-                "label": "Telnet Port",
+                "label": "Port",
                 "min": 1,
                 "max": 65535,
                 "description": (
-                    "Tesira's Telnet control port. Always 23 for stock "
-                    "Tesira firmware. SSH (port 22) is not supported by "
-                    "this driver — leave Telnet enabled in System Manager."
+                    "23 for Telnet, 22 for SSH. Must match the Connection "
+                    "setting above."
+                ),
+            },
+            "username": {
+                "type": "string",
+                "default": "default",
+                "label": "Username",
+                "description": (
+                    "SSH only. 'default' on a system without System "
+                    "Security; with it, a Tesira user of Controller level "
+                    "or higher."
+                ),
+            },
+            "password": {
+                "type": "password",
+                "secret": True,
+                "label": "Password",
+                "description": (
+                    "SSH only. On a system without System Security, Biamp "
+                    "gives the password as 'default'; if the device refuses "
+                    "it, leave Password blank. With System Security, the "
+                    "user's own password."
+                ),
+            },
+            "host_key_policy": {
+                "type": "enum",
+                "values": ["accept-new", "strict", "off"],
+                "default": "accept-new",
+                "label": "SSH Host Key Policy",
+                "advanced": True,
+                "description": (
+                    "SSH only. accept-new trusts the DSP's key the first "
+                    "time it connects and refuses a changed one."
                 ),
             },
             "blocks": {
@@ -1100,6 +1203,13 @@ class BiampTesiraTTPDriver(BaseDriver):
                 "label": "Test Connection / Verify Blocks",
                 "icon": "search",
                 "availability": "always",
+                # Replaces the setup dialog's general sentence, which says the
+                # device goes offline: this check leaves it connected.
+                "confirm": (
+                    "Reads the firmware and one value from every declared "
+                    "block, and lists any block the DSP doesn't answer. "
+                    "Nothing on the DSP changes."
+                ),
             },
         ],
         # Every declared Tesira block is registered as a dynamic "block"
@@ -1209,6 +1319,14 @@ class BiampTesiraTTPDriver(BaseDriver):
         # (matched by identity) and the future the health loop awaits.
         self._probe_entry: tuple[str, str] | None = None
         self._probe_fut: asyncio.Future[None] | None = None
+        # The setup check's own queries on the live connection (over SSH):
+        # id(entry) -> (entry, future of (answered_ok, value)).
+        self._checks: dict[int, tuple[tuple[None, str], asyncio.Future]] = {}
+
+        # Over SSH the transport is a raw pipe, so lines are framed here
+        # once the handshake is done (None on Telnet, whose transport
+        # frames them).
+        self._line_parser: DelimiterFrameParser | None = None
 
         # Saved frame parser used during the IAC handshake (we drop the
         # parser to raw mode for the handshake then restore the
@@ -1229,34 +1347,48 @@ class BiampTesiraTTPDriver(BaseDriver):
         self._auth_event = asyncio.Event()
         self._auth_mode = True
 
+    def _over_ssh(self) -> bool:
+        """True when this device connects over SSH. Read from the config
+        (BaseDriver._effective_transport is newer than this driver's floor);
+        simulation sets it to tcp, so a simulated device takes the Telnet
+        path its simulator serves."""
+        transport = self.config.get("transport") or self.DRIVER_INFO["transport"]
+        return str(transport).lower() == "ssh"
+
     def _transport_kwargs(
         self, transport_type: str, kwargs: dict[str, Any]
     ) -> dict[str, Any]:
-        # Open in raw mode (delimiter=None) — IAC bytes arrive in arbitrary
-        # frames and we need to see them byte-for-byte.
-        kwargs["delimiter"] = None
+        # Telnet opens in raw mode (delimiter=None) — IAC bytes arrive in
+        # arbitrary frames and we need to see them byte-for-byte. The SSH
+        # transport is a raw pipe already and takes no delimiter.
+        if transport_type == "tcp":
+            kwargs["delimiter"] = None
         return kwargs
 
     async def _post_connect(self) -> None:
         # Run the IAC + welcome-banner handshake.
         await self._run_iac_handshake(timeout=10.0)
 
-        # Swap the transport's frame parser to \r\n delimiter mode for
-        # normal command/response framing. Mirrors the parser-swap pattern
-        # in ConfigurableDriver._perform_auth_handshake.
-        new_parser = DelimiterFrameParser(LINE_DELIMITER)
-        # Push any banner-trailing bytes through the new parser so the
-        # first real command's response isn't lost.
+        # Frame lines from here on. Telnet: swap the transport's frame
+        # parser to \r\n delimiter mode (the parser-swap pattern in
+        # ConfigurableDriver._perform_auth_handshake). SSH: the transport
+        # has no frame parser, so the driver keeps one of its own.
         leftover = bytes(self._auth_buffer)
         self._auth_buffer = bytearray()
         self._auth_mode = False
         if hasattr(self.transport, "_frame_parser"):
+            new_parser = DelimiterFrameParser(LINE_DELIMITER)
             self.transport._frame_parser = new_parser
-        # If anything came in past the welcome banner, feed it through the
-        # parser now. Most of the time this is empty.
+        else:
+            new_parser = DelimiterFrameParser(SSH_LINE_DELIMITER)
+            self._line_parser = new_parser
+        # Push any banner-trailing bytes through the new parser so the
+        # first real command's response isn't lost. Most of the time this
+        # is empty. No await between here and the end: a chunk that arrives
+        # meanwhile is read after these bytes, in order.
         if leftover:
             for msg in new_parser.feed(leftover):
-                await self.on_data_received(msg)
+                self._dispatch_line(msg)
 
     async def _initial_sync(self) -> None:
         # Settle the session: verbose replies, the labelled form every
@@ -1293,11 +1425,16 @@ class BiampTesiraTTPDriver(BaseDriver):
         # would eat the next session's first replies and mis-route values.
         self._auth_mode = False
         self._auth_buffer = bytearray()
+        self._line_parser = None
         self._pending_gets.clear()
         self._probe_entry = None
         if self._probe_fut is not None and not self._probe_fut.done():
             self._probe_fut.cancel()
         self._probe_fut = None
+        for _entry, fut in self._checks.values():
+            if not fut.done():
+                fut.cancel()
+        self._checks.clear()
 
     async def disconnect(self) -> None:
         if self.transport:
@@ -1342,6 +1479,22 @@ class BiampTesiraTTPDriver(BaseDriver):
 
             remaining = deadline - asyncio.get_event_loop().time()
             if remaining <= 0:
+                # Over SSH the session needs no negotiation, and Biamp does
+                # not say the banner is printed there: an SSH session still
+                # up after the wait is taken as signed in, so carry on (ssh
+                # exits on a refused sign-in, which drops the connection
+                # with its reason; lines sent before then wait in ssh).
+                if (
+                    self._over_ssh()
+                    and self.transport is not None
+                    and self.transport.connected
+                ):
+                    log.info(
+                        f"[{self.device_id}] No welcome banner over SSH "
+                        f"within {timeout:g} s; the session is open, "
+                        f"going on"
+                    )
+                    return
                 # Some firmware variants don't emit the canonical banner
                 # but DO accept commands once IAC negotiation is settled.
                 # If we have ANY content beyond IAC bytes, log a warning
@@ -1580,8 +1733,18 @@ class BiampTesiraTTPDriver(BaseDriver):
             await self._process_iac_buffer()
             return
 
-        # Otherwise the transport's frame parser hands us one stripped
-        # line per call.
+        # Over SSH the bytes arrive as the pipe delivers them: frame here.
+        if self._line_parser is not None:
+            for msg in self._line_parser.feed(data):
+                self._dispatch_line(msg)
+            return
+
+        # Otherwise the transport's frame parser hands us one line per call.
+        self._dispatch_line(data)
+
+    def _dispatch_line(self, data: bytes) -> None:
+        """Read one framed line (an echo of a command from a remote pty
+        matches no rule and is dropped)."""
         line = data.decode("utf-8", errors="replace").rstrip("\r\n").strip()
         if not line:
             return
@@ -1614,7 +1777,7 @@ class BiampTesiraTTPDriver(BaseDriver):
             self.set_state("last_error", m.group(1))
             log.debug(f"[{self.device_id}] DSP error: {m.group(1)}")
             if self._pending_gets:
-                self._resolve_probe(self._pending_gets.pop(0))
+                self._resolve_probe(self._pending_gets.pop(0), ok=False)
             return
 
         # Successful GET response: +OK "value":...
@@ -1633,7 +1796,7 @@ class BiampTesiraTTPDriver(BaseDriver):
                         self._route_value(state_key, coerced)
                 # Also surface in last_query_result for visibility from macros
                 self.set_state("last_query_result", value_str)
-                self._resolve_probe(entry)
+                self._resolve_probe(entry, value=value_str)
             else:
                 # Unsolicited +OK "value":... — typically the immediate
                 # echo from a subscribe (Tesira sends initial value after
@@ -1649,7 +1812,7 @@ class BiampTesiraTTPDriver(BaseDriver):
             value_str = m.group(1).strip()
             entry = self._pop_for_value()
             if entry is not None:
-                self._resolve_probe(entry)
+                self._resolve_probe(entry, value=value_str)
             self.set_state("last_query_result", value_str)
             return
 
@@ -2038,9 +2201,17 @@ class BiampTesiraTTPDriver(BaseDriver):
                 raise
         await fut
 
-    def _resolve_probe(self, entry: tuple[str, str]) -> None:
+    def _resolve_probe(
+        self, entry: tuple[str | None, str], ok: bool = True, value: str = "",
+    ) -> None:
         """Resolve the health loop's awaited future when the probe's FIFO
-        entry (matched by identity) is consumed by a reply."""
+        entry (matched by identity) is consumed by a reply, or a setup
+        check's future with whether the DSP answered +OK and its value."""
+        check = self._checks.get(id(entry))
+        if check is not None and check[0] is entry:
+            if not check[1].done():
+                check[1].set_result((ok, value))
+            return
         if entry is not self._probe_entry:
             return
         fut = self._probe_fut
@@ -2159,6 +2330,8 @@ class BiampTesiraTTPDriver(BaseDriver):
         port = int(self.config.get("port", 23))
         if not host:
             raise ValueError("No host configured — set the device's host first.")
+        if self._over_ssh():
+            return await self._verify_blocks_live(progress)
 
         await progress(f"Connecting to {host}:{port}", 10)
         # From the adapter Settings > Network > Reach devices through chose.
@@ -2233,6 +2406,13 @@ class BiampTesiraTTPDriver(BaseDriver):
             except Exception:
                 pass
 
+        return await self._report_blocks(progress, firmware, checked, ok, failed)
+
+    @staticmethod
+    async def _report_blocks(
+        progress: Any, firmware: str, checked: list[str], ok: list[str],
+        failed: list[str],
+    ) -> dict[str, Any]:
         if failed:
             await progress(
                 f"{len(failed)} block(s) not answering: {', '.join(failed)} "
@@ -2251,3 +2431,60 @@ class BiampTesiraTTPDriver(BaseDriver):
             "blocks_ok": ok,
             "blocks_failed": failed,
         }
+
+    async def _check_line(
+        self, line: str, timeout: float = 5.0,
+    ) -> tuple[bool, str]:
+        """Send one query on the live connection and wait for its answer:
+        (True, value) for +OK, (False, "") for an error."""
+        fut: asyncio.Future = asyncio.get_running_loop().create_future()
+        # A new tuple each call: the reply is matched to it by identity.
+        entry = tuple([None, "check"])
+        self._checks[id(entry)] = (entry, fut)
+        try:
+            await self._send_tracked(line, entry)
+            try:
+                return await asyncio.wait_for(fut, timeout)
+            except asyncio.TimeoutError as exc:
+                raise ConnectionError(
+                    "Timed out waiting for a reply from the DSP"
+                ) from exc
+        finally:
+            self._checks.pop(id(entry), None)
+
+    async def _verify_blocks_live(self, progress: Any) -> dict[str, Any]:
+        """Test Connection / Verify Blocks over SSH: the same checks, on the
+        device's own SSH session (its sign-in, options and host key)."""
+        if self.transport is None or not self.transport.connected:
+            raise ConnectionError(
+                "The device isn't connected. Over SSH this check uses the "
+                "device's own connection; the device page shows why it "
+                "can't connect."
+            )
+        await progress("Checking firmware over the device's SSH connection", 40)
+        answered, value = await self._check_line("DEVICE get version")
+        firmware = value.strip().strip('"') if answered else ""
+
+        checked: list[str] = []
+        ok: list[str] = []
+        failed: list[str] = []
+        seen: set[str] = set()
+        total = max(len(self._blocks), 1)
+        for i, blk in enumerate(self._blocks):
+            tag = blk["tag"]
+            if tag in seen:
+                continue
+            seen.add(tag)
+            sub = next(
+                (s for s in self._subscriptions if s["tag"] == tag), None
+            )
+            if sub is None:
+                # Command-only block (e.g. dialer) — nothing to GET.
+                continue
+            await progress(
+                f"Verifying block {tag}", 40 + int(55 * (i + 1) / total),
+            )
+            checked.append(tag)
+            answered, _ = await self._check_line(self._build_get_command(sub))
+            (ok if answered else failed).append(tag)
+        return await self._report_blocks(progress, firmware, checked, ok, failed)

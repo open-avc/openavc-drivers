@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 254,
+    "total_devices": 284,
     "shards": null,
     "category": "audio"
   },
@@ -2562,6 +2562,366 @@
           "id": "shure_ulxd",
           "confidence": "untested",
           "notes": "Built from Shure's ULX-D command strings document; not yet run against a receiver. The Dante names exist on the ULXD4D and ULXD4Q only. The transmitters (ULXD1, ULXD2, ULXD6, ULXD8, QLXD1, QLXD2) are reported through the receiver channel they are received on; the mute switch and power source readings come from ULXD6 and ULXD8 transmitters only.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect 1002",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "Blaze by Sonance models (formerly Blaze Audio) with two or four outputs, zones A to D: the range the Open API document's tables define. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect 1008",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "Eight-output models. The Open API document's tables stop at zones A-D and outputs 1-4; the 1U manual names zones A to H by output count, and the driver addresses zones E-H and outputs 5-8 the same way once the amplifier reports eight. That addressing is not in the API document and has not been seen on a unit.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect 1008D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "Eight-output models. The Open API document's tables stop at zones A-D and outputs 1-4; the 1U manual names zones A to H by output count, and the driver addresses zones E-H and outputs 5-8 the same way once the amplifier reports eight. That addressing is not in the API document and has not been seen on a unit.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect 122",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "Blaze by Sonance models (formerly Blaze Audio) with two or four outputs, zones A to D: the range the Open API document's tables define. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect 122D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "Blaze by Sonance models (formerly Blaze Audio) with two or four outputs, zones A to D: the range the Open API document's tables define. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect 1502",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "Blaze by Sonance models (formerly Blaze Audio) with two or four outputs, zones A to D: the range the Open API document's tables define. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect 2004",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "Blaze by Sonance models (formerly Blaze Audio) with two or four outputs, zones A to D: the range the Open API document's tables define. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect 2004D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "Blaze by Sonance models (formerly Blaze Audio) with two or four outputs, zones A to D: the range the Open API document's tables define. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect 252",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "Blaze by Sonance models (formerly Blaze Audio) with two or four outputs, zones A to D: the range the Open API document's tables define. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect 254",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "Blaze by Sonance models (formerly Blaze Audio) with two or four outputs, zones A to D: the range the Open API document's tables define. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect 3004",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "Blaze by Sonance models (formerly Blaze Audio) with two or four outputs, zones A to D: the range the Open API document's tables define. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect 3004D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "Blaze by Sonance models (formerly Blaze Audio) with two or four outputs, zones A to D: the range the Open API document's tables define. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect 4008",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "Eight-output models. The Open API document's tables stop at zones A-D and outputs 1-4; the 1U manual names zones A to H by output count, and the driver addresses zones E-H and outputs 5-8 the same way once the amplifier reports eight. That addressing is not in the API document and has not been seen on a unit.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect 504",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "Blaze by Sonance models (formerly Blaze Audio) with two or four outputs, zones A to D: the range the Open API document's tables define. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect 504D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "Blaze by Sonance models (formerly Blaze Audio) with two or four outputs, zones A to D: the range the Open API document's tables define. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect 508",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "Eight-output models. The Open API document's tables stop at zones A-D and outputs 1-4; the 1U manual names zones A to H by output count, and the driver addresses zones E-H and outputs 5-8 the same way once the amplifier reports eight. That addressing is not in the API document and has not been seen on a unit.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect 6008",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "Eight-output models. The Open API document's tables stop at zones A-D and outputs 1-4; the 1U manual names zones A to H by output count, and the driver addresses zones E-H and outputs 5-8 the same way once the amplifier reports eight. That addressing is not in the API document and has not been seen on a unit.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect 6008D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "Eight-output models. The Open API document's tables stop at zones A-D and outputs 1-4; the 1U manual names zones A to H by output count, and the driver addresses zones E-H and outputs 5-8 the same way once the amplifier reports eight. That addressing is not in the API document and has not been seen on a unit.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect PRO 1200.4",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "70 V / 100 V models (Lo-Z selectable), two or four channels. The PRO firmware is built on the PowerZone Connect platform and Sonance offers the same Open API for it. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect PRO 1200.4D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "70 V / 100 V models (Lo-Z selectable), two or four channels. The PRO firmware is built on the PowerZone Connect platform and Sonance offers the same Open API for it. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect PRO 2000.2",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "70 V / 100 V models (Lo-Z selectable), two or four channels. The PRO firmware is built on the PowerZone Connect platform and Sonance offers the same Open API for it. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect PRO 2000.2D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "70 V / 100 V models (Lo-Z selectable), two or four channels. The PRO firmware is built on the PowerZone Connect platform and Sonance offers the same Open API for it. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect PRO 300.2",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "70 V / 100 V models (Lo-Z selectable), two or four channels. The PRO firmware is built on the PowerZone Connect platform and Sonance offers the same Open API for it. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect PRO 300.2D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "70 V / 100 V models (Lo-Z selectable), two or four channels. The PRO firmware is built on the PowerZone Connect platform and Sonance offers the same Open API for it. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect PRO 4000.4",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "70 V / 100 V models (Lo-Z selectable), two or four channels. The PRO firmware is built on the PowerZone Connect platform and Sonance offers the same Open API for it. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect PRO 4000.4D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "70 V / 100 V models (Lo-Z selectable), two or four channels. The PRO firmware is built on the PowerZone Connect platform and Sonance offers the same Open API for it. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect PRO 600.2",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "70 V / 100 V models (Lo-Z selectable), two or four channels. The PRO firmware is built on the PowerZone Connect platform and Sonance offers the same Open API for it. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect PRO 600.2D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "70 V / 100 V models (Lo-Z selectable), two or four channels. The PRO firmware is built on the PowerZone Connect platform and Sonance offers the same Open API for it. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect PRO 600.4",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "70 V / 100 V models (Lo-Z selectable), two or four channels. The PRO firmware is built on the PowerZone Connect platform and Sonance offers the same Open API for it. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonance",
+      "model": "PowerZone Connect PRO 600.4D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonance_powerzone_connect",
+          "confidence": "untested",
+          "notes": "70 V / 100 V models (Lo-Z selectable), two or four channels. The PRO firmware is built on the PowerZone Connect platform and Sonance offers the same Open API for it. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
         }
       ]
     },

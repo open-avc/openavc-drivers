@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 44,
+    "total_drivers": 45,
     "shards": null,
     "category": "audio"
   },
@@ -2822,6 +2822,132 @@
         "manufacturer_alias": [
           "shure",
           "shure incorporated"
+        ]
+      }
+    },
+    {
+      "id": "sonance_powerzone_connect",
+      "name": "Sonance PowerZone Connect Amplifier",
+      "manufacturer": "Sonance",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Sonance PowerZone Connect (Blaze by Sonance) and PowerZone Connect PRO network DSP amplifiers over the Open API on TCP 7621. Each zone is a child entity with level, mute, source, stereo link, level limits, ducking and priority sources; each output has its name, level, mute, zone, delay and direct route; inputs and mixes carry their levels. Amplifier power, status, Dante status, wall volume controls and the test generator are covered too. State is pushed by the amplifier as it changes, including changes from its own web app and wall controllers.\n",
+      "source_url": "https://images.salsify.com/images/vvbm6qkvqkj23mr6x4nq/Open%20API%20for%20Installers_Sonance_2026.24.1.pdf",
+      "file": "audio/sonance_powerzone_connect.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "audio/sonance_powerzone_connect.avcdriver": "d77fd003814576455faba1f762adffa691220ee8a7da6da482ab49f9153d09af"
+      },
+      "ports": [
+        7621
+      ],
+      "protocols": [
+        "sonance_open_api"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "amplifier",
+        "dsp",
+        "zone",
+        "background-music",
+        "70v",
+        "100v",
+        "dante",
+        "sonance",
+        "blaze",
+        "powerzone"
+      ],
+      "help": {
+        "overview": "PowerZone Connect amplifiers are zoned background-music amplifiers with a built-in DSP: each zone picks a source (an analog, S/PDIF or Dante input, a mix, or the test generator) and has its own level, mute, level limits, ducking and priority sources; each output follows a zone. This driver makes every zone, output, input and mix its own entity, so a panel binds to \"Zone B level\" or \"Zone A source\" directly. The amplifier reports every change as it happens, so the panel stays right when staff use the wall controller, the Venue Control app or the web app.\n",
+        "setup": "1. Give the amplifier a fixed address (a static IP or a DHCP reservation) in its web app. Out of the box it is 192.168.64.100. 2. Enter that address. The control port is 7621 and needs no password: the API has no sign-in, so anything that reaches port 7621 can control the amplifier. Keep it on a protected network. 3. Zones and outputs fill in by themselves once the amplifier connects, and the counts are saved in Zones and Outputs. Set them yourself only to build a project before the amplifier is reachable. 4. Tick Dante Model for a model ending in D, so its Dante status is read. 5. In an Eco Power On Mode the amplifier switches its network off while in standby, so it reads offline here until audio or a trigger wakes it. Choose a mode without Eco if it must stay controllable in standby. 6. Leave Enable Level Meters off unless a panel shows live meters.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Sonance",
+          "models": [
+            "PowerZone Connect PRO 300.2",
+            "PowerZone Connect PRO 300.2D",
+            "PowerZone Connect PRO 600.2",
+            "PowerZone Connect PRO 600.2D",
+            "PowerZone Connect PRO 600.4",
+            "PowerZone Connect PRO 600.4D",
+            "PowerZone Connect PRO 1200.4",
+            "PowerZone Connect PRO 1200.4D",
+            "PowerZone Connect PRO 2000.2",
+            "PowerZone Connect PRO 2000.2D",
+            "PowerZone Connect PRO 4000.4",
+            "PowerZone Connect PRO 4000.4D"
+          ],
+          "confidence": "untested",
+          "notes": "70 V / 100 V models (Lo-Z selectable), two or four channels. The PRO firmware is built on the PowerZone Connect platform and Sonance offers the same Open API for it. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        },
+        {
+          "manufacturer": "Sonance",
+          "models": [
+            "PowerZone Connect 122",
+            "PowerZone Connect 122D",
+            "PowerZone Connect 252",
+            "PowerZone Connect 254",
+            "PowerZone Connect 504",
+            "PowerZone Connect 504D",
+            "PowerZone Connect 1002",
+            "PowerZone Connect 1502",
+            "PowerZone Connect 2004",
+            "PowerZone Connect 2004D",
+            "PowerZone Connect 3004",
+            "PowerZone Connect 3004D"
+          ],
+          "confidence": "untested",
+          "notes": "Blaze by Sonance models (formerly Blaze Audio) with two or four outputs, zones A to D: the range the Open API document's tables define. Built from the document; not yet run on a unit. Models ending in D have Dante: tick Dante Model.\n"
+        },
+        {
+          "manufacturer": "Sonance",
+          "models": [
+            "PowerZone Connect 508",
+            "PowerZone Connect 1008",
+            "PowerZone Connect 1008D",
+            "PowerZone Connect 4008",
+            "PowerZone Connect 6008",
+            "PowerZone Connect 6008D"
+          ],
+          "confidence": "untested",
+          "notes": "Eight-output models. The Open API document's tables stop at zones A-D and outputs 1-4; the 1U manual names zones A to H by output count, and the driver addresses zones E-H and outputs 5-8 the same way once the amplifier reports eight. That addressing is not in the API document and has not been seen on a unit.\n"
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 7621,
+          "send_ascii": "GET SYSTEM.DEVICE.MODEL_NAME\n",
+          "expect_regex": "\\+SYSTEM\\.DEVICE\\.MODEL_NAME \"",
+          "cross_vendor": true,
+          "extract": {
+            "model": {
+              "regex": "\\+SYSTEM\\.DEVICE\\.MODEL_NAME \"([^\"]*)\"",
+              "group": 1
+            }
+          },
+          "timeout_ms": 2000
+        },
+        "mdns": [
+          {
+            "service": "_pasconnect._tcp",
+            "cross_vendor": true
+          }
+        ],
+        "oui": [
+          "40:11:dc"
+        ],
+        "port_open": [
+          7621
+        ],
+        "manufacturer_alias": [
+          "sonance",
+          "blaze",
+          "blaze audio",
+          "blaze by sonance"
         ]
       }
     },

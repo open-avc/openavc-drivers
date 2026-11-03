@@ -1,0 +1,2785 @@
+# Sonance PowerZone Connect / PowerZone Connect PRO amplifier driver
+#
+# Controls Sonance's networked DSP amplifiers over the Open API on TCP 7621:
+# the PowerZone Connect line (sold as Blaze by Sonance, formerly Blaze Audio)
+# and the 70 V / 100 V PowerZone Connect PRO line. Both run the same firmware
+# platform: the PRO release notes (2026.18.1) call the first PRO firmware
+# "based on the PowerZone Connect 2026.18.1 firmware platform", and Sonance's
+# support page files the one Open API document under PowerZone Connect
+# amplifiers. The document is Edition 2026.24.1 (June 2026), for API 1.5 and
+# firmware 1.8 and later, 2026.x included.
+#
+# Protocol reference: Sonance "Open API for Installers", Edition 2026.24.1.
+# Archived: driver-roadmap/reference-docs/sonance-powerzone-connect-open-api-2026.24.1.{pdf,txt}
+#
+# Wire format (document chapters 2-4):
+#   Plain TCP, one message per line, each ending in "\n". Three reply shapes:
+#     +<register> <value>      a value (a GET reply, an INC result, or a push)
+#     *<command>               the command succeeded (always last)
+#     #<command>|<message>     the command failed; the message usually starts
+#                              with an Exxx code (E107: Unknown Parameter)
+#   PING answers PONG, then *PING. GET takes a wildcard; the document shows it
+#   in the id position (GET IN-*.NAME answers one line per input the amplifier
+#   has), which is the only form this driver uses. SET and INC take none.
+#   Booleans read 0 / 1 and are written 1 / 0. Strings come back double-quoted
+#   and are written quoted; there is no escape, so a value cannot contain a
+#   double quote (name parameters refuse one). Floats come back with a
+#   per-register number of decimals (-5.00, 1000.000), so every rule reads a
+#   plain decimal.
+#
+# Push, not polling (Principle 2): SUBSCRIBE REG makes the amplifier send
+# "+<register> <value>" on this connection whenever any register changes,
+# from any client, its web app, a wall controller, GPIO or a preset. A SET is
+# echoed to every REG subscriber before its *SET acknowledgement, and an INC
+# always answers with the new value, so every write reads itself back with no
+# second request. SUBSCRIBE REG is the first start-up line for that reason
+# (a SET sent before it gets no echo), and the document does not say a
+# subscription replays current values, so the start-up GETs are the initial
+# read. The poll re-reads the status registers (the document does not say
+# whether they are pushed) and the wall controller levels.
+#
+# Level meters (the *.DYN.* registers) are subscription-only and opt-in:
+# SUBSCRIBE DYN <rate> under Enable Level Meters. The amplifier caps the rate
+# itself, per topic, and the cap matters: its per-connection send queue holds
+# 64 messages and overflows ("#|E0: TXQueue Overflow - Messages dropped") for
+# a client that cannot keep up. An overflow is written to Last Error and the
+# driver reads the zone, output, input, mix and status values again.
+#
+# Rosters. Zones are letters (A-D in the document's table; the 1U manual says
+# "A to H depending on amplifier output count"), outputs and route channels
+# are numbers (route channel n is output n, document 1.4.6, so its registers
+# live on the output). The amplifier reports how many of each it has:
+# ZONE.COUNT fills the Zones setting and OUT.COUNT the Outputs setting, both
+# saved once it connects. Inputs, mixes and wall volume controls depend on
+# the model (Dante inputs on D models only, Mix 3-4 on four-channel models),
+# so those rosters list every id the document defines and the amplifier's own
+# GET <type>-*.NAME reply puts each one it has in service; the rest show as
+# not fitted.
+#
+# Why YAML: one register per line with its own name on every value, so each
+# register is one response rule and a push needs no different handling from
+# a reply; the rosters are declarative; nothing needs code.
+
+id: sonance_powerzone_connect
+name: Sonance PowerZone Connect Amplifier
+manufacturer: Sonance
+category: audio
+version: "1.0.0"
+author: OpenAVC
+transport: tcp
+delimiter: "\n"
+min_platform_version: "0.37.0"
+
+description: >
+  Controls Sonance PowerZone Connect (Blaze by Sonance) and PowerZone Connect
+  PRO network DSP amplifiers over the Open API on TCP 7621. Each zone is a
+  child entity with level, mute, source, stereo link, level limits, ducking
+  and priority sources; each output has its name, level, mute, zone, delay
+  and direct route; inputs and mixes carry their levels. Amplifier power,
+  status, Dante status, wall volume controls and the test generator are
+  covered too. State is pushed by the amplifier as it changes, including
+  changes from its own web app and wall controllers.
+
+source_url: https://images.salsify.com/images/vvbm6qkvqkj23mr6x4nq/Open%20API%20for%20Installers_Sonance_2026.24.1.pdf
+tags: [amplifier, dsp, zone, background-music, 70v, 100v, dante, sonance, blaze, powerzone]
+verified: false
+simulated: true
+protocols: [sonance_open_api]
+ports: [7621]
+
+compatible_models:
+  - manufacturer: Sonance
+    models:
+      - PowerZone Connect PRO 300.2
+      - PowerZone Connect PRO 300.2D
+      - PowerZone Connect PRO 600.2
+      - PowerZone Connect PRO 600.2D
+      - PowerZone Connect PRO 600.4
+      - PowerZone Connect PRO 600.4D
+      - PowerZone Connect PRO 1200.4
+      - PowerZone Connect PRO 1200.4D
+      - PowerZone Connect PRO 2000.2
+      - PowerZone Connect PRO 2000.2D
+      - PowerZone Connect PRO 4000.4
+      - PowerZone Connect PRO 4000.4D
+    confidence: untested
+    notes: >
+      70 V / 100 V models (Lo-Z selectable), two or four channels. The PRO
+      firmware is built on the PowerZone Connect platform and Sonance offers
+      the same Open API for it. Built from the document; not yet run on a
+      unit. Models ending in D have Dante: tick Dante Model.
+  - manufacturer: Sonance
+    models:
+      - PowerZone Connect 122
+      - PowerZone Connect 122D
+      - PowerZone Connect 252
+      - PowerZone Connect 254
+      - PowerZone Connect 504
+      - PowerZone Connect 504D
+      - PowerZone Connect 1002
+      - PowerZone Connect 1502
+      - PowerZone Connect 2004
+      - PowerZone Connect 2004D
+      - PowerZone Connect 3004
+      - PowerZone Connect 3004D
+    confidence: untested
+    notes: >
+      Blaze by Sonance models (formerly Blaze Audio) with two or four outputs,
+      zones A to D: the range the Open API document's tables define. Built
+      from the document; not yet run on a unit. Models ending in D have
+      Dante: tick Dante Model.
+  - manufacturer: Sonance
+    models:
+      - PowerZone Connect 508
+      - PowerZone Connect 1008
+      - PowerZone Connect 1008D
+      - PowerZone Connect 4008
+      - PowerZone Connect 6008
+      - PowerZone Connect 6008D
+    confidence: untested
+    notes: >
+      Eight-output models. The Open API document's tables stop at zones A-D
+      and outputs 1-4; the 1U manual names zones A to H by output count, and
+      the driver addresses zones E-H and outputs 5-8 the same way once the
+      amplifier reports eight. That addressing is not in the API document and
+      has not been seen on a unit.
+
+help:
+  overview: >
+    PowerZone Connect amplifiers are zoned background-music amplifiers with a
+    built-in DSP: each zone picks a source (an analog, S/PDIF or Dante input,
+    a mix, or the test generator) and has its own level, mute, level limits,
+    ducking and priority sources; each output follows a zone. This driver
+    makes every zone, output, input and mix its own entity, so a panel binds
+    to "Zone B level" or "Zone A source" directly. The amplifier reports every
+    change as it happens, so the panel stays right when staff use the wall
+    controller, the Venue Control app or the web app.
+  setup: >
+    1. Give the amplifier a fixed address (a static IP or a DHCP reservation)
+    in its web app. Out of the box it is 192.168.64.100.
+    2. Enter that address. The control port is 7621 and needs no password:
+    the API has no sign-in, so anything that reaches port 7621 can control
+    the amplifier. Keep it on a protected network.
+    3. Zones and outputs fill in by themselves once the amplifier connects,
+    and the counts are saved in Zones and Outputs. Set them yourself only to
+    build a project before the amplifier is reachable.
+    4. Tick Dante Model for a model ending in D, so its Dante status is read.
+    5. In an Eco Power On Mode the amplifier switches its network off while
+    in standby, so it reads offline here until audio or a trigger wakes it.
+    Choose a mode without Eco if it must stay controllable in standby.
+    6. Leave Enable Level Meters off unless a panel shows live meters.
+
+default_config:
+  host: ""
+  port: 7621
+  poll_interval: 10
+  inter_command_delay: 0
+  zones: "A,B,C,D"
+  output_count: "4"
+  has_dante: false
+  enable_meters: false
+  meter_rate: 2
+  tcp_keepalive: true
+
+config_schema:
+  host:
+    type: string
+    required: true
+    default: ""
+    label: "IP Address"
+    description: "The amplifier's address (192.168.64.100 out of the box)."
+  port:
+    type: integer
+    required: true
+    default: 7621
+    label: "Port"
+    description: "Open API control port, 7621 on every model."
+    min: 1
+    max: 65535
+  zones:
+    type: string
+    required: false
+    default: "A,B,C,D"
+    label: "Zones"
+    learned_from: zone_ids
+    description: >
+      Zone letters, comma-separated: A,B for a two-channel model, A,B,C,D for
+      four, A to H for eight. Once the amplifier connects, the zones it
+      reports are saved here.
+  output_count:
+    type: enum
+    required: false
+    default: "4"
+    label: "Outputs"
+    learned_from: out_count
+    description: >
+      Amplifier outputs, the last digit of the model number (PRO 600.4 = 4,
+      122 = 2, 1008 = 8). Once the amplifier connects, the count it reports
+      is saved here.
+    values:
+      - { value: "1", label: "1 output" }
+      - { value: "2", label: "2 outputs" }
+      - { value: "4", label: "4 outputs" }
+      - { value: "8", label: "8 outputs" }
+  has_dante:
+    type: boolean
+    default: false
+    label: "Dante Model"
+    description: "Tick for a model ending in D, so its Dante status is read."
+  enable_meters:
+    type: boolean
+    default: false
+    label: "Enable Level Meters"
+    description: >
+      Stream live signal meters for every input, zone and output. Off unless a
+      panel shows meters: it adds steady traffic.
+  meter_rate:
+    type: number
+    default: 2
+    label: "Meter Updates per Second"
+    description: >
+      How often the amplifier sends each meter while meters are on. It caps
+      the rate itself; keep it low on a busy network.
+    min: 0.1
+    max: 20
+  poll_interval:
+    type: integer
+    default: 10
+    label: "Poll Interval (s)"
+    description: "Changes are pushed by the amplifier; this re-reads its status and the wall controller levels."
+    min: 0
+    max: 3600
+
+discovery:
+  # The probe and the mDNS service identify the amplifier platform, not the
+  # brand: the document's own examples come from the platform's maker (mDNS
+  # manufacturer=Pascal Audio, VENDOR_NAME "Pascal", MODEL_NAME "BLAZE-4"),
+  # so both are cross_vendor and the Sonance block below says whose it is.
+  tcp_probe:
+    port: 7621
+    send_ascii: "GET SYSTEM.DEVICE.MODEL_NAME\n"
+    expect_regex: '\+SYSTEM\.DEVICE\.MODEL_NAME "'
+    cross_vendor: true
+    extract:
+      model:
+        regex: '\+SYSTEM\.DEVICE\.MODEL_NAME "([^"]*)"'
+        group: 1
+    timeout_ms: 2000
+  mdns:
+    - service: "_pasconnect._tcp"
+      cross_vendor: true
+  # 40:11:DC is Sonance's own IEEE MA-L block. Pascal Audio's 88:02:64 is
+  # left out on purpose: other brands' amplifiers on the same platform carry
+  # it and would all be labelled Sonance.
+  oui:
+    - "40:11:dc"
+  port_open:
+    - 7621
+  manufacturer_alias:
+    - "sonance"
+    - "blaze"
+    - "blaze audio"
+    - "blaze by sonance"
+
+child_entity_types:
+  zone:
+    label: "Zone"
+    label_plural: "Zones"
+    id_format:
+      type: string
+      max_length: 1
+    instances:
+      # The letters the amplifier has, saved from ZONE.COUNT once it connects.
+      ids_from: zones
+      label: "Zone {id}"
+    label_field: name
+    summary_fields: ["name", "gain", "mute", "source_name"]
+    state_variables:
+      name:
+        type: string
+        label: "Zone Name"
+      gain:
+        type: number
+        label: "Level (dB)"
+        help: "Zone volume. The amplifier keeps it between the zone's Minimum and Maximum Level, and refuses it while a wall volume control is assigned."
+        min: -80.0
+        max: 0.0
+        step: 0.5
+        unit: "dB"
+        control: true
+        cloud_priority: high
+      gain_min:
+        type: number
+        label: "Minimum Level (dB)"
+        min: -80.0
+        max: 0.0
+        unit: "dB"
+      gain_max:
+        type: number
+        label: "Maximum Level (dB)"
+        min: -80.0
+        max: 0.0
+        unit: "dB"
+      mute:
+        type: boolean
+        label: "Mute"
+        control: true
+        cloud_priority: high
+      mute_enable:
+        type: boolean
+        label: "Mute Allowed"
+        help: "When off, the zone cannot be muted (the amplifier answers E128: Mute disabled)."
+      source:
+        type: integer
+        label: "Source"
+        help: "The zone's primary source, as the amplifier numbers it (100 = Analog 1, 500 = Mix 1, 0 = none). Source Name has its name."
+        control: true
+        cloud_priority: high
+      source_name:
+        type: string
+        label: "Source Name"
+      stereo:
+        type: boolean
+        label: "Stereo"
+        help: "On when this zone is linked with the next one as a stereo pair; the next zone is then inactive."
+      gpio_vc:
+        type: integer
+        label: "Wall Volume Control"
+        help: "Which wall volume control sets this zone's level (1-4, GPIO pins 4-7), or 0 for none. While one is assigned, the zone's level cannot be set from here."
+        min: 0
+        max: 4
+      duck_mode:
+        type: enum
+        values: ["OFF", "DUCKER", "OVERRIDE"]
+        label: "Ducking Mode"
+        help: "OFF, DUCKER (a priority input lowers the primary source) or OVERRIDE (a priority input replaces it)."
+      priority_2_source:
+        type: integer
+        label: "Priority 2 (Medium) Source"
+        help: "Input that takes over the zone when it carries signal, above the primary source. Same numbering as Source."
+      priority_3_source:
+        type: integer
+        label: "Priority 3 (Highest) Source"
+        help: "Input that takes over the zone above every other, an alarm for example. Same numbering as Source."
+      compressor_bypass:
+        type: boolean
+        label: "Compressor Bypassed"
+      signal:
+        type: number
+        label: "Signal (dB)"
+        help: "Live zone meter, only while Enable Level Meters is on."
+        min: -144.0
+        max: 20.0
+        unit: "dB"
+        cloud_priority: low
+  output:
+    label: "Output"
+    label_plural: "Outputs"
+    id_format:
+      type: integer
+      min: 1
+      max: 8
+    instances:
+      count_from: output_count
+      count_from_state: out_count
+      label: "Output {id}"
+    label_field: name
+    summary_fields: ["name", "zone", "mute", "gain"]
+    state_variables:
+      name:
+        type: string
+        label: "Output Name"
+      gain:
+        type: number
+        label: "Output Level (dB)"
+        help: "Output trim after the zone level."
+        min: -30.0
+        max: 15.0
+        step: 0.5
+        unit: "dB"
+        control: true
+      mute:
+        type: boolean
+        label: "Mute"
+        control: true
+        cloud_priority: high
+      zone:
+        type: string
+        label: "Zone"
+        help: "The zone this output plays (its letter), empty when none."
+        control: true
+      channel:
+        type: enum
+        values: ["L", "R", "S"]
+        label: "Channel"
+        help: "Which side of the zone it plays: L (left), R (right) or S (left and right summed)."
+      mode:
+        type: enum
+        values: ["OFF", "4R", "8R", "70V", "100V", "BTL"]
+        label: "Output Mode"
+        help: "OFF, 4R or 8R (low impedance), 70V or 100V (constant voltage), or BTL (bridged). Set in the amplifier's web app."
+      delay:
+        type: number
+        label: "Delay (s)"
+        min: 0.0
+        max: 0.1
+        unit: "s"
+      delay_bypass:
+        type: boolean
+        label: "Delay Bypassed"
+      eq_bypass:
+        type: boolean
+        label: "Output EQ Bypassed"
+      preset_name:
+        type: string
+        label: "Speaker Preset"
+        help: "The speaker preset loaded on this output (its EQ, crossover and limiters are set by the preset in the web app)."
+      preset_locked:
+        type: boolean
+        label: "Speaker Preset Locked"
+      route_source:
+        type: integer
+        label: "Route Source"
+        help: "The document's direct output route (advanced use): an input, mix or zone number sent to this output (1000 = Zone A), 0 for none."
+      route_channel:
+        type: enum
+        values: ["L", "R", "S"]
+        label: "Route Channel"
+      route_gain:
+        type: number
+        label: "Route Level (dB)"
+        min: -40.0
+        max: 20.0
+        unit: "dB"
+      signal:
+        type: number
+        label: "Signal (dB)"
+        help: "Live output meter, only while Enable Level Meters is on."
+        min: -144.0
+        max: 20.0
+        unit: "dB"
+        cloud_priority: low
+      clip:
+        type: boolean
+        label: "Clip"
+        help: "Live clip indicator, only while Enable Level Meters is on."
+        cloud_priority: low
+      route_signal:
+        type: number
+        label: "Route Signal (dB)"
+        min: -144.0
+        max: 20.0
+        unit: "dB"
+        cloud_priority: low
+      route_clip:
+        type: boolean
+        label: "Route Clip"
+        cloud_priority: low
+  input:
+    label: "Input"
+    label_plural: "Inputs"
+    id_format:
+      type: integer
+      min: 100
+      max: 400
+    instances:
+      # Every input the document defines. Which ones a unit has depends on the
+      # model (Dante 300-303 on D models, Analog 5-8 on eight-input ones), and
+      # the amplifier's answer to GET IN-*.NAME puts each one it has in service.
+      ids: [100, 101, 102, 103, 104, 105, 106, 107, 200, 201, 300, 301, 302, 303, 400]
+      presence: reported
+      label: "Input {id}"
+    label_field: name
+    summary_fields: ["name", "gain", "sensitivity"]
+    state_variables:
+      name:
+        type: string
+        label: "Input Name"
+      gain:
+        type: number
+        label: "Input Gain (dB)"
+        help: "Input trim, -15 to +15 dB (the Noise Generator, input 400: -48 to 0 dB)."
+        min: -48.0
+        max: 15.0
+        step: 0.5
+        unit: "dB"
+      sensitivity:
+        type: enum
+        values: ["14DBU", "4DBU", "-10DBV", "MIC"]
+        label: "Sensitivity"
+        help: "14DBU or 4DBU (professional line level), -10DBV (consumer line level) or MIC (dynamic microphone)."
+      stereo:
+        type: boolean
+        label: "Stereo"
+        help: "On when this input is linked with the next one as a stereo pair."
+      hpf_enable:
+        type: boolean
+        label: "High Pass Filter"
+      eq_bypass:
+        type: boolean
+        label: "Input EQ Bypassed"
+      signal:
+        type: number
+        label: "Signal (dB)"
+        help: "Live input meter, only while Enable Level Meters is on."
+        min: -144.0
+        max: 20.0
+        unit: "dB"
+        cloud_priority: low
+      clip:
+        type: boolean
+        label: "Clip"
+        cloud_priority: low
+  mix:
+    label: "Mix"
+    label_plural: "Mixes"
+    id_format:
+      type: integer
+      min: 1
+      max: 4
+    instances:
+      # Mix 3 and 4 exist on four-channel models only (document 1.4.2); the
+      # amplifier's answer to GET MIX-*.NAME puts each mix it has in service.
+      ids: [1, 2, 3, 4]
+      presence: reported
+      label: "Mix {id}"
+    label_field: name
+    summary_fields: ["name"]
+    state_variables:
+      name:
+        type: string
+        label: "Mix Name"
+      level_100:
+        type: number
+        label: "Analog 1 Level (dB)"
+        min: -144.0
+        max: 0.0
+        unit: "dB"
+      level_101:
+        type: number
+        label: "Analog 2 Level (dB)"
+        min: -144.0
+        max: 0.0
+        unit: "dB"
+      level_102:
+        type: number
+        label: "Analog 3 Level (dB)"
+        min: -144.0
+        max: 0.0
+        unit: "dB"
+      level_103:
+        type: number
+        label: "Analog 4 Level (dB)"
+        min: -144.0
+        max: 0.0
+        unit: "dB"
+      level_104:
+        type: number
+        label: "Analog 5 Level (dB)"
+        min: -144.0
+        max: 0.0
+        unit: "dB"
+      level_105:
+        type: number
+        label: "Analog 6 Level (dB)"
+        min: -144.0
+        max: 0.0
+        unit: "dB"
+      level_106:
+        type: number
+        label: "Analog 7 Level (dB)"
+        min: -144.0
+        max: 0.0
+        unit: "dB"
+      level_107:
+        type: number
+        label: "Analog 8 Level (dB)"
+        min: -144.0
+        max: 0.0
+        unit: "dB"
+      level_200:
+        type: number
+        label: "S/PDIF Left Level (dB)"
+        min: -144.0
+        max: 0.0
+        unit: "dB"
+      level_201:
+        type: number
+        label: "S/PDIF Right Level (dB)"
+        min: -144.0
+        max: 0.0
+        unit: "dB"
+      level_300:
+        type: number
+        label: "Dante 1 Level (dB)"
+        min: -144.0
+        max: 0.0
+        unit: "dB"
+      level_301:
+        type: number
+        label: "Dante 2 Level (dB)"
+        min: -144.0
+        max: 0.0
+        unit: "dB"
+      level_302:
+        type: number
+        label: "Dante 3 Level (dB)"
+        min: -144.0
+        max: 0.0
+        unit: "dB"
+      level_303:
+        type: number
+        label: "Dante 4 Level (dB)"
+        min: -144.0
+        max: 0.0
+        unit: "dB"
+      level_400:
+        type: number
+        label: "Noise Generator Level (dB)"
+        min: -144.0
+        max: 0.0
+        unit: "dB"
+  volume_control:
+    label: "Wall Volume Control"
+    label_plural: "Wall Volume Controls"
+    id_format:
+      type: integer
+      min: 1
+      max: 4
+    instances:
+      # Volume controls 1-4 are GPIO pins 4-7 (document 1.4.9); the answer to
+      # GET VC-*.NAME puts each one the amplifier has in service.
+      ids: [1, 2, 3, 4]
+      presence: reported
+      label: "Wall Volume Control {id}"
+    label_field: name
+    summary_fields: ["name", "value"]
+    state_variables:
+      name:
+        type: string
+        label: "Name"
+      value:
+        type: number
+        label: "Position (%)"
+        help: "Where the wall controller's knob sits, 0-100%."
+        min: 0.0
+        max: 100.0
+        unit: "%"
+
+state_variables:
+  power:
+    type: boolean
+    label: "Power"
+    help: "On when the amplifier reports ON; off in standby, forced standby or while it starts."
+    control: true
+    cloud_priority: high
+  system_state:
+    type: enum
+    values: ["INIT", "STANDBY", "STANDBY_FORCED", "ON"]
+    label: "Amplifier State"
+    help: "INIT (starting), STANDBY, STANDBY_FORCED (protection or over-temperature) or ON."
+    cloud_priority: high
+  signal_in:
+    type: enum
+    values: ["OFF", "NO_SIGNAL", "SIGNAL", "CLIP"]
+    label: "Input Signal"
+    help: "OFF, NO_SIGNAL, SIGNAL or CLIP (an input is overloading: lower its sensitivity)."
+    cloud_priority: high
+  signal_out:
+    type: enum
+    values: ["OFF", "NO_SIGNAL", "SIGNAL", "CLIP", "FAULT"]
+    label: "Output Signal"
+    help: "OFF, NO_SIGNAL, SIGNAL, CLIP (an output is clipping: lower the volume) or FAULT."
+    cloud_priority: high
+  model_name:
+    type: string
+    label: "Model"
+  vendor_name:
+    type: string
+    label: "Vendor"
+  serial_number:
+    type: string
+    label: "Serial Number"
+  firmware_version:
+    type: string
+    label: "Firmware Version"
+  firmware_date:
+    type: string
+    label: "Firmware Date"
+  api_version:
+    type: string
+    label: "API Version"
+  hardware_id:
+    type: integer
+    label: "Hardware ID"
+  software_id:
+    type: integer
+    label: "Software ID"
+  mac_address:
+    type: string
+    label: "MAC Address"
+  wifi_mac_address:
+    type: string
+    label: "Wi-Fi MAC Address"
+  lan_status:
+    type: string
+    label: "LAN Address"
+    help: "The amplifier's wired IP address, empty when the LAN is not connected."
+  wifi_status:
+    type: string
+    label: "Wi-Fi Status"
+  device_name:
+    type: string
+    label: "Device Name"
+  venue_name:
+    type: string
+    label: "Venue Name"
+  customer_name:
+    type: string
+    label: "Customer Name"
+  installer_name:
+    type: string
+    label: "Installer Name"
+  contact_info:
+    type: string
+    label: "Contact Info"
+  install_date:
+    type: string
+    label: "Install Date"
+  asset_tag:
+    type: string
+    label: "Asset Tag"
+  locating:
+    type: boolean
+    label: "Locating"
+    help: "On while the amplifier flashes its LEDs so it can be found in the rack."
+  power_on_mode:
+    type: enum
+    values: ["AUDIO", "AUDIO_ECO", "AUDIO_DSP", "TRIGGER", "TRIGGER_ECO", "NETWORK"]
+    label: "Power On Mode"
+  mute_time:
+    type: integer
+    label: "Mute After No Signal (s)"
+    min: 0
+    max: 3600
+    unit: "s"
+  standby_time:
+    type: integer
+    label: "Standby After No Signal (s)"
+    help: "0 = never."
+    min: 0
+    max: 3600
+    unit: "s"
+  generator_type:
+    type: enum
+    values: ["PINK", "SINE"]
+    label: "Generator Type"
+  sine_frequency:
+    type: number
+    label: "Sine Frequency (Hz)"
+    min: 20.0
+    max: 20000.0
+    unit: "Hz"
+  pink_lpf_enable:
+    type: boolean
+    label: "Pink Noise Low Pass"
+  pink_lpf_frequency:
+    type: number
+    label: "Pink Noise Low Pass (Hz)"
+    min: 20.0
+    max: 20000.0
+    unit: "Hz"
+  pink_hpf_enable:
+    type: boolean
+    label: "Pink Noise High Pass"
+  pink_hpf_frequency:
+    type: number
+    label: "Pink Noise High Pass (Hz)"
+    min: 20.0
+    max: 20000.0
+    unit: "Hz"
+  zone_count:
+    type: integer
+    label: "Zones Reported"
+  zone_ids:
+    type: string
+    label: "Zone Letters Reported"
+  out_count:
+    type: integer
+    label: "Outputs Reported"
+  in_count:
+    type: integer
+    label: "Inputs Reported"
+  mix_count:
+    type: integer
+    label: "Mixes Reported"
+  vc_count:
+    type: integer
+    label: "Wall Volume Controls Reported"
+  dante_device_name:
+    type: string
+    label: "Dante Device Name"
+  dante_ip:
+    type: string
+    label: "Dante IP Address"
+  dante_mac:
+    type: string
+    label: "Dante MAC Address"
+  dante_firmware_version:
+    type: string
+    label: "Dante Firmware Version"
+  dante_software_version:
+    type: string
+    label: "Dante Software Version"
+  dante_link_speed:
+    type: integer
+    label: "Dante Link Speed"
+  dante_aes67:
+    type: boolean
+    label: "AES67 Enabled"
+  dante_encoding:
+    type: enum
+    values: ["PCM16", "PCM24", "PCM32"]
+    label: "Dante Encoding"
+  dante_sample_rate:
+    type: enum
+    values: ["44100", "48000", "96000"]
+    label: "Dante Sample Rate"
+  dante_clock_state:
+    type: enum
+    values: ["NO_CLOCK", "LOCKING", "LOCKED"]
+    label: "Dante Clock"
+    cloud_priority: high
+  dante_mute_state:
+    type: string
+    label: "Dante Mute State"
+  last_error:
+    type: string
+    label: "Last Error"
+    help: "The amplifier's last refusal: the command, then its message (E126: Volume is controlled by GPIO volume control)."
+
+device_settings:
+  # Amplifier-wide values the amplifier keeps and reports back (each write is
+  # echoed by the REG subscription). Per-zone and per-output values are child
+  # state with commands instead: a setting's state key cannot name a child.
+  device_name:
+    type: string
+    label: "Device Name"
+    help: "The name the amplifier shows in its web app and on the network, up to 32 characters."
+    default: ""
+    regex: '^[^"]{1,32}$'
+    state_key: "device_name"
+    setup: false
+    write:
+      send: 'SET SETUP.SYSTEM.DEVICE_NAME "{value}"\n'
+  venue_name:
+    type: string
+    label: "Venue Name"
+    help: "Up to 32 characters."
+    default: ""
+    regex: '^[^"]{0,32}$'
+    state_key: "venue_name"
+    setup: false
+    write:
+      send: 'SET SETUP.SYSTEM.VENUE_NAME "{value}"\n'
+  customer_name:
+    type: string
+    label: "Customer Name"
+    help: "Up to 32 characters."
+    default: ""
+    regex: '^[^"]{0,32}$'
+    state_key: "customer_name"
+    setup: false
+    write:
+      send: 'SET SETUP.SYSTEM.CUSTOMER_NAME "{value}"\n'
+  installer_name:
+    type: string
+    label: "Installer Name"
+    help: "Up to 32 characters."
+    default: ""
+    regex: '^[^"]{0,32}$'
+    state_key: "installer_name"
+    setup: false
+    write:
+      send: 'SET SETUP.SYSTEM.INSTALLER_NAME "{value}"\n'
+  contact_info:
+    type: string
+    label: "Contact Info"
+    help: "Up to 32 characters."
+    default: ""
+    regex: '^[^"]{0,32}$'
+    state_key: "contact_info"
+    setup: false
+    write:
+      send: 'SET SETUP.SYSTEM.CONTACT_INFO "{value}"\n'
+  install_date:
+    type: string
+    label: "Install Date"
+    help: "Free text, up to 32 characters."
+    default: ""
+    regex: '^[^"]{0,32}$'
+    state_key: "install_date"
+    setup: false
+    write:
+      send: 'SET SETUP.SYSTEM.INSTALL_DATE "{value}"\n'
+  asset_tag:
+    type: string
+    label: "Asset Tag"
+    help: "Up to 32 characters."
+    default: ""
+    regex: '^[^"]{0,32}$'
+    state_key: "asset_tag"
+    setup: false
+    write:
+      send: 'SET SETUP.SYSTEM.ASSET_TAG "{value}"\n'
+  locating:
+    type: boolean
+    label: "Locate"
+    help: "Flashes the amplifier's LEDs so it can be found in the rack. Turn it off again when done."
+    default: false
+    state_key: "locating"
+    setup: false
+    write:
+      send: "SET SETUP.SYSTEM.LOCATING {value:d}\n"
+  power_on_mode:
+    type: enum
+    label: "Power On Mode"
+    help: >
+      What wakes the amplifier from standby: AUDIO (an input signal), AUDIO_DSP,
+      TRIGGER (the 12 V trigger or a standby switch), NETWORK, or the ECO forms
+      of AUDIO and TRIGGER, which switch the network off in standby so the
+      amplifier is unreachable until it wakes. Power On and Power Off are
+      accepted only in some modes.
+    default: "AUDIO"
+    values:
+      - { value: "AUDIO", label: "Audio" }
+      - { value: "AUDIO_ECO", label: "Audio (Eco: network off in standby)" }
+      - { value: "AUDIO_DSP", label: "Audio (DSP)" }
+      - { value: "TRIGGER", label: "Trigger" }
+      - { value: "TRIGGER_ECO", label: "Trigger (Eco: network off in standby)" }
+      - { value: "NETWORK", label: "Network" }
+    state_key: "power_on_mode"
+    setup: false
+    write:
+      send: "SET SETUP.POWER.POWER_ON {value}\n"
+  mute_time:
+    type: integer
+    label: "Mute After No Signal (s)"
+    help: "Seconds without an input signal before the outputs mute, 0 to 3600."
+    default: 300
+    min: 0
+    max: 3600
+    state_key: "mute_time"
+    setup: false
+    write:
+      send: "SET SETUP.POWER.MUTE_TIME {value}\n"
+  standby_time:
+    type: integer
+    label: "Standby After No Signal (s)"
+    help: "Seconds without an input signal before the amplifier goes to standby, 0 to 3600 (0 = never)."
+    default: 900
+    min: 0
+    max: 3600
+    state_key: "standby_time"
+    setup: false
+    write:
+      send: "SET SETUP.POWER.STANDBY_TIME {value}\n"
+  generator_type:
+    type: enum
+    label: "Generator Type"
+    help: "The test generator (input 400): pink noise or a sine tone."
+    default: "PINK"
+    values:
+      - { value: "PINK", label: "Pink noise" }
+      - { value: "SINE", label: "Sine tone" }
+    state_key: "generator_type"
+    setup: false
+    write:
+      send: "SET GENERATOR.TYPE {value}\n"
+  sine_frequency:
+    type: number
+    label: "Sine Frequency (Hz)"
+    help: "20 to 20000 Hz."
+    default: 1000
+    min: 20
+    max: 20000
+    state_key: "sine_frequency"
+    setup: false
+    write:
+      send: "SET GENERATOR.SINE.FREQ {value}\n"
+  pink_lpf_enable:
+    type: boolean
+    label: "Pink Noise Low Pass"
+    default: false
+    state_key: "pink_lpf_enable"
+    setup: false
+    write:
+      send: "SET GENERATOR.PINK.LPF_ENABLE {value:d}\n"
+  pink_lpf_frequency:
+    type: number
+    label: "Pink Noise Low Pass (Hz)"
+    help: "20 to 20000 Hz."
+    default: 20000
+    min: 20
+    max: 20000
+    state_key: "pink_lpf_frequency"
+    setup: false
+    write:
+      send: "SET GENERATOR.PINK.LPF_FREQ {value}\n"
+  pink_hpf_enable:
+    type: boolean
+    label: "Pink Noise High Pass"
+    default: false
+    state_key: "pink_hpf_enable"
+    setup: false
+    write:
+      send: "SET GENERATOR.PINK.HPF_ENABLE {value:d}\n"
+  pink_hpf_frequency:
+    type: number
+    label: "Pink Noise High Pass (Hz)"
+    help: "20 to 20000 Hz."
+    default: 20
+    min: 20
+    max: 20000
+    state_key: "pink_hpf_frequency"
+    setup: false
+    write:
+      send: "SET GENERATOR.PINK.HPF_FREQ {value}\n"
+
+commands:
+
+  # ── Zones ──
+
+  set_zone_level:
+    label: "Set Zone Level"
+    send: "SET ZONE-{zone}.GAIN {level}\n"
+    sets: { gain: "{level}" }
+    help: >
+      Sets the zone's volume in dB (0 = full, -80 = lowest). The amplifier keeps
+      it within the zone's Minimum and Maximum Level, and refuses it (into Last
+      Error) while a wall volume control is assigned to the zone.
+    params:
+      zone:
+        type: child_id
+        child_type: zone
+        required: true
+        label: "Zone"
+      level:
+        type: number
+        required: true
+        label: "Level (dB)"
+        min: -80.0
+        max: 0.0
+        decimals: 1
+
+  zone_level_up:
+    label: "Zone Level Up"
+    send: "INC ZONE-{zone}.GAIN {step}\n"
+    help: "Raises the zone's volume by the step, in dB; the amplifier answers with the new level."
+    params:
+      zone:
+        type: child_id
+        child_type: zone
+        required: true
+        label: "Zone"
+      step:
+        type: number
+        required: true
+        default: 1.0
+        label: "Step (dB)"
+        min: 0.5
+        max: 20.0
+        decimals: 1
+
+  zone_level_down:
+    label: "Zone Level Down"
+    send: "INC ZONE-{zone}.GAIN -{step}\n"
+    help: "Lowers the zone's volume by the step, in dB; the amplifier answers with the new level."
+    params:
+      zone:
+        type: child_id
+        child_type: zone
+        required: true
+        label: "Zone"
+      step:
+        type: number
+        required: true
+        default: 1.0
+        label: "Step (dB)"
+        min: 0.5
+        max: 20.0
+        decimals: 1
+
+  mute_zone:
+    label: "Mute Zone"
+    send: "SET ZONE-{zone}.MUTE 1\n"
+    sets: { mute: true }
+    help: "Mutes the zone's speakers."
+    params:
+      zone:
+        type: child_id
+        child_type: zone
+        required: true
+        label: "Zone"
+
+  unmute_zone:
+    label: "Unmute Zone"
+    send: "SET ZONE-{zone}.MUTE 0\n"
+    sets: { mute: false }
+    help: "Unmutes the zone's speakers."
+    params:
+      zone:
+        type: child_id
+        child_type: zone
+        required: true
+        label: "Zone"
+
+  set_zone_source:
+    label: "Set Zone Source"
+    send: "SET ZONE-{zone}.PRIMARY_SRC {source}\n"
+    sets: { source: "{source}" }
+    help: >
+      Picks what the zone plays. The list holds every source the family has:
+      Dante sources exist on D models only, Mix 3 and 4 on four-channel models,
+      and a source restricted for the zone in the web app is refused (E130:
+      Source is Disabled). A refusal shows in Last Error.
+    params:
+      zone:
+        type: child_id
+        child_type: zone
+        required: true
+        label: "Zone"
+      source:
+        type: enum
+        required: true
+        label: "Source"
+        values:
+          - { value: "0", label: "None (silent)" }
+          - { value: "100", label: "Analog 1" }
+          - { value: "101", label: "Analog 2" }
+          - { value: "102", label: "Analog 3" }
+          - { value: "103", label: "Analog 4" }
+          - { value: "104", label: "Analog 5" }
+          - { value: "105", label: "Analog 6" }
+          - { value: "106", label: "Analog 7" }
+          - { value: "107", label: "Analog 8" }
+          - { value: "200", label: "S/PDIF Left" }
+          - { value: "201", label: "S/PDIF Right" }
+          - { value: "300", label: "Dante 1" }
+          - { value: "301", label: "Dante 2" }
+          - { value: "302", label: "Dante 3" }
+          - { value: "303", label: "Dante 4" }
+          - { value: "400", label: "Noise Generator" }
+          - { value: "500", label: "Mix 1" }
+          - { value: "501", label: "Mix 2" }
+          - { value: "502", label: "Mix 3" }
+          - { value: "503", label: "Mix 4" }
+
+  set_zone_name:
+    label: "Set Zone Name"
+    send: 'SET ZONE-{zone}.NAME "{name}"\n'
+    sets: { name: "{name}" }
+    help: "Names the zone on the amplifier (Bar, Patio)."
+    params:
+      zone:
+        type: child_id
+        child_type: zone
+        required: true
+        label: "Zone"
+      name:
+        type: string
+        required: true
+        label: "Name"
+        pattern: '^[^"]{1,32}$'
+        help: "Up to 32 characters, no double quotes."
+
+  set_zone_stereo:
+    label: "Set Zone Stereo"
+    send: "SET ZONE-{zone}.STEREO {stereo}\n"
+    help: >
+      Links the zone with the next one as a stereo pair, or splits the pair
+      back into mono zones. While linked, the next zone is inactive.
+    params:
+      zone:
+        type: child_id
+        child_type: zone
+        required: true
+        label: "Zone"
+      stereo:
+        type: enum
+        required: true
+        label: "Stereo"
+        values:
+          - { value: "1", label: "Stereo (linked with the next zone)" }
+          - { value: "0", label: "Mono" }
+
+  set_zone_min_level:
+    label: "Set Zone Minimum Level"
+    send: "SET ZONE-{zone}.GAIN_MIN {level}\n"
+    sets: { gain_min: "{level}" }
+    help: "Sets the lowest volume the zone can be turned down to, in dB. It cannot be above the Maximum Level."
+    params:
+      zone:
+        type: child_id
+        child_type: zone
+        required: true
+        label: "Zone"
+      level:
+        type: number
+        required: true
+        label: "Level (dB)"
+        min: -80.0
+        max: 0.0
+        decimals: 1
+
+  set_zone_max_level:
+    label: "Set Zone Maximum Level"
+    send: "SET ZONE-{zone}.GAIN_MAX {level}\n"
+    sets: { gain_max: "{level}" }
+    help: "Sets the loudest the zone can be turned up to, in dB. It cannot be below the Minimum Level."
+    params:
+      zone:
+        type: child_id
+        child_type: zone
+        required: true
+        label: "Zone"
+      level:
+        type: number
+        required: true
+        label: "Level (dB)"
+        min: -80.0
+        max: 0.0
+        decimals: 1
+
+  set_zone_mute_allowed:
+    label: "Allow Zone Mute"
+    send: "SET ZONE-{zone}.MUTE_ENABLE {allowed}\n"
+    help: "Allows or prevents muting the zone (from here, the wall controller and the apps)."
+    params:
+      zone:
+        type: child_id
+        child_type: zone
+        required: true
+        label: "Zone"
+      allowed:
+        type: enum
+        required: true
+        label: "Mute"
+        values:
+          - { value: "1", label: "Mute allowed" }
+          - { value: "0", label: "Mute not allowed" }
+
+  set_zone_ducking:
+    label: "Set Zone Ducking Mode"
+    send: "SET ZONE-{zone}.DUCK.MODE {mode}\n"
+    sets: { duck_mode: "{mode}" }
+    help: "Turns the zone's ducking off, or sets it to lower (Ducker) or replace (Override) the primary source while a priority input carries signal."
+    params:
+      zone:
+        type: child_id
+        child_type: zone
+        required: true
+        label: "Zone"
+      mode:
+        type: enum
+        required: true
+        label: "Mode"
+        values:
+          - { value: "OFF", label: "Off" }
+          - { value: "DUCKER", label: "Ducker (lower the source)" }
+          - { value: "OVERRIDE", label: "Override (replace the source)" }
+
+  set_zone_priority_source:
+    label: "Set Zone Priority Source"
+    send: "SET ZONE-{zone}.PRIORITY-{priority}.SRC {source}\n"
+    help: >
+      Picks the input that takes over the zone at priority 2 (medium, a paging
+      microphone) or 3 (highest, an alarm) while it carries signal. Firmware
+      1.8 and later.
+    params:
+      zone:
+        type: child_id
+        child_type: zone
+        required: true
+        label: "Zone"
+      priority:
+        type: enum
+        required: true
+        label: "Priority"
+        values:
+          - { value: "2", label: "Priority 2 (medium)" }
+          - { value: "3", label: "Priority 3 (highest)" }
+      source:
+        type: enum
+        required: true
+        label: "Source"
+        values:
+          - { value: "0", label: "None (silent)" }
+          - { value: "100", label: "Analog 1" }
+          - { value: "101", label: "Analog 2" }
+          - { value: "102", label: "Analog 3" }
+          - { value: "103", label: "Analog 4" }
+          - { value: "104", label: "Analog 5" }
+          - { value: "105", label: "Analog 6" }
+          - { value: "106", label: "Analog 7" }
+          - { value: "107", label: "Analog 8" }
+          - { value: "200", label: "S/PDIF Left" }
+          - { value: "201", label: "S/PDIF Right" }
+          - { value: "300", label: "Dante 1" }
+          - { value: "301", label: "Dante 2" }
+          - { value: "302", label: "Dante 3" }
+          - { value: "303", label: "Dante 4" }
+          - { value: "400", label: "Noise Generator" }
+          - { value: "500", label: "Mix 1" }
+          - { value: "501", label: "Mix 2" }
+          - { value: "502", label: "Mix 3" }
+          - { value: "503", label: "Mix 4" }
+
+  set_zone_compressor:
+    label: "Set Zone Compressor"
+    send: "SET ZONE-{zone}.COMPRESSOR.BYPASS {bypass}\n"
+    help: "Turns the zone's compressor on or bypasses it."
+    params:
+      zone:
+        type: child_id
+        child_type: zone
+        required: true
+        label: "Zone"
+      bypass:
+        type: enum
+        required: true
+        label: "Compressor"
+        values:
+          - { value: "1", label: "Bypassed" }
+          - { value: "0", label: "On" }
+
+  # ── Outputs ──
+
+  mute_output:
+    label: "Mute Output"
+    send: "SET OUT-{output}.MUTE 1\n"
+    sets: { mute: true }
+    help: "Mutes one amplifier output."
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: "Output"
+
+  unmute_output:
+    label: "Unmute Output"
+    send: "SET OUT-{output}.MUTE 0\n"
+    sets: { mute: false }
+    help: "Unmutes one amplifier output."
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: "Output"
+
+  set_output_level:
+    label: "Set Output Level"
+    send: "SET OUT-{output}.GAIN {level}\n"
+    sets: { gain: "{level}" }
+    help: "Sets an output's trim in dB, -30 to +15, after the zone level."
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: "Output"
+      level:
+        type: number
+        required: true
+        label: "Level (dB)"
+        min: -30.0
+        max: 15.0
+        decimals: 1
+
+  set_output_name:
+    label: "Set Output Name"
+    send: 'SET OUT-{output}.NAME "{name}"\n'
+    sets: { name: "{name}" }
+    help: "Names an output on the amplifier (Bar Left)."
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: "Output"
+      name:
+        type: string
+        required: true
+        label: "Name"
+        pattern: '^[^"]{1,32}$'
+        help: "Up to 32 characters, no double quotes."
+
+  set_output_zone:
+    label: "Set Output Zone"
+    send: "SET OUT-{output}.SRC {zone}\n"
+    sets: { zone: "{zone}" }
+    help: "Picks which zone an output plays. A zone the model lacks is refused into Last Error."
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: "Output"
+      zone:
+        type: enum
+        required: true
+        label: "Zone"
+        values: [A, B, C, D, E, F, G, H]
+
+  set_output_channel:
+    label: "Set Output Channel"
+    send: "SET OUT-{output}.SRC_CHANNEL {channel}\n"
+    sets: { channel: "{channel}" }
+    help: "Picks which side of its zone an output plays: left, right, or both summed."
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: "Output"
+      channel:
+        type: enum
+        required: true
+        label: "Channel"
+        values:
+          - { value: "L", label: "Left" }
+          - { value: "R", label: "Right" }
+          - { value: "S", label: "Left + right (summed)" }
+
+  set_output_delay:
+    label: "Set Output Delay"
+    send: "SET OUT-{output}.DELAY.TIME {seconds}\n"
+    sets: { delay: "{seconds}" }
+    help: "Delays an output, 0 to 0.1 s, to line up speakers at different distances."
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: "Output"
+      seconds:
+        type: number
+        required: true
+        label: "Delay (s)"
+        min: 0.0
+        max: 0.1
+        decimals: 4
+
+  set_output_delay_bypass:
+    label: "Set Output Delay Bypass"
+    send: "SET OUT-{output}.DELAY.BYPASS {bypass}\n"
+    help: "Bypasses an output's delay, or puts it back in."
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: "Output"
+      bypass:
+        type: enum
+        required: true
+        label: "Delay"
+        values:
+          - { value: "1", label: "Bypassed" }
+          - { value: "0", label: "On" }
+
+  set_output_eq_bypass:
+    label: "Set Output EQ Bypass"
+    send: "SET OUT-{output}.EQ.BYPASS {bypass}\n"
+    help: "Bypasses an output's room EQ, or puts it back in."
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: "Output"
+      bypass:
+        type: enum
+        required: true
+        label: "Output EQ"
+        values:
+          - { value: "1", label: "Bypassed" }
+          - { value: "0", label: "On" }
+
+  set_output_route_source:
+    label: "Set Output Route Source"
+    send: "SET ROUT-{output}.SRC {source}\n"
+    sets: { route_source: "{source}" }
+    help: "Sends an input, a mix or a zone straight to an output (the document's direct route, advanced use)."
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: "Output"
+      source:
+        type: enum
+        required: true
+        label: "Source"
+        values:
+          - { value: "0", label: "None (silent)" }
+          - { value: "100", label: "Analog 1" }
+          - { value: "101", label: "Analog 2" }
+          - { value: "102", label: "Analog 3" }
+          - { value: "103", label: "Analog 4" }
+          - { value: "200", label: "S/PDIF Left" }
+          - { value: "201", label: "S/PDIF Right" }
+          - { value: "300", label: "Dante 1" }
+          - { value: "301", label: "Dante 2" }
+          - { value: "302", label: "Dante 3" }
+          - { value: "303", label: "Dante 4" }
+          - { value: "500", label: "Mix 1" }
+          - { value: "501", label: "Mix 2" }
+          - { value: "502", label: "Mix 3" }
+          - { value: "503", label: "Mix 4" }
+          - { value: "1000", label: "Zone A" }
+          - { value: "1001", label: "Zone B" }
+          - { value: "1002", label: "Zone C" }
+          - { value: "1003", label: "Zone D" }
+
+  set_output_route_channel:
+    label: "Set Output Route Channel"
+    send: "SET ROUT-{output}.SRC_CHANNEL {channel}\n"
+    sets: { route_channel: "{channel}" }
+    help: "Picks which side of the routed source an output's direct route carries."
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: "Output"
+      channel:
+        type: enum
+        required: true
+        label: "Channel"
+        values:
+          - { value: "L", label: "Left" }
+          - { value: "R", label: "Right" }
+          - { value: "S", label: "Left + right (summed)" }
+
+  set_output_route_level:
+    label: "Set Output Route Level"
+    send: "SET ROUT-{output}.GAIN {level}\n"
+    sets: { route_gain: "{level}" }
+    help: "Sets the level of an output's direct route, -40 to +20 dB."
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: "Output"
+      level:
+        type: number
+        required: true
+        label: "Level (dB)"
+        min: -40.0
+        max: 20.0
+        decimals: 1
+
+  # ── Inputs and mixes ──
+
+  set_input_level:
+    label: "Set Input Gain"
+    send: "SET IN-{input}.GAIN {level}\n"
+    sets: { gain: "{level}" }
+    help: "Sets an input's trim in dB, -15 to +15 (the Noise Generator, input 400: -48 to 0)."
+    params:
+      input:
+        type: child_id
+        child_type: input
+        required: true
+        label: "Input"
+      level:
+        type: number
+        required: true
+        label: "Gain (dB)"
+        min: -48.0
+        max: 15.0
+        decimals: 1
+
+  set_input_name:
+    label: "Set Input Name"
+    send: 'SET IN-{input}.NAME "{name}"\n'
+    sets: { name: "{name}" }
+    help: "Names an input on the amplifier (Music, Paging Mic)."
+    params:
+      input:
+        type: child_id
+        child_type: input
+        required: true
+        label: "Input"
+      name:
+        type: string
+        required: true
+        label: "Name"
+        pattern: '^[^"]{1,32}$'
+        help: "Up to 32 characters, no double quotes."
+
+  set_input_sensitivity:
+    label: "Set Input Sensitivity"
+    send: "SET IN-{input}.SENS {sensitivity}\n"
+    sets: { sensitivity: "{sensitivity}" }
+    help: "Matches an analog input to what is plugged in: professional line level, consumer line level, or a dynamic microphone."
+    params:
+      input:
+        type: child_id
+        child_type: input
+        required: true
+        label: "Input"
+      sensitivity:
+        type: enum
+        required: true
+        label: "Sensitivity"
+        values:
+          - { value: "14DBU", label: "+14 dBu (professional)" }
+          - { value: "4DBU", label: "+4 dBu (professional)" }
+          - { value: "-10DBV", label: "-10 dBV (consumer)" }
+          - { value: "MIC", label: "Microphone" }
+
+  set_mix_level:
+    label: "Set Mix Level"
+    send: "SET MIX-{mix}.GAIN-{input} {level}\n"
+    help: "Sets how much of one input goes into a mix, in dB (0 = full, -144 = none)."
+    params:
+      mix:
+        type: child_id
+        child_type: mix
+        required: true
+        label: "Mix"
+      input:
+        type: enum
+        required: true
+        label: "Input"
+        values:
+          - { value: "100", label: "Analog 1" }
+          - { value: "101", label: "Analog 2" }
+          - { value: "102", label: "Analog 3" }
+          - { value: "103", label: "Analog 4" }
+          - { value: "104", label: "Analog 5" }
+          - { value: "105", label: "Analog 6" }
+          - { value: "106", label: "Analog 7" }
+          - { value: "107", label: "Analog 8" }
+          - { value: "200", label: "S/PDIF Left" }
+          - { value: "201", label: "S/PDIF Right" }
+          - { value: "300", label: "Dante 1" }
+          - { value: "301", label: "Dante 2" }
+          - { value: "302", label: "Dante 3" }
+          - { value: "303", label: "Dante 4" }
+          - { value: "400", label: "Noise Generator" }
+      level:
+        type: number
+        required: true
+        label: "Level (dB)"
+        min: -144.0
+        max: 0.0
+        decimals: 1
+
+  set_mix_name:
+    label: "Set Mix Name"
+    send: 'SET MIX-{mix}.NAME "{name}"\n'
+    sets: { name: "{name}" }
+    help: "Names a mix on the amplifier."
+    params:
+      mix:
+        type: child_id
+        child_type: mix
+        required: true
+        label: "Mix"
+      name:
+        type: string
+        required: true
+        label: "Name"
+        pattern: '^[^"]{1,32}$'
+        help: "Up to 32 characters, no double quotes."
+
+  # ── Amplifier ──
+
+  power_on:
+    label: "Power On"
+    send: "POWER_ON\n"
+    help: >
+      Wakes the amplifier from standby. It is accepted only in some Power On
+      Modes; otherwise the amplifier answers E122 into Last Error.
+    # No read-back in the send: the state passes through INIT on the way up,
+    # and the 10 s poll reads SYSTEM.STATUS.STATE.
+
+  power_off:
+    label: "Power Off (Standby)"
+    send: "POWER_OFF\n"
+    help: >
+      Puts the amplifier in standby: every zone goes silent. Accepted only in
+      some Power On Modes (E122 into Last Error otherwise). In an Eco mode the
+      amplifier also switches its network off, so it reads offline here until
+      audio or a trigger wakes it.
+
+  reboot:
+    label: "Restart Amplifier"
+    send: "REBOOT\n"
+    confirm: "Restarts the amplifier. Audio stops in every zone until it is back."
+    help: "Restarts the amplifier about a second after acknowledging. It goes offline here until it is back."
+
+  factory_defaults:
+    label: "Reset to Factory Defaults"
+    send: "FACTORY_DEFAULTS\n"
+    confirm: >
+      Erases the amplifier's whole setup (zones, sources, names, speaker
+      presets and power settings) and resets Dante. Every other control
+      connection is closed.
+    help: "Returns every setting on the amplifier to factory values and resets Dante."
+
+quick_actions: [mute_zone, unmute_zone, set_zone_level, set_zone_source]
+
+routing:
+  # A zone picks its source and an output picks its zone. The direct output
+  # route (ROUT) is advanced use and left off the matrix.
+  planes:
+    - label: "Zone Source"
+      destination_child_type: zone
+      route_property: source
+      command: set_zone_source
+    - label: "Output Zone"
+      destination_child_type: output
+      source_child_type: zone
+      route_property: zone
+      command: set_output_zone
+
+responses:
+  # Every value line is "+<register> <value>", from a GET, an INC or a push,
+  # so one rule per register reads all three. Each rule names its register
+  # up to the space before the value, so GAIN never reads GAIN_MIN.
+
+  # ── Zones ──
+  - match: '^\+ZONE-([A-H])\.NAME "(.*)"$'
+    child_set:
+      - { type: zone, id: $1, state: { name: $2 } }
+
+  - match: '^\+ZONE-([A-H])\.GAIN (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: zone, id: $1, state: { gain: $2 } }
+
+  - match: '^\+ZONE-([A-H])\.GAIN_MIN (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: zone, id: $1, state: { gain_min: $2 } }
+
+  - match: '^\+ZONE-([A-H])\.GAIN_MAX (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: zone, id: $1, state: { gain_max: $2 } }
+
+  - match: '^\+ZONE-([A-H])\.MUTE ([01])$'
+    child_set:
+      - { type: zone, id: $1, state: { mute: $2 } }
+
+  - match: '^\+ZONE-([A-H])\.MUTE_ENABLE ([01])$'
+    child_set:
+      - { type: zone, id: $1, state: { mute_enable: $2 } }
+
+  - match: '^\+ZONE-([A-H])\.PRIMARY_SRC (\d+)$'
+    child_set:
+      - type: zone
+        id: $1
+        state:
+          source: $2
+          source_name:
+            group: 2
+            map:
+              "0": "None (silent)"
+              "100": "Analog 1"
+              "101": "Analog 2"
+              "102": "Analog 3"
+              "103": "Analog 4"
+              "104": "Analog 5"
+              "105": "Analog 6"
+              "106": "Analog 7"
+              "107": "Analog 8"
+              "200": "S/PDIF Left"
+              "201": "S/PDIF Right"
+              "300": "Dante 1"
+              "301": "Dante 2"
+              "302": "Dante 3"
+              "303": "Dante 4"
+              "400": "Noise Generator"
+              "500": "Mix 1"
+              "501": "Mix 2"
+              "502": "Mix 3"
+              "503": "Mix 4"
+
+  - match: '^\+ZONE-([A-H])\.STEREO ([01])$'
+    child_set:
+      - { type: zone, id: $1, state: { stereo: $2 } }
+
+  - match: '^\+ZONE-([A-H])\.GPIO_VC (\d+)$'
+    child_set:
+      - { type: zone, id: $1, state: { gpio_vc: $2 } }
+
+  - match: '^\+ZONE-([A-H])\.DUCK\.MODE (OFF|DUCKER|OVERRIDE)$'
+    child_set:
+      - { type: zone, id: $1, state: { duck_mode: $2 } }
+
+  - match: '^\+ZONE-([A-H])\.PRIORITY-2\.SRC (\d+)$'
+    child_set:
+      - { type: zone, id: $1, state: { priority_2_source: $2 } }
+
+  - match: '^\+ZONE-([A-H])\.PRIORITY-3\.SRC (\d+)$'
+    child_set:
+      - { type: zone, id: $1, state: { priority_3_source: $2 } }
+
+  - match: '^\+ZONE-([A-H])\.COMPRESSOR\.BYPASS ([01])$'
+    child_set:
+      - { type: zone, id: $1, state: { compressor_bypass: $2 } }
+
+  # ── Outputs (OUT-n, and ROUT-n: route channel n is output n) ──
+  - match: '^\+OUT-(\d+)\.NAME "(.*)"$'
+    child_set:
+      - { type: output, id: $1, state: { name: $2 } }
+
+  - match: '^\+OUT-(\d+)\.GAIN (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: output, id: $1, state: { gain: $2 } }
+
+  - match: '^\+OUT-(\d+)\.MUTE ([01])$'
+    child_set:
+      - { type: output, id: $1, state: { mute: $2 } }
+
+  # OUT-n.SRC is a one-character string, so it may come back quoted ("A",
+  # or "" for none) like every string, or bare: both are read.
+  - match: '^\+OUT-(\d+)\.SRC "?([A-H]?)"?$'
+    child_set:
+      - { type: output, id: $1, state: { zone: $2 } }
+
+  - match: '^\+OUT-(\d+)\.SRC_CHANNEL (L|R|S)$'
+    child_set:
+      - { type: output, id: $1, state: { channel: $2 } }
+
+  - match: '^\+OUT-(\d+)\.OUTPUT_MODE (OFF|4R|8R|70V|100V|BTL)$'
+    child_set:
+      - { type: output, id: $1, state: { mode: $2 } }
+
+  - match: '^\+OUT-(\d+)\.DELAY\.TIME (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: output, id: $1, state: { delay: $2 } }
+
+  - match: '^\+OUT-(\d+)\.DELAY\.BYPASS ([01])$'
+    child_set:
+      - { type: output, id: $1, state: { delay_bypass: $2 } }
+
+  - match: '^\+OUT-(\d+)\.EQ\.BYPASS ([01])$'
+    child_set:
+      - { type: output, id: $1, state: { eq_bypass: $2 } }
+
+  - match: '^\+OUT-(\d+)\.PRESET\.NAME "(.*)"$'
+    child_set:
+      - { type: output, id: $1, state: { preset_name: $2 } }
+
+  - match: '^\+OUT-(\d+)\.PRESET\.LOCKED ([01])$'
+    child_set:
+      - { type: output, id: $1, state: { preset_locked: $2 } }
+
+  - match: '^\+ROUT-(\d+)\.SRC (\d+)$'
+    child_set:
+      - { type: output, id: $1, state: { route_source: $2 } }
+
+  - match: '^\+ROUT-(\d+)\.SRC_CHANNEL (L|R|S)$'
+    child_set:
+      - { type: output, id: $1, state: { route_channel: $2 } }
+
+  - match: '^\+ROUT-(\d+)\.GAIN (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: output, id: $1, state: { route_gain: $2 } }
+
+  # ── Inputs: a name puts the input in service (a reported roster) ──
+  - match: '^\+IN-(\d+)\.NAME "(.*)"$'
+    child_set:
+      - type: input
+        id: $1
+        state:
+          name: $2
+          online: "true"
+          offline_reason: ""
+          offline_detail: ""
+
+  - match: '^\+IN-(\d+)\.GAIN (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: input, id: $1, state: { gain: $2 } }
+
+  - match: '^\+IN-(\d+)\.SENS (14DBU|4DBU|-10DBV|MIC)$'
+    child_set:
+      - { type: input, id: $1, state: { sensitivity: $2 } }
+
+  - match: '^\+IN-(\d+)\.STEREO ([01])$'
+    child_set:
+      - { type: input, id: $1, state: { stereo: $2 } }
+
+  - match: '^\+IN-(\d+)\.HPF_ENABLE ([01])$'
+    child_set:
+      - { type: input, id: $1, state: { hpf_enable: $2 } }
+
+  - match: '^\+IN-(\d+)\.EQ\.BYPASS ([01])$'
+    child_set:
+      - { type: input, id: $1, state: { eq_bypass: $2 } }
+
+  # ── Mixes: a name puts the mix in service; one rule per input level ──
+  - match: '^\+MIX-(\d+)\.NAME "(.*)"$'
+    child_set:
+      - type: mix
+        id: $1
+        state:
+          name: $2
+          online: "true"
+          offline_reason: ""
+          offline_detail: ""
+
+  - match: '^\+MIX-(\d+)\.GAIN-100 (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: mix, id: $1, state: { level_100: $2 } }
+
+  - match: '^\+MIX-(\d+)\.GAIN-101 (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: mix, id: $1, state: { level_101: $2 } }
+
+  - match: '^\+MIX-(\d+)\.GAIN-102 (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: mix, id: $1, state: { level_102: $2 } }
+
+  - match: '^\+MIX-(\d+)\.GAIN-103 (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: mix, id: $1, state: { level_103: $2 } }
+
+  - match: '^\+MIX-(\d+)\.GAIN-104 (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: mix, id: $1, state: { level_104: $2 } }
+
+  - match: '^\+MIX-(\d+)\.GAIN-105 (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: mix, id: $1, state: { level_105: $2 } }
+
+  - match: '^\+MIX-(\d+)\.GAIN-106 (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: mix, id: $1, state: { level_106: $2 } }
+
+  - match: '^\+MIX-(\d+)\.GAIN-107 (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: mix, id: $1, state: { level_107: $2 } }
+
+  - match: '^\+MIX-(\d+)\.GAIN-200 (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: mix, id: $1, state: { level_200: $2 } }
+
+  - match: '^\+MIX-(\d+)\.GAIN-201 (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: mix, id: $1, state: { level_201: $2 } }
+
+  - match: '^\+MIX-(\d+)\.GAIN-300 (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: mix, id: $1, state: { level_300: $2 } }
+
+  - match: '^\+MIX-(\d+)\.GAIN-301 (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: mix, id: $1, state: { level_301: $2 } }
+
+  - match: '^\+MIX-(\d+)\.GAIN-302 (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: mix, id: $1, state: { level_302: $2 } }
+
+  - match: '^\+MIX-(\d+)\.GAIN-303 (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: mix, id: $1, state: { level_303: $2 } }
+
+  - match: '^\+MIX-(\d+)\.GAIN-400 (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: mix, id: $1, state: { level_400: $2 } }
+
+  # ── Wall volume controls ──
+  - match: '^\+VC-(\d+)\.NAME "(.*)"$'
+    child_set:
+      - type: volume_control
+        id: $1
+        state:
+          name: $2
+          online: "true"
+          offline_reason: ""
+          offline_detail: ""
+
+  - match: '^\+VC-(\d+)\.VALUE (-?\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: volume_control, id: $1, state: { value: $2 } }
+
+  # ── Meters (SUBSCRIBE DYN, only while Enable Level Meters is on) ──
+  # The amplifier already caps the rate at Meter Updates per Second; the
+  # throttle (per child) only bounds a burst.
+  - match: '^\+IN-(\d+)\.DYN\.SIGNAL (-?\d+(?:\.\d+)?)$'
+    throttle: 0.25
+    child_set:
+      - { type: input, id: $1, state: { signal: $2 } }
+
+  - match: '^\+IN-(\d+)\.DYN\.CLIP ([01])$'
+    throttle: 0.25
+    child_set:
+      - { type: input, id: $1, state: { clip: $2 } }
+
+  - match: '^\+ZONE-([A-H])\.DYN\.SIGNAL (-?\d+(?:\.\d+)?)$'
+    throttle: 0.25
+    child_set:
+      - { type: zone, id: $1, state: { signal: $2 } }
+
+  - match: '^\+OUT-(\d+)\.DYN\.SIGNAL (-?\d+(?:\.\d+)?)$'
+    throttle: 0.25
+    child_set:
+      - { type: output, id: $1, state: { signal: $2 } }
+
+  - match: '^\+OUT-(\d+)\.DYN\.CLIP ([01])$'
+    throttle: 0.25
+    child_set:
+      - { type: output, id: $1, state: { clip: $2 } }
+
+  - match: '^\+ROUT-(\d+)\.DYN\.SIGNAL (-?\d+(?:\.\d+)?)$'
+    throttle: 0.25
+    child_set:
+      - { type: output, id: $1, state: { route_signal: $2 } }
+
+  - match: '^\+ROUT-(\d+)\.DYN\.CLIP ([01])$'
+    throttle: 0.25
+    child_set:
+      - { type: output, id: $1, state: { route_clip: $2 } }
+
+  # ── Amplifier status ──
+  - match: '^\+SYSTEM\.STATUS\.STATE (INIT|STANDBY|STANDBY_FORCED|ON)$'
+    mappings:
+      - { group: 1, state: system_state }
+      - { group: 1, state: power, map: { "ON": "true", "STANDBY": "false", "STANDBY_FORCED": "false", "INIT": "false" } }
+
+  - match: '^\+SYSTEM\.STATUS\.SIGNAL_IN (OFF|NO_SIGNAL|SIGNAL|CLIP)$'
+    set: { signal_in: $1 }
+
+  - match: '^\+SYSTEM\.STATUS\.SIGNAL_OUT (OFF|NO_SIGNAL|SIGNAL|CLIP|FAULT)$'
+    set: { signal_out: $1 }
+
+  - match: '^\+SYSTEM\.STATUS\.LAN "(.*)"$'
+    set: { lan_status: $1 }
+
+  - match: '^\+SYSTEM\.STATUS\.WIFI "(.*)"$'
+    set: { wifi_status: $1 }
+
+  # ── Identity ──
+  - match: '^\+API_VERSION "(.*)"$'
+    set: { api_version: $1 }
+
+  - match: '^\+SYSTEM\.DEVICE\.VENDOR_NAME "(.*)"$'
+    set: { vendor_name: $1 }
+
+  - match: '^\+SYSTEM\.DEVICE\.MODEL_NAME "(.*)"$'
+    set: { model_name: $1 }
+
+  - match: '^\+SYSTEM\.DEVICE\.SERIAL "(.*)"$'
+    set: { serial_number: $1 }
+
+  - match: '^\+SYSTEM\.DEVICE\.FIRMWARE "(.*)"$'
+    set: { firmware_version: $1 }
+
+  - match: '^\+SYSTEM\.DEVICE\.FIRMWARE_DATE "(.*)"$'
+    set: { firmware_date: $1 }
+
+  - match: '^\+SYSTEM\.DEVICE\.MAC "(.*)"$'
+    set: { mac_address: $1 }
+
+  - match: '^\+SYSTEM\.DEVICE\.WIFI_MAC "(.*)"$'
+    set: { wifi_mac_address: $1 }
+
+  - match: '^\+SYSTEM\.DEVICE\.HWID (\d+)$'
+    set: { hardware_id: $1 }
+
+  - match: '^\+SYSTEM\.DEVICE\.SWID (\d+)$'
+    set: { software_id: $1 }
+
+  # ── Setup values (the device settings read back) ──
+  - match: '^\+SETUP\.SYSTEM\.DEVICE_NAME "(.*)"$'
+    set: { device_name: $1 }
+
+  - match: '^\+SETUP\.SYSTEM\.VENUE_NAME "(.*)"$'
+    set: { venue_name: $1 }
+
+  - match: '^\+SETUP\.SYSTEM\.CUSTOMER_NAME "(.*)"$'
+    set: { customer_name: $1 }
+
+  - match: '^\+SETUP\.SYSTEM\.INSTALLER_NAME "(.*)"$'
+    set: { installer_name: $1 }
+
+  - match: '^\+SETUP\.SYSTEM\.CONTACT_INFO "(.*)"$'
+    set: { contact_info: $1 }
+
+  - match: '^\+SETUP\.SYSTEM\.INSTALL_DATE "(.*)"$'
+    set: { install_date: $1 }
+
+  - match: '^\+SETUP\.SYSTEM\.ASSET_TAG "(.*)"$'
+    set: { asset_tag: $1 }
+
+  - match: '^\+SETUP\.SYSTEM\.LOCATING ([01])$'
+    set: { locating: $1 }
+
+  - match: '^\+SETUP\.POWER\.POWER_ON (AUDIO|AUDIO_ECO|AUDIO_DSP|TRIGGER|TRIGGER_ECO|NETWORK)$'
+    set: { power_on_mode: $1 }
+
+  - match: '^\+SETUP\.POWER\.MUTE_TIME (\d+)$'
+    set: { mute_time: $1 }
+
+  - match: '^\+SETUP\.POWER\.STANDBY_TIME (\d+)$'
+    set: { standby_time: $1 }
+
+  - match: '^\+GENERATOR\.TYPE (PINK|SINE)$'
+    set: { generator_type: $1 }
+
+  - match: '^\+GENERATOR\.SINE\.FREQ (-?\d+(?:\.\d+)?)$'
+    set: { sine_frequency: $1 }
+
+  - match: '^\+GENERATOR\.PINK\.LPF_ENABLE ([01])$'
+    set: { pink_lpf_enable: $1 }
+
+  - match: '^\+GENERATOR\.PINK\.LPF_FREQ (-?\d+(?:\.\d+)?)$'
+    set: { pink_lpf_frequency: $1 }
+
+  - match: '^\+GENERATOR\.PINK\.HPF_ENABLE ([01])$'
+    set: { pink_hpf_enable: $1 }
+
+  - match: '^\+GENERATOR\.PINK\.HPF_FREQ (-?\d+(?:\.\d+)?)$'
+    set: { pink_hpf_frequency: $1 }
+
+  # ── Counts: the roster sizes ──
+  # ZONE.COUNT names the zones as letters for the Zones setting (learned_from).
+  - match: '^\+ZONE\.COUNT ([1-8])$'
+    mappings:
+      - { group: 1, state: zone_count }
+      - { group: 1, state: zone_ids, map: { "1": "A", "2": "A,B", "3": "A,B,C", "4": "A,B,C,D", "5": "A,B,C,D,E", "6": "A,B,C,D,E,F", "7": "A,B,C,D,E,F,G", "8": "A,B,C,D,E,F,G,H" } }
+
+  - match: '^\+OUT\.COUNT (\d+)$'
+    set: { out_count: $1 }
+
+  - match: '^\+IN\.COUNT (\d+)$'
+    set: { in_count: $1 }
+
+  - match: '^\+MIX\.COUNT (\d+)$'
+    set: { mix_count: $1 }
+
+  - match: '^\+VC\.COUNT (\d+)$'
+    set: { vc_count: $1 }
+
+  # ── Dante (D models, read only with Dante Model ticked) ──
+  - match: '^\+SYSTEM\.DANTE\.DEVICE_NAME "(.*)"$'
+    set: { dante_device_name: $1 }
+
+  - match: '^\+SYSTEM\.DANTE\.IP "(.*)"$'
+    set: { dante_ip: $1 }
+
+  - match: '^\+SYSTEM\.DANTE\.MAC "(.*)"$'
+    set: { dante_mac: $1 }
+
+  - match: '^\+SYSTEM\.DANTE\.FIRMWARE_VERSION "(.*)"$'
+    set: { dante_firmware_version: $1 }
+
+  - match: '^\+SYSTEM\.DANTE\.SOFTWARE_VERSION "(.*)"$'
+    set: { dante_software_version: $1 }
+
+  - match: '^\+SYSTEM\.DANTE\.MUTE_STATE "(.*)"$'
+    set: { dante_mute_state: $1 }
+
+  - match: '^\+SYSTEM\.DANTE\.LINK_SPEED (\d+)$'
+    set: { dante_link_speed: $1 }
+
+  - match: '^\+SYSTEM\.DANTE\.AES67_ENABLED ([01])$'
+    set: { dante_aes67: $1 }
+
+  - match: '^\+SYSTEM\.DANTE\.ENCODING (PCM16|PCM24|PCM32)$'
+    set: { dante_encoding: $1 }
+
+  - match: '^\+SYSTEM\.DANTE\.SAMPLE_RATE (44100|48000|96000)$'
+    set: { dante_sample_rate: $1 }
+
+  - match: '^\+SYSTEM\.DANTE\.CLOCK_STATE (NO_CLOCK|LOCKING|LOCKED)$'
+    set: { dante_clock_state: $1 }
+
+  # ── Refusals, acknowledgements and the keep-alive ──
+  # The send queue overflowed and pushes were dropped (document 4.1): say so
+  # and read the values that change in use again, since any may be stale.
+  - match: '^#\|(E0:.*)$'
+    set: { last_error: $1 }
+    then_query:
+      - "GET ZONE-*.NAME\n"
+      - "GET ZONE-*.GAIN\n"
+      - "GET ZONE-*.GAIN_MIN\n"
+      - "GET ZONE-*.GAIN_MAX\n"
+      - "GET ZONE-*.MUTE\n"
+      - "GET ZONE-*.MUTE_ENABLE\n"
+      - "GET ZONE-*.PRIMARY_SRC\n"
+      - "GET ZONE-*.STEREO\n"
+      - "GET ZONE-*.GPIO_VC\n"
+      - "GET ZONE-*.DUCK.MODE\n"
+      - "GET ZONE-*.PRIORITY-2.SRC\n"
+      - "GET ZONE-*.PRIORITY-3.SRC\n"
+      - "GET ZONE-*.COMPRESSOR.BYPASS\n"
+      - "GET OUT-*.GAIN\n"
+      - "GET OUT-*.MUTE\n"
+      - "GET OUT-*.SRC\n"
+      - "GET OUT-*.SRC_CHANNEL\n"
+      - "GET OUT-*.DELAY.TIME\n"
+      - "GET OUT-*.DELAY.BYPASS\n"
+      - "GET OUT-*.EQ.BYPASS\n"
+      - "GET ROUT-*.SRC\n"
+      - "GET ROUT-*.SRC_CHANNEL\n"
+      - "GET ROUT-*.GAIN\n"
+      - "GET IN-*.GAIN\n"
+      - "GET IN-*.SENS\n"
+      - "GET MIX-*.GAIN-100\n"
+      - "GET MIX-*.GAIN-101\n"
+      - "GET MIX-*.GAIN-102\n"
+      - "GET MIX-*.GAIN-103\n"
+      - "GET MIX-*.GAIN-104\n"
+      - "GET MIX-*.GAIN-105\n"
+      - "GET MIX-*.GAIN-106\n"
+      - "GET MIX-*.GAIN-107\n"
+      - "GET MIX-*.GAIN-200\n"
+      - "GET MIX-*.GAIN-201\n"
+      - "GET MIX-*.GAIN-300\n"
+      - "GET MIX-*.GAIN-301\n"
+      - "GET MIX-*.GAIN-302\n"
+      - "GET MIX-*.GAIN-303\n"
+      - "GET MIX-*.GAIN-400\n"
+      - "GET SYSTEM.STATUS.STATE\n"
+      - "GET SYSTEM.STATUS.SIGNAL_IN\n"
+      - "GET SYSTEM.STATUS.SIGNAL_OUT\n"
+      - "GET VC-*.VALUE\n"
+
+  # #<command>|<message>: the whole line after the #, so Last Error names the
+  # command the amplifier refused as well as why.
+  - match: '^#(.+)$'
+    set: { last_error: $1 }
+
+  # *<command>: the command worked. Its value, if any, came before it.
+  - match: '^\*.*$'
+    set: {}
+
+  - match: '^PONG$'
+    set: {}
+
+on_connect:
+  # REG first: a SET is echoed only to a subscriber, and every change after
+  # this line arrives on the connection. Then the initial read (the document
+  # does not say a subscription replays current values): the counts first,
+  # so the rosters are the amplifier's own before its values arrive.
+  - "SUBSCRIBE REG\n"
+  - { send: "SUBSCRIBE DYN {meter_rate}\n", when: enable_meters }
+  - "GET ZONE.COUNT\n"
+  - "GET OUT.COUNT\n"
+  - "GET IN.COUNT\n"
+  - "GET MIX.COUNT\n"
+  - "GET VC.COUNT\n"
+  - "GET ZONE-*.NAME\n"
+  - "GET ZONE-*.GAIN\n"
+  - "GET ZONE-*.GAIN_MIN\n"
+  - "GET ZONE-*.GAIN_MAX\n"
+  - "GET ZONE-*.MUTE\n"
+  - "GET ZONE-*.MUTE_ENABLE\n"
+  - "GET ZONE-*.PRIMARY_SRC\n"
+  - "GET ZONE-*.STEREO\n"
+  - "GET ZONE-*.GPIO_VC\n"
+  - "GET ZONE-*.DUCK.MODE\n"
+  - "GET ZONE-*.PRIORITY-2.SRC\n"
+  - "GET ZONE-*.PRIORITY-3.SRC\n"
+  - "GET ZONE-*.COMPRESSOR.BYPASS\n"
+  - "GET OUT-*.NAME\n"
+  - "GET OUT-*.GAIN\n"
+  - "GET OUT-*.MUTE\n"
+  - "GET OUT-*.SRC\n"
+  - "GET OUT-*.SRC_CHANNEL\n"
+  - "GET OUT-*.OUTPUT_MODE\n"
+  - "GET OUT-*.DELAY.TIME\n"
+  - "GET OUT-*.DELAY.BYPASS\n"
+  - "GET OUT-*.EQ.BYPASS\n"
+  - "GET OUT-*.PRESET.NAME\n"
+  - "GET OUT-*.PRESET.LOCKED\n"
+  - "GET ROUT-*.SRC\n"
+  - "GET ROUT-*.SRC_CHANNEL\n"
+  - "GET ROUT-*.GAIN\n"
+  - "GET IN-*.NAME\n"
+  - "GET IN-*.GAIN\n"
+  - "GET IN-*.SENS\n"
+  - "GET IN-*.STEREO\n"
+  - "GET IN-*.HPF_ENABLE\n"
+  - "GET IN-*.EQ.BYPASS\n"
+  - "GET MIX-*.NAME\n"
+  - "GET MIX-*.GAIN-100\n"
+  - "GET MIX-*.GAIN-101\n"
+  - "GET MIX-*.GAIN-102\n"
+  - "GET MIX-*.GAIN-103\n"
+  - "GET MIX-*.GAIN-104\n"
+  - "GET MIX-*.GAIN-105\n"
+  - "GET MIX-*.GAIN-106\n"
+  - "GET MIX-*.GAIN-107\n"
+  - "GET MIX-*.GAIN-200\n"
+  - "GET MIX-*.GAIN-201\n"
+  - "GET MIX-*.GAIN-300\n"
+  - "GET MIX-*.GAIN-301\n"
+  - "GET MIX-*.GAIN-302\n"
+  - "GET MIX-*.GAIN-303\n"
+  - "GET MIX-*.GAIN-400\n"
+  - "GET VC-*.NAME\n"
+  - "GET VC-*.VALUE\n"
+  - "GET SYSTEM.STATUS.STATE\n"
+  - "GET SYSTEM.STATUS.SIGNAL_IN\n"
+  - "GET SYSTEM.STATUS.SIGNAL_OUT\n"
+  - "GET SYSTEM.STATUS.LAN\n"
+  - "GET SYSTEM.STATUS.WIFI\n"
+  - "GET API_VERSION\n"
+  - "GET SYSTEM.DEVICE.VENDOR_NAME\n"
+  - "GET SYSTEM.DEVICE.MODEL_NAME\n"
+  - "GET SYSTEM.DEVICE.SERIAL\n"
+  - "GET SYSTEM.DEVICE.FIRMWARE\n"
+  - "GET SYSTEM.DEVICE.FIRMWARE_DATE\n"
+  - "GET SYSTEM.DEVICE.MAC\n"
+  - "GET SYSTEM.DEVICE.WIFI_MAC\n"
+  - "GET SYSTEM.DEVICE.HWID\n"
+  - "GET SYSTEM.DEVICE.SWID\n"
+  - "GET SETUP.SYSTEM.DEVICE_NAME\n"
+  - "GET SETUP.SYSTEM.VENUE_NAME\n"
+  - "GET SETUP.SYSTEM.CUSTOMER_NAME\n"
+  - "GET SETUP.SYSTEM.INSTALLER_NAME\n"
+  - "GET SETUP.SYSTEM.CONTACT_INFO\n"
+  - "GET SETUP.SYSTEM.INSTALL_DATE\n"
+  - "GET SETUP.SYSTEM.ASSET_TAG\n"
+  - "GET SETUP.SYSTEM.LOCATING\n"
+  - "GET SETUP.POWER.POWER_ON\n"
+  - "GET SETUP.POWER.MUTE_TIME\n"
+  - "GET SETUP.POWER.STANDBY_TIME\n"
+  - "GET GENERATOR.TYPE\n"
+  - "GET GENERATOR.SINE.FREQ\n"
+  - "GET GENERATOR.PINK.LPF_ENABLE\n"
+  - "GET GENERATOR.PINK.LPF_FREQ\n"
+  - "GET GENERATOR.PINK.HPF_ENABLE\n"
+  - "GET GENERATOR.PINK.HPF_FREQ\n"
+  - { send: "GET SYSTEM.DANTE.DEVICE_NAME\n", when: has_dante }
+  - { send: "GET SYSTEM.DANTE.IP\n", when: has_dante }
+  - { send: "GET SYSTEM.DANTE.MAC\n", when: has_dante }
+  - { send: "GET SYSTEM.DANTE.FIRMWARE_VERSION\n", when: has_dante }
+  - { send: "GET SYSTEM.DANTE.SOFTWARE_VERSION\n", when: has_dante }
+  - { send: "GET SYSTEM.DANTE.LINK_SPEED\n", when: has_dante }
+  - { send: "GET SYSTEM.DANTE.AES67_ENABLED\n", when: has_dante }
+  - { send: "GET SYSTEM.DANTE.ENCODING\n", when: has_dante }
+  - { send: "GET SYSTEM.DANTE.SAMPLE_RATE\n", when: has_dante }
+  - { send: "GET SYSTEM.DANTE.CLOCK_STATE\n", when: has_dante }
+  - { send: "GET SYSTEM.DANTE.MUTE_STATE\n", when: has_dante }
+
+polling:
+  # Everything else is pushed. The document does not say whether the status
+  # registers are pushed on REG, and a wall controller's knob is an analog
+  # reading, so these are read every Poll Interval as well.
+  queries:
+    - "GET SYSTEM.STATUS.STATE\n"
+    - "GET SYSTEM.STATUS.SIGNAL_IN\n"
+    - "GET SYSTEM.STATUS.SIGNAL_OUT\n"
+    - "GET VC-*.VALUE\n"
+    - { send: "GET SYSTEM.DANTE.CLOCK_STATE\n", when: has_dante }
+
+liveness:
+  # The document's own keep-alive (3.1.9): the TCP socket has no idle timeout,
+  # so with a long Poll Interval nothing else would notice a unit that went
+  # away without closing the connection. Every unit answers it in standby.
+  send: "PING\n"
+  expect: 'PONG'
+  interval: 30
+  timeout: 5
+  max_failures: 2
+
+simulator:
+  # A change made in the Simulator UI is pushed to the driver, as the amplifier
+  # pushes every register change to a REG subscriber.
+  push_state: true
+  # What the amplifier reports, under the driver's state keys, so the card is
+  # right before a driver connects. Model and vendor are the document's own
+  # examples (5.144, 5.147); a real unit's wording is not documented.
+  initial_state:
+    power: true
+    system_state: "ON"
+    signal_in: "SIGNAL"
+    signal_out: "SIGNAL"
+    model_name: "BLAZE-4"
+    vendor_name: "Pascal"
+    serial_number: "SN12345678"
+    firmware_version: "2026.32.0"
+    firmware_date: "2026-09-23"
+    api_version: "1.5"
+    hardware_id: 2
+    software_id: 2
+    mac_address: "40:11:DC:00:00:01"
+    wifi_mac_address: "40:11:DC:00:00:02"
+    lan_status: "192.168.64.100"
+    wifi_status: ""
+    device_name: "Amp-01"
+    venue_name: "Acme Cafe"
+    customer_name: "Acme"
+    installer_name: "Acme AV"
+    contact_info: "555-0100"
+    install_date: "2026-11-03"
+    asset_tag: "AMP-0001"
+    locating: false
+    power_on_mode: "NETWORK"
+    mute_time: 300
+    standby_time: 900
+    generator_type: "PINK"
+    sine_frequency: 1000.0
+    pink_lpf_enable: false
+    pink_lpf_frequency: 20000.0
+    pink_hpf_enable: false
+    pink_hpf_frequency: 20.0
+    dante_device_name: "Amp-01-Dante"
+    dante_ip: "192.168.64.101"
+    dante_mac: "40:11:DC:00:00:03"
+    dante_firmware_version: "4.2.1"
+    dante_software_version: "4.2.1"
+    dante_link_speed: 1000
+    dante_aes67: false
+    dante_encoding: "PCM24"
+    dante_sample_rate: "48000"
+    dante_clock_state: "LOCKED"
+    dante_mute_state: ""
+  # One dispatcher owns the whole grammar (GET with a wildcard, SET, INC,
+  # SUBSCRIBE, PING, the power verbs): the per-command handlers the simulator
+  # generates match exact strings, and the amplifier's answers depend on the
+  # model (its zones, outputs and inputs come from the Zones, Outputs and
+  # Dante Model settings) and on other registers (a zone with a wall volume
+  # control refuses a level; a zone whose mute is not allowed refuses a mute).
+  # Fidelity gaps, all undocumented behaviour: a SET is echoed to the client
+  # that sent it whether or not it subscribed; meters (SUBSCRIBE DYN) are
+  # acknowledged and never sent; a value outside a register's range is
+  # refused E104 (the document does not say whether the amplifier clamps);
+  # POWER_ON and POWER_OFF are accepted in every Power On Mode (the document
+  # does not say which modes refuse them); REBOOT and FACTORY_DEFAULTS are
+  # acknowledged and change nothing.
+  command_handlers:
+    - match: '(?s:.+)'
+      handler: |
+        _send = respond
+
+        def _run():
+            line = match.group(0).strip()
+            if not line:
+                return
+
+            def truthy(v):
+                return str(v).strip().lower() in ("1", "true", "yes", "on")
+
+            zones = [z.strip().upper() for z in str(config.get("zones", "A,B,C,D")).split(",") if z.strip()]
+            zones = [z for z in zones if z in ("A", "B", "C", "D", "E", "F", "G", "H")] or ["A", "B", "C", "D"]
+            try:
+                outs = int(str(config.get("output_count", 4)).strip())
+            except ValueError:
+                outs = 4
+            if outs not in (1, 2, 4, 8):
+                outs = 4
+            dante = truthy(config.get("has_dante", False))
+            inputs = [("100", "Analog 1"), ("101", "Analog 2"), ("102", "Analog 3"), ("103", "Analog 4"),
+                      ("200", "S/PDIF 1"), ("201", "S/PDIF 1R")]
+            if dante:
+                inputs += [("300", "Dante 1"), ("301", "Dante 2"), ("302", "Dante 3"), ("303", "Dante 4")]
+            inputs += [("400", "Noise Generator")]
+            in_ids = [i for i, _ in inputs]
+            mixes = ["1", "2"] if outs <= 2 else ["1", "2", "3", "4"]
+            vcs = ["1", "2", "3", "4"]
+            sources = ["0"] + in_ids + ["50" + str(int(m) - 1) for m in mixes]
+            route_sources = (["0"] + [i for i in in_ids if i != "400"]
+                             + ["50" + str(int(m) - 1) for m in mixes]
+                             + ["100" + str(n) for n in range(min(len(zones), 4))])
+
+            # register -> (kind, state key, default, writable, inc, lo, hi, choices)
+            #   f float, b boolean, i integer, e enum, s string (quoted)
+            REG = {}
+
+            def reg(name, kind, key, default, w=True, inc=False, lo=None, hi=None, choices=None):
+                REG[name] = (kind, key, default, w, inc, lo, hi, choices)
+
+            for n, z in enumerate(zones):
+                p = "zone." + z + "."
+                reg("ZONE-" + z + ".NAME", "s", p + "name", "Zone " + z, hi=32)
+                reg("ZONE-" + z + ".GAIN", "f", p + "gain", -20.0, inc=True, lo=-80.0, hi=0.0)
+                reg("ZONE-" + z + ".GAIN_MIN", "f", p + "gain_min", -80.0, lo=-80.0, hi=0.0)
+                reg("ZONE-" + z + ".GAIN_MAX", "f", p + "gain_max", 0.0, lo=-80.0, hi=0.0)
+                reg("ZONE-" + z + ".MUTE", "b", p + "mute", False)
+                reg("ZONE-" + z + ".MUTE_ENABLE", "b", p + "mute_enable", True)
+                reg("ZONE-" + z + ".PRIMARY_SRC", "i", p + "source", int(in_ids[n % 4]), choices=sources)
+                reg("ZONE-" + z + ".STEREO", "b", p + "stereo", False)
+                reg("ZONE-" + z + ".GPIO_VC", "i", p + "gpio_vc", 0, choices=["0", "1", "2", "3", "4"])
+                reg("ZONE-" + z + ".DUCK.MODE", "e", p + "duck_mode", "OFF", choices=["OFF", "DUCKER", "OVERRIDE"])
+                reg("ZONE-" + z + ".PRIORITY-2.SRC", "i", p + "priority_2_source", 0, choices=sources)
+                reg("ZONE-" + z + ".PRIORITY-3.SRC", "i", p + "priority_3_source", 0, choices=sources)
+                reg("ZONE-" + z + ".COMPRESSOR.BYPASS", "b", p + "compressor_bypass", False)
+            for n in range(1, outs + 1):
+                o = str(n)
+                p = "output." + o + "."
+                reg("OUT-" + o + ".NAME", "s", p + "name", "Output " + o, hi=32)
+                reg("OUT-" + o + ".GAIN", "f", p + "gain", 0.0, inc=True, lo=-30.0, hi=15.0)
+                reg("OUT-" + o + ".MUTE", "b", p + "mute", False)
+                reg("OUT-" + o + ".SRC", "z", p + "zone", zones[(n - 1) % len(zones)], choices=[""] + zones)
+                reg("OUT-" + o + ".SRC_CHANNEL", "e", p + "channel", "S", choices=["L", "R", "S"])
+                reg("OUT-" + o + ".OUTPUT_MODE", "e", p + "mode", "70V", choices=["OFF", "8R", "70V", "100V", "BTL"])
+                reg("OUT-" + o + ".DELAY.TIME", "f4", p + "delay", 0.0, lo=0.0, hi=0.1)
+                reg("OUT-" + o + ".DELAY.BYPASS", "b", p + "delay_bypass", True)
+                reg("OUT-" + o + ".EQ.BYPASS", "b", p + "eq_bypass", False)
+                reg("OUT-" + o + ".PRESET.NAME", "s", p + "preset_name", "Factory Preset", w=False, hi=64)
+                reg("OUT-" + o + ".PRESET.LOCKED", "b", p + "preset_locked", False, w=False)
+                reg("ROUT-" + o + ".SRC", "i", p + "route_source", 0, choices=route_sources)
+                reg("ROUT-" + o + ".SRC_CHANNEL", "e", p + "route_channel", "S", choices=["L", "R", "S"])
+                reg("ROUT-" + o + ".GAIN", "f", p + "route_gain", 0.0, lo=-40.0, hi=20.0)
+            for i, label in inputs:
+                p = "input." + i + "."
+                gen = i == "400"
+                reg("IN-" + i + ".NAME", "s", p + "name", label, hi=32)
+                reg("IN-" + i + ".GAIN", "f", p + "gain", -20.0 if gen else 0.0, inc=True,
+                    lo=-48.0 if gen else -15.0, hi=0.0 if gen else 15.0)
+                if i.startswith("1"):
+                    reg("IN-" + i + ".SENS", "e", p + "sensitivity", "4DBU", choices=["14DBU", "4DBU", "-10DBV", "MIC"])
+                reg("IN-" + i + ".STEREO", "b", p + "stereo", False)
+                reg("IN-" + i + ".HPF_ENABLE", "b", p + "hpf_enable", False)
+                reg("IN-" + i + ".EQ.BYPASS", "b", p + "eq_bypass", False)
+            for m in mixes:
+                p = "mix." + m + "."
+                reg("MIX-" + m + ".NAME", "s", p + "name", "Mix " + m, hi=32)
+                for i in in_ids:
+                    reg("MIX-" + m + ".GAIN-" + i, "f", p + "level_" + i, -144.0, inc=True, lo=-144.0, hi=0.0)
+            for v in vcs:
+                p = "volume_control." + v + "."
+                reg("VC-" + v + ".NAME", "s", p + "name", "Wall VC " + v, w=False, hi=32)
+                reg("VC-" + v + ".VALUE", "f", p + "value", 50.0, w=False)
+            reg("SYSTEM.STATUS.STATE", "e", "system_state", "ON", w=False)
+            reg("SYSTEM.STATUS.SIGNAL_IN", "e", "signal_in", "SIGNAL", w=False)
+            reg("SYSTEM.STATUS.SIGNAL_OUT", "e", "signal_out", "SIGNAL", w=False)
+            reg("SYSTEM.STATUS.LAN", "s", "lan_status", "192.168.64.100", w=False)
+            reg("SYSTEM.STATUS.WIFI", "s", "wifi_status", "", w=False)
+            reg("API_VERSION", "s", "api_version", "1.5", w=False)
+            reg("SYSTEM.DEVICE.VENDOR_NAME", "s", "vendor_name", "Pascal", w=False)
+            reg("SYSTEM.DEVICE.MODEL_NAME", "s", "model_name", "BLAZE-" + str(outs), w=False)
+            reg("SYSTEM.DEVICE.SERIAL", "s", "serial_number", "SN12345678", w=False)
+            reg("SYSTEM.DEVICE.FIRMWARE", "s", "firmware_version", "2026.32.0", w=False)
+            reg("SYSTEM.DEVICE.FIRMWARE_DATE", "s", "firmware_date", "2026-09-23", w=False)
+            reg("SYSTEM.DEVICE.MAC", "s", "mac_address", "40:11:DC:00:00:01", w=False)
+            reg("SYSTEM.DEVICE.WIFI_MAC", "s", "wifi_mac_address", "40:11:DC:00:00:02", w=False)
+            reg("SYSTEM.DEVICE.HWID", "i", "hardware_id", 2, w=False)
+            reg("SYSTEM.DEVICE.SWID", "i", "software_id", 2, w=False)
+            for name, key in (("DEVICE_NAME", "device_name"), ("VENUE_NAME", "venue_name"),
+                              ("CUSTOMER_NAME", "customer_name"), ("INSTALLER_NAME", "installer_name"),
+                              ("CONTACT_INFO", "contact_info"), ("INSTALL_DATE", "install_date"),
+                              ("ASSET_TAG", "asset_tag")):
+                reg("SETUP.SYSTEM." + name, "s", key, "", hi=32)
+            reg("SETUP.SYSTEM.LOCATING", "b", "locating", False)
+            reg("SETUP.POWER.POWER_ON", "e", "power_on_mode", "NETWORK",
+                choices=["AUDIO", "AUDIO_ECO", "AUDIO_DSP", "TRIGGER", "TRIGGER_ECO", "NETWORK"])
+            reg("SETUP.POWER.MUTE_TIME", "i", "mute_time", 300, lo=0, hi=3600)
+            reg("SETUP.POWER.STANDBY_TIME", "i", "standby_time", 900, lo=0, hi=3600)
+            reg("GENERATOR.TYPE", "e", "generator_type", "PINK", choices=["PINK", "SINE"])
+            reg("GENERATOR.SINE.FREQ", "f1", "sine_frequency", 1000.0, lo=20.0, hi=20000.0)
+            reg("GENERATOR.PINK.LPF_ENABLE", "b", "pink_lpf_enable", False)
+            reg("GENERATOR.PINK.LPF_FREQ", "f1", "pink_lpf_frequency", 20000.0, lo=20.0, hi=20000.0)
+            reg("GENERATOR.PINK.HPF_ENABLE", "b", "pink_hpf_enable", False)
+            reg("GENERATOR.PINK.HPF_FREQ", "f1", "pink_hpf_frequency", 20.0, lo=20.0, hi=20000.0)
+            reg("ZONE.COUNT", "i", "zone_count", len(zones), w=False)
+            reg("OUT.COUNT", "i", "out_count", outs, w=False)
+            reg("IN.COUNT", "i", "in_count", len(in_ids), w=False)
+            reg("MIX.COUNT", "i", "mix_count", len(mixes), w=False)
+            reg("VC.COUNT", "i", "vc_count", len(vcs), w=False)
+            if dante:
+                for name, kind, key, default in (
+                        ("DEVICE_NAME", "s", "dante_device_name", "Amp-01-Dante"),
+                        ("IP", "s", "dante_ip", "192.168.64.101"),
+                        ("MAC", "s", "dante_mac", "40:11:DC:00:00:03"),
+                        ("FIRMWARE_VERSION", "s", "dante_firmware_version", "4.2.1"),
+                        ("SOFTWARE_VERSION", "s", "dante_software_version", "4.2.1"),
+                        ("LINK_SPEED", "i", "dante_link_speed", 1000),
+                        ("AES67_ENABLED", "b", "dante_aes67", False),
+                        ("ENCODING", "e", "dante_encoding", "PCM24"),
+                        ("SAMPLE_RATE", "e", "dante_sample_rate", "48000"),
+                        ("CLOCK_STATE", "e", "dante_clock_state", "LOCKED"),
+                        ("MUTE_STATE", "s", "dante_mute_state", "")):
+                    reg("SYSTEM.DANTE." + name, kind, key, default, w=False)
+
+            # Seed the model's registers once per model, so the Simulator UI
+            # shows what the amplifier would answer.
+            sig = ",".join(zones) + "/" + str(outs) + "/" + str(dante)
+            if state.get("_seeded_for") != sig:
+                # A child's register, a count and the model name take the
+                # model's value; any other amplifier value keeps what
+                # initial_state or the UI gave it.
+                model_keys = ("zone_count", "out_count", "in_count", "mix_count", "vc_count", "model_name")
+                for _r in REG.values():
+                    _key, _d = _r[1], _r[2]
+                    if (_key.startswith(("zone.", "output.", "input.", "mix.", "volume_control."))
+                            or _key in model_keys or state.get(_key) is None):
+                        state[_key] = _d
+                state["_seeded_for"] = sig
+
+            def current(name):
+                kind, key, default = REG[name][0], REG[name][1], REG[name][2]
+                v = state.get(key)
+                return default if v is None else v
+
+            def fmt(name, v):
+                kind = REG[name][0]
+                if kind == "b":
+                    return str(int(bool(v)))
+                if kind in ("s", "z"):
+                    return '"' + str(v) + '"'
+                if kind == "i":
+                    return str(int(v))
+                if kind == "f":
+                    return "%.2f" % float(v)
+                if kind == "f1":
+                    return "%.1f" % float(v)
+                if kind == "f4":
+                    return "%.4f" % float(v)
+                return str(v)
+
+            def value_line(name):
+                return "+" + name + " " + fmt(name, current(name))
+
+            def err(msg):
+                _send("#" + line + "|" + msg + "\n")
+
+            DYN = ("DYN.SIGNAL", "DYN.CLIP")
+            parts = line.split(" ", 2)
+            verb = parts[0]
+
+            if verb == "PING" and len(parts) == 1:
+                _send("PONG\n*PING\n")
+                return
+            if verb in ("SUBSCRIBE", "UNSUBSCRIBE"):
+                topic = parts[1] if len(parts) > 1 else ""
+                if topic not in ("", "*", "REG", "DYN"):
+                    err("E104: Invalid Parameter Value")
+                    return
+                _send("*" + line + "\n")
+                return
+            if verb in ("POWER_ON", "POWER_OFF") and len(parts) == 1:
+                state["system_state"] = "ON" if verb == "POWER_ON" else "STANDBY"
+                state["power"] = verb == "POWER_ON"
+                _send("*" + line + "\n")
+                return
+            if verb in ("REBOOT", "FACTORY_DEFAULTS") and len(parts) == 1:
+                _send("*" + line + "\n")
+                return
+
+            if verb == "GET" and len(parts) == 2:
+                pattern = parts[1]
+                if "*" in pattern:
+                    rx = re.compile("^" + re.escape(pattern).replace("\\*", "[^.]+") + "$")
+                    names = [n for n in REG if rx.match(n)]
+                    _send("".join(value_line(n) + "\n" for n in names) + "*" + line + "\n")
+                    return
+                if pattern in REG:
+                    _send(value_line(pattern) + "\n*" + line + "\n")
+                    return
+                if pattern.endswith(DYN):
+                    err("E108: No getter for parameter")
+                    return
+                err("E107: Unknown Parameter")
+                return
+
+            if verb in ("SET", "INC"):
+                if len(parts) < 3:
+                    err("E105: Invalid number of arguments")
+                    return
+                name, raw = parts[1], parts[2].strip()
+                if "*" in name or name not in REG:
+                    err("E109: No setter for parameter" if name.endswith(DYN) else "E107: Unknown Parameter")
+                    return
+                kind, key, default, writable, can_inc, lo, hi, choices = REG[name]
+                if not writable:
+                    err("E109: No setter for parameter")
+                    return
+                zone_gain = name.startswith("ZONE-") and name.endswith(".GAIN")
+                if zone_gain:
+                    zp = name[:-len("GAIN")]
+                    if int(current(zp + "GPIO_VC")) != 0:
+                        err("E126: Volume is controlled by GPIO volume control.")
+                        return
+                    lo = float(current(zp + "GAIN_MIN"))
+                    hi = float(current(zp + "GAIN_MAX"))
+                if verb == "INC":
+                    if not can_inc:
+                        err("E124: No INC for parameter")
+                        return
+                    try:
+                        delta = float(raw)
+                    except ValueError:
+                        err("E104: Invalid Parameter Value")
+                        return
+                    new = float(current(name)) + delta
+                    new = max(lo, min(hi, new))
+                    state[key] = new
+                    _send(value_line(name) + "\n*" + line + "\n")
+                    return
+                if kind == "b":
+                    if raw not in ("0", "1", "T", "F", "TRUE", "FALSE"):
+                        err("E104: Invalid Parameter Value")
+                        return
+                    value = raw in ("1", "T", "TRUE")
+                    if name.endswith(".MUTE") and name.startswith("ZONE-") and value:
+                        if not current(name[:-len("MUTE")] + "MUTE_ENABLE"):
+                            err("E128: Mute disabled.")
+                            return
+                elif kind in ("s", "z"):
+                    if raw.startswith('"'):
+                        if len(raw) < 2 or not raw.endswith('"') or '"' in raw[1:-1]:
+                            _send("#" + line + "|Parse Error\n")
+                            return
+                        raw = raw[1:-1]
+                    elif " " in raw:
+                        err("E105: Invalid number of arguments")
+                        return
+                    if kind == "z":
+                        if raw not in choices:
+                            err("E104: Invalid Parameter Value")
+                            return
+                    elif name.endswith(".NAME") and not raw:
+                        err("E131: String is empty")
+                        return
+                    elif hi is not None and len(raw) > hi:
+                        err("E119: String is too long")
+                        return
+                    value = raw
+                elif kind == "e":
+                    if raw not in choices:
+                        err("E104: Invalid Parameter Value")
+                        return
+                    value = raw
+                elif kind == "i":
+                    try:
+                        value = int(raw)
+                    except ValueError:
+                        err("E104: Invalid Parameter Value")
+                        return
+                    if choices is not None and str(value) not in choices:
+                        err("E104: Invalid Parameter Value")
+                        return
+                    if lo is not None and not (lo <= value <= hi):
+                        err("E104: Invalid Parameter Value")
+                        return
+                else:
+                    try:
+                        value = float(raw)
+                    except ValueError:
+                        err("E104: Invalid Parameter Value")
+                        return
+                    if zone_gain:
+                        value = max(lo, min(hi, value))
+                    elif lo is not None and not (lo <= value <= hi):
+                        err("E104: Invalid Parameter Value")
+                        return
+                state[key] = value
+                # The echo every REG subscriber gets, then the caller's ack.
+                _send(value_line(name) + "\n*" + line + "\n")
+                return
+
+            _send("#" + line + "|Command Not Recognized\n")
+
+        _run()

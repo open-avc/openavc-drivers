@@ -42,7 +42,7 @@ id: sleep_on_lan
 name: Computer Power (Sleep-On-LAN)
 manufacturer: Generic
 category: utility
-version: 1.1.0
+version: 1.2.0
 min_platform_version: "0.36.0"
 author: OpenAVC
 description: >
@@ -172,13 +172,28 @@ commands:
     available_offline: true
     udp:
       magic_packet: mac_address
+    # Measured from a full shutdown on a Windows 11 PC with an NVMe drive: the
+    # Sleep-On-LAN agent answered 28 s after the packet, connected at 32 s.
+    # Start-up time differs a lot from one computer to the next (disk, BIOS,
+    # startup programs, updates being installed), so the window is generous,
+    # like Restart's; it ends the moment the computer answers, and a computer
+    # that is not back by then reads as the real fault.
+    restarts_device_for: 300
 
   shut_down:
     label: Shut Down
-    help: "Shuts the computer down. Programs close without asking, so unsaved work, a recording or a stream stops."
+    help: "Shuts the computer down. Programs close without asking, so unsaved work, a recording or a stream stops. Power On starts it again."
     confirm: "Shut the computer down? Every program on it closes without saving, a recording or stream included."
     method: GET
     path: "/shutdown?format=JSON"
+    # A computer that is shut down is off the network until Power On, so it is
+    # asleep, not a fault. Measured on the same PC: silent 14 s after Shut
+    # Down, offline in OpenAVC at 45 s (three missed polls). Shut-down time
+    # differs between computers too; the platform waits 15 minutes for the
+    # drop. Sleep and Hibernate are left out: on a Modern Standby PC the
+    # network is off while asleep and Power On may not wake it, and
+    # Hibernate's wake is not measured on any computer yet.
+    sleeps_device: power_on
 
   restart:
     label: Restart

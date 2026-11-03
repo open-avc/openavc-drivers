@@ -4253,7 +4253,7 @@
       "name": "Computer Power (Sleep-On-LAN)",
       "manufacturer": "Generic",
       "category": "utility",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Turn a Windows or Linux computer on and off from OpenAVC: Wake-on-LAN to power it on, and shut down, restart, sleep or hibernate through the free Sleep-On-LAN service installed on the computer.\n",
@@ -4261,7 +4261,7 @@
       "file": "utility/sleep_on_lan.avcdriver",
       "format": "avcdriver",
       "files": {
-        "utility/sleep_on_lan.avcdriver": "1cd21c15d33315a05e3c507658740db80febc24edf69a347e9dc9713ddf3bb45"
+        "utility/sleep_on_lan.avcdriver": "9f3e5753645b06f172aba1bedff09f69d5fef25dadac7f9c8be210f1ee91a85a"
       },
       "ports": [
         8009

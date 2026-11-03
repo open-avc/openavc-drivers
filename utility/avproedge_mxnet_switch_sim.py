@@ -38,6 +38,8 @@ License: MIT.
 
 from __future__ import annotations
 
+import asyncio
+
 from openavc.simulator.tcp_simulator import TCPSimulator
 
 _HOSTNAME = "switch"
@@ -165,7 +167,6 @@ class AVProEdgeMXnetSwitchSimulator(TCPSimulator):
     def __init__(self, device_id: str, config: dict | None = None):
         super().__init__(device_id, config)
         self._ports = _seed_ports()
-        self._stage = "login"      # login -> password -> ready
         self._mode = "priv"        # priv -> config -> interface
         self._cfg_iface = ""
         self._await_reload = False
@@ -173,10 +174,47 @@ class AVProEdgeMXnetSwitchSimulator(TCPSimulator):
     # ── session ──
 
     async def on_client_connected(self, client_id: str) -> bytes | None:
-        self._stage = "login"
         self._mode = "priv"
         self._cfg_iface = ""
         return b"\r\nlogin:"
+
+    async def authenticate_client(self, reader, writer, client_id) -> bool:
+        """The telnet login: "login:" (the greeting), "Password:", then the CLI.
+
+        Read from the socket here, not in handle_command: the base drops an
+        empty line before handle_command sees it, and an empty password is
+        what the driver sends when none is set, so a login there would never
+        answer it. A refusal re-prompts, as the switch does, and waits for the
+        next attempt.
+        """
+        async def emit(data: bytes) -> None:
+            writer.write(data)
+            await writer.drain()
+            self.log_protocol("out", data, client_id)
+
+        async def credential() -> str | None:
+            try:
+                raw = await asyncio.wait_for(reader.readline(), timeout=30.0)
+            except (asyncio.TimeoutError, ConnectionError, OSError):
+                return None
+            return raw.decode("latin-1", errors="replace").strip() if raw else None
+
+        while True:
+            user = await credential()
+            if user is None:
+                return False
+            if user.lower() == "invalid":
+                await emit(b"\r\nlogin:")
+                continue
+            await emit(b"\r\nPassword:")
+            password = await credential()
+            if password is None:
+                return False
+            if password.lower() == "invalid":
+                await emit(b"\r\nLogin incorrect\r\nlogin:")
+                continue
+            await emit(("\r\n*****" + self._prompt()).encode("latin-1"))
+            return True
 
     def _prompt(self) -> str:
         if self._mode == "config":
@@ -190,20 +228,6 @@ class AVProEdgeMXnetSwitchSimulator(TCPSimulator):
     def handle_command(self, data: bytes) -> bytes | None:
         line = data.decode("latin-1", errors="replace").strip()
         low = line.lower()
-
-        # Login handshake. "invalid" is the designated bad credential so the
-        # driver's rejection path is reachable in simulation.
-        if self._stage == "login":
-            if low == "invalid":
-                return b"\r\nlogin:"
-            self._stage = "password"
-            return b"\r\nPassword:"
-        if self._stage == "password":
-            if low == "invalid":
-                self._stage = "login"
-                return b"\r\nLogin incorrect\r\nlogin:"
-            self._stage = "ready"
-            return ("\r\n*****" + self._prompt()).encode("latin-1")
 
         if self._await_reload:
             self._await_reload = False

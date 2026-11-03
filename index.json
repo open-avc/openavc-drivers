@@ -1509,7 +1509,7 @@
       "name": "AVPro Edge MXnet Network Switch",
       "manufacturer": "AVPro Edge",
       "category": "utility",
-      "version": "1.2.4",
+      "version": "1.2.5",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Monitor and control an AVPro Edge MXnet network switch over its CLI: per-port PoE power-cycling and draw, link state and error counters, IGMP/multicast group membership per port, the endpoint attached to each port, and system health (temperature, CPU, memory, PoE budget). Each physical port is a child entity. This is the switch that carries an MXnet system; video routing lives in the MXnet Control Box driver.",
@@ -1517,8 +1517,8 @@
       "file": "utility/avproedge_mxnet_switch.py",
       "format": "python",
       "files": {
-        "utility/avproedge_mxnet_switch.py": "79afe53dd156e5e98889fb754e2303cde13264037099c079ba35a4ac5f210350",
-        "utility/avproedge_mxnet_switch_sim.py": "80ab22787a9ea7a2bcb01f4bc7023616b0ed39cb4aa969583a8e053e97d8025f"
+        "utility/avproedge_mxnet_switch.py": "4331c4a7cb1253aeb1ebbed3a69739c5fb6f8119169b20f3f64a2ebdbe3f0802",
+        "utility/avproedge_mxnet_switch_sim.py": "7adf7bb08490846416a1ea1e9151129f551036ed317d9aed620007d785dca3fd"
       },
       "ports": [
         22,
@@ -10424,7 +10424,7 @@
       "name": "WattBox IP-Controlled PDU",
       "manufacturer": "WattBox",
       "category": "power",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls SnapAV WattBox IP-controlled power distribution units over the WattBox Integration Protocol (Telnet, port 23). Outlets are addressable children with per-outlet state, name, and power metering. Supports on/off/toggle/reset, per-outlet naming, auto-reboot configuration, system + per-outlet power metering on the models that measure it, and UPS status reporting on units with a connected UPS.",
@@ -10432,8 +10432,8 @@
       "file": "power/wattbox_ip.py",
       "format": "python",
       "files": {
-        "power/wattbox_ip.py": "a99f2ea9224fb92c76029ccc65204b077d0501997ea348221544391ab95ce5a0",
-        "power/wattbox_ip_sim.py": "35db4622166af494d8cc772fbc01f286170a5330d549c79dcc9f0f0158fab992"
+        "power/wattbox_ip.py": "6b1bfa8e773e71908d1d9444661530b8dd70dc84551d7f75565460af8692cff0",
+        "power/wattbox_ip_sim.py": "7743be86a473d9ec630152d5099b14edc65f6f439e31c396b1401977af54d7fb"
       },
       "ports": [
         23

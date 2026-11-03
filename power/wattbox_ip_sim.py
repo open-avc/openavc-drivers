@@ -96,9 +96,6 @@ class WattBoxIPSimulator(TCPSimulator):
         self._auto_reboot = True
         self._ups_connected = False
 
-        # Track per-client auth state so we know whether to expect a
-        # username, then a password, then commands.
-        self._auth_state: dict[str, int] = {}
         # Pending outlet-status pushes, kept so they are not collected.
         self._tasks: set[asyncio.Task] = set()
 
@@ -111,33 +108,46 @@ class WattBoxIPSimulator(TCPSimulator):
         return CONNECT_BANNER
 
     async def on_client_connected(self, client_id: str) -> bytes | None:
-        self._auth_state[client_id] = 0  # 0 = waiting for username
         return CONNECT_BANNER
+
+    async def authenticate_client(self, reader, writer, client_id) -> bool:
+        """A username, then a password, then commands, on each connection.
+
+        Read from the socket here, not in handle_command: the base drops an
+        empty line before handle_command sees it, so a blank password would
+        never be answered; and sign-in belongs to the connection, so a driver
+        that reconnects is asked again. A refused login (`reject_auth`)
+        answers "Invalid Login" and the username prompt again, as the unit
+        does, and waits for the next attempt.
+        """
+        async def emit(data: bytes) -> None:
+            writer.write(data)
+            await writer.drain()
+            self.log_protocol("out", data, client_id)
+
+        async def credential() -> bool:
+            try:
+                raw = await asyncio.wait_for(reader.readline(), timeout=30.0)
+            except (asyncio.TimeoutError, ConnectionError, OSError):
+                return False
+            return bool(raw)
+
+        while True:
+            if not await credential():
+                return False
+            await emit(b"Password: ")
+            if not await credential():
+                return False
+            if self.config.get("reject_auth"):
+                await emit(b"Invalid Login\nUsername: ")
+                continue
+            await emit(b"Successfully Logged In!\n")
+            return True
 
     # ── Per-line handling ──
 
     def handle_command(self, data: bytes) -> bytes | None:
         line = data.decode("utf-8", errors="replace").strip()
-
-        # We don't get client_id from the framework signature, so use a
-        # single shared auth slot. The test harness uses one client.
-        cid = "_shared"
-        state = self._auth_state.setdefault(cid, 0)
-
-        if state == 0:
-            # Username arrived. Reply with the password prompt.
-            self._auth_state[cid] = 1
-            return b"Password: "
-        if state == 1:
-            # Password arrived. A refused login answers "Invalid Login" and
-            # then the username prompt again (a second later on the unit);
-            # `reject_auth` models it so the driver's auth-fault path can be
-            # tested.
-            if self.config.get("reject_auth"):
-                self._auth_state[cid] = 0
-                return b"Invalid Login\nUsername: "
-            self._auth_state[cid] = 2
-            return b"Successfully Logged In!\n"
 
         if not line:
             return None

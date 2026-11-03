@@ -611,7 +611,7 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
         "name": "AVPro Edge MXnet Network Switch",
         "manufacturer": "AVPro Edge",
         "category": "utility",
-        "version": "1.2.4",
+        "version": "1.2.5",
         "author": "OpenAVC",
         # Computed by build_index.py, not chosen: the `web_ui` field below
         # carries a 0.24.0 floor. Well behind the current release, so this

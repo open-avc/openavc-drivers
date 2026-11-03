@@ -81,13 +81,10 @@ _CONFIG: dict[str, dict] = {
     # SSH transport shells out to the OS client and no simulator here speaks the
     # protocol. The device serves the SAME CLI over telnet on 23, which is what
     # this sim emulates and what the driver's own "transports" list allows, so
-    # the sweep drives the plain-text half. Credentials are needed because that
-    # CLI has a login handshake; the sim accepts anything but "invalid".
-    "avproedge_mxnet_switch": {
-        "transport": "tcp",
-        "username": "admin",
-        "password": "admin",
-    },
+    # the sweep drives the plain-text half. No password, as in a simulation
+    # nobody typed one into: the CLI's login takes a blank one, since the sim
+    # accepts anything but "invalid".
+    "avproedge_mxnet_switch": {"transport": "tcp"},
     "dante_ddm": {
         "api_key": "smoke",
         "verify_ssl": False,

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 57,
+    "total_devices": 61,
     "shards": null,
     "category": "video"
   },
@@ -404,6 +404,54 @@
           "id": "cisco_roomos_xapi",
           "confidence": "untested",
           "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "IV-SAM-VSX-1B",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "crestron_automate_vx",
+          "confidence": "untested",
+          "notes": "The first-generation Automate VX systems the API reference names, on the same API. Firmware before 6.4.2, on any Automate VX, serves the API over HTTP: turn Use HTTPS off and enter the port its web page opens on (3579 in the product manual). Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "IV-SAM-VX2-P",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "crestron_automate_vx",
+          "confidence": "untested",
+          "notes": "Automate VX Series 2 (Standard and Pro), firmware 6.4.2 or newer: the API on HTTPS port 4443, as Crestron's API reference (current as of 6.4.1.8) and the product manual (current as of 6.7) give it. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "IV-SAM-VX2-S",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "crestron_automate_vx",
+          "confidence": "untested",
+          "notes": "Automate VX Series 2 (Standard and Pro), firmware 6.4.2 or newer: the API on HTTPS port 4443, as Crestron's API reference (current as of 6.4.1.8) and the product manual (current as of 6.7) give it. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "IV-SAM-VXP-1B",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "crestron_automate_vx",
+          "confidence": "untested",
+          "notes": "The first-generation Automate VX systems the API reference names, on the same API. Firmware before 6.4.2, on any Automate VX, serves the API over HTTP: turn Use HTTPS off and enter the port its web page opens on (3579 in the product manual). Not yet tested on this hardware."
         }
       ]
     },

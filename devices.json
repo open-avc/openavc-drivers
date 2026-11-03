@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1123,
+    "total_devices": 1127,
     "shards": null
   },
   "devices": [
@@ -5198,6 +5198,54 @@
           "id": "crestron_1beyond_camera",
           "confidence": "untested",
           "notes": "PTZ cameras. Set Model to P12 or P20 for mount mode and the zoom ratio."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "IV-SAM-VSX-1B",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "crestron_automate_vx",
+          "confidence": "untested",
+          "notes": "The first-generation Automate VX systems the API reference names, on the same API. Firmware before 6.4.2, on any Automate VX, serves the API over HTTP: turn Use HTTPS off and enter the port its web page opens on (3579 in the product manual). Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "IV-SAM-VX2-P",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "crestron_automate_vx",
+          "confidence": "untested",
+          "notes": "Automate VX Series 2 (Standard and Pro), firmware 6.4.2 or newer: the API on HTTPS port 4443, as Crestron's API reference (current as of 6.4.1.8) and the product manual (current as of 6.7) give it. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "IV-SAM-VX2-S",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "crestron_automate_vx",
+          "confidence": "untested",
+          "notes": "Automate VX Series 2 (Standard and Pro), firmware 6.4.2 or newer: the API on HTTPS port 4443, as Crestron's API reference (current as of 6.4.1.8) and the product manual (current as of 6.7) give it. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "IV-SAM-VXP-1B",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "crestron_automate_vx",
+          "confidence": "untested",
+          "notes": "The first-generation Automate VX systems the API reference names, on the same API. Firmware before 6.4.2, on any Automate VX, serves the API over HTTP: turn Use HTTPS off and enter the port its web page opens on (3579 in the product manual). Not yet tested on this hardware."
         }
       ]
     },

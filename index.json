@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 140,
+    "total_drivers": 141,
     "shards": null
   },
   "drivers": [
@@ -3173,6 +3173,72 @@
         "manufacturer_alias": [
           "crestron",
           "crestron electronics"
+        ]
+      }
+    },
+    {
+      "id": "crestron_automate_vx",
+      "name": "Crestron Automate VX",
+      "manufacturer": "Crestron",
+      "category": "video",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls a Crestron 1 Beyond Automate VX voice-activated camera switching system over its REST API: wake and sleep, AutoSwitch, recording, streaming and output, layouts, room configurations and scenarios, manual camera selection, camera presets and pan, tilt and zoom, and the system's health report. Each camera in the current room configuration appears as a child with its model, address and status.",
+      "source_url": "https://sdkcon78221.crestron.com/sdk/Automate-VX-API/Content/Topics/Automate-API/Home.htm",
+      "file": "video/crestron_automate_vx.py",
+      "format": "python",
+      "files": {
+        "video/crestron_automate_vx.py": "695b5e2a3e23c030828125ceba5d6f7cc8d238c63d4a2c32e4aa0058f1329dae",
+        "video/crestron_automate_vx_sim.py": "0b5a4c57c484fadcd305893fb30e9a726554de748af72459f8da00405687e897"
+      },
+      "ports": [
+        4443
+      ],
+      "protocols": [
+        "crestron_automate_vx_api"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "crestron",
+        "1-beyond",
+        "automate-vx",
+        "camera-switching",
+        "voice-tracking",
+        "auto-switching",
+        "recording",
+        "streaming",
+        "lecture-capture",
+        "rest"
+      ],
+      "help": {
+        "overview": "Controls a Crestron Automate VX camera switching system: wake and sleep, AutoSwitch, recording, streaming and output, layouts, room configurations, scenarios and the home shot, choosing a camera by hand, camera presets, and pan, tilt and zoom. Each camera in the current room configuration appears as a child entity with its model, address, whether it is on the live shot and whether the Automate VX can reach it. The health report (camera, microphone and switcher reachability, camera firmware, processor use and free storage) is read every 30 seconds. The Automate VX reports no sleep state: after Sleep, output, AutoSwitch, recording and streaming read off.",
+        "setup": "1. Sign in to the Automate VX's web page (https://<address>:4443) once as admin. A unit in its factory state asks for a new password at the first sign-in.\n2. Enter the Automate VX's IP address here with that user name and password. Another user works too, but only for what its permissions allow.\n3. Leave Use HTTPS on and Port at 4443 for firmware 6.4.2 and newer. Older firmware serves the API over HTTP: turn Use HTTPS off and enter the port the web page opens on (3579 in Crestron's manual).\n4. Leave Verify SSL Certificate off unless the Automate VX has a certificate this computer trusts.\n5. Keep the OpenAVC server's address fixed: the Automate VX ties its sign-in to the address that asked, and the driver signs in again if that changes."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Crestron",
+          "models": [
+            "IV-SAM-VX2-S",
+            "IV-SAM-VX2-P"
+          ],
+          "confidence": "untested",
+          "notes": "Automate VX Series 2 (Standard and Pro), firmware 6.4.2 or newer: the API on HTTPS port 4443, as Crestron's API reference (current as of 6.4.1.8) and the product manual (current as of 6.7) give it. Not yet tested on this hardware."
+        },
+        {
+          "manufacturer": "Crestron",
+          "models": [
+            "IV-SAM-VXP-1B",
+            "IV-SAM-VSX-1B"
+          ],
+          "confidence": "untested",
+          "notes": "The first-generation Automate VX systems the API reference names, on the same API. Firmware before 6.4.2, on any Automate VX, serves the API over HTTP: turn Use HTTPS off and enter the port its web page opens on (3579 in the product manual). Not yet tested on this hardware."
+        }
+      ],
+      "discovery": {
+        "port_open": [
+          4443
         ]
       }
     },

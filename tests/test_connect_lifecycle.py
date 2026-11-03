@@ -130,6 +130,7 @@ _CONFIG: dict[str, dict] = {
     # The API needs a username and password; a blank one is refused before it
     # is sent. The sim accepts any but "invalid" when its config sets none.
     "bose_videobar": {"username": "admin", "password": "smokepw"},
+    "crestron_automate_vx": {"username": "admin", "password": "smokepw"},
 }
 
 

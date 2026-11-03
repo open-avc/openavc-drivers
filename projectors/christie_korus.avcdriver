@@ -1,0 +1,966 @@
+# Christie Korus Series Projector Driver
+#
+# Controls the Christie Korus Series 1DLP laser projectors (4K1000-KS,
+# 4K1000A-KS, 4K1400-KS, 4K1400A-KS) over TCP 3002 or the RS232 IN port,
+# using the serial commands in Christie's "Korus Series Serial Commands"
+# Technical Reference 020-104044-01 Rev. 1 (01-2026). Messages are ASCII,
+# enclosed in parentheses, with no line terminator:
+#   SET     (CODE value)          e.g. (PWR 1), (SIN 3)
+#   SET     (CODE+SUBC value)     e.g. (TPG+ITPG 5)
+#   REQUEST (CODE?)               e.g. (PWR?)
+#   REPLY   (CODE!value)          the reference's example: (SHU!0); its
+#                                 format table also shows a number followed
+#                                 by a quoted label: (PWR!001 "On")
+#   ERROR   (65535 00000 ERR00005 "ITP: Too Few Parameters")
+#
+# Why its own driver and not part of christie_serial: the Korus reference
+# reuses the M Series framing and many of its codes, but not their meanings.
+# BRT and CON run 0 to 100 here (M Series -1000 to 1000), LPM 0 is Constant
+# Power (M Series: Maximum Brightness), SOR is rear projection on or off
+# (M Series: four orientations), the test patterns are numbered differently,
+# inputs are one digit (3 = HDMI1, not a slot+input pair), focus, zoom and
+# lens shift only step, and FTB, LPI, PJH and the SST subcodes are absent.
+# One file cannot carry both sets of ranges and meanings.
+#
+# Format: YAML. A text protocol, request and reply, nothing a declarative
+# driver cannot express.
+#
+# Framing: replies are read up to the closing parenthesis, which the
+# reference gives as the end of every message, so a reply is read whether or
+# not the projector sends a line ending after it. Every rule tolerates both
+# reply forms the reference shows (a bare value, or a number and a quoted
+# label), and leading zeros.
+#
+# Push vs poll: POLL-ONLY. The reference defines request and reply only: no
+# subscription, notification or event mechanism. (The projector can send
+# SNMP traps and email for its own alerts, per the Korus user manual, but no
+# MIB is published.) The driver polls power and shutter every cycle, and the
+# active source, signal, OSD, white peaking, warp and blend settings and
+# light source hours while the projector is on.
+#
+# What is polled, and why only that: the reference lists a request form for
+# PWR, SHU, OSD, WPK, WAP, BLD, MSV and the read-only codes (MIF, FVI, ILI,
+# LET, SIV, SST and others). Brightness, contrast, input, lamp mode, picture
+# mode and the rest list a set form only, so they are commands without a
+# read-back. A sets-only command is not assumed to answer: the reference shows
+# no reply to a set, so the driver reads the values back on the next poll.
+#
+# Unverified (no Korus on the bench): the reply form of every read-only
+# query (the reference prints none), whether a set draws a reply, whether
+# the active source is reported as a number, a name or both, and what the
+# projector sends after the closing parenthesis. The simulator answers in
+# the forms the reference's format table shows, and its read-only replies
+# are placeholders.
+#
+# Standby: the Korus default standby mode is Communication mode, which keeps
+# the network up and answers (PWR?) with 0. ECO mode drops the network in
+# standby (Korus user manual 020-002159-03, Setting the standby mode), and the
+# reference documents no network wake, so OpenAVC cannot turn on a projector
+# left in ECO standby over the network.
+#
+# Protocol reference: Christie Korus Series Serial Commands, Technical
+# Reference 020-104044-01 Rev. 1 (01-2026).
+
+id: christie_korus
+name: Christie Korus Series Projector
+manufacturer: Christie
+category: projector
+version: 1.0.0
+author: OpenAVC
+description: >-
+  Controls Christie Korus Series 1DLP laser projectors (4K1000-KS,
+  4K1000A-KS, 4K1400-KS, 4K1400A-KS) over the network (TCP 3002) or
+  RS-232. Power, shutter, input select, picture mode, brightness, contrast,
+  color, sharpness, color temperature, gamma, image size, freeze, test
+  patterns, light source mode and power, lens focus, zoom, shift and
+  memories, OSD, warp and blend selection, standby mode and remote key
+  emulation. Polls power, shutter, the active source and signal, and
+  light source information.
+
+source_url: https://www.christiedigital.com/globalassets/resources/public/020-104044-01-christie-lit-tech-ref-korus-series-api.pdf
+tags: [projector, christie, korus, laser, 4k, serial-api, rs232, lan-control]
+verified: false
+simulated: true
+ports: [3002]
+min_platform_version: "0.37.0"
+compatible_models:
+  - manufacturer: Christie
+    models:
+      - 4K1000-KS
+      - 4K1000A-KS
+      - 4K1400-KS
+      - 4K1400A-KS
+    confidence: untested
+    notes: >-
+      Leave Standby Mode at Communication mode (the default) to
+      turn the projector on over the network. Christie M Series, J, HS, H,
+      GS, G, E and Roadie projectors use the Christie Projector driver.
+
+transport: tcp
+transports: [tcp, serial]
+# The closing parenthesis ends every message (020-104044-01, Message
+# structure); any line ending after it is left as leading whitespace on the
+# next reply, which every rule allows.
+delimiter: ")"
+
+help:
+  overview: >-
+    Christie Korus Series laser projectors (4K1000-KS, 4K1000A-KS,
+    4K1400-KS, 4K1400A-KS). Power, shutter, inputs (HDMI 1, HDMI 2,
+    DisplayPort, 12G-SDI, HDBaseT), picture controls, test patterns, light
+    source, lens, OSD, warp and blend selection. Power and shutter are read
+    every 15 seconds; the active source, signal and light source hours are
+    read while the projector is on. Brightness, contrast, input and the
+    other picture controls are sent but not read back. For a command not
+    listed here, use Send Raw Command with the Korus Series Serial Commands
+    reference.
+  setup: >-
+    1. Network: connect the projector's RJ-45 port (or its HDBaseT port) and
+       note its IP address (Menu > Configuration > Communications > LAN).
+       Control uses TCP port 3002. No login.
+    2. To turn the projector on from OpenAVC, leave Menu > Configuration >
+       Power Management > Standby Mode at Communication mode, the default.
+       In ECO mode the projector leaves the network while it is off.
+    3. RS-232: connect the RS232 IN port with a null-modem cable (pins 2-3,
+       3-2 and 5-5). The default is 115200 baud, 8 data bits, no parity, 1
+       stop bit; match Baud Rate to Menu > Configuration > Communications >
+       Serial Port Baud rate.
+  connection: >-
+    A projector in ECO standby does not answer on the network until it is
+    turned on at the projector or with its remote. If the projector stops
+    answering for about a minute it shows offline, and comes back as soon
+    as it answers again.
+
+discovery:
+  # Active fingerprint: (SIV?), the serial command version. The Korus
+  # reference documents it and the M Series reference (020-100224-11) has no
+  # SIV code, so an M Series projector answers it with an error and is left
+  # to christie_serial's (PWR?) probe. A Korus answers both probes; this
+  # driver's id sorts first, so a scan pre-selects it and offers
+  # christie_serial as the alternative. The reply form is the reference's
+  # generic (Code!data); no SIV reply is printed in it.
+  # OUI 00:1a:d7 is Christie Digital Systems' IEEE block, as in
+  # christie_serial; a Korus built around another maker's network module
+  # would carry that maker's prefix instead.
+  tcp_probe:
+    port: 3002
+    send_ascii: "(SIV?)"
+    expect_regex: '\(SIV!'
+    extract_manufacturer: "Christie"
+  oui:
+    - "00:1a:d7"
+  port_open:
+    - 3002
+  manufacturer_alias:
+    - "christie"
+    - "christie digital"
+
+default_config:
+  host: ""
+  port: 3002
+  poll_interval: 15
+  inter_command_delay: 0.05
+  baudrate: 115200
+  bytesize: 8
+  parity: "N"
+  stopbits: 1
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+    description: The projector's IP address (Menu > Configuration > Communications > LAN).
+  port:
+    type: integer
+    default: 3002
+    label: TCP Port
+    description: 3002 for the Korus serial commands over the network.
+  poll_interval:
+    type: integer
+    default: 15
+    min: 5
+    label: Poll Interval (sec)
+  inter_command_delay:
+    type: number
+    default: 0.05
+    min: 0
+    label: Inter-Command Delay (sec)
+    description: Gap between commands. Raise it if the projector misses commands.
+  baudrate:
+    type: integer
+    default: 115200
+    label: Baud Rate (RS-232)
+    description: 115200 is the Korus default. Match the projector's Serial Port Baud rate setting.
+
+state_variables:
+  power:
+    type: enum
+    values: ["off", "on", warming, cooling]
+    label: Power
+    control: true
+    help: "From (PWR?): off = standby, on = the light source is on, warming = warming up, cooling = cooling down."
+  shutter:
+    type: enum
+    values: [open, closed]
+    label: Shutter
+    control: true
+    help: "From (SHU?): open = the picture is showing, closed = the shutter is blanking it."
+  active_source:
+    type: string
+    label: Active Source
+    help: "The active source as the projector reports it (MIF+ACTS?), read while the projector is on."
+  signal_resolution:
+    type: string
+    label: Signal Resolution
+    help: "The resolution of the active source as the projector reports it (MIF+RESL?), read while the projector is on."
+  osd:
+    type: boolean
+    label: On-Screen Display
+    control: true
+    help: "From (OSD?): the projector's on-screen display is showing (true) or hidden (false)."
+  white_peaking:
+    type: integer
+    label: White Peaking
+    min: 0
+    max: 100
+    step: 1
+    help: "From (WPK?): white peaking, 0 to 100. Applies to video sources only."
+  warp_setting:
+    type: integer
+    label: Warp Setting
+    min: 0
+    max: 4
+    step: 1
+    help: "From (WAP?): the saved warp setting in use, 1 to 4, or 0 when warping is off."
+  blend_setting:
+    type: integer
+    label: Blend Setting
+    min: 0
+    max: 4
+    step: 1
+    help: "From (BLD?): the saved blend setting in use, 1 to 4, or 0 when blending is off."
+  light_source_info:
+    type: string
+    label: Light Source Info
+    help: "Projector and laser diode hours as the projector reports them (ILI?), read while the projector is on."
+  firmware:
+    type: string
+    label: Firmware
+    help: "The firmware information the projector reports (FVI?), read on connect."
+  serial_command_version:
+    type: string
+    label: Serial Command Version
+    help: "The serial command version the projector reports (SIV?), read on connect."
+  lens_type:
+    type: string
+    label: Lens Type
+    help: "The lens type the projector reports (LET ?), read on connect."
+  status_report:
+    type: string
+    label: Status Report
+    help: "The projector's answer to Query Status (SST?)."
+  last_error:
+    type: string
+    label: Last Error
+    help: "The projector's own words for the last command it could not carry out, such as \"ITP: Too Few Parameters\"."
+
+commands:
+  # ── Power ──
+  # No sets: the projector passes through warming or cooling, which can take
+  # longer than a poll.
+  power_on:
+    label: Power On
+    help: Turns the projector on from standby. It warms up before the picture shows.
+    send: "(PWR 1)"
+  power_off:
+    label: Power Off (Standby)
+    help: Turns the projector off to standby. It cools down first.
+    send: "(PWR 0)"
+  standby_communication_mode:
+    label: Standby Mode - Communication
+    help: Keeps the projector on the network while it is off, so it can be turned on and read from OpenAVC. The projector's default.
+    send: "(PWR+STBM 1)"
+  standby_eco_mode:
+    label: Standby Mode - ECO
+    help: Lowers standby power to under 0.5 W. The projector leaves the network while it is off.
+    send: "(PWR+STBM 0)"
+    confirm: In ECO standby the projector leaves the network when it is turned off, so OpenAVC cannot turn it back on until someone turns it on at the projector or with its remote.
+
+  # ── Shutter ──
+  shutter_open:
+    label: Open Shutter
+    help: Opens the shutter so the picture shows.
+    send: "(SHU 0)"
+    sets: { shutter: open }
+  shutter_close:
+    label: Close Shutter
+    help: Closes the shutter, blanking the picture while the projector stays on.
+    send: "(SHU 1)"
+    sets: { shutter: closed }
+
+  # ── Input ──
+  # The reference's SIN table also gives 7 = 3G-SDI for two JS models; the
+  # Korus has 12G-SDI (product page and the 4K row of the same table).
+  select_input:
+    label: Select Input
+    help: Shows the chosen input.
+    send: "(SIN {input})"
+    params:
+      input:
+        type: enum
+        required: true
+        label: Input
+        values:
+          - { value: "3", label: "HDMI 1" }
+          - { value: "4", label: "HDMI 2" }
+          - { value: "6", label: "DisplayPort" }
+          - { value: "7", label: "12G-SDI" }
+          - { value: "8", label: "HDBaseT" }
+
+  # ── Picture ──
+  set_picture_mode:
+    label: Set Picture Mode
+    help: Applies a picture mode, which sets gamma, sharpness, white peaking, brightness, contrast, color and the RGB gains together.
+    send: "(PST {mode})"
+    params:
+      mode:
+        type: enum
+        required: true
+        label: Picture Mode
+        values:
+          - { value: "0", label: "Video" }
+          - { value: "1", label: "Bright" }
+          - { value: "2", label: "Enhanced" }
+          - { value: "3", label: "REC709" }
+          - { value: "4", label: "DICOM SIM" }
+          - { value: "5", label: "Blending" }
+          - { value: "6", label: "HDR" }
+          - { value: "7", label: "3D" }
+          - { value: "8", label: "High Frame Rate" }
+          - { value: "9", label: "User" }
+  set_brightness:
+    label: Set Brightness
+    help: Sets the picture brightness, 0 to 100 (50 is the default).
+    send: "(BRT {level})"
+    params:
+      level:
+        type: integer
+        required: true
+        label: Brightness
+        min: 0
+        max: 100
+  set_contrast:
+    label: Set Contrast
+    help: Sets the picture contrast, 0 to 100 (50 is the default).
+    send: "(CON {level})"
+    params:
+      level:
+        type: integer
+        required: true
+        label: Contrast
+        min: 0
+        max: 100
+  set_color:
+    label: Set Color Saturation
+    help: Sets the color saturation, 0 to 100 (50 is the default).
+    send: "(CLR {level})"
+    params:
+      level:
+        type: integer
+        required: true
+        label: Color
+        min: 0
+        max: 100
+  set_sharpness:
+    label: Set Sharpness
+    help: Sets the edge clarity of the picture.
+    send: "(DTL {level})"
+    params:
+      level:
+        type: enum
+        required: true
+        label: Sharpness
+        values:
+          - { value: "0", label: "Maximum" }
+          - { value: "1", label: "High" }
+          - { value: "2", label: "Normal" }
+          - { value: "3", label: "Low" }
+          - { value: "4", label: "Minimum" }
+  set_color_temperature:
+    label: Set Color Temperature
+    help: Applies a color temperature to the picture.
+    send: "(CCI {temperature})"
+    params:
+      temperature:
+        type: enum
+        required: true
+        label: Color Temperature
+        values:
+          - { value: "0", label: "Warmest" }
+          - { value: "1", label: "Warm" }
+          - { value: "2", label: "Cool" }
+  set_gamma:
+    label: Set Gamma
+    help: Selects the gamma curve the picture uses.
+    send: "(BGC {curve})"
+    params:
+      curve:
+        type: enum
+        required: true
+        label: Gamma
+        values:
+          - { value: "0", label: "Video" }
+          - { value: "1", label: "Film" }
+          - { value: "2", label: "Bright" }
+          - { value: "3", label: "Computer (CRT)" }
+          - { value: "4", label: "DICOM" }
+          - { value: "5", label: "HDR" }
+  set_image_size:
+    label: Set Image Size
+    help: Sets how the picture is sized on the screen.
+    send: "(SZP {size})"
+    params:
+      size:
+        type: enum
+        required: true
+        label: Image Size
+        values:
+          - { value: "0", label: "Auto" }
+          - { value: "1", label: "Native" }
+          - { value: "2", label: "4:3" }
+          - { value: "3", label: "Letterbox" }
+          - { value: "4", label: "Full Size" }
+          - { value: "5", label: "Full Width" }
+          - { value: "6", label: "Full Height" }
+          - { value: "7", label: "Custom" }
+          - { value: "8", label: "3D Mode" }
+          - { value: "9", label: "21:9" }
+  freeze:
+    label: Freeze Picture
+    help: Freezes the picture on the current frame.
+    send: "(FRZ 1)"
+  unfreeze:
+    label: Unfreeze Picture
+    help: Lets the picture move again.
+    send: "(FRZ 0)"
+
+  # ── Test patterns ──
+  # TPG+ITPG, the fuller of the reference's two test pattern commands (ITP
+  # has six patterns).
+  show_test_pattern:
+    label: Show Test Pattern
+    help: Shows a test pattern in place of the input.
+    send: "(TPG+ITPG {pattern})"
+    params:
+      pattern:
+        type: enum
+        required: true
+        label: Test Pattern
+        values:
+          - { value: "1", label: "Grid" }
+          - { value: "2", label: "White" }
+          - { value: "3", label: "Black" }
+          - { value: "4", label: "Checkerboard" }
+          - { value: "5", label: "Color Bars" }
+          - { value: "6", label: "Red" }
+          - { value: "7", label: "Green" }
+          - { value: "8", label: "Blue" }
+          - { value: "9", label: "Yellow" }
+          - { value: "10", label: "Magenta" }
+          - { value: "11", label: "Cyan" }
+          - { value: "12", label: "Boresight" }
+          - { value: "13", label: "Full Screen" }
+          - { value: "14", label: "13 Points" }
+  test_pattern_off:
+    label: Test Pattern Off
+    help: Takes the test pattern off and shows the input again.
+    send: "(TPG+ITPG 0)"
+
+  # ── Light source ──
+  set_light_mode:
+    label: Set Light Source Mode
+    help: Sets how the laser light source is driven.
+    send: "(LPM {mode})"
+    params:
+      mode:
+        type: enum
+        required: true
+        label: Light Source Mode
+        values:
+          - { value: "0", label: "Constant Power" }
+          - { value: "1", label: "Constant Intensity" }
+          - { value: "2", label: "ECO (80% brightness)" }
+          - { value: "3", label: "ECO (50% brightness)" }
+  set_light_power:
+    label: Set Light Power
+    help: Sets the laser power used in Constant Power mode, from 1 (10%) to 100 (100%).
+    send: "(LPP {power})"
+    params:
+      power:
+        type: integer
+        required: true
+        label: Laser Power
+        min: 1
+        max: 100
+
+  # ── Lens ──
+  # Focus, zoom and the one-step shifts take n (next) or p (previous) only:
+  # the reference gives no absolute position for any of them.
+  focus_plus:
+    label: Focus +
+    help: Moves the lens focus one step.
+    send: "(FCS n)"
+  focus_minus:
+    label: Focus -
+    help: Moves the lens focus one step the other way.
+    send: "(FCS p)"
+  zoom_in:
+    label: Zoom +
+    help: Zooms the lens one step.
+    send: "(ZOM n)"
+  zoom_out:
+    label: Zoom -
+    help: Zooms the lens one step the other way.
+    send: "(ZOM p)"
+  lens_shift_up:
+    label: Lens Shift Up
+    help: Moves the picture up by the number of steps given.
+    send: "(LVU {steps})"
+    params:
+      steps:
+        type: integer
+        required: true
+        label: Steps
+        default: 10
+        min: 0
+        max: 100
+  lens_shift_down:
+    label: Lens Shift Down
+    help: Moves the picture down by the number of steps given.
+    send: "(LVD {steps})"
+    params:
+      steps:
+        type: integer
+        required: true
+        label: Steps
+        default: 10
+        min: 0
+        max: 100
+  lens_shift_left:
+    label: Lens Shift Left
+    help: Moves the picture left by the number of steps given.
+    send: "(LHL {steps})"
+    params:
+      steps:
+        type: integer
+        required: true
+        label: Steps
+        default: 10
+        min: 0
+        max: 100
+  lens_shift_right:
+    label: Lens Shift Right
+    help: Moves the picture right by the number of steps given.
+    send: "(LHR {steps})"
+    params:
+      steps:
+        type: integer
+        required: true
+        label: Steps
+        default: 10
+        min: 0
+        max: 100
+  lens_center:
+    label: Center Lens
+    help: Moves the lens to its center position. Zoom and focus stay where they are.
+    send: "(LCB+HOME 1)"
+  lens_lock:
+    label: Lock Lens
+    help: Locks the zoom, focus and shift motors so the lens cannot be moved by accident.
+    send: "(LCB+LOCK 1)"
+  lens_unlock:
+    label: Unlock Lens
+    help: Lets the zoom, focus and shift motors move again.
+    send: "(LCB+LOCK 0)"
+  recall_lens_memory:
+    label: Recall Lens Memory
+    help: Moves the lens to a saved lens memory position.
+    send: "(LMA {memory})"
+    params:
+      memory:
+        type: enum
+        required: true
+        label: Lens Memory
+        values:
+          - { value: "0", label: "Memory 1" }
+          - { value: "1", label: "Memory 2" }
+          - { value: "2", label: "Memory 3" }
+          - { value: "3", label: "Memory 4" }
+          - { value: "4", label: "Memory 5" }
+  save_lens_memory:
+    label: Save Lens Memory
+    help: Saves the current lens position to a lens memory, replacing what was saved there.
+    send: "(LMS {memory})"
+    params:
+      memory:
+        type: enum
+        required: true
+        label: Lens Memory
+        values:
+          - { value: "0", label: "Memory 1" }
+          - { value: "1", label: "Memory 2" }
+          - { value: "2", label: "Memory 3" }
+          - { value: "3", label: "Memory 4" }
+          - { value: "4", label: "Memory 5" }
+
+  # ── On-screen display and keys ──
+  osd_show:
+    label: Show On-Screen Display
+    help: Lets the projector show its menus and messages on screen.
+    send: "(OSD 1)"
+    sets: { osd: true }
+  osd_hide:
+    label: Hide On-Screen Display
+    help: Hides the projector's menus and messages from the screen.
+    send: "(OSD 0)"
+    sets: { osd: false }
+  send_key:
+    label: Press Remote Key
+    help: Presses a key on the projector's remote, for working the on-screen menu from OpenAVC.
+    send: "(KEY {key})"
+    params:
+      key:
+        type: enum
+        required: true
+        label: Key
+        values:
+          - { value: "19", label: "Menu" }
+          - { value: "20", label: "Exit" }
+          - { value: "38", label: "Up" }
+          - { value: "42", label: "Down" }
+          - { value: "39", label: "Left" }
+          - { value: "41", label: "Right" }
+          - { value: "40", label: "Enter" }
+          - { value: "48", label: "Input" }
+          - { value: "47", label: "Auto" }
+          - { value: "66", label: "Info" }
+          - { value: "49", label: "OSD" }
+          - { value: "35", label: "Help" }
+          - { value: "1", label: "Test" }
+
+  # ── Queries ──
+  query_power:
+    label: Query Power
+    help: Reads the power state.
+    send: "(PWR?)"
+  query_shutter:
+    label: Query Shutter
+    help: Reads whether the shutter is open.
+    send: "(SHU?)"
+  query_active_source:
+    label: Query Active Source
+    help: Reads the active source and its resolution.
+    send: "(MIF+ACTS?)(MIF+RESL?)"
+  query_light_source:
+    label: Query Light Source Info
+    help: Reads the projector and laser diode hours.
+    send: "(ILI?)"
+  query_firmware:
+    label: Query Firmware
+    help: Reads the firmware information and the serial command version.
+    send: "(FVI?)(SIV?)"
+  query_lens_type:
+    label: Query Lens Type
+    help: Reads the lens type.
+    send: "(LET ?)"
+  query_status:
+    label: Query Status
+    help: Reads the projector's status report into Status Report.
+    send: "(SST?)"
+
+  # ── Raw escape hatch ──
+  send_command:
+    label: Send Raw Command
+    help: Sends a command from the Korus Series Serial Commands reference exactly as typed, parentheses included, such as (HDR+HDRE 1).
+    send: "{raw}"
+    params:
+      raw:
+        type: string
+        required: true
+        label: Raw Command
+        description: The full message including its parentheses, e.g. "(PWR 1)" or "(MIF+RESL?)".
+
+# Every rule allows a line ending before the reply (left over from the
+# previous one), leading zeros, and the number-plus-quoted-label form the
+# reference's format table shows. The closing parenthesis is the frame end,
+# so it is not part of the text a rule sees.
+responses:
+  - match: '\(PWR!\s*0*(\d+)'
+    mappings:
+      - { group: 1, state: power, map: { "0": "off", "1": "on", "10": cooling, "11": warming } }
+  - match: '\(SHU!\s*0*([01])\b'
+    mappings:
+      - { group: 1, state: shutter, map: { "0": open, "1": closed } }
+  - match: '\(OSD!\s*0*([01])\b'
+    mappings:
+      - { group: 1, state: osd, map: { "0": false, "1": true } }
+  - match: '\(WPK!\s*0*(\d+)'
+    set: { white_peaking: "$1" }
+  - match: '\(WAP!\s*0*(\d+)'
+    set: { warp_setting: "$1" }
+  - match: '\(BLD!\s*0*(\d+)'
+    set: { blend_setting: "$1" }
+  # The active source: a quoted name when there is one, else the value.
+  - match: '\(MIF\+ACTS!\s*(?:\d+\s+)?"?([^"]+?)"?\s*$'
+    set: { active_source: "$1" }
+  # The read-only information replies: one quoted string has its quotes
+  # taken off; anything else is kept as the projector sent it.
+  - match: '\(MIF\+RESL!\s*"([^"]*)"\s*$'
+    set: { signal_resolution: "$1" }
+  - match: '\(MIF\+RESL!\s*(.*?)\s*$'
+    set: { signal_resolution: "$1" }
+  - match: '\(ILI!\s*"([^"]*)"\s*$'
+    set: { light_source_info: "$1" }
+  - match: '\(ILI!\s*(.*?)\s*$'
+    set: { light_source_info: "$1" }
+  - match: '\(FVI!\s*"([^"]*)"\s*$'
+    set: { firmware: "$1" }
+  - match: '\(FVI!\s*(.*?)\s*$'
+    set: { firmware: "$1" }
+  - match: '\(SIV!\s*"([^"]*)"\s*$'
+    set: { serial_command_version: "$1" }
+  - match: '\(SIV!\s*(.*?)\s*$'
+    set: { serial_command_version: "$1" }
+  - match: '\(LET!\s*"([^"]*)"\s*$'
+    set: { lens_type: "$1" }
+  - match: '\(LET!\s*(.*?)\s*$'
+    set: { lens_type: "$1" }
+  - match: '\(SST!\s*"([^"]*)"\s*$'
+    set: { status_report: "$1" }
+  - match: '\(SST!\s*(.*?)\s*$'
+    set: { status_report: "$1" }
+  # (65535 00000 ERR00005 "ITP: Too Few Parameters")
+  - match: '\(\d+\s+\d+\s+ERR\d+\s+"([^"]*)"'
+    set: { last_error: "$1" }
+
+device_settings:
+  osd_enabled:
+    type: boolean
+    label: On-Screen Display
+    help: Shows (on) or hides (off) the projector's menus and messages on screen (OSD).
+    state_key: osd
+    default: true
+    setup: false
+    write:
+      send: "(OSD {value:d})"
+  white_peaking:
+    type: integer
+    min: 0
+    max: 100
+    label: White Peaking
+    help: Raises the brightness of whites, 0 to 100 (WPK). Applies to video sources only.
+    state_key: white_peaking
+    default: 100
+    setup: false
+    write:
+      send: "(WPK {value})"
+  warp_setting:
+    type: integer
+    min: 0
+    max: 4
+    label: Warp Setting
+    help: Applies a saved warp setting, 1 to 4, or 0 to turn warping off (WAP).
+    state_key: warp_setting
+    default: 0
+    setup: false
+    write:
+      send: "(WAP {value})"
+  blend_setting:
+    type: integer
+    min: 0
+    max: 4
+    label: Blend Setting
+    help: Applies a saved blend setting, 1 to 4, or 0 to turn blending off (BLD).
+    state_key: blend_setting
+    default: 0
+    setup: false
+    write:
+      send: "(BLD {value})"
+
+quick_actions: [power_on, power_off, shutter_open, shutter_close]
+
+on_connect:
+  - { send: "(FVI?)", query_for: firmware }
+  - { send: "(SIV?)", query_for: serial_command_version }
+  - { send: "(LET ?)", query_for: lens_type }
+
+# Power and shutter in every state; the rest only while the projector is on,
+# when there is a source and a picture to read.
+polling:
+  queries:
+    - { send: "(PWR?)", query_for: power }
+    - { send: "(SHU?)", query_for: shutter }
+    - { send: "(MIF+ACTS?)", query_for: active_source, when_state: { power: "on" } }
+    - { send: "(MIF+RESL?)", query_for: signal_resolution, when_state: { power: "on" } }
+    - { send: "(OSD?)", query_for: osd, when_state: { power: "on" } }
+    - { send: "(WPK?)", query_for: white_peaking, when_state: { power: "on" } }
+    - { send: "(WAP?)", query_for: warp_setting, when_state: { power: "on" } }
+    - { send: "(BLD?)", query_for: blend_setting, when_state: { power: "on" } }
+    - { send: "(ILI?)", query_for: light_source_info, when_state: { power: "on" } }
+
+# Over a direct RS-232 line nothing else notices a projector that stops
+# answering. (PWR?) answers in Communication-mode standby; any reply counts,
+# an error included.
+liveness:
+  send: "(PWR?)"
+  expect: '\((?:PWR!|\d+\s+\d+\s+ERR)'
+  interval: 30
+  timeout: 5
+  max_failures: 2
+
+# ── Simulator ──
+# A projector in Communication-mode standby. Requests are answered in the
+# forms the reference shows: (PWR!001 "On") with a label, (SHU!0) bare, and
+# the documented error for a code sent with no value. A set draws no reply
+# (the reference prints none), so a change shows at the next poll. Power
+# goes straight to on or off: the simulator does not model warming or
+# cooling. The read-only replies (MIF, FVI, SIV, LET, ILI, SST) are
+# placeholders: the reference prints none of them. An unknown request draws
+# no reply.
+simulator:
+  initial_state:
+    power: "off"
+    shutter: closed
+    input: "3"
+    osd: true
+    white_peaking: 100
+    warp_setting: 0
+    blend_setting: 0
+    brightness: 50
+    contrast: 50
+    picture_mode: "1"
+    light_mode: "0"
+    test_pattern: "0"
+    freeze: false
+    signal_resolution: "3840x2160 60Hz"
+    firmware: "1.1.0"
+    serial_command_version: "1.0"
+    lens_type: "Standard Zoom Lens"
+    light_source_info: "1234 1200"
+  controls:
+    - type: select
+      key: power
+      label: Power
+      options: ["off", "on", warming, cooling]
+    - type: select
+      key: shutter
+      label: Shutter
+      options: [open, closed]
+    - type: select
+      key: input
+      label: Input
+      options: ["3", "4", "6", "7", "8"]
+    - type: toggle
+      key: osd
+      label: On-Screen Display
+    - type: slider
+      key: white_peaking
+      label: White Peaking
+      min: 0
+      max: 100
+    - type: slider
+      key: warp_setting
+      label: Warp Setting
+      min: 0
+      max: 4
+    - type: slider
+      key: blend_setting
+      label: Blend Setting
+      min: 0
+      max: 4
+  command_handlers:
+    # One dispatcher for the whole grammar. Several messages can arrive in
+    # one read (a poll goes out 50 ms apart, with no line ending), so every
+    # message in the read is handled and the replies go back together.
+    - match: '(?s:\s*(?:\([^()]*\)\s*)+)'
+      handler: |
+        def _run():
+            POWER_CODES = {"off": ("000", "Standby"), "on": ("001", "On"),
+                           "cooling": ("010", "Cooling"), "warming": ("011", "Warm Up")}
+            SOURCES = {"3": "HDMI1", "4": "HDMI2", "6": "DisplayPort",
+                       "7": "12G-SDI", "8": "HDBaseT"}
+            out = []
+            for msg in re.findall(r"\(([^()]*)\)", match.group(0)):
+                m = re.match(r"^\s*[#$&]?([A-Za-z]{3})(?:\+([A-Za-z0-9#]{4}))?\s*(\?)?\s*(.*?)\s*$", msg)
+                if not m:
+                    continue
+                code = m.group(1).upper()
+                sub = (m.group(2) or "").upper()
+                ask = m.group(3) == "?"
+                value = m.group(4)
+                key = code + ("+" + sub if sub else "")
+                if ask:
+                    if key == "PWR":
+                        num, label = POWER_CODES.get(str(state["power"]), ("000", "Standby"))
+                        out.append("(PWR!" + num + ' "' + label + '")')
+                    elif key == "SHU":
+                        out.append("(SHU!" + ("0" if state["shutter"] == "open" else "1") + ")")
+                    elif key == "OSD":
+                        out.append("(OSD!" + str(int(bool(state["osd"]))) + ")")
+                    elif key == "WPK":
+                        out.append("(WPK!" + str(int(state["white_peaking"])) + ")")
+                    elif key == "WAP":
+                        out.append("(WAP!" + str(int(state["warp_setting"])) + ")")
+                    elif key == "BLD":
+                        out.append("(BLD!" + str(int(state["blend_setting"])) + ")")
+                    elif key == "MIF+ACTS":
+                        src = str(state["input"])
+                        out.append("(MIF+ACTS!" + src.zfill(3) + ' "' + SOURCES.get(src, src) + '")')
+                    elif key == "MIF+RESL":
+                        out.append('(MIF+RESL!"' + str(state["signal_resolution"]) + '")')
+                    elif key == "FVI":
+                        out.append('(FVI!"' + str(state["firmware"]) + '")')
+                    elif key == "SIV":
+                        out.append('(SIV!"' + str(state["serial_command_version"]) + '")')
+                    elif key == "LET":
+                        out.append('(LET!"' + str(state["lens_type"]) + '")')
+                    elif key == "ILI":
+                        out.append('(ILI!"' + str(state["light_source_info"]) + '")')
+                    elif key == "SST":
+                        out.append('(SST!"Normal")')
+                    continue
+                if value == "":
+                    # The reference's own example: (ITP) answers this.
+                    out.append('(65535 00000 ERR00005 "' + code + ': Too Few Parameters")')
+                    continue
+                if key == "PWR" and value in ("0", "1"):
+                    state["power"] = "on" if value == "1" else "off"
+                elif key == "SHU" and value in ("0", "1"):
+                    state["shutter"] = "open" if value == "0" else "closed"
+                elif key == "SIN" or key == "SIN+MAIN":
+                    if value in SOURCES:
+                        state["input"] = value
+                elif key == "OSD" and value in ("0", "1"):
+                    state["osd"] = value == "1"
+                elif key == "WPK" and value.isdigit() and int(value) <= 100:
+                    state["white_peaking"] = int(value)
+                elif key == "WAP" and value.isdigit() and int(value) <= 4:
+                    state["warp_setting"] = int(value)
+                elif key == "BLD" and value.isdigit() and int(value) <= 4:
+                    state["blend_setting"] = int(value)
+                elif key == "BRT" and value.isdigit():
+                    state["brightness"] = int(value)
+                elif key == "CON" and value.isdigit():
+                    state["contrast"] = int(value)
+                elif key == "PST":
+                    state["picture_mode"] = value
+                elif key == "LPM":
+                    state["light_mode"] = value
+                elif key == "TPG+ITPG":
+                    state["test_pattern"] = value
+                elif key == "FRZ" and value in ("0", "1"):
+                    state["freeze"] = value == "1"
+            if out:
+                respond("".join(out))
+        _run()

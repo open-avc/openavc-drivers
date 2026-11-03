@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 142,
+    "total_drivers": 143,
     "shards": null
   },
   "drivers": [
@@ -2950,11 +2950,78 @@
       }
     },
     {
+      "id": "christie_korus",
+      "name": "Christie Korus Series Projector",
+      "manufacturer": "Christie",
+      "category": "projector",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Christie Korus Series 1DLP laser projectors (4K1000-KS, 4K1000A-KS, 4K1400-KS, 4K1400A-KS) over the network (TCP 3002) or RS-232. Power, shutter, input select, picture mode, brightness, contrast, color, sharpness, color temperature, gamma, image size, freeze, test patterns, light source mode and power, lens focus, zoom, shift and memories, OSD, warp and blend selection, standby mode and remote key emulation. Polls power, shutter, the active source and signal, and light source information.",
+      "source_url": "https://www.christiedigital.com/globalassets/resources/public/020-104044-01-christie-lit-tech-ref-korus-series-api.pdf",
+      "file": "projectors/christie_korus.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "projectors/christie_korus.avcdriver": "30d2939e21c734ab690d6a814150f643e8762cb13215000575bd80912e4daecc"
+      },
+      "ports": [
+        3002
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "projector",
+        "christie",
+        "korus",
+        "laser",
+        "4k",
+        "serial-api",
+        "rs232",
+        "lan-control"
+      ],
+      "help": {
+        "overview": "Christie Korus Series laser projectors (4K1000-KS, 4K1000A-KS, 4K1400-KS, 4K1400A-KS). Power, shutter, inputs (HDMI 1, HDMI 2, DisplayPort, 12G-SDI, HDBaseT), picture controls, test patterns, light source, lens, OSD, warp and blend selection. Power and shutter are read every 15 seconds; the active source, signal and light source hours are read while the projector is on. Brightness, contrast, input and the other picture controls are sent but not read back. For a command not listed here, use Send Raw Command with the Korus Series Serial Commands reference.",
+        "setup": "1. Network: connect the projector's RJ-45 port (or its HDBaseT port) and\n   note its IP address (Menu > Configuration > Communications > LAN).\n   Control uses TCP port 3002. No login.\n2. To turn the projector on from OpenAVC, leave Menu > Configuration >\n   Power Management > Standby Mode at Communication mode, the default.\n   In ECO mode the projector leaves the network while it is off.\n3. RS-232: connect the RS232 IN port with a null-modem cable (pins 2-3,\n   3-2 and 5-5). The default is 115200 baud, 8 data bits, no parity, 1\n   stop bit; match Baud Rate to Menu > Configuration > Communications >\n   Serial Port Baud rate.",
+        "connection": "A projector in ECO standby does not answer on the network until it is turned on at the projector or with its remote. If the projector stops answering for about a minute it shows offline, and comes back as soon as it answers again."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Christie",
+          "models": [
+            "4K1000-KS",
+            "4K1000A-KS",
+            "4K1400-KS",
+            "4K1400A-KS"
+          ],
+          "confidence": "untested",
+          "notes": "Leave Standby Mode at Communication mode (the default) to turn the projector on over the network. Christie M Series, J, HS, H, GS, G, E and Roadie projectors use the Christie Projector driver."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 3002,
+          "send_ascii": "(SIV?)",
+          "expect_regex": "\\(SIV!",
+          "extract_manufacturer": "Christie"
+        },
+        "oui": [
+          "00:1a:d7"
+        ],
+        "port_open": [
+          3002
+        ],
+        "manufacturer_alias": [
+          "christie",
+          "christie digital"
+        ]
+      }
+    },
+    {
       "id": "christie_serial",
       "name": "Christie Projector",
       "manufacturer": "Christie",
       "category": "projector",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Christie commercial projectors using the Christie Serial API on TCP 3002. Supports the M, J, HS, H, GS, G, and E series families and their derivatives. Power, shutter, fade-to-black, input select, test patterns, brightness/contrast, freeze, orientation, lamp mode, lamp intensity, and lens focus. Polls for status; the projector also reports model, firmware, and projector hours.",
@@ -2962,7 +3029,7 @@
       "file": "projectors/christie_serial.avcdriver",
       "format": "avcdriver",
       "files": {
-        "projectors/christie_serial.avcdriver": "7e4f272f571a5e3b76d73f0c58a0ace77875e06926740a597143e33a6e76de70"
+        "projectors/christie_serial.avcdriver": "fbb4506a404af2d889f1e8b48ed949a4f5ba0e6d29eb0a7d9ff187f8a39c6d5c"
       },
       "ports": [
         3002
@@ -2976,7 +3043,7 @@
         "large-venue"
       ],
       "help": {
-        "overview": "Christie commercial projectors that speak the Christie Serial API (M Series, J Series, HS / H Series, GS / G Series, E Series, Roadie). Power, shutter, fade-to-black, input select, brightness, contrast, freeze, orientation, test patterns, lamp mode, lamp intensity, and lens focus. Polls every 30 seconds for status. For commands not exposed here, use Send Raw Command \u2014 the full command list is in the Christie Serial API Technical Reference for your projector series.",
+        "overview": "Christie commercial projectors that speak the Christie Serial API (M Series, J Series, HS / H Series, GS / G Series, E Series, Roadie). Power, shutter, fade-to-black, input select, brightness, contrast, freeze, orientation, test patterns, lamp mode, lamp intensity, and lens focus. Polls every 30 seconds for status. For commands not exposed here, use Send Raw Command \u2014 the full command list is in the Christie Serial API Technical Reference for your projector series. For a Korus Series projector, use the Christie Korus Series Projector driver instead.",
         "setup": "1. Connect the projector to your network. 2. On the projector menu, enable Ethernet and note the IP address. 3. The Christie Serial API listens on TCP 3002 by default and does\n   not require authentication.\n4. Set the projector's \"Serial Mode\" / \"Serial API\" to enabled if\n   it is not already on. (M Series MENU > Configuration >\n   Communications > Network Settings.)\n5. The Input Select command takes a two-digit slot+input code\n   (e.g. 12 = slot 1 input 2). The slot/input map is on the back\n   panel of the projector."
       },
       "compatible_models": [
@@ -2999,7 +3066,7 @@
             "Roadie 4K45"
           ],
           "confidence": "untested",
-          "notes": "All series share the same (CODE) message format and the core power / shutter / input / image controls. Series-specific features (e.g. laser-light controls on HS, lens-shift codes on GS) are not exposed here; use send_command with the series' published command list when needed. Boxer / Inspire / 4KHS / Crimson use a newer JSON / Christie API and require a different driver \u2014 they are not covered here."
+          "notes": "All series share the same (CODE) message format and the core power / shutter / input / image controls. Series-specific features (e.g. laser-light controls on HS, lens-shift codes on GS) are not exposed here; use send_command with the series' published command list when needed. Boxer / Inspire / 4KHS / Crimson use a newer JSON / Christie API and require a different driver \u2014 they are not covered here. Korus Series projectors (4K1000-KS, 4K1400-KS) use the Christie Korus Series Projector driver: their commands share this framing but not its ranges or values."
         }
       ],
       "discovery": {

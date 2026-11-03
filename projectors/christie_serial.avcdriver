@@ -27,7 +27,7 @@ id: christie_serial
 name: Christie Projector
 manufacturer: Christie
 category: projector
-version: 1.3.0
+version: 1.3.1
 author: OpenAVC
 description: >-
   Controls Christie commercial projectors using the Christie Serial API
@@ -68,6 +68,9 @@ compatible_models:
       here; use send_command with the series' published command list when
       needed. Boxer / Inspire / 4KHS / Crimson use a newer JSON / Christie
       API and require a different driver — they are not covered here.
+      Korus Series projectors (4K1000-KS, 4K1400-KS) use the Christie
+      Korus Series Projector driver: their commands share this framing
+      but not its ranges or values.
 
 transport: tcp
 delimiter: "\r"
@@ -81,7 +84,8 @@ help:
     lens focus. Polls every 30 seconds for status. For commands not
     exposed here, use Send Raw Command — the full command list is in
     the Christie Serial API Technical Reference for your projector
-    series.
+    series. For a Korus Series projector, use the Christie Korus Series
+    Projector driver instead.
   setup: >-
     1. Connect the projector to your network.
     2. On the projector menu, enable Ethernet and note the IP address.
@@ -431,54 +435,57 @@ commands:
 # Christie's reply format is (CODE!VALUE) with various flavours. We
 # unwrap any leading "(" before matching since some firmware echoes the
 # request line first then the reply, and the line framing may include
-# both on the same delimiter.
+# both on the same delimiter. The reference's format table also shows a
+# value followed by a quoted label, (BDR+PRTA!005 "57600"), so every
+# value rule takes an optional label before the closing parenthesis
+# (1.3.1; before it, a labelled reply matched no rule).
 responses:
-  - match: '\(PWR!(-?\d+)\)'
+  - match: '\(PWR!(-?\d+)(?:\s+"[^"]*")?\)'
     set: { power_state: "$1" }
 
-  - match: '\(SHU!(-?\d+)\)'
+  - match: '\(SHU!(-?\d+)(?:\s+"[^"]*")?\)'
     set: { shutter_state: "$1" }
 
-  - match: '\(FTB\+SLCT!(-?\d+)\)'
+  - match: '\(FTB\+SLCT!(-?\d+)(?:\s+"[^"]*")?\)'
     set: { fade_to_black: "$1" }
 
-  - match: '\(SIN!(\S+)\)'
+  - match: '\(SIN!(\S+?)(?:\s+"[^"]*")?\)'
     set: { selected_input: "$1" }
 
-  - match: '\(SIN\+MAIN!(\S+)\)'
+  - match: '\(SIN\+MAIN!(\S+?)(?:\s+"[^"]*")?\)'
     set: { selected_input: "$1" }
 
-  - match: '\(BRT!(-?\d+)\)'
+  - match: '\(BRT!(-?\d+)(?:\s+"[^"]*")?\)'
     set: { brightness: "$1" }
 
-  - match: '\(BRT\+MAIN!(-?\d+)\)'
+  - match: '\(BRT\+MAIN!(-?\d+)(?:\s+"[^"]*")?\)'
     set: { brightness: "$1" }
 
-  - match: '\(CON!(-?\d+)\)'
+  - match: '\(CON!(-?\d+)(?:\s+"[^"]*")?\)'
     set: { contrast: "$1" }
 
-  - match: '\(CON\+MAIN!(-?\d+)\)'
+  - match: '\(CON\+MAIN!(-?\d+)(?:\s+"[^"]*")?\)'
     set: { contrast: "$1" }
 
-  - match: '\(FRZ!(-?\d+)\)'
+  - match: '\(FRZ!(-?\d+)(?:\s+"[^"]*")?\)'
     set: { freeze_state: "$1" }
 
-  - match: '\(FRZ\+MAIN!(-?\d+)\)'
+  - match: '\(FRZ\+MAIN!(-?\d+)(?:\s+"[^"]*")?\)'
     set: { freeze_state: "$1" }
 
-  - match: '\(SOR!(-?\d+)\)'
+  - match: '\(SOR!(-?\d+)(?:\s+"[^"]*")?\)'
     set: { orientation: "$1" }
 
-  - match: '\(ITP!(-?\d+)\)'
+  - match: '\(ITP!(-?\d+)(?:\s+"[^"]*")?\)'
     set: { test_pattern: "$1" }
 
-  - match: '\(LPM!(-?\d+)\)'
+  - match: '\(LPM!(-?\d+)(?:\s+"[^"]*")?\)'
     set: { lamp_mode: "$1" }
 
-  - match: '\(LPI!(-?\d+)\)'
+  - match: '\(LPI!(-?\d+)(?:\s+"[^"]*")?\)'
     set: { lamp_intensity: "$1" }
 
-  - match: '\(PJH!(-?\d+)\)'
+  - match: '\(PJH!(-?\d+)(?:\s+"[^"]*")?\)'
     set: { projector_hours: "$1" }
 
   # SST+HLTH format: (SST+HLTH!P1 P2 "value" "description") — capture description

@@ -9053,7 +9053,7 @@
       "name": "Sonance PowerZone Connect Amplifier",
       "manufacturer": "Sonance",
       "category": "audio",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Sonance PowerZone Connect (Blaze by Sonance) and PowerZone Connect PRO network DSP amplifiers over the Open API on TCP 7621. Each zone is a child entity with level, mute, source, stereo link, level limits, ducking and priority sources; each output has its name, level, mute, zone, delay and direct route; inputs and mixes carry their levels. Amplifier power, status, Dante status, wall volume controls and the test generator are covered too. State is pushed by the amplifier as it changes, including changes from its own web app and wall controllers.\n",
@@ -9061,7 +9061,7 @@
       "file": "audio/sonance_powerzone_connect.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/sonance_powerzone_connect.avcdriver": "d77fd003814576455faba1f762adffa691220ee8a7da6da482ab49f9153d09af"
+        "audio/sonance_powerzone_connect.avcdriver": "2ec25d42568cc371f1bf76d1d30b583360ec1f871624dc10b79b7004f382182b"
       },
       "ports": [
         7621

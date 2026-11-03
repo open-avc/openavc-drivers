@@ -64,7 +64,7 @@ id: sonance_powerzone_connect
 name: Sonance PowerZone Connect Amplifier
 manufacturer: Sonance
 category: audio
-version: "1.0.0"
+version: "1.0.1"
 author: OpenAVC
 transport: tcp
 delimiter: "\n"
@@ -1749,6 +1749,9 @@ routing:
       source_child_type: zone
       route_property: zone
       command: set_output_zone
+      # Named: a parameter called zone otherwise reads as the destination.
+      destination_param: output
+      source_param: zone
 
 responses:
   # Every value line is "+<register> <value>", from a GET, an INC or a push,

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1127,
+    "total_devices": 1129,
     "shards": null
   },
   "devices": [
@@ -4213,6 +4213,30 @@
           "id": "bss_soundweb_london",
           "confidence": "untested",
           "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BSS Audio",
+      "model": "Soundweb OMNI 256p",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bss_soundweb_omni",
+          "confidence": "untested",
+          "notes": "Built from HARMAN's HControl Protocol Integration Guide; not yet run on a processor. Not the OMNI 32e / 16e I/O expanders: no document gives their HControl paths."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BSS Audio",
+      "model": "Soundweb OMNI 512p",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bss_soundweb_omni",
+          "confidence": "untested",
+          "notes": "Built from HARMAN's HControl Protocol Integration Guide; not yet run on a processor. Not the OMNI 32e / 16e I/O expanders: no document gives their HControl paths."
         }
       ]
     },

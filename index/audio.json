@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 43,
+    "total_drivers": 44,
     "shards": null,
     "category": "audio"
   },
@@ -1303,6 +1303,79 @@
           "bss audio",
           "soundweb",
           "soundweb london"
+        ]
+      }
+    },
+    {
+      "id": "bss_soundweb_omni",
+      "name": "BSS Soundweb OMNI",
+      "manufacturer": "BSS Audio",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls BSS Soundweb OMNI processors (512p, 256p) over HARMAN's HControl protocol on TCP port 4197. List the controls you need from the AVX Architect design, by their HControl paths; each object becomes a child with its controls, updated the moment they change on the processor.",
+      "source_url": "https://bssaudio.com/en-US/site_elements/hcontrol-protocol-integration-guide",
+      "file": "audio/bss_soundweb_omni.py",
+      "format": "python",
+      "files": {
+        "audio/bss_soundweb_omni.py": "d460c2c7187d1a36a6c0287467fd97d392b7d57ad6dc0d36e492735f12871fc3",
+        "audio/bss_soundweb_omni_sim.py": "f524e0029b7bf9fa2ff2994999be28c1d4101ac68cd2f457643dd671b46ae611"
+      },
+      "ports": [
+        4197
+      ],
+      "protocols": [
+        "hcontrol"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.29.0",
+      "tags": [
+        "dsp",
+        "bss",
+        "soundweb",
+        "omni",
+        "hcontrol",
+        "harman",
+        "dante"
+      ],
+      "help": {
+        "overview": "Controls a Soundweb OMNI processor over HControl. Each control you list appears under the device, grouped by the object that holds it, and updates the moment it changes on the processor, from AVX, a wall panel or a preset. Set Control, Toggle Control and Step Control change one; Run Device Command and Send HControl Message reach anything else in the design.",
+        "setup": "1. In AVX Architect, open the design's control panel, right-click each control you need and copy its HControl string.\n2. In OpenAVC, enter the processor's HControl IP address (shown on its front panel under HControl). The port is 4197.\n3. Paste each string, or just its path, into a row of the Controls table and pick what it holds: Number (a gain in dB, a frequency), Level (a fader position from 0 to 1), On/Off (a mute), Text (a source selector's choice, a name) or Meter.\nControls with the same object land in one group, named after the object; type a Group to choose your own. After a change to the design, use Refresh on the device's Groups tab.",
+        "connection": "HControl needs no login. If the processor closes the connection, it may already have as many control connections as it allows, or its security settings may block this computer."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "BSS Audio",
+          "models": [
+            "Soundweb OMNI 512p",
+            "Soundweb OMNI 256p"
+          ],
+          "confidence": "untested",
+          "notes": "Built from HARMAN's HControl Protocol Integration Guide; not yet run on a processor. Not the OMNI 32e / 16e I/O expanders: no document gives their HControl paths."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 4197,
+          "send_ascii": "get {\"format\":\"string\",\"path\":\"/configuration/device/manufacturer\"}\n",
+          "expect_regex": "^@get \\{.*\"path\"\\s*:\\s*\"/configuration/device/manufacturer\"",
+          "cross_vendor": true,
+          "timeout_ms": 2000,
+          "extract": {
+            "manufacturer": {
+              "regex": "\"value\"\\s*:\\s*\"([^\"]+)\"",
+              "group": 1
+            }
+          }
+        },
+        "port_open": [
+          4197
+        ],
+        "manufacturer_alias": [
+          "bss",
+          "bss audio",
+          "soundweb omni"
         ]
       }
     },

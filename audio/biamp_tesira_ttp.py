@@ -65,8 +65,10 @@ SSH:
     frame parser, so on that path the driver frames lines itself, on LF
     (a remote pty may turn a line ending into CR CR LF). Nothing Biamp
     publishes says whether the welcome banner is printed over SSH, so the
-    handshake waits for it as on Telnet and goes on without it while the
-    session stays up; Telnet IAC stripping is a no-op on SSH's clean text.
+    handshake waits for it as on Telnet and, without it, goes on once the
+    Tesira answers a command (an SSH session counts as up from the moment
+    ssh starts, before it has reached anything); Telnet IAC stripping is a
+    no-op on SSH's clean text.
     Algorithms: firmware 4.7.2 removed deprecated SSH ciphers and 5.0.0 to
     5.7.1 run OpenSSH 9.9p2 to 10.4p1 (Tesira release notes), so a current
     client needs nothing older. Telnet stays the default because 0.38.0's
@@ -122,6 +124,10 @@ LINE_DELIMITER = b"\r\n"
 # LF ends every form a remote pty can deliver (LF, CR LF, CR CR LF); the
 # reply reader strips the CRs.
 SSH_LINE_DELIMITER = b"\n"
+# Over SSH with no welcome banner, the command whose answer shows the Tesira
+# is there and signed in (any user level may query), and how long to wait.
+SSH_READY_COMMAND = "DEVICE get version"
+SSH_ANSWER_TIMEOUT = 10.0
 
 # Default subscription rate in milliseconds. 250ms matches Companion's default
 # and balances responsiveness against bandwidth on AEC / meter blocks.
@@ -904,7 +910,7 @@ class BiampTesiraTTPDriver(BaseDriver):
         "name": "Biamp Tesira TTP",
         "manufacturer": "Biamp",
         "category": "audio",
-        "version": "3.2.0",
+        "version": "3.2.1",
         # Set by hand (the contract check cannot see a method call): the
         # Test Connection socket binds to BaseDriver.local_address(), which
         # landed in 0.37.0 (supersedes the lifecycle-hook 0.24.0 requirement).
@@ -1480,10 +1486,8 @@ class BiampTesiraTTPDriver(BaseDriver):
             remaining = deadline - asyncio.get_event_loop().time()
             if remaining <= 0:
                 # Over SSH the session needs no negotiation, and Biamp does
-                # not say the banner is printed there: an SSH session still
-                # up after the wait is taken as signed in, so carry on (ssh
-                # exits on a refused sign-in, which drops the connection
-                # with its reason; lines sent before then wait in ssh).
+                # not say the banner is printed there: ask the Tesira
+                # something and carry on once it answers.
                 if (
                     self._over_ssh()
                     and self.transport is not None
@@ -1491,9 +1495,10 @@ class BiampTesiraTTPDriver(BaseDriver):
                 ):
                     log.info(
                         f"[{self.device_id}] No welcome banner over SSH "
-                        f"within {timeout:g} s; the session is open, "
-                        f"going on"
+                        f"within {timeout:g} s; waiting for the Tesira to "
+                        f"answer a command"
                     )
+                    await self._await_ssh_answer()
                     return
                 # Some firmware variants don't emit the canonical banner
                 # but DO accept commands once IAC negotiation is settled.
@@ -1521,6 +1526,58 @@ class BiampTesiraTTPDriver(BaseDriver):
                 # Periodic re-check; loop again
                 pass
             self._auth_event.clear()
+
+    async def _await_ssh_answer(self) -> None:
+        """Over SSH with no banner, send one command and wait for its answer
+        before taking the session as signed in.
+
+        The SSH transport counts as connected once ssh has started, before
+        ssh has reached anything. At an address where nothing answers, ssh
+        gives up at its ConnectTimeout (15 s), after the 10 s banner wait, so
+        taking a session that was merely still up as signed in (3.2.0) showed
+        a Tesira that was off or mis-addressed as online for about 5 s at
+        every reconnect. An answer, +OK or -ERR, is the Tesira. When ssh exits
+        first (no route, a refused sign-in) the platform ends this connect
+        with ssh's own reason; a session that stays up and never answers is
+        no_response. Lines sent before ssh has signed in wait in ssh. The
+        answer, and anything before it (a pty's echo of the command), is
+        trimmed from the buffer as the banner is.
+        """
+        await self._send_line(SSH_READY_COMMAND)
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + SSH_ANSWER_TIMEOUT
+        while True:
+            end = self._answer_end(self._auth_buffer)
+            if end is not None:
+                self._auth_buffer = self._auth_buffer[end:]
+                log.info(f"[{self.device_id}] The Tesira answered over SSH")
+                return
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                raise ConnectionFaultError(
+                    f"The SSH session opened, but no Tesira answered within "
+                    f"{SSH_ANSWER_TIMEOUT:g} seconds. Check the address and "
+                    f"port, and that the device is a Tesira.",
+                    code="no_response",
+                )
+            try:
+                await asyncio.wait_for(self._auth_event.wait(), timeout=min(remaining, 0.5))
+            except asyncio.TimeoutError:
+                pass
+            self._auth_event.clear()
+
+    @staticmethod
+    def _answer_end(buf: bytearray) -> int | None:
+        """Where the first complete +OK or -ERR line in ``buf`` ends (past its
+        LF), or None while none has arrived."""
+        start = 0
+        while True:
+            nl = buf.find(b"\n", start)
+            if nl < 0:
+                return None
+            if bytes(buf[start:nl]).strip().startswith((b"+OK", b"-ERR")):
+                return nl + 1
+            start = nl + 1
 
     @staticmethod
     def _strip_iac(buf: bytearray) -> tuple[bytearray, bytes]:

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1171,
+    "total_devices": 1175,
     "shards": null
   },
   "devices": [
@@ -12600,6 +12600,54 @@
           "id": "vmix",
           "confidence": "full",
           "notes": "Verified against vMix 29 (29.0.0.49). Any vMix edition; the TCP API is enabled by default. Bus and Mix features beyond the master bus need a 4K or Pro edition."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SurgeX",
+      "model": "SX-AEP-1011i",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "surgex_axess_elite_plus",
+          "confidence": "untested",
+          "notes": "Axess ELITE+ 240 V: eleven switched IEC C13 outlets."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SurgeX",
+      "model": "SX-AEP-159",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "surgex_axess_elite_plus",
+          "confidence": "untested",
+          "notes": "Axess ELITE+ 120 V: nine switched NEMA outlets (the SX-AEP-209 has two of them 5-20R). The outlet roster is read off the unit."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SurgeX",
+      "model": "SX-AEP-1611i",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "surgex_axess_elite_plus",
+          "confidence": "untested",
+          "notes": "Axess ELITE+ 240 V: eleven switched IEC C13 outlets."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SurgeX",
+      "model": "SX-AEP-209",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "surgex_axess_elite_plus",
+          "confidence": "untested",
+          "notes": "Axess ELITE+ 120 V: nine switched NEMA outlets (the SX-AEP-209 has two of them 5-20R). The outlet roster is read off the unit."
         }
       ]
     },

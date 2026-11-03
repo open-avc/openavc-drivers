@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 144,
+    "total_drivers": 145,
     "shards": null
   },
   "drivers": [
@@ -9502,6 +9502,76 @@
         "manufacturer_alias": [
           "vmix",
           "studiocoast"
+        ]
+      }
+    },
+    {
+      "id": "surgex_axess_elite_plus",
+      "name": "SurgeX Axess ELITE+",
+      "manufacturer": "SurgeX",
+      "category": "power",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "snmp",
+      "description": "Controls SurgeX Axess ELITE+ power conditioners over SNMP. Outlets, outlet groups, stored sequences, triggers and AutoPing hosts are children read off the unit, with outlet and group on, off and reboot, sequence runs, line voltage, current, power, frequency, energy, temperature and the input fault the unit last detected.",
+      "source_url": "https://www.ametekesp.com/-/media/ametekesp/products/surgex/axess-elite-plus/axesselite_v10.mib",
+      "file": "power/surgex_axess_elite_plus.py",
+      "format": "python",
+      "files": {
+        "power/surgex_axess_elite_plus.py": "a0fa02263f3f213aafdacac6477f3e4b229d4308f9b7fa7b92fb12432dcc9258",
+        "power/surgex_axess_elite_plus_sim.py": "e6628416725a9c8312a2ce65084c2b99a619fb107aac05c1728f13d1b3c96ac1"
+      },
+      "ports": [
+        161
+      ],
+      "protocols": [
+        "snmp"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "power-conditioner",
+        "pdu",
+        "power",
+        "outlet-control",
+        "rack",
+        "snmp",
+        "metering",
+        "sequencing"
+      ],
+      "help": {
+        "overview": "The Axess ELITE+ is the SurgeX power conditioner with switched outlets. Each outlet is a child here, so a button, macro or schedule can switch one, reboot a stuck device, or run a power sequence stored on the unit. Outlet groups and sequences made in the unit's web interface appear automatically. Line voltage, current, power, frequency, energy, temperature, trigger states and the last input fault come through as live values you can alert on.",
+        "setup": "1. Give the Axess ELITE+ an IP address and open its web interface.\n2. Under Setup > Network Advanced > SNMP, enable SNMP on port 161 and add an SNMP V1 community with Read/Write access. A second community with Read access only can be the Read Community here. Set Source to this OpenAVC server's address so nothing else can switch outlets.\n3. Enter the unit's IP address and the community names here, then run Test Connection. It reads the unit's model and outlet list back, and writes nothing.\n4. Outlets, groups, sequences and triggers appear as children once connected. After changing them in the web interface, use Refresh from Device, or wait a minute."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "SurgeX",
+          "models": [
+            "SX-AEP-159",
+            "SX-AEP-209"
+          ],
+          "confidence": "untested",
+          "notes": "Axess ELITE+ 120 V: nine switched NEMA outlets (the SX-AEP-209 has two of them 5-20R). The outlet roster is read off the unit."
+        },
+        {
+          "manufacturer": "SurgeX",
+          "models": [
+            "SX-AEP-1011i",
+            "SX-AEP-1611i"
+          ],
+          "confidence": "untested",
+          "notes": "Axess ELITE+ 240 V: eleven switched IEC C13 outlets."
+        }
+      ],
+      "discovery": {
+        "snmp_pen": 40079,
+        "oui": [
+          "ac:a6:67"
+        ],
+        "manufacturer_alias": [
+          "surgex",
+          "electronic systems protection",
+          "ametek esp"
         ]
       }
     },

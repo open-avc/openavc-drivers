@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 99,
+    "total_devices": 103,
     "shards": null,
     "category": "power"
   },
@@ -976,6 +976,54 @@
           "id": "netio",
           "confidence": "untested",
           "notes": "Same universal firmware, JSON API and web login as the units above; the outlet type in the model name (S, B, F, E, G, Z) does not change the API. Metering follows the model: K models meter every output, Q models the whole unit and output 1, P models switch without metering. Firmware 5.4 reads its outputs' states from a topic of its own over the web login; that path follows NETIO's library and has not been run on a 5.4 unit."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SurgeX",
+      "model": "SX-AEP-1011i",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "surgex_axess_elite_plus",
+          "confidence": "untested",
+          "notes": "Axess ELITE+ 240 V: eleven switched IEC C13 outlets."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SurgeX",
+      "model": "SX-AEP-159",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "surgex_axess_elite_plus",
+          "confidence": "untested",
+          "notes": "Axess ELITE+ 120 V: nine switched NEMA outlets (the SX-AEP-209 has two of them 5-20R). The outlet roster is read off the unit."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SurgeX",
+      "model": "SX-AEP-1611i",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "surgex_axess_elite_plus",
+          "confidence": "untested",
+          "notes": "Axess ELITE+ 240 V: eleven switched IEC C13 outlets."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SurgeX",
+      "model": "SX-AEP-209",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "surgex_axess_elite_plus",
+          "confidence": "untested",
+          "notes": "Axess ELITE+ 120 V: nine switched NEMA outlets (the SX-AEP-209 has two of them 5-20R). The outlet roster is read off the unit."
         }
       ]
     },

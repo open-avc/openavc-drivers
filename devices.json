@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1129,
+    "total_devices": 1137,
     "shards": null
   },
   "devices": [
@@ -13277,13 +13277,37 @@
     },
     {
       "manufacturer": "WattBox",
+      "model": "WB-150-IPW-1B-2",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "wattbox_ip",
+          "confidence": "untested",
+          "notes": "Not tested on these models. The protocol document covers them; outlets are read from the unit's own outlet count, and power metering and UPS readings appear only where the unit reports them."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WattBox",
+      "model": "WB-250-IPW-2",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "wattbox_ip",
+          "confidence": "full",
+          "notes": "Tested on firmware 2.9.0.2: login, outlet on / off / toggle / reset, rename, power-on delay, outlet mode, auto-reboot and live outlet status. This model has no power metering and no UPS link, so those readings stay empty."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WattBox",
       "model": "WB-300-IP-3",
       "category": "power",
       "drivers": [
         {
           "id": "wattbox_ip",
           "confidence": "untested",
-          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Outlets are reconciled from the unit's reported outlet count, so 3 / 12 / 18-outlet models each surface exactly their outlets as children."
+          "notes": "Not tested on these models. The protocol document covers them; outlets are read from the unit's own outlet count, and power metering and UPS readings appear only where the unit reports them."
         }
       ]
     },
@@ -13295,7 +13319,19 @@
         {
           "id": "wattbox_ip",
           "confidence": "untested",
-          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Outlets are reconciled from the unit's reported outlet count, so 3 / 12 / 18-outlet models each surface exactly their outlets as children."
+          "notes": "Not tested on these models. The protocol document covers them; outlets are read from the unit's own outlet count, and power metering and UPS readings appear only where the unit reports them."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WattBox",
+      "model": "WB-300VB-IP-5",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "wattbox_ip",
+          "confidence": "untested",
+          "notes": "Not tested on these models. The protocol document covers them; outlets are read from the unit's own outlet count, and power metering and UPS readings appear only where the unit reports them."
         }
       ]
     },
@@ -13307,7 +13343,7 @@
         {
           "id": "wattbox_ip",
           "confidence": "untested",
-          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Outlets are reconciled from the unit's reported outlet count, so 3 / 12 / 18-outlet models each surface exactly their outlets as children."
+          "notes": "Not tested on these models. The protocol document covers them; outlets are read from the unit's own outlet count, and power metering and UPS readings appear only where the unit reports them."
         }
       ]
     },
@@ -13319,7 +13355,7 @@
         {
           "id": "wattbox_ip",
           "confidence": "untested",
-          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Outlets are reconciled from the unit's reported outlet count, so 3 / 12 / 18-outlet models each surface exactly their outlets as children."
+          "notes": "Not tested on these models. The protocol document covers them; outlets are read from the unit's own outlet count, and power metering and UPS readings appear only where the unit reports them."
         }
       ]
     },
@@ -13331,7 +13367,19 @@
         {
           "id": "wattbox_ip",
           "confidence": "untested",
-          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Outlets are reconciled from the unit's reported outlet count, so 3 / 12 / 18-outlet models each surface exactly their outlets as children."
+          "notes": "Not tested on these models. The protocol document covers them; outlets are read from the unit's own outlet count, and power metering and UPS readings appear only where the unit reports them."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WattBox",
+      "model": "WB-700CH-IPV-12",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "wattbox_ip",
+          "confidence": "untested",
+          "notes": "Not tested on these models. The protocol document covers them; outlets are read from the unit's own outlet count, and power metering and UPS readings appear only where the unit reports them."
         }
       ]
     },
@@ -13343,7 +13391,7 @@
         {
           "id": "wattbox_ip",
           "confidence": "untested",
-          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Outlets are reconciled from the unit's reported outlet count, so 3 / 12 / 18-outlet models each surface exactly their outlets as children."
+          "notes": "Not tested on these models. The protocol document covers them; outlets are read from the unit's own outlet count, and power metering and UPS readings appear only where the unit reports them."
         }
       ]
     },
@@ -13355,7 +13403,19 @@
         {
           "id": "wattbox_ip",
           "confidence": "untested",
-          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Outlets are reconciled from the unit's reported outlet count, so 3 / 12 / 18-outlet models each surface exactly their outlets as children."
+          "notes": "Not tested on these models. The protocol document covers them; outlets are read from the unit's own outlet count, and power metering and UPS readings appear only where the unit reports them."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WattBox",
+      "model": "WB-800-IPVM-6",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "wattbox_ip",
+          "confidence": "untested",
+          "notes": "Not tested on these models. The protocol document covers them; outlets are read from the unit's own outlet count, and power metering and UPS readings appear only where the unit reports them."
         }
       ]
     },
@@ -13367,7 +13427,43 @@
         {
           "id": "wattbox_ip",
           "confidence": "untested",
-          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Outlets are reconciled from the unit's reported outlet count, so 3 / 12 / 18-outlet models each surface exactly their outlets as children."
+          "notes": "Not tested on these models. The protocol document covers them; outlets are read from the unit's own outlet count, and power metering and UPS readings appear only where the unit reports them."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WattBox",
+      "model": "WB-800CH1U-IPVM-8",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "wattbox_ip",
+          "confidence": "untested",
+          "notes": "Not tested on these models. The protocol document covers them; outlets are read from the unit's own outlet count, and power metering and UPS readings appear only where the unit reports them."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WattBox",
+      "model": "WB-800VPS-IPVM-12",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "wattbox_ip",
+          "confidence": "untested",
+          "notes": "Not tested on these models. The protocol document covers them; outlets are read from the unit's own outlet count, and power metering and UPS readings appear only where the unit reports them."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WattBox",
+      "model": "WB-800VPS-IPVM-18",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "wattbox_ip",
+          "confidence": "untested",
+          "notes": "Not tested on these models. The protocol document covers them; outlets are read from the unit's own outlet count, and power metering and UPS readings appear only where the unit reports them."
         }
       ]
     },
@@ -13379,7 +13475,7 @@
         {
           "id": "wattbox_ip",
           "confidence": "untested",
-          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Outlets are reconciled from the unit's reported outlet count, so 3 / 12 / 18-outlet models each surface exactly their outlets as children."
+          "notes": "Not tested on these models. The protocol document covers them; outlets are read from the unit's own outlet count, and power metering and UPS readings appear only where the unit reports them."
         }
       ]
     },
@@ -13391,7 +13487,7 @@
         {
           "id": "wattbox_ip",
           "confidence": "untested",
-          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Outlets are reconciled from the unit's reported outlet count, so 3 / 12 / 18-outlet models each surface exactly their outlets as children."
+          "notes": "Not tested on these models. The protocol document covers them; outlets are read from the unit's own outlet count, and power metering and UPS readings appear only where the unit reports them."
         }
       ]
     },

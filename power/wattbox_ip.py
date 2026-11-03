@@ -5,25 +5,36 @@ Controls SnapAV WattBox IP-controlled power distribution units over the
 WattBox Integration Protocol — a text-based, line-oriented Telnet protocol
 on TCP port 23, requiring username/password authentication.
 
-Models covered (any WattBox running firmware that exposes the v1.7
-Integration Protocol — IP / IPV / IPVM series, 300/700/800):
-    WB-300-IP-3, WB-300-IP-MV-3
-    WB-700-IPV-12, WB-700-IPV-12B, WB-700-IPVM-IN-NM
-    WB-800-IPVM-12, WB-800-IPVM-18, WB-800-IPVM-IN-NM
-    WB-800VS-IPVM-12, WB-800VS-IPVM-18
+Models covered (the 800 IPVM, 250 IPW and 150 IPW series, plus the 300 and
+700 models the protocol document names): see compatible_models. Tested on a
+WB-250-IPW-2 running firmware 2.9.0.2.
 
 Protocol summary:
     Connect (TCP 23) → server sends "Please Login to Continue\\n" then
     "Username: " → client replies "<user>\\n" → "Password: " →
     "<pass>\\n" → "Successfully Logged In!\\n" → command mode. On bad
-    credentials the server re-sends the login prompt instead.
+    credentials firmware 2.9.0.2 sends "Invalid Login\\n" and, a second
+    later, the "Username: " prompt again.
     Commands are ASCII text, '\\n'-terminated, prefixed by '?', '!', '#',
-    or '~'. Source: SnapAV WattBox Integration Protocol v1.7 (rev 20190520).
+    or '~'. Source: SnapAV WattBox Integration Protocol v2.4 (rev 20210527),
+    which renamed ?Serial to ?ServiceTag and marks the power metering
+    queries "Not supported on WB150/250".
+
+Push: the unit sends "~OutletStatus=<0|1,...>" to every session whenever an
+outlet changes (firmware 1.2.0.6 and later), so outlet state follows a
+change made anywhere (front panel, web page, OvrC) at once. The poll reads
+the rest, and the liveness watchdog stays because the push only fires on a
+change.
+
+What a unit can report differs by model (no metering on the 150/250, no UPS
+link on some), and "#Error" names no command, so the driver asks each
+optional query once at connect, one at a time, and polls only what the unit
+answered.
 
 Why Python: prompt-driven login whose RESULT must be awaited (so a bad
-credential surfaces as an auth fault, not a silent half-connected session)
-plus an awaited liveness watchdog — v1.7 documents no push and no protocol
-keepalive, so a silently-vanished unit on raw TCP is otherwise undetectable.
+credential surfaces as an auth fault, not a silent half-connected session),
+the one-at-a-time capability questions above, and outlet renames that must
+re-send every outlet's current name (see set_outlet_name).
 """
 
 from __future__ import annotations
@@ -34,6 +45,11 @@ from typing import Any
 
 from openavc.drivers.base import BaseDriver, ConnectionFaultError
 from openavc.utils.logger import get_logger
+
+try:
+    from openavc.drivers.base import CommandRefusedError
+except ImportError:  # OpenAVC before 0.37.1 has no typed command refusal
+    CommandRefusedError = RuntimeError
 
 log = get_logger(__name__)
 
@@ -48,6 +64,13 @@ OUTLET_MODES = {"enabled": 0, "disabled": 1, "reset_only": 2}
 # watchdog (cadence/misses use the BaseDriver HEALTH_* defaults).
 LOGIN_TIMEOUT_S = 5.0
 KEEPALIVE_TIMEOUT_S = 5.0
+# Reply deadline for the one-at-a-time questions asked at connect and before
+# a rename. The WB-250-IPW-2 answered every query within 0.12 s.
+ASK_TIMEOUT_S = 3.0
+
+# The device's answers to the login, as printed (firmware 2.9.0.2).
+LOGIN_ACCEPTED = "Successfully"
+LOGIN_REFUSED = ("Invalid Login", "Username:", "Please Login", "#Error")
 
 
 def _build_state_vars() -> dict[str, dict[str, Any]]:
@@ -59,6 +82,7 @@ def _build_state_vars() -> dict[str, dict[str, Any]]:
         "model": {"type": "string", "label": "Model"},
         "hostname": {"type": "string", "label": "Hostname"},
         "serial": {"type": "string", "label": "Serial Number"},
+        "service_tag": {"type": "string", "label": "Service Tag"},
         "firmware": {"type": "string", "label": "Firmware Version"},
         "outlet_count": {"type": "integer", "label": "Outlet Count", "min": 0},
         "voltage": {"type": "number", "label": "System Voltage (V)"},
@@ -116,7 +140,7 @@ class WattBoxIPDriver(BaseDriver):
         "name": "WattBox IP-Controlled PDU",
         "manufacturer": "WattBox",
         "category": "power",
-        "version": "1.3.11",
+        "version": "1.4.0",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
@@ -127,28 +151,36 @@ class WattBoxIPDriver(BaseDriver):
             "Outlets are addressable children with per-outlet state, name, "
             "and power metering. Supports on/off/toggle/reset, per-outlet "
             "naming, auto-reboot configuration, system + per-outlet power "
-            "metering, and UPS status reporting on units with a connected UPS."
+            "metering on the models that measure it, and UPS status "
+            "reporting on units with a connected UPS."
         ),
-        "source_url": "https://www.snapav.com/wcsstore/ExtendedSitesCatalogAssetStore/attachments/documents/PowerManagement/SupportDocuments/SnapAV_Wattbox_API_V1.7.pdf",
+        "source_url": "https://www.snapav.com/wcsstore/ExtendedSitesCatalogAssetStore/attachments/documents/PowerManagement/ProtocolsAndDrivers/SnapAV_Wattbox_API_V2.4.pdf",
         "tags": ["pdu", "power", "outlet-control", "ups", "telnet"],
-        "verified": False,
+        "verified": True,
         "simulated": True,
-        "protocols": ["wattbox-integration-v1.7"],
+        "protocols": ["wattbox-integration-v2.4"],
         "ports": [23],
         "transport": "tcp",
         "discovery": {
+            # The Telnet greeting, which both protocol documents (v1.7 and
+            # v2.4) print and a WB-250-IPW-2 on firmware 2.9.0.2 sends
+            # byte for byte: "Please Login to Continue\n" then "Username: ".
+            # Read without sending anything. Port 23 is the port this driver
+            # controls the unit on, so a unit with Telnet turned off is one
+            # the driver cannot reach anyway.
+            # The same unit's HTTPS page answers 401 with
+            # realm="OvrC Wattbox", but one probe per driver, and the
+            # certificate (O=SnapAV, OU=OvrC) is shared with Snap One's
+            # other OvrC products, so it is not used.
+            "tcp_probe": {
+                "port": 23,
+                "expect": "Please Login to Continue",
+                # The greeting came about 1.0 s after the connection opened.
+                "timeout_ms": 3000,
+            },
             # SnapAV / Snap One OUIs — shared across WattBox, Araknis,
-            # Pakedge, Wirepath, and Binary product lines. WattBox's
-            # `/wattbox_info.xml` HTTP endpoint is a near-perfect
-            # fingerprint (returns hostname / hardware_version /
-            # serial_number XML) but lives on TCP 80, which is in
-            # the disallowed port_open set; a declarative tcp_probe on
-            # 80 is deferred until we have a real captured response to
-            # verify against. WattBox does not expose a polled SNMP
-            # MIB (only outbound traps).
-            #   Refs:
-            #     SnapAV_Wattbox_API_V2.2.pdf (Telnet 23 / HTTP API)
-            #     WattBox.WB10.API.v3.0.pdf (XML endpoint)
+            # Pakedge, Wirepath, and Binary product lines. WattBox does
+            # not expose a polled SNMP MIB (only outbound traps).
             "oui": ["d4:6a:91", "14:3f:c3"],
             "manufacturer_alias": [
                 "wattbox", "snapav", "snap one", "snap-av", "wirepath",
@@ -157,32 +189,51 @@ class WattBoxIPDriver(BaseDriver):
         "compatible_models": [
             {
                 "manufacturer": "WattBox",
+                "models": ["WB-250-IPW-2"],
+                "confidence": "full",
+                "notes": (
+                    "Tested on firmware 2.9.0.2: login, outlet on / off / "
+                    "toggle / reset, rename, power-on delay, outlet mode, "
+                    "auto-reboot and live outlet status. This model has no "
+                    "power metering and no UPS link, so those readings stay "
+                    "empty."
+                ),
+            },
+            {
+                "manufacturer": "WattBox",
                 "models": [
-                    "WB-300-IP-3",
-                    "WB-300-IP-MV-3",
-                    "WB-700-IPV-12",
-                    "WB-700-IPV-12B",
-                    "WB-700-IPVM-IN-NM",
+                    "WB-150-IPW-1B-2",
+                    "WB-800-IPVM-6",
                     "WB-800-IPVM-12",
                     "WB-800-IPVM-18",
+                    "WB-800CH1U-IPVM-8",
+                    "WB-800VPS-IPVM-12",
+                    "WB-800VPS-IPVM-18",
                     "WB-800-IPVM-IN-NM",
                     "WB-800VS-IPVM-12",
                     "WB-800VS-IPVM-18",
+                    "WB-700-IPV-12",
+                    "WB-700-IPV-12B",
+                    "WB-700-IPVM-IN-NM",
+                    "WB-700CH-IPV-12",
+                    "WB-300-IP-3",
+                    "WB-300-IP-MV-3",
+                    "WB-300VB-IP-5",
                 ],
                 "confidence": "untested",
                 "notes": (
-                    "All current IP / IPV / IPVM WattBoxes share the v1.7 "
-                    "Integration Protocol. Outlets are reconciled from the "
-                    "unit's reported outlet count, so 3 / 12 / 18-outlet "
-                    "models each surface exactly their outlets as children."
+                    "Not tested on these models. The protocol document "
+                    "covers them; outlets are read from the unit's own "
+                    "outlet count, and power metering and UPS readings "
+                    "appear only where the unit reports them."
                 ),
-            }
+            },
         ],
         "help": {
             "overview": (
                 "WattBox is the SnapAV / Snap One family of IP-controlled "
                 "power distribution units commonly installed in commercial "
-                "AV racks. This driver speaks the v1.7 Integration Protocol, "
+                "AV racks. This driver speaks the WattBox Integration Protocol, "
                 "letting macros switch outlets on / off / reset, rename "
                 "outlets, configure auto-reboot, and read live power / UPS "
                 "telemetry. Use this driver instead of OvrC for local "
@@ -192,13 +243,14 @@ class WattBoxIPDriver(BaseDriver):
                 "1. Connect the WattBox to your network via Ethernet.\n"
                 "2. Find the WattBox's IP from the front panel (where "
                 "applicable) or from the WattBox web interface.\n"
-                "3. In the WattBox web interface, ensure the integration "
-                "protocol is enabled and confirm the admin username and "
-                "password.\n"
+                "3. In the WattBox web interface or OvrC, make sure Telnet "
+                "is turned on, and note the username and password.\n"
                 "4. Enter the IP, port 23, and credentials in the device "
                 "config in OpenAVC.\n"
                 "5. Outlets are 1-indexed in commands. Use Reset All Outlets "
-                "to power-cycle the whole unit."
+                "to power-cycle the whole unit.\n"
+                "The 150 and 250 series do not measure power, so their "
+                "voltage, current and power readings stay empty."
             ),
         },
         "default_config": {
@@ -209,7 +261,7 @@ class WattBoxIPDriver(BaseDriver):
             "poll_interval": 30,
             # Pause after every line sent. A poll sends its queries one after
             # another without waiting for replies (up to 29 on an 18-outlet
-            # unit with a UPS). The v1.7 protocol document states no minimum
+            # unit with a UPS). The protocol documents (v1.7, v2.4) state no minimum
             # gap between commands, so this is the platform's default 50 ms
             # line gap.
             "inter_command_delay": 0.05,
@@ -269,7 +321,7 @@ class WattBoxIPDriver(BaseDriver):
             # both accepts (!AutoReboot=) and reports back (?AutoReboot),
             # so it gets the editable-field + offline pending-queue
             # treatment. Per-outlet power-on delay and outlet mode are
-            # SET-only in v1.7 (no ?OutletPowerOnDelay / ?OutletMode read
+            # SET-only in v1.7 and v2.4 (no ?OutletPowerOnDelay / ?OutletMode read
             # verb), so they stay transient commands — without read-back
             # they aren't device settings.
             "auto_reboot": {
@@ -388,9 +440,13 @@ class WattBoxIPDriver(BaseDriver):
                         "required": True,
                         "label": "Outlet",
                     },
-                    "name": {"type": "string", "required": True},
+                    "name": {"type": "string", "required": True, "label": "Name"},
                 },
-                "help": "Rename an outlet so it shows the right label in the WattBox UI.",
+                "help": (
+                    "Rename an outlet so it shows the right label in the "
+                    "WattBox UI. Spaces and commas are kept; braces { } "
+                    "are not allowed."
+                ),
             },
             "set_outlet_power_on_delay": {
                 "label": "Set Outlet Power-On Delay",
@@ -454,8 +510,11 @@ class WattBoxIPDriver(BaseDriver):
                 "params": {},
                 "help": (
                     "Reboot the WattBox itself. The connection drops until "
-                    "the unit is back online."
+                    "the unit is back online, about a minute and a half."
                 ),
+                # Measured on a WB-250-IPW-2, firmware 2.9.0.2: the session
+                # closed at once and Telnet answered again 88 s later.
+                "restarts_device_for": 120,
             },
             "refresh": {
                 "label": "Refresh Status",
@@ -489,10 +548,18 @@ class WattBoxIPDriver(BaseDriver):
         self._auth_pass = ""
         self._login_future: asyncio.Future[bool] | None = None
         # Awaited request/response correlation, keyed by the response field
-        # name. The text protocol has no message id, but only the liveness
-        # probe ever awaits a reply (regular polls are fire-and-forget), so
-        # a single outstanding future per field name is sufficient.
-        self._pending: dict[str, asyncio.Future[str]] = {}
+        # name. The text protocol has no message id, so awaited questions go
+        # one at a time (_ask_lock); regular polls are fire-and-forget.
+        self._pending: dict[str, asyncio.Future[str | None]] = {}
+        # The question being awaited right now. "#Error" names no command,
+        # so while one question is outstanding an "#Error" is its answer.
+        self._asking: asyncio.Future[str | None] | None = None
+        self._ask_lock = asyncio.Lock()
+        # What this unit reports, learned at connect (None = not asked yet,
+        # so the poll asks as before).
+        self._system_metering: bool | None = None
+        self._outlet_metering: bool | None = None
+        self._ups_link: bool | None = None
         super().__init__(device_id, config, state, events)
 
     async def _pre_connect(self) -> None:
@@ -550,16 +617,42 @@ class WattBoxIPDriver(BaseDriver):
         self._authenticated = True
 
     async def _initial_sync(self) -> None:
-        # Learn the outlet count first (the poll's per-outlet metering
-        # needs it), then one full poll. Two full polls used to go out
-        # back to back here for the same reason.
+        # Ask, one at a time, what the unit is and what it can report, then
+        # poll once. Identity does not change while connected (a firmware
+        # update reboots the unit, and the reconnect asks again), so the
+        # 30 s poll no longer repeats it. A WB-250-IPW-2 on firmware 2.9.0.2
+        # answers "#Error" to ?Serial (v2.4 renamed it ?ServiceTag),
+        # ?PowerStatus, ?OutletPowerStatus=N, ?UPSConnection and ?UPSStatus:
+        # asked every poll, that was five "Device error" warnings every 30 s
+        # and readings that could never fill in.
         try:
-            fut = self._prime_response("OutletCount")
-            await self._send("?OutletCount")
             try:
-                await self._await_response(fut, "OutletCount", KEEPALIVE_TIMEOUT_S)
+                # The outlet count first: the roster and per-outlet metering
+                # follow it.
+                await self._ask("?OutletCount", "OutletCount")
             except asyncio.TimeoutError:
                 log.debug(f"[{self.device_id}] No outlet count yet; polling without it")
+                await self.poll()
+                return
+            for query, key in (
+                ("?Firmware", "Firmware"),
+                ("?Hostname", "Hostname"),
+                ("?Model", "Model"),
+                ("?ServiceTag", "ServiceTag"),  # firmware 2.x
+                ("?Serial", "Serial"),  # firmware 1.x
+            ):
+                await self._ask_if_answered(query, key)
+            self._system_metering = await self._ask_if_answered(
+                "?PowerStatus", "PowerStatus"
+            )
+            self._outlet_metering = bool(
+                self.get_state("outlet_count")
+            ) and await self._ask_if_answered(
+                "?OutletPowerStatus=1", "OutletPowerStatus"
+            )
+            self._ups_link = await self._ask_if_answered(
+                "?UPSConnection", "UPSConnection"
+            )
             await self.poll()
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] Initial poll failed")
@@ -572,6 +665,11 @@ class WattBoxIPDriver(BaseDriver):
             if not fut.done():
                 fut.cancel()
         self._pending.clear()
+        self._asking = None
+        # The next connection may be a different unit: ask again.
+        self._system_metering = None
+        self._outlet_metering = None
+        self._ups_link = None
         if self._login_future is not None and not self._login_future.done():
             self._login_future.cancel()
         self._login_future = None
@@ -581,26 +679,41 @@ class WattBoxIPDriver(BaseDriver):
 
     # ── Request/response correlation + liveness watchdog ──
 
-    def _prime_response(self, key: str) -> asyncio.Future[str]:
-        """Register interest in the next response carrying field ``key``.
+    async def _ask(
+        self, query: str, key: str, timeout: float = ASK_TIMEOUT_S
+    ) -> str | None:
+        """Send one query and wait for its answer.
 
-        Call this BEFORE sending the query so a fast reply can't arrive
-        before the future exists. Only the liveness probe awaits a reply;
-        regular polls are fire-and-forget, so one outstanding future per
-        field name is sufficient.
+        Returns the value, or None when the unit answers "#Error". Raises
+        asyncio.TimeoutError when nothing answers. One question at a time,
+        because "#Error" names no command: while this question is
+        outstanding, an "#Error" is its answer. The reply also goes through
+        _dispatch, so its state lands as usual. The future exists BEFORE
+        the send so a fast reply can't arrive before the awaiter.
         """
-        fut: asyncio.Future[str] = asyncio.get_running_loop().create_future()
-        self._pending[key] = fut
-        return fut
+        async with self._ask_lock:
+            fut: asyncio.Future[str | None] = (
+                asyncio.get_running_loop().create_future()
+            )
+            self._pending[key] = fut
+            self._asking = fut
+            try:
+                await self._send(query)
+                return await asyncio.wait_for(fut, timeout)
+            finally:
+                if self._asking is fut:
+                    self._asking = None
+                if self._pending.get(key) is fut:
+                    self._pending.pop(key, None)
 
-    async def _await_response(
-        self, fut: asyncio.Future[str], key: str, timeout: float
-    ) -> str:
+    async def _ask_if_answered(self, query: str, key: str) -> bool | None:
+        """True if the unit answered the query, False if it answered
+        "#Error", None if it said nothing (then the poll keeps asking)."""
         try:
-            return await asyncio.wait_for(fut, timeout)
-        finally:
-            if self._pending.get(key) is fut:
-                self._pending.pop(key, None)
+            return await self._ask(query, key) is not None
+        except asyncio.TimeoutError:
+            log.debug(f"[{self.device_id}] No answer to {query}")
+            return None
 
     def _resolve_pending(self, key: str, value: str) -> None:
         fut = self._pending.get(key)
@@ -608,16 +721,13 @@ class WattBoxIPDriver(BaseDriver):
             fut.set_result(value)
 
     async def _liveness_probe(self) -> None:
-        """Send a cheap query and await its reply (BaseDriver watchdog hook).
-
-        WattBox v1.7 has no push and no protocol keepalive, so a silently
-        dropped unit on raw TCP is only detectable by an awaited probe. The
-        future is primed BEFORE the send so a fast reply can't arrive before
-        the awaiter exists.
+        """Ask a fixed device-level question and await the reply (BaseDriver
+        watchdog hook). The unit pushes only outlet changes and has no
+        protocol keepalive, so a silently dropped unit on raw TCP is only
+        detectable by an awaited probe. Any answer counts, "#Error" too:
+        a refusal is the unit answering.
         """
-        fut = self._prime_response("Firmware")
-        await self._send("?Firmware")
-        await self._await_response(fut, "Firmware", KEEPALIVE_TIMEOUT_S)
+        await self._ask("?Firmware", "Firmware", KEEPALIVE_TIMEOUT_S)
 
     # ── Sending ──
 
@@ -645,12 +755,27 @@ class WattBoxIPDriver(BaseDriver):
             else:
                 await self._send(f"!OutletSet={outlet},RESET")
         elif command == "reset_all":
-            # Outlet 0 + RESET = reset every outlet (v1.7).
+            # Outlet 0 + RESET = reset every outlet (v1.7, v2.4).
             await self._send("!OutletSet=0,RESET")
         elif command == "set_outlet_name":
             outlet = self._outlet_id(params)
-            name = str(params["name"])
-            await self._send(f"!OutletNameSet={outlet},{name}")
+            name = str(params["name"]).strip()
+            if "{" in name or "}" in name:
+                raise CommandRefusedError(
+                    "An outlet name can't contain { or }."
+                )
+            names = await self._outlet_names_through(outlet)
+            names[outlet - 1] = name
+            # Not !OutletNameSet: on a WB-250-IPW-2 (firmware 2.9.0.2) it
+            # keeps only the text before the first space ("Bench Test" was
+            # stored as "Bench"), wrapped in braces or quotes alike.
+            # !OutletNameSetAll keeps spaces and commas, and a list shorter
+            # than the outlet count leaves the outlets after it as they
+            # were, so the list runs from outlet 1 to this one.
+            await self._send(
+                "!OutletNameSetAll=" + ",".join(f"{{{n}}}" for n in names)
+            )
+            await self._send("?OutletName")
         elif command == "set_outlet_power_on_delay":
             outlet = self._outlet_id(params)
             delay = int(params["delay"])
@@ -665,10 +790,12 @@ class WattBoxIPDriver(BaseDriver):
         elif command == "set_auto_reboot":
             enabled = bool(params["enabled"])
             await self._send(f"!AutoReboot={1 if enabled else 0}")
+            await self._send("?AutoReboot")
         elif command == "reboot_device":
             await self._send("!Reboot")
         elif command == "refresh":
-            await self.poll()
+            # Identity and what the unit reports too, then the poll.
+            await self._initial_sync()
         else:
             log.warning(f"[{self.device_id}] Unknown command: {command}")
 
@@ -676,6 +803,32 @@ class WattBoxIPDriver(BaseDriver):
     def _outlet_id(params: dict[str, Any]) -> int:
         # child_id pickers can hand back a zero-padded string ("05"); coerce.
         return int(params["outlet"])
+
+    async def _outlet_names_through(self, outlet: int) -> list[str]:
+        """The unit's current names for outlets 1..outlet, read fresh (a name
+        may have been changed on the web page or in OvrC since the poll)."""
+        try:
+            reply = await self._ask("?OutletName", "OutletName")
+        except asyncio.TimeoutError:
+            reply = None
+        names = _split_brace_list(reply or "")
+        if len(names) < outlet:
+            raise CommandRefusedError(
+                "The WattBox didn't report its outlet names, so the rename "
+                "wasn't sent. Try again in a moment."
+            )
+        return names[:outlet]
+
+    async def disconnect(self) -> None:
+        # Close the session the way the protocol asks (!Exit, firmware
+        # 2.1.1.2 and later; earlier firmware answers "#Error"), so the
+        # unit frees one of its ten sessions at once.
+        if self._authenticated and self.transport and self.transport.connected:
+            try:
+                await self._send("!Exit")
+            except (ConnectionError, OSError):
+                pass
+        await super().disconnect()
 
     async def set_device_setting(self, key: str, value: Any) -> Any:
         """Write a device setting to the WattBox.
@@ -692,6 +845,7 @@ class WattBoxIPDriver(BaseDriver):
                 else str(value).strip().lower() in ("1", "true", "on", "yes")
             )
             await self._send(f"!AutoReboot={1 if enabled else 0}")
+            await self._send("?AutoReboot")
             log.info(
                 f"[{self.device_id}] Set auto-reboot "
                 f"{'on' if enabled else 'off'}"
@@ -703,28 +857,25 @@ class WattBoxIPDriver(BaseDriver):
         if not self.transport or not self.transport.connected:
             return
         try:
-            for query in (
-                "?Firmware",
-                "?Hostname",
-                "?Model",
-                "?Serial",
-                "?OutletCount",
-                "?OutletStatus",
-                "?OutletName",
-                "?PowerStatus",
-                "?AutoReboot",
-                "?UPSConnection",
-            ):
+            # Only what this unit answered at connect (_initial_sync); a
+            # query it refused would draw "#Error" every poll.
+            queries = ["?OutletStatus", "?OutletName", "?AutoReboot"]
+            if self._system_metering is not False:
+                queries.append("?PowerStatus")
+            if self._ups_link is not False:
+                queries.append("?UPSConnection")
+            for query in queries:
                 await self._send(query)
             # Per-outlet metering only after we've learned the count
             # from a prior ?OutletCount response. Skipping on the first
             # poll round avoids spurious #Error responses for outlets
             # past the device's actual count.
-            count = self.get_state("outlet_count") or 0
-            for n in range(1, int(count) + 1):
-                await self._send(f"?OutletPowerStatus={n}")
+            if self._outlet_metering is not False:
+                count = self.get_state("outlet_count") or 0
+                for n in range(1, int(count) + 1):
+                    await self._send(f"?OutletPowerStatus={n}")
             # UPS status only meaningful when a UPS is attached.
-            if self.get_state("ups_connected"):
+            if self._ups_link is not False and self.get_state("ups_connected"):
                 await self._send("?UPSStatus")
         except ConnectionError:
             # Let it out: the platform counts a poll that fails toward
@@ -770,16 +921,12 @@ class WattBoxIPDriver(BaseDriver):
                 self._line_buffer = b""
                 await self._send(self._auth_pass)
         elif self._auth_stage == "result":
-            if "Successfully" in text:
+            if LOGIN_ACCEPTED in text:
                 self._auth_stage = "done"
                 self._authenticated = True
                 self._line_buffer = b""
                 self._resolve_login(True)
-            elif (
-                "Username:" in text
-                or "Please Login" in text
-                or "#Error" in text
-            ):
+            elif any(marker in text for marker in LOGIN_REFUSED):
                 self._auth_stage = "done"
                 self._line_buffer = b""
                 self._resolve_login(False)
@@ -795,9 +942,17 @@ class WattBoxIPDriver(BaseDriver):
             return
         if line.startswith("Password:") or line.startswith("Successfully"):
             return
+        if line.startswith("Invalid Login"):
+            return
         if line.startswith("OK"):
             return
         if line.startswith("#"):
+            asking = self._asking
+            if asking is not None and not asking.done():
+                # The answer to the question being awaited (_ask).
+                asking.set_result(None)
+                log.debug(f"[{self.device_id}] Device answered {line}")
+                return
             log.warning(f"[{self.device_id}] Device error: {line}")
             return
 
@@ -817,6 +972,8 @@ class WattBoxIPDriver(BaseDriver):
             self.set_state("hostname", value)
         elif key == "Serial":
             self.set_state("serial", value)
+        elif key == "ServiceTag":
+            self.set_state("service_tag", value)
         elif key == "Model":
             self.set_state("model", value)
         elif key == "OutletCount":

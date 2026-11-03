@@ -1,33 +1,51 @@
 """
 WattBox IP-Controlled PDU — Simulator.
 
-Implements the WattBox Integration Protocol v1.7 server side:
+Implements the WattBox Integration Protocol v2.4 server side, as a
+WB-250-IPW-2 on firmware 2.9.0.2 answered it:
 
   - Sends "Please Login to Continue" / "Username: " / "Password: " /
-    "Successfully Logged In!" handshake when a client connects.
+    "Successfully Logged In!" handshake when a client connects; a refused
+    login (`reject_auth`) answers "Invalid Login" and prompts again.
   - Accepts ?Query and !Set commands, replies in matching shape
-    (?Field=value\\n for queries, OK\\n for sets, #Error\\n for parse
-    failures).
-  - Models a configurable outlet count (default 12), per-outlet state +
-    name + power telemetry, system metering, and a UPS that defaults
-    to "not connected".
+    (?Field=value\\n for queries, OK\\n for sets, #Error\\n for anything the
+    unit does not answer).
+  - Sends "~OutletStatus=..." to every client when an outlet changes.
+  - Models a configurable model (`model`, default WB-800-IPVM-12) and outlet
+    count (`outlets`). A WB-150 / WB-250 has 2 outlets, no power metering
+    and no UPS link, so those queries answer #Error, as the v2.4 document
+    says and the WB-250-IPW-2 did.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import re
 
 from openavc.simulator.tcp_simulator import TCPSimulator
 
 logger = logging.getLogger(__name__)
 
 
+DEFAULT_MODEL = "WB-800-IPVM-12"
 DEFAULT_OUTLETS = 12
 
 # Sent the moment a client connects, before any command. Partial line (no
 # trailing newline on the "Username: " prompt) on purpose — mirrors the real
 # WattBox banner.
 CONNECT_BANNER = b"Please Login to Continue\nUsername: "
+
+# The WB-250-IPW-2 sent "OK" about 45 ms before the "~OutletStatus" line.
+PUSH_AFTER_S = 0.05
+
+MODE_RESET_ONLY = 2
+
+
+def _measures_power(model: str) -> bool:
+    # v2.4: ?PowerStatus and ?OutletPowerStatus "Not supported on WB150/250";
+    # the WattBox comparison sheet gives those two series no UPS link either.
+    return not model.upper().startswith(("WB-150", "WB-250"))
 
 
 class WattBoxIPSimulator(TCPSimulator):
@@ -43,9 +61,9 @@ class WattBoxIPSimulator(TCPSimulator):
         # calling handle_command().
         "delimiter": "\n",
         "initial_state": {
-            "model": "WB-700-IPV-12",
-            "hostname": "Wattbox",
-            "serial": "12345678",
+            "model": DEFAULT_MODEL,
+            "hostname": "WattBox",
+            "service_tag": "ST191500681E8422",
             "firmware": "1.0.0.0",
         },
         "controls": [
@@ -60,7 +78,12 @@ class WattBoxIPSimulator(TCPSimulator):
 
     def __init__(self, device_id: str, config: dict | None = None):
         super().__init__(device_id, config)
-        n_outlets = int(self.config.get("outlets", DEFAULT_OUTLETS))
+        model = str(self.config.get("model") or DEFAULT_MODEL)
+        if model != DEFAULT_MODEL:
+            self.set_state("model", model)
+        self._metered = _measures_power(model)
+        default_outlets = DEFAULT_OUTLETS if self._metered else 2
+        n_outlets = int(self.config.get("outlets", default_outlets))
         self._n_outlets = n_outlets
 
         self._outlet_state: list[bool] = [True] * n_outlets
@@ -76,6 +99,8 @@ class WattBoxIPSimulator(TCPSimulator):
         # Track per-client auth state so we know whether to expect a
         # username, then a password, then commands.
         self._auth_state: dict[str, int] = {}
+        # Pending outlet-status pushes, kept so they are not collected.
+        self._tasks: set[asyncio.Task] = set()
 
     # ── Connect: send banner + Username prompt ──
 
@@ -104,12 +129,13 @@ class WattBoxIPSimulator(TCPSimulator):
             self._auth_state[cid] = 1
             return b"Password: "
         if state == 1:
-            # Password arrived. On a real unit, bad credentials get the login
-            # prompt again instead of a success banner; `reject_auth` models
-            # that so the driver's auth-fault path can be tested.
+            # Password arrived. A refused login answers "Invalid Login" and
+            # then the username prompt again (a second later on the unit);
+            # `reject_auth` models it so the driver's auth-fault path can be
+            # tested.
             if self.config.get("reject_auth"):
                 self._auth_state[cid] = 0
-                return CONNECT_BANNER
+                return b"Invalid Login\nUsername: "
             self._auth_state[cid] = 2
             return b"Successfully Logged In!\n"
 
@@ -119,6 +145,8 @@ class WattBoxIPSimulator(TCPSimulator):
         # Authenticated; parse command.
         if line.startswith("?"):
             return self._handle_query(line[1:])
+        if line == "!Exit":
+            return b"OK\n"
         if line.startswith("!"):
             return self._handle_set(line[1:])
         return b"#Error\n"
@@ -132,38 +160,47 @@ class WattBoxIPSimulator(TCPSimulator):
             return self._handle_param_query(key, arg)
         return self._handle_simple_query(body)
 
+    def _outlet_status(self, prefix: str) -> bytes:
+        states = ",".join("1" if s else "0" for s in self._outlet_state)
+        return f"{prefix}OutletStatus={states}\n".encode()
+
     def _handle_simple_query(self, key: str) -> bytes:
         if key == "Firmware":
             return f"?Firmware={self.state.get('firmware', '1.0.0.0')}\n".encode()
         if key == "Hostname":
-            return f"?Hostname={self.state.get('hostname', 'Wattbox')}\n".encode()
-        if key == "Serial":
-            return f"?Serial={self.state.get('serial', '12345678')}\n".encode()
+            return f"?Hostname={self.state.get('hostname', 'WattBox')}\n".encode()
+        if key == "ServiceTag":
+            tag = self.state.get("service_tag", "ST191500681E8422")
+            return f"?ServiceTag={tag}\n".encode()
         if key == "Model":
-            return f"?Model={self.state.get('model', 'WB-700-IPV-12')}\n".encode()
+            return f"?Model={self.state.get('model', DEFAULT_MODEL)}\n".encode()
         if key == "OutletCount":
             return f"?OutletCount={self._n_outlets}\n".encode()
         if key == "OutletStatus":
-            states = ",".join("1" if s else "0" for s in self._outlet_state)
-            return f"?OutletStatus={states}\n".encode()
+            return self._outlet_status("?")
         if key == "OutletName":
             names = ",".join(f"{{{n}}}" for n in self._outlet_name)
             return f"?OutletName={names}\n".encode()
+        if key == "AutoReboot":
+            return f"?AutoReboot={1 if self._auto_reboot else 0}\n".encode()
+        if not self._metered:
+            # ?PowerStatus, ?UPSConnection, ?UPSStatus (and ?Serial below).
+            return b"#Error\n"
         if key == "PowerStatus":
             # current(A), power(W), voltage(V), safe(0/1)
             return b"?PowerStatus=2.50,275.00,120.00,1\n"
-        if key == "AutoReboot":
-            return f"?AutoReboot={1 if self._auto_reboot else 0}\n".encode()
         if key == "UPSConnection":
             return f"?UPSConnection={1 if self._ups_connected else 0}\n".encode()
         if key == "UPSStatus":
             if not self._ups_connected:
                 return b"#Error\n"
             return b"?UPSStatus=85,15,Good,False,42,True,False\n"
+        # ?Serial: v2.4 replaced it with ?ServiceTag, and firmware 2.9.0.2
+        # answers it #Error.
         return b"#Error\n"
 
     def _handle_param_query(self, key: str, arg: str) -> bytes:
-        if key == "OutletPowerStatus":
+        if key == "OutletPowerStatus" and self._metered:
             try:
                 n = int(arg)
             except ValueError:
@@ -180,7 +217,7 @@ class WattBoxIPSimulator(TCPSimulator):
 
     def _handle_set(self, body: str) -> bytes:
         if "=" not in body:
-            return b"#Error\n"
+            return b"OK\n" if body == "Reboot" else b"#Error\n"
         key, _, value = body.partition("=")
         parts = [p.strip() for p in value.split(",")]
 
@@ -195,10 +232,20 @@ class WattBoxIPSimulator(TCPSimulator):
                 return b"#Error\n"
             if not (1 <= n <= self._n_outlets):
                 return b"#Error\n"
-            # Name may contain commas/spaces; everything after the first
-            # comma is the new name.
-            idx = body.index(",", body.index("="))
-            self._outlet_name[n - 1] = body[idx + 1 :]
+            # The WB-250-IPW-2 (firmware 2.9.0.2) keeps only the text before
+            # the first space: "Bench Test" -> "Bench", "{Bench Test}" ->
+            # "{Bench", "Comma, here" -> "Comma,".
+            raw = value.split(",", 1)[1]
+            self._outlet_name[n - 1] = raw.split(" ", 1)[0]
+            return b"OK\n"
+        if key == "OutletNameSetAll":
+            # Kept whole, spaces and commas included; a shorter list leaves
+            # the outlets after it as they were.
+            names = re.findall(r"\{([^}]*)\}", value)
+            if not names:
+                return b"#Error\n"
+            for i, name in enumerate(names[: self._n_outlets]):
+                self._outlet_name[i] = name
             return b"OK\n"
         if key == "OutletPowerOnDelaySet":
             if len(parts) != 2:
@@ -227,10 +274,6 @@ class WattBoxIPSimulator(TCPSimulator):
                 return b"#Error\n"
             self._auto_reboot = value == "1"
             return b"OK\n"
-        if key == "Reboot":
-            # Spec: respond OK then drop. Sim just acks; the harness can
-            # disconnect explicitly if it wants to model the drop.
-            return b"OK\n"
         return b"#Error\n"
 
     def _handle_outlet_set(self, parts: list[str]) -> bytes:
@@ -247,22 +290,55 @@ class WattBoxIPSimulator(TCPSimulator):
             return b"#Error\n"
         if n != 0 and not (1 <= n <= self._n_outlets):
             return b"#Error\n"
-
-        if action == "ON":
-            self._outlet_state[n - 1] = True
-        elif action == "OFF":
-            self._outlet_state[n - 1] = False
-        elif action == "TOGGLE":
-            self._outlet_state[n - 1] = not self._outlet_state[n - 1]
-        elif action == "RESET":
-            # RESET = brief off then on. Sim keeps state at "on" since
-            # the cycle is too short to model meaningfully without the
-            # client polling at sub-second intervals.
-            if n == 0:
-                self._outlet_state = [True] * self._n_outlets
-            else:
-                self._outlet_state[n - 1] = True
-        else:
+        if action not in ("ON", "OFF", "TOGGLE", "RESET"):
             return b"#Error\n"
 
+        if action == "RESET":
+            outlets = range(self._n_outlets) if n == 0 else [n - 1]
+            try:
+                delay = int(parts[2]) if len(parts) > 2 else None
+            except ValueError:
+                return b"#Error\n"
+            for i in outlets:
+                self._outlet_state[i] = False
+            self._announce()
+            back_after = delay or max(self._outlet_power_on_delay[i] for i in outlets)
+            self._announce(after=back_after, turn_on=list(outlets))
+            return b"OK\n"
+
+        i = n - 1
+        if self._outlet_mode[i] == MODE_RESET_ONLY:
+            # Measured: OK, and the outlet stays as it was.
+            return b"OK\n"
+        before = self._outlet_state[i]
+        if action == "ON":
+            self._outlet_state[i] = True
+        elif action == "OFF":
+            self._outlet_state[i] = False
+        else:
+            self._outlet_state[i] = not before
+        if self._outlet_state[i] != before:
+            self._announce()
         return b"OK\n"
+
+    # ── Push ──
+
+    def _announce(self, after: float = 0.0, turn_on: list[int] | None = None) -> None:
+        """Send ~OutletStatus to every client a moment after the reply, as
+        the unit does; with turn_on, power those outlets back first (the end
+        of a reset)."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+
+        async def _send() -> None:
+            await asyncio.sleep(max(after, PUSH_AFTER_S))
+            if turn_on:
+                for i in turn_on:
+                    self._outlet_state[i] = True
+            await self.push(self._outlet_status("~"))
+
+        task = loop.create_task(_send())
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)

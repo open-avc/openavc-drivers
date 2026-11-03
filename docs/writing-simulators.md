@@ -610,6 +610,8 @@ whether you need a buffer:
   command per call**, already terminated, with partial reads buffered for you
   across TCP segment boundaries. A driver that sends `\r` while your responses
   use `\r\n` still works — line mode accepts any of the three terminators.
+  An empty line, a terminator with nothing before it, is not passed on at all,
+  which matters for a login prompt: see [Sign-In](#sign-in-login-prompts).
 - **With any other delimiter** the read is a strict "read until this sequence",
   so again one complete message per call.
 - **With no delimiter at all you get raw chunks and nothing is buffered.**
@@ -914,6 +916,70 @@ async def on_client_connected(self, client_id: str) -> bytes | None:
     """Called when a driver connects. Return greeting bytes or None."""
     return b"PJLINK 0\r"
 ```
+
+### Sign-In (Login Prompts)
+
+A device that asks for a username and password when a driver connects signs it
+in through `authenticate_client`, not through stages in `handle_command`. The
+framework sends the greeting, then calls `authenticate_client` with that
+connection's own reader and writer before any line reaches `handle_command`.
+Return `True` to let the connection through to the command loop, `False` to
+drop it.
+
+Two things go wrong with a sign-in written in `handle_command`. A driver whose
+password is blank, which is most simulations, answers `Password:` with an empty
+line, and line mode never passes an empty line on, so the prompt goes
+unanswered and the driver times out with the device offline. And state kept in
+`handle_command` belongs to the simulator rather than the connection, so a
+driver that reconnects is answered as if it were already signed in.
+
+```python
+import asyncio
+
+async def on_client_connected(self, client_id: str) -> bytes | None:
+    return b"\r\nlogin: "
+
+async def authenticate_client(self, reader, writer, client_id) -> bool:
+    async def emit(data: bytes) -> None:
+        writer.write(data)
+        await writer.drain()
+        self.log_protocol("out", data, client_id)
+
+    async def credential() -> str | None:
+        try:
+            raw = await asyncio.wait_for(reader.readline(), timeout=30.0)
+        except (asyncio.TimeoutError, ConnectionError, OSError):
+            return None
+        return raw.decode("latin-1", errors="replace").strip() if raw else None
+
+    while True:
+        user = await credential()
+        if user is None:
+            return False
+        await emit(b"\r\nPassword: ")
+        password = await credential()
+        if password is None:
+            return False
+        if "invalid" in (user, password):
+            await emit(b"\r\nLogin incorrect\r\nlogin: ")
+            continue
+        await emit(b"\r\nWelcome\r\n> ")
+        return True
+```
+
+- **Accept any credentials except `invalid`**, blank ones included. That is what
+  the YAML auto-simulator does with an `auth:` block, so a simulation works
+  with nothing typed in and the driver's handling of a refused password can
+  still be tested.
+- **Refuse the way the device does**, with its message or a fresh prompt, then
+  wait for the next attempt. Closing the connection without a word reads to the
+  driver as a dropped network rather than a wrong password.
+- **Log the prompts with `self.log_protocol("out", ...)`** so they show in the
+  Simulator's Protocol Log. Leave the credentials out of it.
+
+`tests/test_simulator_sign_in.py` checks every simulator that asks for a
+password: a blank one gets an answer, and a second connection signs in like the
+first.
 
 ### Custom Delimiter
 

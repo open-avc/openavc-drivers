@@ -20,9 +20,11 @@
 #           (viewsonic_cde), with ":" in place of the length byte and capital
 #           S / G.
 # Push: none. "The display will not send packets autonomously." Everything is
-#       polled (10 s); a set's answer carries no value, and SMART asks for
-#       one frame at a time, so a command does not send a read-back get with
-#       it and its new value appears at the next poll.
+#       polled (10 s). A set's answer carries no value and SMART asks for one
+#       frame at a time, so a command reads its value back with a get of its
+#       own (read_back), sent after the set's reply, inter_command_delay after
+#       the set. The poll still reads every get: it is the read-back on a
+#       platform before 0.39.0, which ignores read_back.
 # Power: READY (screen off, network control works, Power On turns it on;
 #        "Transition to ON only works while in READY state"), ON, and
 #        POWERSAVE ("While in POWERSAVE, network control does not function";
@@ -47,14 +49,15 @@
 # "+00"), which of the two microphone-array codes (47 and 51, described
 # identically) controls what, the Balance code (the code column and the get
 # say 0x33, both set examples print 0x35; the driver uses 0x33), whether the
-# display keeps one TCP connection open between frames, and what it answers
-# to a get while it is changing power state.
+# display keeps one TCP connection open between frames, what it answers
+# to a get while it is changing power state, and whether a get sent 0.2 s
+# after Volume + / - reads the new level.
 
 id: smart_board_t_pro
 name: SMART Board T Pro (Network)
 manufacturer: SMART Technologies
 category: display
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 description: >-
   SMART Board T Pro interactive displays over the network (TCP port 4664):
@@ -245,9 +248,12 @@ state_variables:
     help: Set when the display refuses a command or a read (a value it does not take, or a setting this model does not have). Cleared by the next poll that the display answers in full.
 
 commands:
-  # A set's answer is "401+" with no value, so no command reads its value
-  # back; sets: is what the simulator and the device audit check, and the
-  # poll reads the display's own value.
+  # A set's answer is "401+" with no value, so each command that has a get
+  # reads its value back with it (read_back), as its own frame after the
+  # set's reply. sets: is what the simulator and the device audit check.
+  # The power commands read nothing back: what the display answers while it
+  # changes power state is unverified, and a refused get would set
+  # last_error. The poll reads the power state.
   power_on:
     label: Power On
     help: Turns the display on from Ready. In Power Save the display does not answer on the network.
@@ -258,6 +264,7 @@ commands:
     help: Turns the screen off and leaves the display in Ready, where it still answers on the network and Power On turns it back on.
     send: ":01S0000\r"
     sets: { power: ready }
+  # Reads nothing back: in Power Save the display answers nothing.
   power_save:
     label: Power Save
     help: Puts the display in its lowest-power state. It then stops answering on the network and shows offline until its Power button, the remote or a video signal wakes it.
@@ -270,6 +277,7 @@ commands:
     help: Selects an input.
     send: ":01S:{input}\r"
     sets: { input: "{input}" }
+    read_back: ":01G:000\r"
     params:
       input:
         type: enum
@@ -289,6 +297,7 @@ commands:
     help: Sets the speaker volume, 0 to 30.
     send: ":01S8{level:03d}\r"
     sets: { volume: "{level}" }
+    read_back: ":01G8000\r"
     params:
       level:
         type: integer
@@ -300,32 +309,40 @@ commands:
     label: Volume Up
     help: Raises the volume one step, like the remote's Volume + key.
     send: ":01SA000\r"
+    read_back: ":01G8000\r"
   volume_down:
     label: Volume Down
     help: Lowers the volume one step, like the remote's Volume - key.
     send: ":01SA001\r"
+    read_back: ":01G8000\r"
   mute_on:
     label: Mute On
     help: Mutes the speakers.
     send: ":01S9001\r"
     sets: { mute: true }
+    read_back: ":01G9000\r"
   mute_off:
     label: Mute Off
     help: Unmutes the speakers.
     send: ":01S9000\r"
     sets: { mute: false }
+    read_back: ":01G9000\r"
 
   mic_array_on:
     label: Microphone Array On
     help: Turns the display's microphone array on (code 47).
     send: ":01SG001\r"
     sets: { mic_array: true }
+    read_back: ":01GG000\r"
   mic_array_off:
     label: Microphone Array Off
     help: Turns the display's microphone array off (code 47). If the microphones stay on, try the Microphone Array (code 51) setting on the device page.
     send: ":01SG000\r"
     sets: { mic_array: false }
+    read_back: ":01GG000\r"
 
+  # Reads nothing back: most keys move through the display's menus, and the
+  # two it reports (Volume + / -, Mute) have commands of their own that do.
   remote_key:
     label: Remote Key
     help: Presses a key on the display's remote. Freeze, Mute and Screen Shade switch between on and off with each press; the display does not report freeze or screen shade over the network.
@@ -366,6 +383,7 @@ commands:
           home: "034"
           screen_shade: "100"
 
+  # Reads nothing back: the display may drop the connection.
   factory_reset:
     label: Factory Reset
     help: Resets the display to its factory settings.

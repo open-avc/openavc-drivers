@@ -1914,7 +1914,7 @@
       "name": "Behringer X32 Digital Mixer",
       "manufacturer": "Behringer",
       "category": "audio",
-      "version": "2.0.1",
+      "version": "2.1.0",
       "author": "OpenAVC",
       "transport": "osc",
       "description": "Controls Behringer X32 and X32 Compact digital mixing consoles via OSC. 32 input channels, 8 aux ins, 8 FX returns, 16 mix buses, 6 matrices, 8 DCAs, and stereo/mono mains as child entities with fader, mute, and console-side names, plus scene recall and a liveness watchdog. Also compatible with Midas M32.",
@@ -1922,7 +1922,7 @@
       "file": "audio/behringer_x32.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/behringer_x32.avcdriver": "db10b2dd0673528c3e1a1443ebe5302dc43f9e8762b4f4eabbdd40cebd7f84b8"
+        "audio/behringer_x32.avcdriver": "2eae4ee0eb52a5f52bd051af4e2bda159cde81a1eb21bf46e999d0a1a89434db"
       },
       "ports": [
         10023
@@ -9170,7 +9170,7 @@
       "name": "SMART Board T Pro (Network)",
       "manufacturer": "SMART Technologies",
       "category": "display",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "SMART Board T Pro interactive displays over the network (TCP port 4664): power, input, volume, mute, the microphone array, the display's remote keys, and its picture, sound, touch and timer settings.",
@@ -9178,7 +9178,7 @@
       "file": "displays/smart_board_t_pro.avcdriver",
       "format": "avcdriver",
       "files": {
-        "displays/smart_board_t_pro.avcdriver": "d188f17ab6023a8707405a6c3b5a1adb4f81f004bdd345918c388209ec8cb6c8"
+        "displays/smart_board_t_pro.avcdriver": "4fb3f9221bb843ee3049a52f96dbab6f3a9c9b066b0c22f069090b1852dbfd63"
       },
       "ports": [
         4664

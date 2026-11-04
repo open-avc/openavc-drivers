@@ -24,9 +24,11 @@
 # silent probes.
 #
 # Read-back note: the console echoes parameter changes only to OTHER
-# subscribed clients, never back to the sender. The per-child poll
-# queries (fader/mute/name every cycle) are the read-back path for this
-# driver's own writes, including renames.
+# subscribed clients, never back to the sender. Every strip command reads
+# its own address back with no arguments (read_back: true), and a scene
+# recall reads the current scene, so a press shows at once. The per-child
+# poll queries (fader/mute/name every cycle) still read every strip: they
+# are the read-back on a platform before 0.39.0, which ignores read_back.
 #
 # Querying values: send any address with no arguments to get the
 # current value back.
@@ -35,7 +37,7 @@ id: behringer_x32
 name: Behringer X32 Digital Mixer
 manufacturer: Behringer
 category: audio
-version: 2.0.1
+version: 2.1.0
 author: OpenAVC
 description: >-
   Controls Behringer X32 and X32 Compact digital mixing consoles via OSC.
@@ -350,6 +352,7 @@ commands:
   recall_scene:
     label: Recall Scene
     address: "/-action/goscene"
+    read_back: "/-show/prepos/current"
     args:
       - type: i
         value: "{scene}"
@@ -361,6 +364,8 @@ commands:
         max: 99
     help: "Load a scene from the console's scene list."
 
+  # Snippet and cue recalls, and Clear All Solos, read nothing back: the
+  # driver reports no state for them.
   recall_snippet:
     label: Recall Snippet
     address: "/-action/gosnippet"
@@ -401,6 +406,7 @@ commands:
   set_ch_fader:
     label: Set Channel Fader
     address: "/ch/{channel:02d}/mix/fader"
+    read_back: true
     args:
       - type: f
         value: "{level}"
@@ -419,6 +425,7 @@ commands:
   mute_ch:
     label: Mute Channel
     address: "/ch/{channel:02d}/mix/on"
+    read_back: true
     args:
       - type: i
         value: "0"
@@ -431,6 +438,7 @@ commands:
   unmute_ch:
     label: Unmute Channel
     address: "/ch/{channel:02d}/mix/on"
+    read_back: true
     args:
       - type: i
         value: "1"
@@ -443,6 +451,7 @@ commands:
   rename_ch:
     label: Rename Channel
     address: "/ch/{channel:02d}/config/name"
+    read_back: true
     args:
       - type: s
         value: "{name}"
@@ -460,6 +469,7 @@ commands:
   set_auxin_fader:
     label: Set Aux In Fader
     address: "/auxin/{auxin:02d}/mix/fader"
+    read_back: true
     args:
       - type: f
         value: "{level}"
@@ -478,6 +488,7 @@ commands:
   mute_auxin:
     label: Mute Aux In
     address: "/auxin/{auxin:02d}/mix/on"
+    read_back: true
     args:
       - type: i
         value: "0"
@@ -490,6 +501,7 @@ commands:
   unmute_auxin:
     label: Unmute Aux In
     address: "/auxin/{auxin:02d}/mix/on"
+    read_back: true
     args:
       - type: i
         value: "1"
@@ -502,6 +514,7 @@ commands:
   rename_auxin:
     label: Rename Aux In
     address: "/auxin/{auxin:02d}/config/name"
+    read_back: true
     args:
       - type: s
         value: "{name}"
@@ -519,6 +532,7 @@ commands:
   set_fxrtn_fader:
     label: Set FX Return Fader
     address: "/fxrtn/{fxrtn:02d}/mix/fader"
+    read_back: true
     args:
       - type: f
         value: "{level}"
@@ -537,6 +551,7 @@ commands:
   mute_fxrtn:
     label: Mute FX Return
     address: "/fxrtn/{fxrtn:02d}/mix/on"
+    read_back: true
     args:
       - type: i
         value: "0"
@@ -549,6 +564,7 @@ commands:
   unmute_fxrtn:
     label: Unmute FX Return
     address: "/fxrtn/{fxrtn:02d}/mix/on"
+    read_back: true
     args:
       - type: i
         value: "1"
@@ -561,6 +577,7 @@ commands:
   rename_fxrtn:
     label: Rename FX Return
     address: "/fxrtn/{fxrtn:02d}/config/name"
+    read_back: true
     args:
       - type: s
         value: "{name}"
@@ -578,6 +595,7 @@ commands:
   set_bus_fader:
     label: Set Bus Fader
     address: "/bus/{bus:02d}/mix/fader"
+    read_back: true
     args:
       - type: f
         value: "{level}"
@@ -596,6 +614,7 @@ commands:
   mute_bus:
     label: Mute Bus
     address: "/bus/{bus:02d}/mix/on"
+    read_back: true
     args:
       - type: i
         value: "0"
@@ -608,6 +627,7 @@ commands:
   unmute_bus:
     label: Unmute Bus
     address: "/bus/{bus:02d}/mix/on"
+    read_back: true
     args:
       - type: i
         value: "1"
@@ -620,6 +640,7 @@ commands:
   rename_bus:
     label: Rename Bus
     address: "/bus/{bus:02d}/config/name"
+    read_back: true
     args:
       - type: s
         value: "{name}"
@@ -637,6 +658,7 @@ commands:
   set_mtx_fader:
     label: Set Matrix Fader
     address: "/mtx/{mtx:02d}/mix/fader"
+    read_back: true
     args:
       - type: f
         value: "{level}"
@@ -655,6 +677,7 @@ commands:
   mute_mtx:
     label: Mute Matrix
     address: "/mtx/{mtx:02d}/mix/on"
+    read_back: true
     args:
       - type: i
         value: "0"
@@ -667,6 +690,7 @@ commands:
   unmute_mtx:
     label: Unmute Matrix
     address: "/mtx/{mtx:02d}/mix/on"
+    read_back: true
     args:
       - type: i
         value: "1"
@@ -679,6 +703,7 @@ commands:
   rename_mtx:
     label: Rename Matrix
     address: "/mtx/{mtx:02d}/config/name"
+    read_back: true
     args:
       - type: s
         value: "{name}"
@@ -696,6 +721,7 @@ commands:
   set_dca_fader:
     label: Set DCA Fader
     address: "/dca/{dca}/fader"
+    read_back: true
     args:
       - type: f
         value: "{level}"
@@ -714,6 +740,7 @@ commands:
   mute_dca:
     label: Mute DCA
     address: "/dca/{dca}/on"
+    read_back: true
     args:
       - type: i
         value: "0"
@@ -726,6 +753,7 @@ commands:
   unmute_dca:
     label: Unmute DCA
     address: "/dca/{dca}/on"
+    read_back: true
     args:
       - type: i
         value: "1"
@@ -738,6 +766,7 @@ commands:
   rename_dca:
     label: Rename DCA
     address: "/dca/{dca}/config/name"
+    read_back: true
     args:
       - type: s
         value: "{name}"
@@ -755,6 +784,7 @@ commands:
   set_main_fader:
     label: Set Main Fader
     address: "/main/{main}/mix/fader"
+    read_back: true
     args:
       - type: f
         value: "{level}"
@@ -773,6 +803,7 @@ commands:
   mute_main:
     label: Mute Main
     address: "/main/{main}/mix/on"
+    read_back: true
     args:
       - type: i
         value: "0"
@@ -785,6 +816,7 @@ commands:
   unmute_main:
     label: Unmute Main
     address: "/main/{main}/mix/on"
+    read_back: true
     args:
       - type: i
         value: "1"
@@ -797,6 +829,7 @@ commands:
   rename_main:
     label: Rename Main
     address: "/main/{main}/config/name"
+    read_back: true
     args:
       - type: s
         value: "{name}"
@@ -815,6 +848,7 @@ commands:
   mute_main_st:
     label: Mute Main Stereo
     address: "/main/st/mix/on"
+    read_back: true
     args:
       - type: i
         value: "0"
@@ -822,6 +856,7 @@ commands:
   unmute_main_st:
     label: Unmute Main Stereo
     address: "/main/st/mix/on"
+    read_back: true
     args:
       - type: i
         value: "1"
@@ -855,8 +890,9 @@ on_connect:
 
 # Renew subscription every 9 seconds (X32 expires after ~10s) and re-read
 # every strip's fader/mute/name. The console never echoes a client's own
-# set back, so this poll cycle is the read-back path for this driver's
-# writes (~240 tiny UDP datagrams per cycle — far lighter than the
+# set back; each command reads its own write back (read_back), and this
+# poll cycle reads every strip, which is the read-back on a platform before
+# 0.39.0 (~240 tiny UDP datagrams per cycle — far lighter than the
 # console's own remote apps).
 polling:
   queries:

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 147,
+    "total_drivers": 148,
     "shards": null
   },
   "drivers": [
@@ -10948,6 +10948,78 @@
         },
         "oui": [
           "00:a0:de"
+        ]
+      }
+    },
+    {
+      "id": "zeevee_zmp",
+      "name": "ZeeVee ZyPer Management Platform",
+      "manufacturer": "ZeeVee",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls a ZeeVee ZyPer AV-over-IP system (ZyPer4K, ZyPer4K-XS / XSE / XR, ZyPerUHD60 and the Kramer KDS-17) through its ZyPer Management Platform. Every encoder, decoder and video wall the platform manages appears as a child with live state: routing with separate video, HDMI audio and analog audio, video walls, zones, multiviews, presets, channel up and down, and RS-232, IR and CEC sent to the equipment at each end.",
+      "source_url": "https://www.zeevee.com/zmp-api-manual/",
+      "file": "switchers/zeevee_zmp.py",
+      "format": "python",
+      "files": {
+        "switchers/zeevee_zmp.py": "d901be8520ee7fbf159fba1096c20266a5f4abe594c7f78adc4c8eac29fc6157",
+        "switchers/zeevee_zmp_sim.py": "161d2224289e39d42e0b4a9da1ba906a7498ba08be9341f2cfee662f9090c120"
+      },
+      "ports": [
+        23
+      ],
+      "protocols": [
+        "zyper_api"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "av-over-ip",
+        "zyper",
+        "sdvoe",
+        "matrix-switcher",
+        "video-wall",
+        "multiview",
+        "encoder",
+        "decoder"
+      ],
+      "help": {
+        "overview": "ZyPer is ZeeVee's AV-over-IP system (Kramer's 10G line): encoders take sources onto the network and decoders feed displays, with the ZyPer Management Platform (ZMP) as the one point of control. This driver connects to the ZMP and shows every encoder, decoder and video wall as a child. Decoders carry their video and audio sources and whether they are receiving video; encoders carry their input. Routing, video walls, zones, multiviews, presets and RS-232, IR and CEC to the connected equipment are available to macros and panels.",
+        "setup": "1. Enter the ZMP's IP address (zyper.local also works on most networks). Port 23 is the API's Telnet port.\n2. Leave Username and Password empty if the ZMP does not ask for them, which is how it ships. Enter the password if a Telnet password is set, and both if accounts are set to full authentication (Accounts > All Configuration).\n3. Name every encoder and decoder in the ZMP first: children are named after the device names, and video walls, zones, multiviews and presets are picked by their names.\n4. Live Updates uses a second Telnet session. If the ZMP limits sessions per account to one, turn Live Updates off and encoder inputs are polled instead.\n5. RS-232 to an endpoint needs the endpoint linked to the ZMP once (Link RS-232 to ZMP), which can restart it.\n6. Use Refresh from Device after adding or renaming endpoints; otherwise the list catches up within a minute."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "ZeeVee",
+          "models": [
+            "ZyPer Management Platform",
+            "ZyPer4K",
+            "ZyPer4K-XS",
+            "ZyPer4K-XSE",
+            "ZyPer4K-XR",
+            "ZyPerUHD60"
+          ],
+          "confidence": "untested",
+          "notes": "Add the ZyPer Management Platform (ZMP) as the device: its encoders and decoders appear as children. Written from API release 4.1x; ZyPerUHD (non-60) units managed by the same platform appear too. Genlocked joins, multiviews, IR and the input port choice are ZyPer4K only."
+        },
+        {
+          "manufacturer": "Kramer",
+          "models": [
+            "KDS-17"
+          ],
+          "confidence": "untested",
+          "notes": "Managed by the ZyPer Management Platform from release 4.1 (compatible with ZyPerUHD60). Add the ZMP, not the KDS-17."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 23,
+          "expect_regex": "(?i)zyper\\$",
+          "timeout_ms": 3000
+        },
+        "hostname": [
+          "(?i)^zyper(\\.local)?$"
         ]
       }
     }

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1181,
+    "total_devices": 1188,
     "shards": null
   },
   "devices": [
@@ -6703,6 +6703,18 @@
           "id": "justaddpower_encoder",
           "confidence": "untested",
           "notes": "justOS firmware B1.1.0 or later for justAPI; B2.1.0 or later for Multicast Switching. Not in a 2G Series system (firmware A6.5.9), where justAPI is unsupported. The DSP mutes are on the 3G+AVP TX and 3G+WP4 TX only. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Kramer",
+      "model": "KDS-17",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "zeevee_zmp",
+          "confidence": "untested",
+          "notes": "Managed by the ZyPer Management Platform from release 4.1 (compatible with ZyPerUHD60). Add the ZMP, not the KDS-17."
         }
       ]
     },
@@ -14304,6 +14316,78 @@
           "id": "yamaha_mtx_mrx",
           "confidence": "untested",
           "notes": "XMV power amps. Controlled via full parameter paths (set_param / get_param). RCP control is independent of any MTX/MRX in the system.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "ZeeVee",
+      "model": "ZyPer Management Platform",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "zeevee_zmp",
+          "confidence": "untested",
+          "notes": "Add the ZyPer Management Platform (ZMP) as the device: its encoders and decoders appear as children. Written from API release 4.1x; ZyPerUHD (non-60) units managed by the same platform appear too. Genlocked joins, multiviews, IR and the input port choice are ZyPer4K only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ZeeVee",
+      "model": "ZyPer4K",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "zeevee_zmp",
+          "confidence": "untested",
+          "notes": "Add the ZyPer Management Platform (ZMP) as the device: its encoders and decoders appear as children. Written from API release 4.1x; ZyPerUHD (non-60) units managed by the same platform appear too. Genlocked joins, multiviews, IR and the input port choice are ZyPer4K only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ZeeVee",
+      "model": "ZyPer4K-XR",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "zeevee_zmp",
+          "confidence": "untested",
+          "notes": "Add the ZyPer Management Platform (ZMP) as the device: its encoders and decoders appear as children. Written from API release 4.1x; ZyPerUHD (non-60) units managed by the same platform appear too. Genlocked joins, multiviews, IR and the input port choice are ZyPer4K only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ZeeVee",
+      "model": "ZyPer4K-XS",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "zeevee_zmp",
+          "confidence": "untested",
+          "notes": "Add the ZyPer Management Platform (ZMP) as the device: its encoders and decoders appear as children. Written from API release 4.1x; ZyPerUHD (non-60) units managed by the same platform appear too. Genlocked joins, multiviews, IR and the input port choice are ZyPer4K only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ZeeVee",
+      "model": "ZyPer4K-XSE",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "zeevee_zmp",
+          "confidence": "untested",
+          "notes": "Add the ZyPer Management Platform (ZMP) as the device: its encoders and decoders appear as children. Written from API release 4.1x; ZyPerUHD (non-60) units managed by the same platform appear too. Genlocked joins, multiviews, IR and the input port choice are ZyPer4K only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ZeeVee",
+      "model": "ZyPerUHD60",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "zeevee_zmp",
+          "confidence": "untested",
+          "notes": "Add the ZyPer Management Platform (ZMP) as the device: its encoders and decoders appear as children. Written from API release 4.1x; ZyPerUHD (non-60) units managed by the same platform appear too. Genlocked joins, multiviews, IR and the input port choice are ZyPer4K only."
         }
       ]
     }

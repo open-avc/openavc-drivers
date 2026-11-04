@@ -24,16 +24,18 @@ switch's own MAC table, and system health.
 Transport / protocol:
 
 * The CLI is a DCN-family managed-switch CLI (AVPro's published command guide
-  carries ``Author: dcn``). **Telnet** (``transport: tcp``, port 23) is the
-  default: it reaches the CLI on every switch out of the box and is what the
-  bundled simulator speaks. **SSH** (``transport: ssh``, port 22) reaches the
-  same CLI through the platform SSH transport, which shells out to the OS
-  OpenSSH client -- but the switch's SSH server offers only ``hmac-sha1`` as
-  its MAC algorithm, and OpenSSH 8.8+ dropped that from its defaults, so the
-  handshake fails with ``no matching MAC found`` on any current client even
-  though ``ssh-server enable`` ships on. KEX, host key and ciphers all
-  negotiate fine; the MAC list is the whole problem. Until the platform SSH
-  transport offers a legacy-algorithm opt-in, telnet is the working path.
+  carries ``Author: dcn``). **SSH** (``transport: ssh``, port 22) is the
+  default: the switch ships with ``ssh-server enable`` on, and the platform
+  SSH transport (which shells out to the OS OpenSSH client) reaches the CLI
+  with the same login. The switch's SSH server offers only ``hmac-sha1`` as
+  its MAC algorithm, which OpenSSH 8.8+ dropped from its defaults; the
+  platform adds it back for gear like this, so the handshake completes (KEX,
+  host key and ciphers negotiate as usual). Measured 2026-11-04 from appliance
+  hardware on platform 0.39.0: signed in with a password in under a second
+  and read all 12 ports. **Telnet** (``transport: tcp``, port 23) reaches the
+  same CLI but sends the login unencrypted; it is the fallback where SSH is
+  turned off on the switch, and what the bundled simulator speaks (simulation
+  stands a TCP connection in for SSH by itself).
 * Strictly request/response. The switch echoes each command, prints the
   response, then re-prints its prompt (``switch#``, ``switch(config)#``,
   ``switch(config-if-ethernet1/0/2)#``). The prompt is the end-of-response
@@ -611,12 +613,13 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
         "name": "AVPro Edge MXnet Network Switch",
         "manufacturer": "AVPro Edge",
         "category": "utility",
-        "version": "1.2.5",
+        "version": "1.3.0",
         "author": "OpenAVC",
-        # Computed by build_index.py, not chosen: the `web_ui` field below
-        # carries a 0.24.0 floor. Well behind the current release, so this
-        # locks nobody out.
-        "min_platform_version": "0.24.0",
+        # Above the computed floor (0.24.0, from `web_ui`) on purpose: SSH is
+        # the default from 1.3.0, and 0.39.0 is the first platform with an SSH
+        # client on every install type (Docker, the Linux installer, appliance
+        # hardware). An older install keeps 1.2.5, which defaults to telnet.
+        "min_platform_version": "0.39.0",
         "description": (
             "Monitor and control an AVPro Edge MXnet network switch over its "
             "CLI: per-port PoE power-cycling and draw, link state and error "
@@ -638,11 +641,10 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
         "simulated": True,
         "protocols": ["mxnet_switch_cli"],
         "ports": [22, 23],
-        # Telnet is the default: the switch's SSH server offers only the
-        # hmac-sha1 MAC, which OpenSSH 8.8 and newer refuse, so SSH fails to
-        # negotiate on most current systems (default_config agrees).
-        "transport": "tcp",
-        "transports": ["tcp", "ssh"],
+        # SSH is the default (default_config and config_schema agree); telnet
+        # stays available for a switch with SSH turned off.
+        "transport": "ssh",
+        "transports": ["ssh", "tcp"],
         # The switch serves its web GUI on plain HTTP. Declared rather than
         # left to auto-detect because a bare "GET /" without a Host header gets
         # a 302 to http://localhost/index.html (a firmware quirk) -- a probe
@@ -726,7 +728,7 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
                 "2. Log in. The default username and password are both "
                 "'admin'.\n"
                 "3. Add it here: enter the switch IP, leave Connection on "
-                "'tcp' and the port on 23, and enter the username and "
+                "'ssh' and the port on 22, and enter the username and "
                 "password.\n"
                 "4. Ports, PoE status, and attached endpoints are discovered "
                 "automatically once it connects.\n\n"
@@ -736,8 +738,9 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
                 "and give the switch one of its own."
             ),
             "connection": (
-                "Check that Connection and Port agree: 'tcp' needs port 23, "
-                "'ssh' needs port 22. Then check the IP address, the username "
+                "Check that Connection and Port agree: 'ssh' needs port 22, "
+                "'tcp' needs port 23. If SSH has been turned off on the "
+                "switch, choose 'tcp'. Then check the IP address, the username "
                 "(default 'admin') and the password (default 'admin'). A "
                 "factory switch has no default gateway configured, so it can "
                 "only be reached from a computer on the same subnet as the "
@@ -754,9 +757,9 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
         # with what it does.
         "default_config": {
             "host": "",
-            "port": 23,
+            "port": 22,
             "username": "admin",
-            "transport": "tcp",
+            "transport": "ssh",
             "ssh_auth_method": "password",
             "poll_interval": 15,
             "detail_poll_interval": 60,
@@ -769,20 +772,18 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
             "host": {"type": "string", "required": True, "label": "IP Address",
                      "description": "Factory default is 192.168.1.238."},
             "transport": {
-                "type": "enum", "values": ["ssh", "tcp"], "default": "tcp",
+                "type": "enum", "values": ["ssh", "tcp"], "default": "ssh",
                 "label": "Connection",
-                "description": "tcp = telnet on port 23 (default: works with "
-                               "every switch out of the box). ssh = encrypted "
-                               "CLI on port 22; the switch's SSH server offers "
-                               "only the hmac-sha1 MAC, which OpenSSH 8.8 and "
-                               "newer refuse by default, so ssh fails to "
-                               "negotiate on most current systems. Remember to "
-                               "change Port to match.",
+                "description": "ssh = encrypted CLI on port 22 (default; on "
+                               "out of the box). tcp = telnet on port 23, "
+                               "which sends the login unencrypted: use it "
+                               "only if SSH is turned off on the switch. "
+                               "Port changes to match when it is 22 or 23.",
             },
             "port": {
-                "type": "integer", "default": 23, "min": 1, "max": 65535,
+                "type": "integer", "default": 22, "min": 1, "max": 65535,
                 "label": "Port",
-                "description": "23 for telnet, 22 for SSH. Must match the "
+                "description": "22 for SSH, 23 for telnet. Must match the "
                                "Connection setting above.",
             },
             "username": {"type": "string", "default": "admin",
@@ -798,7 +799,9 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
             },
             "key_path": {
                 "type": "string", "label": "SSH Private Key Path",
-                "description": "Path to the OpenAVC private key (key auth).",
+                "description": "For key sign-in. Leave blank to use OpenAVC's "
+                               "own key, shown on the device page; add that "
+                               "key to the switch's user account first.",
             },
             "host_key_policy": {
                 "type": "enum", "values": ["accept-new", "strict", "off"],

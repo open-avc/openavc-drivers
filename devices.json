@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1190,
+    "total_devices": 1193,
     "shards": null
   },
   "devices": [
@@ -14052,6 +14052,42 @@
           "id": "wattbox_ip",
           "confidence": "untested",
           "notes": "Not tested on these models. The protocol document covers them; outlets are read from the unit's own outlet count, and power metering and UPS readings appear only where the unit reports them."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WolfVision",
+      "model": "Cynap Core Pro",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "wolfvision_cynap",
+          "confidence": "untested",
+          "notes": "Firmware 1.7x (built from the 1.78a WolfProt reference). Two HDMI outputs, recording and streaming."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WolfVision",
+      "model": "Cynap Pro",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "wolfvision_cynap",
+          "confidence": "untested",
+          "notes": "Firmware 1.7x (built from the 1.78a WolfProt reference). Two HDMI outputs, recording and streaming."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WolfVision",
+      "model": "Cynap Pure Mini",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "wolfvision_cynap",
+          "confidence": "untested",
+          "notes": "Firmware 1.7x. Commands for features this model lacks (recording, a second output) are refused by the unit."
         }
       ]
     },

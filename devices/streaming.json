@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 77,
+    "total_devices": 80,
     "shards": null,
     "category": "streaming"
   },
@@ -928,6 +928,42 @@
           "id": "roku_ecp",
           "confidence": "untested",
           "notes": "Any Roku device with 'Control by mobile apps' enabled, including third-party Roku TVs (TCL, Hisense, onn, etc.). Power, volume, and input/tuner keys apply to models that report supports-tv-power-control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WolfVision",
+      "model": "Cynap Core Pro",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "wolfvision_cynap",
+          "confidence": "untested",
+          "notes": "Firmware 1.7x (built from the 1.78a WolfProt reference). Two HDMI outputs, recording and streaming."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WolfVision",
+      "model": "Cynap Pro",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "wolfvision_cynap",
+          "confidence": "untested",
+          "notes": "Firmware 1.7x (built from the 1.78a WolfProt reference). Two HDMI outputs, recording and streaming."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WolfVision",
+      "model": "Cynap Pure Mini",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "wolfvision_cynap",
+          "confidence": "untested",
+          "notes": "Firmware 1.7x. Commands for features this model lacks (recording, a second output) are refused by the unit."
         }
       ]
     }

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 149,
+    "total_drivers": 150,
     "shards": null
   },
   "drivers": [
@@ -10796,6 +10796,74 @@
           "snap one",
           "snap-av",
           "wirepath"
+        ]
+      }
+    },
+    {
+      "id": "wolfvision_cynap",
+      "name": "WolfVision Cynap",
+      "manufacturer": "WolfVision",
+      "category": "streaming",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls WolfVision Cynap presentation and collaboration systems (Cynap Pro, Cynap Core Pro, Cynap Pure Mini on firmware 1.7x) over WolfProt: standby and Wake-on-LAN, volume and mutes, freeze, the four presentation windows, opening an HDMI input or the whiteboard, recording and streaming, ending a presentation, and status pushed as it changes.",
+      "source_url": "https://wolfvision.com/api_wolfprot/commands_1.78a.html",
+      "file": "streaming/wolfvision_cynap.py",
+      "format": "python",
+      "files": {
+        "streaming/wolfvision_cynap.py": "767a242c91f12e767fd945bededa10bd2c7a0bb5cfbdab3fc8dec2bda6d29822",
+        "streaming/wolfvision_cynap_sim.py": "b532894fbe22c1390e21345cf69e82b06dfea161ba527cfa747dcf209ea9b1e4"
+      },
+      "ports": [
+        50915
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "wireless-presentation",
+        "byod",
+        "collaboration",
+        "wolfvision",
+        "cynap",
+        "recording"
+      ],
+      "help": {
+        "overview": "WolfVision Cynap presentation systems over WolfProt (TCP 50915). Standby and Wake-on-LAN, master volume and mute, microphone mute, freeze, the four presentation windows, HDMI inputs and the whiteboard, recording and streaming, and status the Cynap reports as it changes. Polls every 15 seconds as well.",
+        "setup": "1. Give the Cynap a fixed IP address and enter it. Control uses TCP 50915; for TLS, turn on TLS and use port 50917.\n2. Login: with no moderator password on the Cynap, leave the password blank. If the Cynap requires a moderator password (Settings > Login), enter it with Access Level User. Changing the device name, presentation mode, power-down mode, output 2 mode or restarting needs Access Level Admin and the administrator password (and the Admin Remote PIN if the Cynap asks for one).\n3. Power On from standby uses Wake-on-LAN: the MAC address is read from the Cynap when it first connects. Standby closes the Cynap's connections, so it shows offline until it is woken. A Power Down Mode of Shutdown may not wake on the network."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "WolfVision",
+          "models": [
+            "Cynap Pro",
+            "Cynap Core Pro"
+          ],
+          "confidence": "untested",
+          "notes": "Firmware 1.7x (built from the 1.78a WolfProt reference). Two HDMI outputs, recording and streaming."
+        },
+        {
+          "manufacturer": "WolfVision",
+          "models": [
+            "Cynap Pure Mini"
+          ],
+          "confidence": "untested",
+          "notes": "Firmware 1.7x. Commands for features this model lacks (recording, a second output) are refused by the unit."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 50915,
+          "send_hex": "08CB0000",
+          "expect_hex": "08CB00",
+          "timeout_ms": 3000
+        },
+        "oui": [
+          "00:0c:92"
+        ],
+        "manufacturer_alias": [
+          "wolfvision",
+          "wolfvision gmbh"
         ]
       }
     },

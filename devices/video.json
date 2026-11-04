@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 69,
+    "total_devices": 74,
     "shards": null,
     "category": "video"
   },
@@ -699,6 +699,66 @@
           "id": "poly_studio",
           "confidence": "untested",
           "notes": "VideoOS REST API is identical across the X-series and G7500. Per-model differences (mic count, integrated cameras, bundled mic pods) don't change the command surface \u2014 they just gate which features actually do anything when invoked."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Roland",
+      "model": "V-1-4K",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "roland_v160hd",
+          "confidence": "untested",
+          "notes": "Version 1.0 and later. LAN only (TCP 8023, eight-character network password). ROI windows; no AUX buses, freeze or macros."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Roland",
+      "model": "V-160HD",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "roland_v160hd",
+          "confidence": "untested",
+          "notes": "Version 3.5 and later (the Basic Control Commands' own floor). LAN (TCP 8023, four-character network password) or RS-232. 20 input channels, AUX 1-3, four PinP & KEY, two DSK, 30 scene memories, 16 cameras."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Roland",
+      "model": "V-80HD",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "roland_v160hd",
+          "confidence": "untested",
+          "notes": "Version 1.3 and later. LAN (TCP 8023, eight-character network password) or RS-232. Video and audio players, SRT, streaming and recording."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Roland",
+      "model": "VR-120HD",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "roland_v160hd",
+          "confidence": "untested",
+          "notes": "Version 2.2 and later. LAN (TCP 8023, four-character network password) or RS-232. Streaming and recording."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Roland",
+      "model": "VR-6HD",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "roland_v160hd",
+          "confidence": "untested",
+          "notes": "Version 2.2 and later. LAN (TCP 8023, four-character network password) or RS-232. Streaming and recording."
         }
       ]
     },

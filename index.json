@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 151,
+    "total_drivers": 152,
     "shards": null
   },
   "drivers": [
@@ -7648,6 +7648,106 @@
         "manufacturer_alias": [
           "Roku"
         ]
+      }
+    },
+    {
+      "id": "roland_v160hd",
+      "name": "Roland V-160HD / V-80HD / VR-120HD / VR-6HD / V-1-4K",
+      "manufacturer": "Roland",
+      "category": "video",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Roland's V-160HD and V-80HD video switchers, VR-120HD and VR-6HD streaming AV mixers and the V-1-4K video switcher over their LAN/RS-232 Basic Control Commands: program and preset sources, cut and auto transitions, fade to black, keyers (PinP and DSK), AUX buses, split, input and output assignment, audio input and output levels and mutes, scene memories, PTZ cameras the switcher controls, macros, the sequencer, streaming and recording, and signal status. Each list follows the model the switcher reports.",
+      "source_url": "https://static.roland.com/assets/media/pdf/LAN_RS-232_Basic_Control_Commands_eng02_W.pdf",
+      "file": "video/roland_v160hd.py",
+      "format": "python",
+      "files": {
+        "video/roland_v160hd.py": "1df9fdfd2a368a93d6839cacc3477a50896c7d9791f108ecad0351f17043f3ab",
+        "video/roland_v160hd_sim.py": "777aa4e5c6603d0f57ae7fdd69d3d8163ba2c6824af281a7284d1165b4298b0b"
+      },
+      "ports": [
+        8023
+      ],
+      "protocols": [
+        "roland-basic-control"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "video-switcher",
+        "production-switcher",
+        "av-mixer",
+        "streaming",
+        "roland",
+        "rs232",
+        "lan-control"
+      ],
+      "help": {
+        "overview": "Roland V-160HD, V-80HD and V-1-4K video switchers and VR-120HD and VR-6HD streaming AV mixers. Choose program and preset sources, cut or auto-transition, fade to black, put keyers on air, route AUX buses, assign inputs and outputs, set audio levels and mutes, recall scene memories, move the PTZ cameras the switcher controls, run macros and the sequencer, and start streaming or recording. The source lists, inputs and outputs follow the model the switcher reports. Program, preset, keyers and AUX buses are read every second; the rest a few at a time.",
+        "setup": "1. Over the network: on the switcher, MENU > LAN CONTROL (V-160HD) or MENU > Network > LAN Setup, give it a fixed IP address and set a Network Password (four characters on the V-160HD, VR-120HD and VR-6HD, eight on the V-80HD and V-1-4K). LAN control does not work until a password is set. Enter the address and the password here. Control uses TCP 8023.\n2. Over RS-232 (not the V-1-4K): turn RS-232 on in the switcher's RS-232 menu, note its baud rate (115200 on a V-160HD as it ships), connect a crossover (null-modem) cable to the 9-pin RS-232 port, and choose the serial connection. No password is used.\n3. PTZ Cameras: the number of cameras set up in the switcher's camera menu, to control and read them from here. 0 leaves camera control off.\n4. Model is read from the switcher when it connects; pick it here to build or simulate a project before the switcher is on the network."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Roland",
+          "models": [
+            "V-160HD"
+          ],
+          "confidence": "untested",
+          "notes": "Version 3.5 and later (the Basic Control Commands' own floor). LAN (TCP 8023, four-character network password) or RS-232. 20 input channels, AUX 1-3, four PinP & KEY, two DSK, 30 scene memories, 16 cameras."
+        },
+        {
+          "manufacturer": "Roland",
+          "models": [
+            "V-80HD"
+          ],
+          "confidence": "untested",
+          "notes": "Version 1.3 and later. LAN (TCP 8023, eight-character network password) or RS-232. Video and audio players, SRT, streaming and recording."
+        },
+        {
+          "manufacturer": "Roland",
+          "models": [
+            "VR-120HD"
+          ],
+          "confidence": "untested",
+          "notes": "Version 2.2 and later. LAN (TCP 8023, four-character network password) or RS-232. Streaming and recording."
+        },
+        {
+          "manufacturer": "Roland",
+          "models": [
+            "VR-6HD"
+          ],
+          "confidence": "untested",
+          "notes": "Version 2.2 and later. LAN (TCP 8023, four-character network password) or RS-232. Streaming and recording."
+        },
+        {
+          "manufacturer": "Roland",
+          "models": [
+            "V-1-4K"
+          ],
+          "confidence": "untested",
+          "notes": "Version 1.0 and later. LAN only (TCP 8023, eight-character network password). ROI windows; no AUX buses, freeze or macros."
+        }
+      ],
+      "discovery": {
+        "port_open": [
+          8023
+        ],
+        "manufacturer_alias": [
+          "roland"
+        ],
+        "tcp_probe": {
+          "port": 8023,
+          "send_ascii": "VER;\n",
+          "expect_regex": "VER:(?:V-160HD|V-80HD|VR-120HD|VR-6HD|V-1-4K),",
+          "extract_manufacturer": "Roland",
+          "extract": {
+            "model": {
+              "regex": "VER:(V-160HD|V-80HD|VR-120HD|VR-6HD|V-1-4K),"
+            }
+          },
+          "timeout_ms": 3000
+        }
       }
     },
     {

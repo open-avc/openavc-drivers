@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 145,
+    "total_drivers": 147,
     "shards": null
   },
   "drivers": [
@@ -5167,6 +5167,166 @@
           "confidence": "untested"
         }
       ]
+    },
+    {
+      "id": "justaddpower_decoder",
+      "name": "Just Add Power Decoder (justOS)",
+      "manufacturer": "Just Add Power",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls a Just Add Power Omega, Ultra or MaxColor decoder over justAPI: source switching by channel in Unified or Flexible Mode, video mute and freeze, the display through CEC or PlugPlayPresent, the on-screen display, video wall layout, rotation, bezel and zoom, stereo volume and delay, RS-232 and IR pass-through, and JPSW switching. Reads back the channel, status, resolution, HDCP, audio format and firmware.",
+      "source_url": "https://app.swaggerhub.com/apis-docs/JustAddPower/justOS-HTTP-API/1.1.2",
+      "file": "switchers/justaddpower_decoder.py",
+      "format": "python",
+      "files": {
+        "switchers/justaddpower_decoder.py": "4af6c3bac26af3afcd6907ae9af359f60f4cca547b4a9befc2ca7cce14798494",
+        "switchers/justaddpower_decoder_sim.py": "748adbcf95a587a02b2276d1c9761818149fe196f32c60d33a9bba735c6e6879"
+      },
+      "ports": [
+        80
+      ],
+      "protocols": [
+        "justaddpower_justapi"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "just-add-power",
+        "jap",
+        "justos",
+        "av-over-ip",
+        "hdmi-over-ip",
+        "decoder",
+        "receiver",
+        "video-wall",
+        "multicast",
+        "omega",
+        "ultra",
+        "maxcolor"
+      ],
+      "help": {
+        "overview": "Controls one Just Add Power decoder: which encoder it shows (by channel), video mute and freeze, the display it drives (CEC or PlugPlayPresent), the on-screen display, its place in a video wall, stereo audio, and RS-232 and IR pass-through. Add each decoder as its own device, and each encoder with the Just Add Power Encoder (justOS) driver. To switch several decoders from one panel, set up a Matrix with each decoder's Channel as a destination and the encoders' channel numbers as sources.",
+        "setup": "1. Update the decoder to justOS B2.1.0 or later (MaxColor: MAX v3.5.2 or later).\n2. Enter the decoder's IP address. justAPI needs no password.\n3. Set Channel Mode to match the system: Flexible for a Multicast Switching system set up with AMP 1.6.0 or later (its default), Unified for an older one or one converted to Unified Mode. If Switch Source is refused, the mode is the first thing to check.\n4. RS-232 pass-through needs the decoder's serial mode set to api (AMP or the decoder's web page)."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Just Add Power",
+          "models": [
+            "Ultra Series decoders (3G RX, 3G+4+ RX, 3G+AVP RX)",
+            "Omega Series decoders (2G/3G RX, 2G/3G+ RX)"
+          ],
+          "confidence": "untested",
+          "notes": "justOS firmware B1.1.0 or later for justAPI; B2.1.0 or later for Multicast Switching. Not in a 2G Series system (firmware A6.5.9), where justAPI is unsupported. Not yet tested on this hardware."
+        },
+        {
+          "manufacturer": "Just Add Power",
+          "models": [
+            "MaxColor Series decoders"
+          ],
+          "confidence": "untested",
+          "notes": "MaxColor firmware MAX v3.5.2 or later. The API document does not list MaxColor's model names. Not yet tested on this hardware."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 80,
+          "send_ascii": "GET /cgi-bin/api/details/device/model HTTP/1.0\r\n\r\n",
+          "expect_regex": "\"data\"\\s*:\\s*\"[^\"]*\\bRX\"",
+          "timeout_ms": 3000,
+          "extract": {
+            "model": {
+              "regex": "\"data\"\\s*:\\s*\"([^\"]*\\bRX)\""
+            }
+          }
+        },
+        "manufacturer_alias": [
+          "Just Add Power",
+          "JustAddPower",
+          "J+P"
+        ]
+      }
+    },
+    {
+      "id": "justaddpower_encoder",
+      "name": "Just Add Power Encoder (justOS)",
+      "manufacturer": "Just Add Power",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls a Just Add Power Omega, Ultra or MaxColor encoder over justAPI: its channel in Unified or Flexible Mode, the HDMI input and stream, the EDID it offers the source, audio DSP mutes, stereo volume and delay, RS-232 and IR pass-through, and JPSW switching. Reads back the channel, status, input resolution, HDCP, HDMI audio format and firmware.",
+      "source_url": "https://app.swaggerhub.com/apis-docs/JustAddPower/justOS-HTTP-API/1.1.2",
+      "file": "switchers/justaddpower_encoder.py",
+      "format": "python",
+      "files": {
+        "switchers/justaddpower_encoder.py": "301678cd5ed44393e16dfcc820359db061d53b30265b5e76d63c36bf52bf60cf",
+        "switchers/justaddpower_encoder_sim.py": "51d80b6ebae5fe979cf47565889ed8d7822c77bf2af506a236b81e6d60e47c6a"
+      },
+      "ports": [
+        80
+      ],
+      "protocols": [
+        "justaddpower_justapi"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "just-add-power",
+        "jap",
+        "justos",
+        "av-over-ip",
+        "hdmi-over-ip",
+        "encoder",
+        "transmitter",
+        "multicast",
+        "edid",
+        "omega",
+        "ultra",
+        "maxcolor"
+      ],
+      "help": {
+        "overview": "Controls one Just Add Power encoder: the channel it sends on, its HDMI input and network stream, the EDID it offers the source, the audio DSP mutes on a 3G+AVP or 3G+WP4 encoder, stereo audio, and RS-232 and IR pass-through. Add each encoder as its own device, and each decoder with the Just Add Power Decoder (justOS) driver; a decoder set to an encoder's channel shows that encoder.",
+        "setup": "1. Update the encoder to justOS B2.1.0 or later (MaxColor: MAX v3.5.2 or later).\n2. Enter the encoder's IP address. justAPI needs no password.\n3. Set Channel Mode to match the system: Flexible for a Multicast Switching system set up with AMP 1.6.0 or later (its default), Unified for an older one or one converted to Unified Mode.\n4. RS-232 pass-through needs the encoder's serial mode set to api (AMP or the encoder's web page)."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Just Add Power",
+          "models": [
+            "Ultra Series encoders (3G TX, 3G+4+ TX, 3G+AVP TX, 3G+HIFI TX, 3G+WP2 TX, 3G+WP4 TX)",
+            "Omega Series encoders (2G/3G TX, 2G/3G+ TX, 2G/3G VGA TX)"
+          ],
+          "confidence": "untested",
+          "notes": "justOS firmware B1.1.0 or later for justAPI; B2.1.0 or later for Multicast Switching. Not in a 2G Series system (firmware A6.5.9), where justAPI is unsupported. The DSP mutes are on the 3G+AVP TX and 3G+WP4 TX only. Not yet tested on this hardware."
+        },
+        {
+          "manufacturer": "Just Add Power",
+          "models": [
+            "MaxColor Series encoders"
+          ],
+          "confidence": "untested",
+          "notes": "MaxColor firmware MAX v3.5.2 or later. The API document does not list MaxColor's model names. Not yet tested on this hardware."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 80,
+          "send_ascii": "GET /cgi-bin/api/details/device/model HTTP/1.0\r\n\r\n",
+          "expect_regex": "\"data\"\\s*:\\s*\"[^\"]*\\bTX\"",
+          "timeout_ms": 3000,
+          "extract": {
+            "model": {
+              "regex": "\"data\"\\s*:\\s*\"([^\"]*\\bTX)\""
+            }
+          }
+        },
+        "manufacturer_alias": [
+          "Just Add Power",
+          "JustAddPower",
+          "J+P"
+        ]
+      }
     },
     {
       "id": "kramer_p3000",

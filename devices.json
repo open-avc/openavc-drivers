@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1188,
+    "total_devices": 1190,
     "shards": null
   },
   "devices": [
@@ -6527,6 +6527,30 @@
           "id": "sacn_e131",
           "confidence": "untested",
           "notes": "sACN is the ANSI E1.31 public standard maintained by ESTA. This driver sends E1.31 Data Packets and works with any conforming sACN receiver. Brand entries below name major node / gateway / fixture vendors confirmed by their published product literature."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Hisense",
+      "model": "54DS012FE",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "hisense_signage",
+          "confidence": "untested",
+          "notes": "54-inch LED signage display. IP Control on TCP 8000 by default, once the IP Control app on the display is started, or RS-232."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Hisense",
+      "model": "55OP90FE",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "hisense_signage",
+          "confidence": "untested",
+          "notes": "DM series outdoor display. RS-232 at 9600 8N1 (the RS232 IN port; an RS232 converter cable is an option in the box). Its manual names an IP Control service but documents no port for it."
         }
       ]
     },

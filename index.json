@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 148,
+    "total_drivers": 149,
     "shards": null
   },
   "drivers": [
@@ -5122,6 +5122,67 @@
           "Hero AV",
           "SoundCoreHero"
         ]
+      }
+    },
+    {
+      "id": "hisense_signage",
+      "name": "Hisense Commercial Signage Display",
+      "manufacturer": "Hisense",
+      "category": "display",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Hisense commercial signage displays with Hisense's signage command set: the DM series (55OP90FE outdoor) over RS-232 and the 54DS012FE LED display over its IP Control service or RS-232. Power with Wake-on-LAN, screen on and off, input, volume and mute, picture and sound modes, brightness and backlight, rotation, the remote's keys, and status: signal, temperature, model, serial number and network.",
+      "source_url": "https://www.hisense-b2b.com/en/Attachment/DownloadFile?downloadId=1046",
+      "file": "displays/hisense_signage.py",
+      "format": "python",
+      "files": {
+        "displays/hisense_signage.py": "7eb7e30247b6a59ca495fe618f5d7782bc315cf7fb20ceac67ab41f69e7c8f5c",
+        "displays/hisense_signage_sim.py": "747c98b61167a715b29d1e0022cc422a29fef1e55d28d25073446935a3c3e4c2"
+      },
+      "ports": [
+        8000
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "display",
+        "hisense",
+        "digital-signage",
+        "outdoor",
+        "led",
+        "rs232",
+        "lan-control"
+      ],
+      "help": {
+        "overview": "Hisense commercial signage displays. Power (with Wake-on-LAN over the network), screen on and off, input, volume and mute, picture and sound modes, brightness, backlight and rotation, the remote's keys, and the display's status: signal, temperature, model, serial number and network. Polls every 10 seconds.",
+        "setup": "1. Over the network (54DS012FE): on the display, open Apps > IP Control, check the port (8000 unless it was changed) and press Start. Give the display a fixed IP address and enter it with the port.\n2. Over RS-232 (the DM series, or a 54DS): connect to the display's RS232 port at 9600 baud, 8 data bits, no parity, 1 stop bit, and choose the serial connection.\n3. Monitor ID: the display's Serial Port ID (Settings > Signal Manager > Serial Port ID on the DM series, Settings > System > Serial Port ID Setting on the 54DS). 1 unless it was changed.\n4. To turn the display on over the network from standby, turn on Wake-on-LAN on the display. The MAC address is read from the display when it first connects.\n5. The display's Remote Control Lock turns off IP Control: leave it off."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Hisense",
+          "models": [
+            "55OP90FE"
+          ],
+          "confidence": "untested",
+          "notes": "DM series outdoor display. RS-232 at 9600 8N1 (the RS232 IN port; an RS232 converter cable is an option in the box). Its manual names an IP Control service but documents no port for it."
+        },
+        {
+          "manufacturer": "Hisense",
+          "models": [
+            "54DS012FE"
+          ],
+          "confidence": "untested",
+          "notes": "54-inch LED signage display. IP Control on TCP 8000 by default, once the IP Control app on the display is started, or RS-232."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 8000,
+          "send_ascii": "DDFF0006C128000001EEBBCC",
+          "expect_regex": "(?i)AB ?AB ?00 ?0C ?C1 ?28|\\xab\\xab\\x00\\x0c\\xc1\\x28",
+          "timeout_ms": 3000
+        }
       }
     },
     {

@@ -151,7 +151,7 @@ class BlackmagicHyperDeckDriver(BaseDriver):
         "name": "Blackmagic HyperDeck",
         "manufacturer": "Blackmagic Design",
         "category": "video",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         # Computed: Restart's confirm needs 0.36.0. Everything newer the code
         # calls is looked up first (CommandRefusedError, local_address).
@@ -1123,8 +1123,11 @@ class BlackmagicHyperDeckDriver(BaseDriver):
 
     async def _liveness_probe(self) -> None:
         # Any answer counts, a refusal included: ping only asks whether the
-        # deck is answering.
-        await self._request("ping")
+        # deck is answering. The platform's deadline governs the wait (on a
+        # reconnect held offline it is HEALTH_INTERVAL_S, so a deck still
+        # starting comes online at its late answer); the request's own timeout
+        # is longer than either deadline.
+        await self._request("ping", timeout=float(self.HEALTH_INTERVAL_S) + float(self.HEALTH_TIMEOUT_S))
 
     # ── Commands ──
 

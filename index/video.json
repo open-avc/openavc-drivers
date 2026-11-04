@@ -134,7 +134,7 @@
       "name": "Blackmagic HyperDeck",
       "manufacturer": "Blackmagic Design",
       "category": "video",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Blackmagic Design HyperDeck disk recorders (HyperDeck Studio, Shuttle and Extreme) over the HyperDeck Ethernet Protocol (TCP 9993): record, play and stop, clip and timecode navigation, slot selection, recording settings, and transport, slot and remote status the deck reports as it changes.",
@@ -142,7 +142,7 @@
       "file": "video/blackmagic_hyperdeck.py",
       "format": "python",
       "files": {
-        "video/blackmagic_hyperdeck.py": "420d584ab562321ebc5c01ca26bc78ee3464c4f6e8a55501203dfe00e49dff26",
+        "video/blackmagic_hyperdeck.py": "18ce5b47924e8db7585f2f7976f8e954f4bf90705acc6b133d54f223dfabd250",
         "video/blackmagic_hyperdeck_sim.py": "342e098aaddc039cef82cdf036d26a33929a2bba534dc8393cd8c8d1b3b4028e"
       },
       "ports": [

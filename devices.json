@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1193,
+    "total_devices": 1201,
     "shards": null
   },
   "devices": [
@@ -3229,6 +3229,102 @@
           "id": "blackmagic_videohub",
           "confidence": "untested",
           "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Inputs, outputs, and monitoring outputs are registered as child entities sized to the frame the unit reports, so wide routers (40\u00d740, 80\u00d780, Universal 288) expose every port."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "HyperDeck Extreme 4K HDR",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "blackmagic_hyperdeck",
+          "confidence": "untested",
+          "notes": "Same protocol, with the HDR dynamic range readings."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "HyperDeck Extreme 8K HDR",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "blackmagic_hyperdeck",
+          "confidence": "untested",
+          "notes": "Same protocol, with the HDR dynamic range readings."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "HyperDeck Shuttle 4K Pro",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "blackmagic_hyperdeck",
+          "confidence": "untested",
+          "notes": "Same protocol. The Shuttle HD records from HDMI."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "HyperDeck Shuttle HD",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "blackmagic_hyperdeck",
+          "confidence": "untested",
+          "notes": "Same protocol. The Shuttle HD records from HDMI."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "HyperDeck Studio 4K Pro",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "blackmagic_hyperdeck",
+          "confidence": "untested",
+          "notes": "Built from the HyperDeck Ethernet Protocol (December 2024). Video inputs, file formats and the number of slots differ by model; the deck refuses a choice it does not have."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "HyperDeck Studio HD Mini",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "blackmagic_hyperdeck",
+          "confidence": "untested",
+          "notes": "Built from the HyperDeck Ethernet Protocol (December 2024). Video inputs, file formats and the number of slots differ by model; the deck refuses a choice it does not have."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "HyperDeck Studio HD Plus",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "blackmagic_hyperdeck",
+          "confidence": "untested",
+          "notes": "Built from the HyperDeck Ethernet Protocol (December 2024). Video inputs, file formats and the number of slots differ by model; the deck refuses a choice it does not have."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "HyperDeck Studio HD Pro",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "blackmagic_hyperdeck",
+          "confidence": "untested",
+          "notes": "Built from the HyperDeck Ethernet Protocol (December 2024). Video inputs, file formats and the number of slots differ by model; the deck refuses a choice it does not have."
         }
       ]
     },

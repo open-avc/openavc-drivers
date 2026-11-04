@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 12,
+    "total_drivers": 13,
     "shards": null,
     "category": "video"
   },
@@ -127,6 +127,95 @@
           "bird-dog",
           "bird dog"
         ]
+      }
+    },
+    {
+      "id": "blackmagic_hyperdeck",
+      "name": "Blackmagic HyperDeck",
+      "manufacturer": "Blackmagic Design",
+      "category": "video",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Blackmagic Design HyperDeck disk recorders (HyperDeck Studio, Shuttle and Extreme) over the HyperDeck Ethernet Protocol (TCP 9993): record, play and stop, clip and timecode navigation, slot selection, recording settings, and transport, slot and remote status the deck reports as it changes.",
+      "source_url": "https://documents.blackmagicdesign.com/DeveloperManuals/HyperDeckEthernetProtocol.pdf",
+      "file": "video/blackmagic_hyperdeck.py",
+      "format": "python",
+      "files": {
+        "video/blackmagic_hyperdeck.py": "420d584ab562321ebc5c01ca26bc78ee3464c4f6e8a55501203dfe00e49dff26",
+        "video/blackmagic_hyperdeck_sim.py": "342e098aaddc039cef82cdf036d26a33929a2bba534dc8393cd8c8d1b3b4028e"
+      },
+      "ports": [
+        9993
+      ],
+      "protocols": [
+        "hyperdeck"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "recorder",
+        "playback",
+        "hyperdeck",
+        "broadcast",
+        "recording",
+        "blackmagic"
+      ],
+      "help": {
+        "overview": "Blackmagic HyperDeck recorders over the HyperDeck Ethernet Protocol (TCP 9993). Record, play, stop, jump between clips or to a timecode, shuttle, choose the recording slot, and set the input, codec and file naming. Each storage slot is shown with its disk, its status and the recording time left. The deck reports transport and slot changes as they happen; the timecode is read every poll.",
+        "setup": "1. Give the HyperDeck a fixed IP address (on the deck, or in Blackmagic HyperDeck Setup) and enter it here. Control uses TCP 9993.\n2. HyperDeck Setup > Network Access > HyperDeck Ethernet Protocol: Enabled needs no login. With Enabled with security, enter the username and password set under Secure Login Settings. For the security only option, also turn on TLS.\n3. Remote: the deck refuses changes from the network while its Remote setting is off. Turn it on at the deck, or turn on Remote Override, which lets this connection control the deck whatever the setting.\n4. The deck accepts a limited number of control connections. If it reports that every connection is in use, disconnect another controller."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Blackmagic Design",
+          "models": [
+            "HyperDeck Studio HD Mini",
+            "HyperDeck Studio HD Plus",
+            "HyperDeck Studio HD Pro",
+            "HyperDeck Studio 4K Pro"
+          ],
+          "confidence": "untested",
+          "notes": "Built from the HyperDeck Ethernet Protocol (December 2024). Video inputs, file formats and the number of slots differ by model; the deck refuses a choice it does not have."
+        },
+        {
+          "manufacturer": "Blackmagic Design",
+          "models": [
+            "HyperDeck Shuttle HD",
+            "HyperDeck Shuttle 4K Pro"
+          ],
+          "confidence": "untested",
+          "notes": "Same protocol. The Shuttle HD records from HDMI."
+        },
+        {
+          "manufacturer": "Blackmagic Design",
+          "models": [
+            "HyperDeck Extreme 8K HDR",
+            "HyperDeck Extreme 4K HDR"
+          ],
+          "confidence": "untested",
+          "notes": "Same protocol, with the HDR dynamic range readings."
+        }
+      ],
+      "discovery": {
+        "port_open": [
+          9993
+        ],
+        "manufacturer_alias": [
+          "blackmagic",
+          "blackmagic design",
+          "bmd"
+        ],
+        "tcp_probe": {
+          "port": 9993,
+          "expect_regex": "^500 connection info:",
+          "extract_manufacturer": "Blackmagic Design",
+          "extract": {
+            "model": {
+              "regex": "model:\\s*([^\\r\\n]+)"
+            }
+          },
+          "timeout_ms": 3000
+        }
       }
     },
     {

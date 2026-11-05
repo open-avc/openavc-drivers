@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 7,
+    "total_drivers": 8,
     "shards": null,
     "category": "streaming"
   },
@@ -74,6 +74,85 @@
           "barco",
           "clickshare"
         ]
+      }
+    },
+    {
+      "id": "blackmagic_streaming_encoder",
+      "name": "Blackmagic Streaming Encoder",
+      "manufacturer": "Blackmagic Design",
+      "category": "streaming",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls the Blackmagic Streaming Encoder HD and 4K (formerly Web Presenter HD and 4K) over the Blackmagic Streaming Encoder Ethernet Protocol (TCP 9977): start and stop the live stream, choose the platform, server, quality and video mode, set the stream key, and see the stream's status, bitrate and duration as the encoder reports them.",
+      "source_url": "https://documents.blackmagicdesign.com/DeveloperManuals/WebPresenterEthernetProtocol.pdf",
+      "file": "streaming/blackmagic_streaming_encoder.py",
+      "format": "python",
+      "files": {
+        "streaming/blackmagic_streaming_encoder.py": "c8184f4d3eed69f531c86b1b84e277303556c47f6b43692a2ea5fd4aea6e1507",
+        "streaming/blackmagic_streaming_encoder_sim.py": "93cfb411bf99d101d7f029fca01fd0c1d35dc5dc65d0e7cce68d4ae7036bf4ec"
+      },
+      "ports": [
+        9977
+      ],
+      "protocols": [
+        "blackmagic_streaming"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "streaming",
+        "encoder",
+        "live-stream",
+        "rtmp",
+        "srt",
+        "web-presenter",
+        "blackmagic"
+      ],
+      "help": {
+        "overview": "Blackmagic Streaming Encoder HD and 4K (formerly Web Presenter HD and 4K) over TCP 9977. Start and stop the live stream; choose the streaming platform, server, quality and video mode from the lists the encoder offers; set the stream key, passphrase or URL; choose the monitor output's audio and which connection streams when a phone is tethered. The encoder reports every change as it happens; the bitrate, duration and cache use are read every poll.",
+        "setup": "1. Give the encoder a fixed IP address (in Blackmagic Streaming Setup, on the Setup tab) and enter it here. Control uses TCP 9977, which needs no login.\n2. Platforms loaded from a streaming XML file appear in the platform list beside the built-in ones; load them with Blackmagic Streaming Setup.\n3. The stream key is never shown here: the device page says only whether one is set."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Blackmagic Design",
+          "models": [
+            "Blackmagic Streaming Encoder HD",
+            "Blackmagic Streaming Encoder 4K"
+          ],
+          "confidence": "untested",
+          "notes": "Built from the Blackmagic Streaming Encoder Ethernet Protocol v1.2 (January 2026). The 4K streams Ultra HD; the HD streams up to 1080p. The encoder lists its own video modes, platforms, servers and quality levels."
+        },
+        {
+          "manufacturer": "Blackmagic Design",
+          "models": [
+            "Blackmagic Web Presenter HD",
+            "Blackmagic Web Presenter 4K"
+          ],
+          "confidence": "untested",
+          "notes": "The same units under their name before 2025; the Web Presenter manual (May 2024) documents the same v1.2 protocol. Not the original Web Presenter, which has no streaming."
+        }
+      ],
+      "discovery": {
+        "port_open": [
+          9977
+        ],
+        "manufacturer_alias": [
+          "blackmagic",
+          "blackmagic design",
+          "bmd"
+        ],
+        "tcp_probe": {
+          "port": 9977,
+          "expect_regex": "Model: Blackmagic (?:Streaming Encoder|Web Presenter)",
+          "extract_manufacturer": "Blackmagic Design",
+          "extract": {
+            "model": {
+              "regex": "Model:\\s*([^\\r\\n]+)"
+            }
+          },
+          "timeout_ms": 3000
+        }
       }
     },
     {

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1226,
+    "total_devices": 1230,
     "shards": null
   },
   "devices": [
@@ -3222,6 +3222,30 @@
     },
     {
       "manufacturer": "Blackmagic Design",
+      "model": "Blackmagic Streaming Encoder 4K",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "blackmagic_streaming_encoder",
+          "confidence": "untested",
+          "notes": "Built from the Blackmagic Streaming Encoder Ethernet Protocol v1.2 (January 2026). The 4K streams Ultra HD; the HD streams up to 1080p. The encoder lists its own video modes, platforms, servers and quality levels."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "Blackmagic Streaming Encoder HD",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "blackmagic_streaming_encoder",
+          "confidence": "untested",
+          "notes": "Built from the Blackmagic Streaming Encoder Ethernet Protocol v1.2 (January 2026). The 4K streams Ultra HD; the HD streams up to 1080p. The encoder lists its own video modes, platforms, servers and quality levels."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
       "model": "Blackmagic Videohub 12G 10x10",
       "category": "switcher",
       "drivers": [
@@ -3265,6 +3289,30 @@
           "id": "blackmagic_videohub",
           "confidence": "untested",
           "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Inputs, outputs, and monitoring outputs are registered as child entities sized to the frame the unit reports, so wide routers (40\u00d740, 80\u00d780, Universal 288) expose every port."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "Blackmagic Web Presenter 4K",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "blackmagic_streaming_encoder",
+          "confidence": "untested",
+          "notes": "The same units under their name before 2025; the Web Presenter manual (May 2024) documents the same v1.2 protocol. Not the original Web Presenter, which has no streaming."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "Blackmagic Web Presenter HD",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "blackmagic_streaming_encoder",
+          "confidence": "untested",
+          "notes": "The same units under their name before 2025; the Web Presenter manual (May 2024) documents the same v1.2 protocol. Not the original Web Presenter, which has no streaming."
         }
       ]
     },

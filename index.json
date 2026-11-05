@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 155,
+    "total_drivers": 156,
     "shards": null
   },
   "drivers": [
@@ -2910,6 +2910,54 @@
           "powershare"
         ]
       }
+    },
+    {
+      "id": "bose_powersharex",
+      "name": "Bose Professional PowerShareX (PSX1204D / PSX2404D / PSX4804D)",
+      "manufacturer": "Bose Professional",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Bose Professional PowerShareX PSX1204D, PSX2404D and PSX4804D amplifiers through the ControlSpace Serial Control Protocol, on the port ControlSpace Designer gives each amplifier on its EX or ESP processor: standby, each output's level, mute and polarity, the 4 x 4 matrix, each input's backup strategy and source, limiters, delays, EQs, the signal generator, the alarm panel, parameter sets, volume groups, signal levels, and the amplifier's fault and alarm reports. Values are subscribed, so changes made elsewhere appear at once.",
+      "source_url": "https://assets.boseprofessional.com/m/4b14907043cbedb3/original/ControlSpace-Serial-Protocol-v5-15.zip",
+      "file": "audio/bose_powersharex.py",
+      "format": "python",
+      "files": {
+        "audio/bose_powersharex.py": "95a51d78fe619ba9d037b70c4b8d03de212f5ea269653e0b062a5a85f7b2a114",
+        "audio/bose_powersharex_sim.py": "077875672d4357f1ed0a46296a21264c87847bbc128dce5c456d3ff33009363d"
+      },
+      "protocols": [
+        "bose-controlspace-serial"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "amplifier",
+        "bose",
+        "powersharex",
+        "powershare",
+        "install-audio",
+        "dante",
+        "controlspace"
+      ],
+      "help": {
+        "overview": "PowerShareX control over the ControlSpace Serial Control Protocol (no login), through the amplifier's own port on the processor that runs its PSXProxy. Each input and output is a child entity: output level, mute and polarity, the matrix cross-points into each output, each input's backup strategy and source, the limiter and delay, alarms and signal levels. Standby, the fault output, parameter sets, volume groups and the signal generator are on the device. A Discovery scan finds the processor, not the amplifier: add the amplifier by hand.",
+        "setup": "STEP 1 - Find the amplifier's address and port.\nIn ControlSpace Designer, open the amplifier's PowerShareX Amplifier Properties. It shows the IP address and port to use: the address of the EX or ESP processor running the amplifier's PSXProxy (or of the PC, when the proxies run there), and a port of its own for each amplifier.\n\nSTEP 2 - Add the device.\nEnter that address and port. When the proxies run on the PC that runs OpenAVC, the address is 127.0.0.1.\n\nSTEP 3 - Groups and parameter sets (optional).\nAdd the volume groups and parameter sets from your design by number and name if you want to recall them by name or bind group levels.\n\nSTEP 4 - Test.\nRun Test Connection. It reports whether the amplifier answered, whether it supports subscriptions, and whether its matrix, signal generator, backup strategy and alarm panel modules answered.",
+        "connection": "No login. A port that answers but is not a PowerShareX amplifier's (the processor's own 10055, for instance) never answers the standby query, and the device shows as not responding. Going online with ControlSpace Designer can close the connection; the driver reconnects on its own."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Bose Professional",
+          "models": [
+            "PSX1204D",
+            "PSX2404D",
+            "PSX4804D"
+          ],
+          "confidence": "untested",
+          "notes": "PowerShareX adaptable power amplifiers: four input channels fed from four analog and four Dante inputs, four outputs. Reached through the PSXProxy on the system's EX or ESP processor (or the PC running ControlSpace Designer), one port per amplifier. Built from the ControlSpace Serial Control Protocol v5.15 and the simulator; not yet run against an amplifier."
+        }
+      ]
     },
     {
       "id": "bose_videobar",

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 289,
+    "total_devices": 292,
     "shards": null,
     "category": "audio"
   },
@@ -1349,6 +1349,42 @@
           "id": "bose_powershare",
           "confidence": "untested",
           "notes": "PowerShare adaptable power amplifiers: four inputs (analog or Dante), four outputs, TCP 10055 (fixed, up to eight connections). Built from the ControlSpace Serial Control Protocol v5.15 and the simulator; not yet run against an amplifier."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "PSX1204D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_powersharex",
+          "confidence": "untested",
+          "notes": "PowerShareX adaptable power amplifiers: four input channels fed from four analog and four Dante inputs, four outputs. Reached through the PSXProxy on the system's EX or ESP processor (or the PC running ControlSpace Designer), one port per amplifier. Built from the ControlSpace Serial Control Protocol v5.15 and the simulator; not yet run against an amplifier."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "PSX2404D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_powersharex",
+          "confidence": "untested",
+          "notes": "PowerShareX adaptable power amplifiers: four input channels fed from four analog and four Dante inputs, four outputs. Reached through the PSXProxy on the system's EX or ESP processor (or the PC running ControlSpace Designer), one port per amplifier. Built from the ControlSpace Serial Control Protocol v5.15 and the simulator; not yet run against an amplifier."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "PSX4804D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_powersharex",
+          "confidence": "untested",
+          "notes": "PowerShareX adaptable power amplifiers: four input channels fed from four analog and four Dante inputs, four outputs. Reached through the PSXProxy on the system's EX or ESP processor (or the PC running ControlSpace Designer), one port per amplifier. Built from the ControlSpace Serial Control Protocol v5.15 and the simulator; not yet run against an amplifier."
         }
       ]
     },

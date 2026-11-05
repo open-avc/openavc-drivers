@@ -1,0 +1,636 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-avc/openavc-drivers/main/avcdriver.schema.json
+#
+# Bose Professional ControlSpace EX-4ML / EX-8ML Dante endpoints
+#
+# Controls the EX-4ML (four mic/line inputs) and EX-8ML (eight) over the
+# endpoint commands of Bose Professional's ControlSpace Serial Control
+# Protocol v5.15 (revision date May 27, 2025): section 2, "Using
+# Serial-over-Ethernet (WP, EP and EX Endpoints)", and section 8, "Endpoint
+# Commands". ASCII text over UDP port 49494 (fixed), each command and each
+# reply ending in a carriage return. Section 8 reads word for word as it did in
+# v5.13 (June 2024); only the page numbers moved.
+#
+# Wire format (section 3, "MSA12X and Endpoint Commands"): capital letters,
+# parameters separated by one space, numbers as plain text ("15.0"). The
+# endpoint answers "ACK" and an echo of the command with the value now in
+# force, or "NACK". A set's own answer therefore reports the new value, and
+# each rule below reads a set's acknowledgement and a query's reply alike.
+#
+# What the endpoint reports. Per channel: input gain (IG c Q), phantom power
+# (PP c Q) and the logic input (RLI p: one per channel, 1-8, so input p is
+# channel p), plus a four-step signal level for every channel in one reply
+# (RSL). The logic outputs (8.7: two per channel, 8 on an EX-4ML and 16 on an
+# EX-8ML) are numbered 1-16 by the protocol (WLO p / RLO p). Each channel's
+# connector labels its two outputs O1 and O2, and the document does not say
+# which protocol number drives which pin, so each output is a child of its own
+# under the protocol's number.
+#
+# Every read asks for one channel or one output. The document's "0 = all"
+# forms (IG 0 Q, PP 0 Q, RLI 0, RLO 0) answer with several lines whose form it
+# does not settle: its all-outputs example answers RLO 0 with "ACK RLI n s"
+# lines, which would read as logic inputs, and its single-output example
+# answers RLO 2 with "ACK WLO 2 1". The output rule reads either word.
+#
+# The model. RSL answers 8 values on an EX-8ML and 4 on an EX-4ML (8.6), and
+# no other endpoint takes RSL. That count sets the Model reading and both
+# rosters, which are saved into Channels and Logic Outputs (learned_from).
+#
+# Push. EVNT and SASIP (8.9, 8.10) make the endpoint send a UDP packet to one
+# address and port when a logic input changes. The document does not give the
+# packet's contents, and an endpoint paired with an EX processor uses those
+# settings for the processor ("making changes to these settings could cause
+# unexpected side-effects in that scenario"). So this driver sends neither: it
+# reads every logic input on each poll, first in the poll.
+#
+# A paired endpoint. When the endpoint is part of a ControlSpace design, the EX
+# processor's own settings can replace anything sent here (sections 2 and 8).
+# The readings stay correct either way, since every value is read back.
+#
+# Not in the document, so not here: Bose's Crestron module for the EX-8ML also
+# saves and loads presets 0-9, and section 8 has no preset command.
+#
+# Liveness: every poll asks questions the endpoint answers in every state, so
+# from platform 0.37.0 three polls with no reply take it offline.
+#
+# Format: YAML. Every reply is one line naming its channel or output, and the
+# one list reply (RSL) fills the channels by position.
+#
+# NOT hardware-verified. Built from the document and its own examples.
+
+id: bose_controlspace_ex_ml
+name: Bose ControlSpace EX-4ML / EX-8ML Endpoint
+manufacturer: Bose Professional
+category: audio
+version: "1.0.0"
+author: OpenAVC
+min_platform_version: "0.37.0"
+description: >
+  Controls the Bose Professional ControlSpace EX-4ML and EX-8ML mic/line Dante
+  endpoints over UDP (port 49494). For every channel: input gain (0, +15, +30
+  or +45 dB), phantom power, the logic input and the signal level. Every logic
+  output can be read and switched. Identify, Find Unit and factory defaults.
+  The endpoint's model sets the channel and logic output counts.
+
+source_url: https://assets.boseprofessional.com/m/4b14907043cbedb3/original/ControlSpace-Serial-Protocol-v5-15.zip
+tags: [dante, endpoint, microphone, preamp, gpio, controlspace]
+verified: false
+simulated: true
+protocols: [bose_controlspace_endpoint]
+ports: [49494]
+
+compatible_models:
+  - manufacturer: Bose Professional
+    models: [EX-4ML, EX-8ML]
+    confidence: untested
+    notes: >
+      Built from the ControlSpace Serial Control Protocol v5.15; not yet run
+      against an endpoint. When the endpoint is part of a ControlSpace design,
+      the EX processor's settings can replace gain, phantom power and logic
+      output changes sent here; make those changes in ControlSpace Designer.
+      The EX processors themselves use the Bose ControlSpace driver.
+
+transport: udp
+
+help:
+  overview: >
+    Shows each channel of a Bose ControlSpace EX-4ML or EX-8ML endpoint: its
+    input gain, phantom power, logic input and signal level, and the state of
+    every logic output. Gain, phantom power and logic outputs can be changed
+    here. Identify flashes the endpoint's power LED until it is turned off;
+    Find Unit flashes it for 5 seconds.
+  setup: >
+    1. Give the endpoint a static IP address or a DHCP reservation (Dante
+       Controller or ControlSpace Designer sets it), and note it.
+    2. Enter that address here. Control uses UDP port 49494; leave the port
+       alone.
+    3. Choose Channels: 4 for an EX-4ML, 8 for an EX-8ML. Once connected,
+       the endpoint's own report sets Channels and Logic Outputs and saves
+       them here.
+    4. If the endpoint is part of a ControlSpace design, the EX processor's
+       settings can replace gain, phantom power and logic output changes
+       made here. Make those changes in ControlSpace Designer, and use this
+       driver to read them and to see the logic inputs.
+    5. Logic inputs are read at the start of every poll, and a poll of an
+       EX-8ML takes about 2 seconds, so a change shows within the Poll
+       Interval plus 2 seconds. A press on a button wired to a logic input
+       that is shorter than that may not show.
+  connection: >
+    The endpoint answers on UDP port 49494. If ControlSpace Designer or Dante
+    Controller sees it and OpenAVC does not, a firewall between the server and
+    the endpoint is blocking UDP 49494.
+
+discovery:
+  # RSL (8.6) is answered by the EX-4ML and EX-8ML only, with one level per
+  # channel. The MSA12X and the other endpoints on this port have no RSL, so
+  # the probe names these two models and no other Bose device.
+  udp_probe:
+    port: 49494
+    send_ascii: "RSL\r"
+    expect_regex: '^ACK RSL(?: -?\d+){4}(?:(?: -?\d+){4})?\s*$'
+    timeout_ms: 1500
+    extract_manufacturer: "Bose Professional"
+  manufacturer_alias:
+    - "bose"
+    - "bose professional"
+
+default_config:
+  host: ""
+  port: 49494
+  channel_count: 8
+  logic_output_count: 16
+  poll_interval: 3
+  # The document states no minimum gap between messages. A poll of an EX-8ML
+  # is 42 messages, which take 2.1 s at this spacing.
+  inter_command_delay: 0.05
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 49494
+    label: UDP Port
+    help: "The endpoint listens on UDP port 49494."
+  channel_count:
+    type: enum
+    values: [4, 8]
+    default: 8
+    label: Channels
+    learned_from: channels_reported
+    help: >
+      4 for an EX-4ML, 8 for an EX-8ML. Once connected, the endpoint's own
+      report sets it, and it is saved here.
+  logic_output_count:
+    type: enum
+    values: [8, 16]
+    default: 16
+    label: Logic Outputs
+    learned_from: logic_outputs_reported
+    help: >
+      8 for an EX-4ML, 16 for an EX-8ML (two per channel). Once connected,
+      the endpoint's own report sets it, and it is saved here.
+  poll_interval:
+    type: integer
+    default: 3
+    min: 3
+    max: 60
+    label: Poll Interval (sec)
+    help: >
+      The wait between polls. Every reading is refreshed on each poll, logic
+      inputs first, and a poll of an EX-8ML takes about 2 seconds, so a logic
+      input change shows within this interval plus 2 seconds.
+  inter_command_delay:
+    type: number
+    default: 0.05
+    min: 0
+    label: Inter-Command Delay (sec)
+    help: "Pause between messages sent to the endpoint."
+
+state_variables:
+  model:
+    type: string
+    label: Model
+    help: "EX-4ML or EX-8ML, from the number of channels the endpoint reports."
+  channels_reported:
+    type: integer
+    label: Channels
+    help: "The number of mic/line channels the endpoint reports."
+  logic_outputs_reported:
+    type: integer
+    label: Logic Outputs
+    help: "The number of logic outputs: two per channel."
+  firmware_version:
+    type: string
+    label: Firmware Version
+  identify:
+    type: boolean
+    label: Identify
+    help: "The endpoint's power LED is flashing so it can be found. It stays on until turned off."
+
+child_entity_types:
+  channel:
+    label: Channel
+    label_plural: Channels
+    id_format: { type: integer, min: 1, max: 8 }
+    state_variables:
+      gain:
+        type: number
+        label: Input Gain
+        min: 0
+        max: 45
+        step: 15
+        unit: dB
+        control: true
+        help: "The channel's preamp gain: 0, +15, +30 or +45 dB."
+      phantom_power:
+        type: boolean
+        label: Phantom Power
+        control: true
+        help: "48 V phantom power on this input."
+      logic_input:
+        type: boolean
+        label: Logic Input
+        cloud_priority: high
+        help: "The channel's logic input (I1 on its connector) is on, as the endpoint reads it after debouncing."
+      signal_level:
+        type: integer
+        label: Signal Level
+        min: -99
+        max: -3
+        unit: dB
+        cloud_priority: low
+        help: "-99: no signal (below -40 dB). -40: at least -40 dB. -9: at least -9 dB. -3: at least -3 dB."
+      signal_present:
+        type: boolean
+        label: Signal Present
+        cloud_priority: low
+        help: "The input's level is at -40 dB or above."
+    summary_fields: [gain, phantom_power, logic_input, signal_present]
+    instances:
+      count_from_state: channels_reported
+      count_from: channel_count
+      label: "Channel {id}"
+  logic_output:
+    label: Logic Output
+    label_plural: Logic Outputs
+    id_format: { type: integer, min: 1, max: 16 }
+    state_variables:
+      active:
+        type: boolean
+        label: "On"
+        control: true
+        help: "The logic output is on."
+    summary_fields: [active]
+    instances:
+      count_from_state: logic_outputs_reported
+      count_from: logic_output_count
+      label: "Logic Output {id}"
+
+commands:
+  set_input_gain:
+    label: Set Input Gain
+    help: "Sets the channel's preamp gain to 0, +15, +30 or +45 dB."
+    send: "IG {channel} {gain}\r"
+    sets: { gain: "{gain}" }
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+      gain:
+        type: enum
+        required: true
+        label: Gain
+        # An enum passes a value it does not list through to the device; the
+        # pattern refuses one before it is sent (labels resolve first).
+        pattern: '0\.0|15\.0|30\.0|45\.0'
+        values:
+          - { value: "0.0", label: "0 dB" }
+          - { value: "15.0", label: "+15 dB" }
+          - { value: "30.0", label: "+30 dB" }
+          - { value: "45.0", label: "+45 dB" }
+
+  set_phantom_power:
+    label: Set Phantom Power
+    help: "Turns 48 V phantom power on or off for the channel."
+    send: "PP {channel} {enabled}\r"
+    sets: { phantom_power: "{enabled}" }
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+      enabled:
+        type: boolean
+        required: true
+        label: Phantom Power
+        map: { "true": "1", "false": "0" }
+
+  set_logic_output:
+    label: Set Logic Output
+    help: "Turns the logic output on or off."
+    send: "WLO {output} {enabled}\r"
+    sets: { active: "{enabled}" }
+    params:
+      output:
+        type: child_id
+        child_type: logic_output
+        required: true
+        label: Logic Output
+      enabled:
+        type: boolean
+        required: true
+        label: "On"
+        map: { "true": "1", "false": "0" }
+
+  set_identify:
+    label: Identify
+    help: "Flashes the endpoint's power LED until it is turned off, so the endpoint can be found."
+    send: "ID {enabled}\r"
+    sets: { identify: "{enabled}" }
+    params:
+      enabled:
+        type: boolean
+        required: true
+        label: Flashing
+        map: { "true": "1", "false": "0" }
+
+  find_unit:
+    label: Find Unit
+    help: "Flashes the endpoint's LEDs for 5 seconds."
+    send: "FU\r"
+
+  restore_defaults:
+    label: Restore Factory Defaults
+    help: >
+      Sets every input gain to 0 dB and turns phantom power and every logic
+      output off. These become the settings the endpoint starts with.
+    confirm: >
+      Sets every input gain to 0 dB and turns phantom power and every logic
+      output off, and makes these the settings the endpoint starts with.
+    send: "DEFAULTS\r"
+
+quick_actions: [set_logic_output, set_phantom_power, find_unit]
+
+# The first lines size the rosters (RSL) and read what a poll does not need
+# every few seconds (the firmware version). The poll repeats RSL and QUERY at
+# once, so those two are not sent twice at connect.
+on_connect:
+  - { send: "VERSION\r", query_for: firmware_version }
+  - { send: "RSL\r", query_for: channel.signal_level }
+  - { send: "QUERY\r", query_for: identify }
+
+# Logic inputs first, so a change shows as soon as the poll starts. A poll of
+# an EX-8ML is 42 messages: 8 logic inputs, RSL, QUERY, 8 gains, 8 phantom
+# power states and 16 logic outputs.
+polling:
+  queries:
+    - { each_child: channel, send: "RLI {child_id}\r", query_for: logic_input }
+    - { send: "RSL\r", query_for: channel.signal_level }
+    - { send: "QUERY\r", query_for: identify }
+    - { each_child: channel, send: "IG {child_id} Q\r", query_for: gain }
+    - { each_child: channel, send: "PP {child_id} Q\r", query_for: phantom_power }
+    - { each_child: logic_output, send: "RLO {child_id}\r", query_for: active }
+
+responses:
+  # 8.2: "ACK IG c g" answers a set and a query alike.
+  - match: '^ACK IG (\d+) (\d+(?:\.\d+)?)$'
+    child_set:
+      - { type: channel, id: $1, state: { gain: $2 } }
+
+  # 8.4: "ACK PP c s", 1 = on.
+  - match: '^ACK PP (\d+) ([01])$'
+    child_set:
+      - type: channel
+        id: $1
+        state:
+          phantom_power: { group: 2, map: { "1": "true", "0": "false" } }
+
+  # 8.8: "ACK RLI p s". The 0 that opens an all-inputs answer names no
+  # channel and is skipped.
+  - match: '^ACK RLI (\d+) ([01])$'
+    child_set:
+      - type: channel
+        id: $1
+        state:
+          logic_input: { group: 2, map: { "1": "true", "0": "false" } }
+
+  # 8.7: "ACK WLO p s" answers a set; a query is answered "ACK RLO p s" in the
+  # syntax and "ACK WLO p s" in the example, so either word is read.
+  - match: '^ACK (?:RLO|WLO) (\d+) ([01])$'
+    child_set:
+      - type: logic_output
+        id: $1
+        state:
+          active: { group: 2, map: { "1": "true", "0": "false" } }
+
+  # 8.6: "ACK RSL" and one level per channel, in channel order. Eight values
+  # are an EX-8ML, four an EX-4ML.
+  - match: '^ACK RSL ((?:-?\d+ ){7}-?\d+)$'
+    set:
+      model: "EX-8ML"
+      channels_reported: 8
+      logic_outputs_reported: 16
+    child_list:
+      type: channel
+      element: '(-?\d+)'
+      separator: ' '
+      state:
+        signal_level: $1
+        signal_present: { group: 1, map: { "-99": "false", "-40": "true", "-9": "true", "-3": "true" } }
+  - match: '^ACK RSL ((?:-?\d+ ){3}-?\d+)$'
+    set:
+      model: "EX-4ML"
+      channels_reported: 4
+      logic_outputs_reported: 8
+    child_list:
+      type: channel
+      element: '(-?\d+)'
+      separator: ' '
+      state:
+        signal_level: $1
+        signal_present: { group: 1, map: { "-99": "false", "-40": "true", "-9": "true", "-3": "true" } }
+
+  # 8.1: "ACK ID s".
+  - match: '^ACK ID ([01])$'
+    mappings:
+      - { group: 1, state: identify, map: { "1": "true", "0": "false" } }
+
+  # 8.11: the snapshot ends "ID=ON" or "ID=OFF". Gains and phantom power are
+  # read per channel instead: the snapshot's fields differ by model.
+  - match: '^ACK QUERY .*\bID=(ON|OFF)\b'
+    mappings:
+      - { group: 1, state: identify, map: { "ON": "true", "OFF": "false" } }
+
+  # 8.13: "ACK VERSION x.x".
+  - match: '^ACK VERSION (\S+)$'
+    set:
+      firmware_version: $1
+
+  # 8.1 and 8.12 acknowledge with nothing to read. A NACK is left unread.
+  - match: '^ACK (?:FU|DEFAULTS)$'
+    set: {}
+
+simulator:
+  # A model's channels come from the Channels setting (4 or 8); logic outputs
+  # are two per channel. Signal levels and logic inputs are set here or in the
+  # Simulator UI.
+  initial_state:
+    identify: false
+    firmware_version: "2.020"
+    channel.1.logic_input: false
+    channel.1.signal_level: "-40"
+    channel.2.logic_input: false
+    channel.2.signal_level: "-9"
+    channel.3.logic_input: false
+    channel.3.signal_level: "-99"
+    channel.4.logic_input: false
+    channel.4.signal_level: "-99"
+    channel.5.logic_input: false
+    channel.5.signal_level: "-99"
+    channel.6.logic_input: false
+    channel.6.signal_level: "-99"
+    channel.7.logic_input: false
+    channel.7.signal_level: "-99"
+    channel.8.logic_input: false
+    channel.8.signal_level: "-99"
+  controls:
+    - { type: toggle, key: channel.1.logic_input, label: Channel 1 Logic Input }
+    - { type: select, key: channel.1.signal_level, label: Channel 1 Signal Level (dB), options: ["-99", "-40", "-9", "-3"] }
+    - { type: toggle, key: channel.2.logic_input, label: Channel 2 Logic Input }
+    - { type: select, key: channel.2.signal_level, label: Channel 2 Signal Level (dB), options: ["-99", "-40", "-9", "-3"] }
+    - { type: toggle, key: channel.3.logic_input, label: Channel 3 Logic Input }
+    - { type: select, key: channel.3.signal_level, label: Channel 3 Signal Level (dB), options: ["-99", "-40", "-9", "-3"] }
+    - { type: toggle, key: channel.4.logic_input, label: Channel 4 Logic Input }
+    - { type: select, key: channel.4.signal_level, label: Channel 4 Signal Level (dB), options: ["-99", "-40", "-9", "-3"] }
+    - { type: toggle, key: channel.5.logic_input, label: Channel 5 Logic Input }
+    - { type: select, key: channel.5.signal_level, label: Channel 5 Signal Level (dB), options: ["-99", "-40", "-9", "-3"] }
+    - { type: toggle, key: channel.6.logic_input, label: Channel 6 Logic Input }
+    - { type: select, key: channel.6.signal_level, label: Channel 6 Signal Level (dB), options: ["-99", "-40", "-9", "-3"] }
+    - { type: toggle, key: channel.7.logic_input, label: Channel 7 Logic Input }
+    - { type: select, key: channel.7.signal_level, label: Channel 7 Signal Level (dB), options: ["-99", "-40", "-9", "-3"] }
+    - { type: toggle, key: channel.8.logic_input, label: Channel 8 Logic Input }
+    - { type: select, key: channel.8.signal_level, label: Channel 8 Signal Level (dB), options: ["-99", "-40", "-9", "-3"] }
+  # One dispatcher owns the whole grammar: the answers depend on the model
+  # (Channels) and a "Q" turns a set into a query. Fidelity gaps, all
+  # undocumented behaviour: a value outside the document's list is refused
+  # NACK (the document does not say whether the endpoint rounds it); the
+  # "0 = all" reads are refused NACK, since their answers are several lines
+  # and this driver never sends them; EVNT and SASIP are acknowledged and send
+  # nothing.
+  command_handlers:
+    - match: '(?s:.+)'
+      handler: |
+        _send = respond
+
+        def _run():
+            line = match.group(0).strip()
+            if not line:
+                return
+            try:
+                chans = int(str(config.get("channel_count", 8)).strip())
+            except ValueError:
+                chans = 8
+            if chans not in (4, 8):
+                chans = 8
+            outs = chans * 2
+            parts = line.split()
+            cmd = parts[0]
+            args = parts[1:]
+
+            def on(v):
+                return str(v).strip().lower() in ("1", "true", "yes", "on")
+
+            def num(text, lo, hi):
+                try:
+                    n = int(text)
+                except ValueError:
+                    return None
+                return n if lo <= n <= hi else None
+
+            def gain_text(c):
+                try:
+                    return "%.1f" % float(state.get("channel.%d.gain" % c) or 0)
+                except (TypeError, ValueError):
+                    return "0.0"
+
+            def level(c):
+                v = num(str(state.get("channel.%d.signal_level" % c) or "-99").strip(), -99, 0)
+                return v if v in (-99, -40, -9, -3) else -99
+
+            def nack():
+                _send("NACK\r")
+
+            if cmd == "FU" and not args:
+                _send("ACK FU\r")
+                return
+            if cmd == "ID" and len(args) == 1 and args[0] in ("0", "1"):
+                state["identify"] = args[0] == "1"
+                _send("ACK ID %s\r" % args[0])
+                return
+            if cmd == "IG" and len(args) == 2:
+                c = num(args[0], 1, chans)
+                if c is None:
+                    nack()
+                    return
+                if args[1] == "Q":
+                    _send("ACK IG %d %s\r" % (c, gain_text(c)))
+                    return
+                try:
+                    g = float(args[1])
+                except ValueError:
+                    nack()
+                    return
+                if g not in (0.0, 15.0, 30.0, 45.0):
+                    nack()
+                    return
+                state["channel.%d.gain" % c] = g
+                _send("ACK IG %d %.1f\r" % (c, g))
+                return
+            if cmd == "PP" and len(args) == 2:
+                c = num(args[0], 1, chans)
+                if c is None:
+                    nack()
+                    return
+                if args[1] == "Q":
+                    _send("ACK PP %d %d\r" % (c, int(on(state.get("channel.%d.phantom_power" % c)))))
+                    return
+                if args[1] not in ("0", "1"):
+                    nack()
+                    return
+                state["channel.%d.phantom_power" % c] = args[1] == "1"
+                _send("ACK PP %d %s\r" % (c, args[1]))
+                return
+            if cmd == "RLI" and len(args) == 1:
+                c = num(args[0], 1, chans)
+                if c is None:
+                    nack()
+                    return
+                _send("ACK RLI %d %d\r" % (c, int(on(state.get("channel.%d.logic_input" % c)))))
+                return
+            if cmd == "WLO" and len(args) == 2:
+                p = num(args[0], 1, outs)
+                if p is None or args[1] not in ("0", "1"):
+                    nack()
+                    return
+                state["logic_output.%d.active" % p] = args[1] == "1"
+                _send("ACK WLO %d %s\r" % (p, args[1]))
+                return
+            if cmd == "RLO" and len(args) == 1:
+                p = num(args[0], 1, outs)
+                if p is None:
+                    nack()
+                    return
+                _send("ACK RLO %d %d\r" % (p, int(on(state.get("logic_output.%d.active" % p)))))
+                return
+            if cmd == "RSL" and not args:
+                _send("ACK RSL %s\r" % " ".join(str(level(c)) for c in range(1, chans + 1)))
+                return
+            if cmd == "QUERY" and not args:
+                fields = ["IG%d=%s" % (c, gain_text(c)) for c in range(1, chans + 1)]
+                fields += ["PP%d=%s" % (c, "ON" if on(state.get("channel.%d.phantom_power" % c)) else "OFF")
+                           for c in range(1, chans + 1)]
+                fields.append("ID=%s" % ("ON" if on(state.get("identify")) else "OFF"))
+                _send("ACK QUERY %s \r" % " ".join(fields))
+                return
+            if cmd == "VERSION" and not args:
+                _send("ACK VERSION %s\r" % (state.get("firmware_version") or "2.020"))
+                return
+            if cmd == "DEFAULTS" and not args:
+                for c in range(1, chans + 1):
+                    state["channel.%d.gain" % c] = 0.0
+                    state["channel.%d.phantom_power" % c] = False
+                for p in range(1, outs + 1):
+                    state["logic_output.%d.active" % p] = False
+                _send("ACK DEFAULTS\r")
+                return
+            if cmd in ("EVNT", "SASIP") and args:
+                _send("ACK %s\r" % line)
+                return
+            nack()
+
+        _run()

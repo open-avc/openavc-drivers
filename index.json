@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 152,
+    "total_drivers": 153,
     "shards": null
   },
   "drivers": [
@@ -2573,6 +2573,67 @@
             }
           }
         }
+      }
+    },
+    {
+      "id": "bose_controlspace_ex_ml",
+      "name": "Bose ControlSpace EX-4ML / EX-8ML Endpoint",
+      "manufacturer": "Bose Professional",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "udp",
+      "description": "Controls the Bose Professional ControlSpace EX-4ML and EX-8ML mic/line Dante endpoints over UDP (port 49494). For every channel: input gain (0, +15, +30 or +45 dB), phantom power, the logic input and the signal level. Every logic output can be read and switched. Identify, Find Unit and factory defaults. The endpoint's model sets the channel and logic output counts.\n",
+      "source_url": "https://assets.boseprofessional.com/m/4b14907043cbedb3/original/ControlSpace-Serial-Protocol-v5-15.zip",
+      "file": "audio/bose_controlspace_ex_ml.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "audio/bose_controlspace_ex_ml.avcdriver": "d003a085d4b7f501cc8455ef2f84e69d4f803324edb59ff6d0a2fa07b66ed423"
+      },
+      "ports": [
+        49494
+      ],
+      "protocols": [
+        "bose_controlspace_endpoint"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "dante",
+        "endpoint",
+        "microphone",
+        "preamp",
+        "gpio",
+        "controlspace"
+      ],
+      "help": {
+        "overview": "Shows each channel of a Bose ControlSpace EX-4ML or EX-8ML endpoint: its input gain, phantom power, logic input and signal level, and the state of every logic output. Gain, phantom power and logic outputs can be changed here. Identify flashes the endpoint's power LED until it is turned off; Find Unit flashes it for 5 seconds.\n",
+        "setup": "1. Give the endpoint a static IP address or a DHCP reservation (Dante\n   Controller or ControlSpace Designer sets it), and note it.\n2. Enter that address here. Control uses UDP port 49494; leave the port\n   alone.\n3. Choose Channels: 4 for an EX-4ML, 8 for an EX-8ML. Once connected,\n   the endpoint's own report sets Channels and Logic Outputs and saves\n   them here.\n4. If the endpoint is part of a ControlSpace design, the EX processor's\n   settings can replace gain, phantom power and logic output changes\n   made here. Make those changes in ControlSpace Designer, and use this\n   driver to read them and to see the logic inputs.\n5. Logic inputs are read at the start of every poll, and a poll of an\n   EX-8ML takes about 2 seconds, so a change shows within the Poll\n   Interval plus 2 seconds. A press on a button wired to a logic input\n   that is shorter than that may not show.\n",
+        "connection": "The endpoint answers on UDP port 49494. If ControlSpace Designer or Dante Controller sees it and OpenAVC does not, a firewall between the server and the endpoint is blocking UDP 49494.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Bose Professional",
+          "models": [
+            "EX-4ML",
+            "EX-8ML"
+          ],
+          "confidence": "untested",
+          "notes": "Built from the ControlSpace Serial Control Protocol v5.15; not yet run against an endpoint. When the endpoint is part of a ControlSpace design, the EX processor's settings can replace gain, phantom power and logic output changes sent here; make those changes in ControlSpace Designer. The EX processors themselves use the Bose ControlSpace driver.\n"
+        }
+      ],
+      "discovery": {
+        "udp_probe": {
+          "port": 49494,
+          "send_ascii": "RSL\r",
+          "expect_regex": "^ACK RSL(?: -?\\d+){4}(?:(?: -?\\d+){4})?\\s*$",
+          "timeout_ms": 1500,
+          "extract_manufacturer": "Bose Professional"
+        },
+        "manufacturer_alias": [
+          "bose",
+          "bose professional"
+        ]
       }
     },
     {

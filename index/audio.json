@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 49,
+    "total_drivers": 50,
     "shards": null,
     "category": "audio"
   },
@@ -1343,6 +1343,97 @@
           "bose professional",
           "bose corporation",
           "controlspace"
+        ]
+      }
+    },
+    {
+      "id": "bose_powermatch",
+      "name": "Bose Professional PowerMatch (PM8500N / PM8250N / PM4500N / PM4250N)",
+      "manufacturer": "Bose Professional",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Bose Professional PowerMatch PM8500N, PM8250N, PM4500N and PM4250N amplifiers through the ControlSpace Serial Control Protocol on TCP port 10055: standby, each output's level, mute and polarity, each input's mute and source, the matrix with its signal generator, limiters, delays, EQs, parameter sets, volume groups, signal levels, each channel's output configuration, and the amplifier's fault and alarm reports and alarm log. Values are subscribed, so changes made elsewhere appear at once.",
+      "source_url": "https://assets.boseprofessional.com/m/4b14907043cbedb3/original/ControlSpace-Serial-Protocol-v5-15.zip",
+      "file": "audio/bose_powermatch.py",
+      "format": "python",
+      "files": {
+        "audio/bose_powermatch.py": "bdf4e3cb0dae45354195939d159cc80c0068025cf65c56a2031e2a8dc40d35b2",
+        "audio/bose_powermatch_sim.py": "280ca1c0739a20cf456642509fe423b387d68c7b3f6a8407ccd7b48d069d2512"
+      },
+      "ports": [
+        10055
+      ],
+      "protocols": [
+        "bose-controlspace-serial"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "amplifier",
+        "bose",
+        "powermatch",
+        "install-audio",
+        "dante",
+        "controlspace"
+      ],
+      "help": {
+        "overview": "PowerMatch control over the ControlSpace Serial Control Protocol (TCP 10055, no login). Each input and output is a child entity: output level, mute and polarity, input mute and source, the matrix cross-points into each output, the output configuration, limiter and delay, alarms and signal levels. Standby, the fault output, the alarm log, the signal generator, parameter sets and volume groups are on the device. Values are subscribed where the amplifier supports it, so panels follow changes made anywhere.",
+        "setup": "STEP 1 - Address.\nEnter the amplifier's IP address (its front panel or ControlSpace Designer shows it). The port is always 10055.\n\nSTEP 2 - Channels.\nPick 8 for a PM8500N or PM8250N, 4 for a PM4500N or PM4250N. The amplifier reports its channel count when it connects, and the setting follows it.\n\nSTEP 3 - Input labels (optional).\nTo choose each input's analog or digital source and its analog sensitivity, type that input's Input module label exactly as ControlSpace Designer shows it. Everything else works without labels.\n\nSTEP 4 - Groups and parameter sets (optional).\nAdd the volume groups and parameter sets from your design by number and name if you want to recall them by name or bind group levels.\n\nSTEP 5 - Test.\nRun Test Connection. It reports whether the amplifier answered, how its outputs are configured, whether it supports subscriptions, and whether each module and typed label answered.",
+        "connection": "TCP 10055, no login; the amplifier takes up to 32 connections, shared with ControlSpace Remote. Going online with ControlSpace Designer closes the connection; the driver reconnects on its own."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Bose Professional",
+          "models": [
+            "PM8500N",
+            "PM8250N"
+          ],
+          "confidence": "untested",
+          "notes": "Networked PowerMatch amplifiers with eight inputs and eight output channels, TCP 10055 (fixed, up to 32 connections). The PM8500N is sold while stock lasts; the PM8250N is discontinued. Built from the ControlSpace Serial Control Protocol v5.15 and the simulator; not yet run against an amplifier."
+        },
+        {
+          "manufacturer": "Bose Professional",
+          "models": [
+            "PM4500N",
+            "PM4250N"
+          ],
+          "confidence": "untested",
+          "notes": "Networked PowerMatch amplifiers with four inputs and four output channels (discontinued). Built from the ControlSpace Serial Control Protocol v5.15 and the simulator; not yet run against an amplifier."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 10055,
+          "send_ascii": "GC\r",
+          "expect_regex": "^GC ?(IN|BL|B7|B1|PA|QL|Q7|Q1)(,(IN|BL|B7|B1|PA|QL|Q7|Q1)){3}",
+          "timeout_ms": 1500
+        },
+        "port_open": [
+          10055
+        ],
+        "oui": [
+          "00:0c:8a",
+          "04:52:c7",
+          "08:df:1f",
+          "28:11:a5",
+          "2c:41:a1",
+          "48:22:1d",
+          "4c:87:5d",
+          "60:ab:d2",
+          "68:f2:1f",
+          "78:2b:64",
+          "ac:bf:71",
+          "bc:87:fa",
+          "c8:7b:23",
+          "e4:58:bc"
+        ],
+        "manufacturer_alias": [
+          "bose",
+          "bose professional",
+          "bose corporation",
+          "powermatch"
         ]
       }
     },

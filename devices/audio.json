@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 292,
+    "total_devices": 296,
     "shards": null,
     "category": "audio"
   },
@@ -1325,6 +1325,54 @@
           "id": "bose_msa12x",
           "confidence": "untested",
           "notes": "Built from the ControlSpace Serial Control Protocol v5.15; not yet run against an array. One device covers an array of one, two or three modules. When the array is connected to an EX processor, the processor's settings can replace changes sent here.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "PM4250N",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_powermatch",
+          "confidence": "untested",
+          "notes": "Networked PowerMatch amplifiers with four inputs and four output channels (discontinued). Built from the ControlSpace Serial Control Protocol v5.15 and the simulator; not yet run against an amplifier."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "PM4500N",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_powermatch",
+          "confidence": "untested",
+          "notes": "Networked PowerMatch amplifiers with four inputs and four output channels (discontinued). Built from the ControlSpace Serial Control Protocol v5.15 and the simulator; not yet run against an amplifier."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "PM8250N",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_powermatch",
+          "confidence": "untested",
+          "notes": "Networked PowerMatch amplifiers with eight inputs and eight output channels, TCP 10055 (fixed, up to 32 connections). The PM8500N is sold while stock lasts; the PM8250N is discontinued. Built from the ControlSpace Serial Control Protocol v5.15 and the simulator; not yet run against an amplifier."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "PM8500N",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_powermatch",
+          "confidence": "untested",
+          "notes": "Networked PowerMatch amplifiers with eight inputs and eight output channels, TCP 10055 (fixed, up to 32 connections). The PM8500N is sold while stock lasts; the PM8250N is discontinued. Built from the ControlSpace Serial Control Protocol v5.15 and the simulator; not yet run against an amplifier."
         }
       ]
     },

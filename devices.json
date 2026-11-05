@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1210,
+    "total_devices": 1211,
     "shards": null
   },
   "devices": [
@@ -3637,6 +3637,18 @@
           "id": "bose_controlspace_ex_ml",
           "confidence": "untested",
           "notes": "Built from the ControlSpace Serial Control Protocol v5.15; not yet run against an endpoint. When the endpoint is part of a ControlSpace design, the EX processor's settings can replace gain, phantom power and logic output changes sent here; make those changes in ControlSpace Designer. The EX processors themselves use the Bose ControlSpace driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "MSA12X",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_msa12x",
+          "confidence": "untested",
+          "notes": "Built from the ControlSpace Serial Control Protocol v5.15; not yet run against an array. One device covers an array of one, two or three modules. When the array is connected to an EX processor, the processor's settings can replace changes sent here.\n"
         }
       ]
     },

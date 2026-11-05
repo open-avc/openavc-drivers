@@ -1,0 +1,721 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-avc/openavc-drivers/main/avcdriver.schema.json
+#
+# Bose Professional MSA12X powered steerable array loudspeaker
+#
+# Controls an MSA12X array (one, two or three modules) over the MSA12X
+# commands of Bose Professional's ControlSpace Serial Control Protocol v5.15
+# (revision date May 27, 2025): section 2, "Using Serial-over-Ethernet (MSA12X
+# Loudspeaker)", section 3, "MSA12X and Endpoint Commands", and section 7,
+# "MSA12X Commands". ASCII text over UDP port 49494 (fixed), each command and
+# each reply ending in a carriage return. Section 7 reads as it did in v5.13
+# (June 2024) but for the warning query's syntax line (below).
+#
+# Wire format (section 3): capital letters, parameters separated by one
+# space, numbers as plain text ("14.0"). The array answers "ACK" and an echo
+# of the command, or "NACK". A query's answer carries the value, so each rule
+# below reads a set's acknowledgement and a query's reply alike where both
+# carry it.
+#
+# What the array reports. For the array: input gain for the analog and the
+# Dante input (IG t Q), the active input (GINPUT), the backup strategy
+# (GBKSTG), standby (GETSBST) and the auto-standby wait (GETSBTIME), the last
+# preset loaded (GCP) and the input signal indication (AUDIOLEVEL). For each
+# module: its warning and fault codes (STATUS) and firmware version (VERSION).
+#
+# Module numbers. "For commands that reference specific modules, the modules in
+# a 2-module array are identified as 1 and 3 (not 1 and 2)" (section 7). ARRAY
+# reports the count, so the count is turned into the numbers here (1; 1,3;
+# 1,2,3), which are saved into the Array Modules setting the module roster is
+# built from (learned_from).
+#
+# Not read: AUDIOLEVEL's level. It is a 24-bit number in hex that becomes dB
+# through 20 * log10(level / 16777215) (7.9); a YAML driver cannot read a hex
+# number or take a logarithm. Its signal indication (present, clip, limit) is
+# read.
+#
+# Paired with an EX processor, "any settings sent to the loudspeaker directly
+# can be overridden by those programmed in the processor" (section 2). The
+# readings stay correct either way, since every value is read back.
+#
+# Liveness: every poll asks questions the array answers whatever it is set to,
+# so from platform 0.37.0 three polls with no reply take it offline.
+#
+# Format: YAML. Every reply is one line naming what it reports, and the
+# module replies name their module.
+#
+# NOT hardware-verified. Built from the document and its own examples.
+
+id: bose_msa12x
+name: Bose MSA12X Steerable Array
+manufacturer: Bose Professional
+category: audio
+version: "1.0.0"
+author: OpenAVC
+min_platform_version: "0.37.0"
+description: >
+  Controls a Bose Professional MSA12X powered steerable array loudspeaker
+  (one, two or three modules) over UDP (port 49494): standby and wake, the
+  auto-standby wait, the input source and the analog and Dante input gains,
+  and preset recall. Shows the backup strategy, whether a signal is present,
+  clipping or limiting, and each module's warnings, faults and firmware.
+
+source_url: https://assets.boseprofessional.com/m/4b14907043cbedb3/original/ControlSpace-Serial-Protocol-v5-15.zip
+tags: [loudspeaker, line-array, beam-steering, dante, controlspace]
+verified: false
+simulated: true
+protocols: [bose_controlspace_endpoint]
+ports: [49494]
+
+compatible_models:
+  - manufacturer: Bose Professional
+    models: [MSA12X]
+    confidence: untested
+    notes: >
+      Built from the ControlSpace Serial Control Protocol v5.15; not yet run
+      against an array. One device covers an array of one, two or three
+      modules. When the array is connected to an EX processor, the
+      processor's settings can replace changes sent here.
+
+transport: udp
+
+help:
+  overview: >
+    Shows a Bose MSA12X array's standby state, input source, input gains,
+    backup strategy, last preset loaded and whether a signal is present,
+    clipping or limiting, plus each module's warnings, faults and firmware
+    version. Standby, wake, the auto-standby wait, the input source, the
+    input gains and presets can be changed here. Identify flashes a module's
+    status LED until it is turned off; Find Unit flashes it for 5 seconds.
+  setup: >
+    1. Give the array a static IP address or a DHCP reservation (ControlSpace
+       Designer or Dante Controller sets it), and note it.
+    2. Enter that address here. Control uses UDP port 49494; leave the port
+       alone.
+    3. Choose Array Modules: how many MSA12X modules make up the array. A
+       two-module array's modules are numbered 1 and 3. Once connected, the
+       array's own report sets it and saves it here.
+    4. Bose lists one control connection for the MSA12X, so control it from
+       one system at a time.
+    5. If the array is connected to an EX processor, the processor's settings
+       can replace changes made here. Make those changes in ControlSpace
+       Designer, and use this driver to read them.
+  connection: >
+    The array answers on UDP port 49494. If ControlSpace Designer sees it and
+    OpenAVC does not, a firewall between the server and the array is blocking
+    UDP 49494.
+
+discovery:
+  # ARRAY (7.2) is answered by the MSA12X only. The EX-4ML and EX-8ML
+  # endpoints on the same port have no ARRAY command.
+  udp_probe:
+    port: 49494
+    send_ascii: "ARRAY\r"
+    expect_regex: '^ACK ARRAY [123]\s*$'
+    timeout_ms: 1500
+    extract_manufacturer: "Bose Professional"
+  manufacturer_alias:
+    - "bose"
+    - "bose professional"
+
+default_config:
+  host: ""
+  port: 49494
+  modules: "1"
+  poll_interval: 5
+  # The document states no minimum gap between messages. A poll of a
+  # three-module array is 18 messages, which take 0.9 s at this spacing.
+  inter_command_delay: 0.05
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 49494
+    label: UDP Port
+    help: "The array listens on UDP port 49494."
+  modules:
+    type: enum
+    values:
+      - { value: "1", label: "1 module" }
+      - { value: "1,3", label: "2 modules (numbered 1 and 3)" }
+      - { value: "1,2,3", label: "3 modules" }
+    default: "1"
+    label: Array Modules
+    learned_from: modules_reported
+    help: >
+      How many MSA12X modules make up the array. A two-module array's modules
+      are numbered 1 and 3. Once connected, the array's own report sets it,
+      and it is saved here.
+  poll_interval:
+    type: integer
+    default: 5
+    min: 2
+    max: 60
+    label: Poll Interval (sec)
+    help: "The wait between polls. Every reading is refreshed on each poll."
+  inter_command_delay:
+    type: number
+    default: 0.05
+    min: 0
+    label: Inter-Command Delay (sec)
+    help: "Pause between messages sent to the array."
+
+state_variables:
+  module_count:
+    type: integer
+    label: Array Modules
+    min: 1
+    max: 3
+    help: "The number of MSA12X modules in the array, as the array reports it."
+  modules_reported:
+    type: string
+    label: Module Numbers
+    help: "The array's module numbers: 1; 1,3 for two modules; 1,2,3 for three."
+  standby:
+    type: boolean
+    label: Standby
+    control: true
+    cloud_priority: high
+    help: "The array is in standby."
+  auto_standby_minutes:
+    type: integer
+    label: Auto-Standby Wait
+    min: 0
+    max: 120
+    unit: min
+    help: "Minutes without an input signal before the array goes into standby by itself. 0: never."
+  input_source:
+    type: enum
+    values: [dante, analog]
+    label: Input Source
+    control: true
+    help: "The input the array is playing."
+  backup_strategy:
+    type: enum
+    values: [force, signal_presence]
+    label: Backup Strategy
+    help: >
+      force: the input is chosen by hand. signal_presence: the array switches
+      to the analog input when it loses the Dante signal, and Select Input
+      has no effect. Set in ControlSpace Designer.
+  analog_gain:
+    type: number
+    label: Analog Input Gain
+    min: 0
+    max: 24
+    unit: dB
+    control: true
+    help: "The analog input's preamp gain: 0, +14 or +24 dB."
+  dante_gain:
+    type: number
+    label: Dante Input Gain
+    min: 0
+    max: 24
+    unit: dB
+    control: true
+    help: "The Dante input's preamp gain: 0, +14 or +24 dB."
+  last_preset:
+    type: integer
+    label: Last Preset Loaded
+    min: 1
+    max: 10
+    # The wire numbers presets 0-9; ControlSpace Designer numbers them 1-10.
+    offset: 1
+    control: true
+    help: >
+      The preset (1-10, as ControlSpace Designer numbers them) loaded last.
+      Settings may have been changed since.
+  signal_status:
+    type: enum
+    values: [none, present, clip, limit]
+    label: Input Signal
+    cloud_priority: low
+    help: "none: no input signal. present: a signal is present. clip: the signal is clipping. limit: the array is limiting."
+  signal_present:
+    type: boolean
+    label: Signal Present
+    cloud_priority: low
+    help: "The array is receiving an input signal."
+
+child_entity_types:
+  module:
+    label: Module
+    label_plural: Modules
+    id_format: { type: integer, min: 1, max: 3 }
+    state_variables:
+      warning:
+        type: enum
+        values: [none, signal_clip, amplifier_limiting, high_temperature]
+        label: Warning
+        cloud_priority: high
+        help: "The module's warning: none, signal_clip, amplifier_limiting or high_temperature. Any other code shows as its number."
+      fault:
+        type: enum
+        values: [none, driver_fault, temperature_fault, amp_connection_fault]
+        label: Fault
+        cloud_priority: high
+        help: "The module's fault: none, driver_fault (a possible loudspeaker driver fault), temperature_fault or amp_connection_fault (amplifier or internal connection). Any other code shows as its number."
+      firmware_version:
+        type: string
+        label: Firmware Version
+    summary_fields: [warning, fault]
+    instances:
+      ids_from: modules
+      label: "Module {id}"
+
+commands:
+  standby:
+    label: Standby
+    help: "Puts the array into standby at once."
+    send: "STANDBY NOW\r"
+    sets: { standby: true }
+    read_back: "GETSBST\r"
+
+  wake:
+    label: Wake
+    help: "Wakes the array from standby at once."
+    send: "STANDBY WAKE\r"
+    sets: { standby: false }
+    read_back: "GETSBST\r"
+
+  set_auto_standby:
+    label: Set Auto-Standby Wait
+    help: "Sets how many minutes the array waits without an input signal before going into standby by itself. 0 turns auto-standby off."
+    send: "STANDBY {minutes}\r"
+    sets: { auto_standby_minutes: "{minutes}" }
+    params:
+      minutes:
+        type: integer
+        required: true
+        label: Wait (min)
+        min: 0
+        max: 120
+
+  select_input:
+    label: Select Input
+    help: >
+      Plays the Dante or the analog input. Has no effect while the backup
+      strategy is signal_presence, when the array chooses the input itself.
+    send: "INPUT 1 {source}\r"
+    sets: { input_source: "{source}" }
+    # The array ignores this while backup is active (7.4), so its
+    # acknowledgement is not evidence the input changed: GINPUT is.
+    read_back: "GINPUT\r"
+    params:
+      source:
+        type: enum
+        required: true
+        label: Input
+        values:
+          - { value: dante, label: Dante }
+          - { value: analog, label: Analog }
+        map: { dante: "0", analog: "1" }
+
+  set_analog_gain:
+    label: Set Analog Input Gain
+    help: "Sets the analog input's preamp gain to 0, +14 or +24 dB."
+    send: "IG A {gain}\r"
+    sets: { analog_gain: "{gain}" }
+    params:
+      gain:
+        type: enum
+        required: true
+        label: Gain
+        # An enum passes a value it does not list through to the device; the
+        # pattern refuses one before it is sent (labels resolve first).
+        pattern: '0\.0|14\.0|24\.0'
+        values:
+          - { value: "0.0", label: "0 dB" }
+          - { value: "14.0", label: "+14 dB" }
+          - { value: "24.0", label: "+24 dB" }
+
+  set_dante_gain:
+    label: Set Dante Input Gain
+    help: "Sets the Dante input's preamp gain to 0, +14 or +24 dB."
+    send: "IG D {gain}\r"
+    sets: { dante_gain: "{gain}" }
+    params:
+      gain:
+        type: enum
+        required: true
+        label: Gain
+        pattern: '0\.0|14\.0|24\.0'
+        values:
+          - { value: "0.0", label: "0 dB" }
+          - { value: "14.0", label: "+14 dB" }
+          - { value: "24.0", label: "+24 dB" }
+
+  load_preset:
+    label: Load Preset
+    help: "Loads one of the ten presets saved in ControlSpace Designer, numbered 1-10 as Designer numbers them."
+    send: "LOAD {preset}\r"
+    sets: { last_preset: "{preset}" }
+    # A preset can change any setting, so the ones this driver reads are read
+    # again at once.
+    read_back:
+      - "IG A Q\r"
+      - "IG D Q\r"
+      - "GINPUT\r"
+      - "GBKSTG\r"
+      - "GETSBTIME\r"
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Preset
+        min: 1
+        max: 10
+        # Designer's preset 1 is index 0 on the wire.
+        offset: 1
+
+  set_identify:
+    label: Identify Module
+    help: "Flashes the module's status LED until it is turned off, so the module can be found in the array."
+    send: "ID {module} {enabled}\r"
+    params:
+      module:
+        type: child_id
+        child_type: module
+        required: true
+        label: Module
+      enabled:
+        type: boolean
+        required: true
+        label: Flashing
+        map: { "true": "1", "false": "0" }
+
+  find_unit:
+    label: Find Unit
+    help: "Flashes the module's status LED for 5 seconds."
+    # The syntax is "FU n"; the document's one example sends "FU" alone.
+    send: "FU {module}\r"
+    params:
+      module:
+        type: child_id
+        child_type: module
+        required: true
+        label: Module
+
+quick_actions: [wake, standby, load_preset, select_input]
+
+# ARRAY first, so the module count is known before anything addressed to a
+# module is read. The poll repeats it at once, so it is not sent twice at
+# connect.
+on_connect:
+  - { send: "ARRAY\r", query_for: module_count }
+
+# A poll of a three-module array is 18 messages: 9 for the array and 3 per
+# module.
+polling:
+  queries:
+    - { send: "ARRAY\r", query_for: module_count }
+    - { send: "AUDIOLEVEL\r", query_for: signal_status }
+    - { send: "GETSBST\r", query_for: standby }
+    - { send: "GINPUT\r", query_for: input_source }
+    - { send: "GBKSTG\r", query_for: backup_strategy }
+    - { send: "IG A Q\r", query_for: analog_gain }
+    - { send: "IG D Q\r", query_for: dante_gain }
+    - { send: "GETSBTIME\r", query_for: auto_standby_minutes }
+    - { send: "GCP\r", query_for: last_preset }
+    # 7.10's syntax line in v5.15 reads "STATUS n"; v5.13's reads
+    # "STATUS 0 n", as both versions' examples do, and the reply is
+    # "ACK STATUS 0 n w" beside the fault query's "STATUS 1 n".
+    - { each_child: module, send: "STATUS 0 {child_id}\r", query_for: warning }
+    - { each_child: module, send: "STATUS 1 {child_id}\r", query_for: fault }
+    - { each_child: module, send: "VERSION {child_id}\r", query_for: firmware_version }
+
+responses:
+  # 7.2: "ACK ARRAY n", n = 1, 2 or 3 modules. A two-module array's modules
+  # are 1 and 3.
+  - match: '^ACK ARRAY ([123])$'
+    set:
+      module_count: $1
+    mappings:
+      - { group: 1, state: modules_reported, map: { "1": "1", "2": "1,3", "3": "1,2,3" } }
+
+  # 7.6: "ACK GETSBST s", 1 = in standby.
+  - match: '^ACK GETSBST ([01])$'
+    mappings:
+      - { group: 1, state: standby, map: { "1": "true", "0": "false" } }
+
+  # 7.6: STANDBY NOW / WAKE acknowledge the action, not the state; the
+  # commands read GETSBST back.
+  - match: '^ACK STANDBY (?:NOW|WAKE)$'
+    set: {}
+
+  # 7.7: "ACK STANDBY w" answers a set and "ACK GETSBTIME w" a query, both in
+  # minutes. (The document's query example prints GETSBST; the syntax line
+  # is GETSBTIME.)
+  - match: '^ACK (?:STANDBY|GETSBTIME) (\d+)$'
+    set:
+      auto_standby_minutes: $1
+
+  # 7.4: "ACK GINPUT ANALOG" or "DANTE", the input playing.
+  - match: '^ACK GINPUT (ANALOG|DANTE)$'
+    mappings:
+      - { group: 1, state: input_source, map: { "ANALOG": "analog", "DANTE": "dante" } }
+
+  # 7.4: INPUT is ignored while backup is active, so its acknowledgement sets
+  # nothing; the command reads GINPUT back.
+  - match: '^ACK INPUT 1 [01]$'
+    set: {}
+
+  # 7.5: "ACK GBKSTG FORCE" or "ACK GBKSTG SP 1".
+  - match: '^ACK GBKSTG (FORCE|SP 1)$'
+    mappings:
+      - { group: 1, state: backup_strategy, map: { "FORCE": "force", "SP 1": "signal_presence" } }
+
+  # 7.3: "ACK IG t g" answers a set and a query alike; the query's example
+  # signs the value ("+0.0").
+  - match: '^ACK IG A ([+-]?\d+(?:\.\d+)?)$'
+    set:
+      analog_gain: $1
+  - match: '^ACK IG D ([+-]?\d+(?:\.\d+)?)$'
+    set:
+      dante_gain: $1
+
+  # 7.8: "ACK LOAD p" answers a load and "ACK GCP p" a query, in the syntax;
+  # the query's example answers "ACK LOAD 8", so either word is read.
+  - match: '^ACK (?:LOAD|GCP) (\d)$'
+    set:
+      last_preset: $1
+
+  # 7.9: "ACK AUDIOLEVELi l" in the syntax, with a space before i in every
+  # example. i: 0 no signal, 1 present, 18 clip, 19 limit. The level l (24-bit
+  # hex, dB = 20 * log10(level / 16777215)) is not read: see the header.
+  - match: '^ACK AUDIOLEVEL\s*(\d+)\s+(?:0[xX])?[0-9A-Fa-f]+$'
+    mappings:
+      - { group: 1, state: signal_status, map: { "0": "none", "1": "present", "18": "clip", "19": "limit" } }
+      - { group: 1, state: signal_present, map: { "0": "false", "1": "true", "18": "true", "19": "true" } }
+
+  # 7.10: "ACK STATUS 0 n w", warnings 0 none, 18 signal clip, 19 amplifier
+  # limiting, 20 high temperature.
+  - match: '^ACK STATUS 0 ([123]) (\d+)$'
+    child_set:
+      - type: module
+        id: $1
+        state:
+          warning: { group: 2, map: { "0": "none", "18": "signal_clip", "19": "amplifier_limiting", "20": "high_temperature" } }
+
+  # 7.10: "ACK STATUS 1 n f", faults 0 none, 1101 driver, 1104 temperature,
+  # 1105 amplifier / internal connection.
+  - match: '^ACK STATUS 1 ([123]) (\d+)$'
+    child_set:
+      - type: module
+        id: $1
+        state:
+          fault: { group: 2, map: { "0": "none", "1101": "driver_fault", "1104": "temperature_fault", "1105": "amp_connection_fault" } }
+
+  # 7.11: "ACK VERSION n x.x".
+  - match: '^ACK VERSION ([123]) (\S+)$'
+    child_set:
+      - { type: module, id: $1, state: { firmware_version: $2 } }
+
+  # 7.1: Identify and Find acknowledge with nothing to read. A NACK is left
+  # unread.
+  - match: '^ACK (?:FU(?: [123])?|ID [123] [01])$'
+    set: {}
+
+simulator:
+  # The modules come from the Array Modules setting (1; 1,3; 1,2,3).
+  # Warnings, faults, the input signal, standby and the backup strategy are
+  # set here or in the Simulator UI.
+  initial_state:
+    standby: false
+    auto_standby_minutes: 30
+    input_source: dante
+    backup_strategy: force
+    analog_gain: 0.0
+    dante_gain: 0.0
+    last_preset: 1
+    signal_status: present
+    module.1.warning: none
+    module.1.fault: none
+    module.2.warning: none
+    module.2.fault: none
+    module.3.warning: none
+    module.3.fault: none
+  controls:
+    - { type: toggle, key: standby, label: Standby }
+    - { type: select, key: input_source, label: Input Source, options: [dante, analog] }
+    - { type: select, key: backup_strategy, label: Backup Strategy, options: [force, signal_presence] }
+    - { type: select, key: signal_status, label: Input Signal, options: [none, present, clip, limit] }
+    - { type: select, key: module.1.warning, label: Module 1 Warning, options: [none, signal_clip, amplifier_limiting, high_temperature] }
+    - { type: select, key: module.1.fault, label: Module 1 Fault, options: [none, driver_fault, temperature_fault, amp_connection_fault] }
+    - { type: select, key: module.2.warning, label: Module 2 Warning, options: [none, signal_clip, amplifier_limiting, high_temperature] }
+    - { type: select, key: module.2.fault, label: Module 2 Fault, options: [none, driver_fault, temperature_fault, amp_connection_fault] }
+    - { type: select, key: module.3.warning, label: Module 3 Warning, options: [none, signal_clip, amplifier_limiting, high_temperature] }
+    - { type: select, key: module.3.fault, label: Module 3 Fault, options: [none, driver_fault, temperature_fault, amp_connection_fault] }
+  # One dispatcher owns the whole grammar: the answers depend on the modules
+  # (Array Modules), STANDBY takes an action or a number, and a "Q" turns a
+  # gain set into a query. Fidelity gaps, all undocumented behaviour: a value
+  # outside the document's list is refused NACK (the document does not say
+  # whether the array rounds it); INPUT is acknowledged and changes nothing
+  # while the backup strategy is signal_presence (the document says only that
+  # it is ignored); a preset load changes only the last preset (what a preset
+  # holds is set in ControlSpace Designer); the level reported beside a
+  # present signal is -20 dB (the document's example), and full scale beside
+  # a clip or limit; the firmware is 1.060 (ControlSpace Designer 5.15.2's
+  # release notes).
+  command_handlers:
+    - match: '(?s:.+)'
+      handler: |
+        _send = respond
+
+        def _run():
+            line = match.group(0).strip()
+            if not line:
+                return
+            raw_ids = str(config.get("modules", "1") or "1")
+            mods = []
+            for token in raw_ids.split(","):
+                token = token.strip()
+                if token in ("1", "2", "3"):
+                    mods.append(int(token))
+            if mods not in ([1], [1, 3], [1, 2, 3]):
+                mods = [1]
+            parts = line.split()
+            cmd = parts[0]
+            args = parts[1:]
+
+            def on(v):
+                return str(v).strip().lower() in ("1", "true", "yes", "on")
+
+            def module(text):
+                try:
+                    n = int(text)
+                except ValueError:
+                    return None
+                return n if n in mods else None
+
+            def gain_key(t):
+                return "analog_gain" if t == "A" else "dante_gain"
+
+            def nack():
+                _send("NACK\r")
+
+            warnings = {"none": 0, "signal_clip": 18, "amplifier_limiting": 19, "high_temperature": 20}
+            faults = {"none": 0, "driver_fault": 1101, "temperature_fault": 1104, "amp_connection_fault": 1105}
+            signals = {"none": (0, 0), "present": (1, 0x00199999), "clip": (18, 0x00FFFFFF), "limit": (19, 0x00FFFFFF)}
+
+            if cmd == "ARRAY" and not args:
+                _send("ACK ARRAY %d\r" % len(mods))
+                return
+            if cmd == "FU" and len(args) <= 1:
+                if args and module(args[0]) is None:
+                    nack()
+                    return
+                _send("ACK %s\r" % line)
+                return
+            if cmd == "ID" and len(args) == 2:
+                if module(args[0]) is None or args[1] not in ("0", "1"):
+                    nack()
+                    return
+                _send("ACK ID %s %s\r" % (args[0], args[1]))
+                return
+            if cmd == "IG" and len(args) == 2 and args[0] in ("A", "D"):
+                key = gain_key(args[0])
+                if args[1] == "Q":
+                    try:
+                        g = float(state.get(key) or 0)
+                    except (TypeError, ValueError):
+                        g = 0.0
+                    _send("ACK IG %s %+.1f\r" % (args[0], g))
+                    return
+                try:
+                    g = float(args[1])
+                except ValueError:
+                    nack()
+                    return
+                if g not in (0.0, 14.0, 24.0):
+                    nack()
+                    return
+                state[key] = g
+                _send("ACK IG %s %s\r" % (args[0], args[1]))
+                return
+            if cmd == "INPUT" and len(args) == 2 and args[0] == "1" and args[1] in ("0", "1"):
+                if str(state.get("backup_strategy") or "force") != "signal_presence":
+                    state["input_source"] = "dante" if args[1] == "0" else "analog"
+                _send("ACK INPUT 1 %s\r" % args[1])
+                return
+            if cmd == "GINPUT" and not args:
+                src = "ANALOG" if str(state.get("input_source") or "dante") == "analog" else "DANTE"
+                _send("ACK GINPUT %s\r" % src)
+                return
+            if cmd == "GBKSTG" and not args:
+                b = "SP 1" if str(state.get("backup_strategy") or "force") == "signal_presence" else "FORCE"
+                _send("ACK GBKSTG %s\r" % b)
+                return
+            if cmd == "STANDBY" and len(args) == 1:
+                a = args[0]
+                if a == "NOW":
+                    state["standby"] = True
+                elif a == "WAKE":
+                    state["standby"] = False
+                else:
+                    try:
+                        w = int(a)
+                    except ValueError:
+                        nack()
+                        return
+                    if w < 0 or w > 120:
+                        nack()
+                        return
+                    state["auto_standby_minutes"] = w
+                _send("ACK STANDBY %s\r" % a)
+                return
+            if cmd == "GETSBST" and not args:
+                _send("ACK GETSBST %d\r" % int(on(state.get("standby"))))
+                return
+            if cmd == "GETSBTIME" and not args:
+                try:
+                    w = int(state.get("auto_standby_minutes") or 0)
+                except (TypeError, ValueError):
+                    w = 0
+                _send("ACK GETSBTIME %d\r" % w)
+                return
+            if cmd == "LOAD" and len(args) == 1:
+                if args[0] not in [str(i) for i in range(10)]:
+                    nack()
+                    return
+                state["last_preset"] = int(args[0]) + 1
+                _send("ACK LOAD %s\r" % args[0])
+                return
+            if cmd == "GCP" and not args:
+                try:
+                    p = int(state.get("last_preset") or 1) - 1
+                except (TypeError, ValueError):
+                    p = 0
+                _send("ACK GCP %d\r" % max(0, min(9, p)))
+                return
+            if cmd == "AUDIOLEVEL" and not args:
+                code, level = signals.get(str(state.get("signal_status") or "none"), (0, 0))
+                _send("ACK AUDIOLEVEL %d 0x%08X\r" % (code, level))
+                return
+            if cmd == "STATUS" and len(args) in (1, 2):
+                # "STATUS n" (v5.15's syntax line) is the warning query, as
+                # "STATUS 0 n" is.
+                kind = "0" if len(args) == 1 else args[0]
+                n = module(args[-1])
+                if n is None or kind not in ("0", "1"):
+                    nack()
+                    return
+                if kind == "0":
+                    code = warnings.get(str(state.get("module.%d.warning" % n) or "none"), 0)
+                else:
+                    code = faults.get(str(state.get("module.%d.fault" % n) or "none"), 0)
+                _send("ACK STATUS %s %d %d\r" % (kind, n, code))
+                return
+            if cmd == "VERSION" and len(args) == 1:
+                n = module(args[0])
+                if n is None:
+                    nack()
+                    return
+                _send("ACK VERSION %d %s\r" % (n, state.get("module.%d.firmware_version" % n) or "1.060"))
+                return
+            nack()
+
+        _run()

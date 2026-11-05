@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 47,
+    "total_drivers": 48,
     "shards": null,
     "category": "audio"
   },
@@ -1150,6 +1150,65 @@
           "port": 49494,
           "send_ascii": "RSL\r",
           "expect_regex": "^ACK RSL(?: -?\\d+){4}(?:(?: -?\\d+){4})?\\s*$",
+          "timeout_ms": 1500,
+          "extract_manufacturer": "Bose Professional"
+        },
+        "manufacturer_alias": [
+          "bose",
+          "bose professional"
+        ]
+      }
+    },
+    {
+      "id": "bose_msa12x",
+      "name": "Bose MSA12X Steerable Array",
+      "manufacturer": "Bose Professional",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "udp",
+      "description": "Controls a Bose Professional MSA12X powered steerable array loudspeaker (one, two or three modules) over UDP (port 49494): standby and wake, the auto-standby wait, the input source and the analog and Dante input gains, and preset recall. Shows the backup strategy, whether a signal is present, clipping or limiting, and each module's warnings, faults and firmware.\n",
+      "source_url": "https://assets.boseprofessional.com/m/4b14907043cbedb3/original/ControlSpace-Serial-Protocol-v5-15.zip",
+      "file": "audio/bose_msa12x.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "audio/bose_msa12x.avcdriver": "a614257c59576b90c41e04af17445373b6868e0d5926f12c4bdee784280ea216"
+      },
+      "ports": [
+        49494
+      ],
+      "protocols": [
+        "bose_controlspace_endpoint"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "loudspeaker",
+        "line-array",
+        "beam-steering",
+        "dante",
+        "controlspace"
+      ],
+      "help": {
+        "overview": "Shows a Bose MSA12X array's standby state, input source, input gains, backup strategy, last preset loaded and whether a signal is present, clipping or limiting, plus each module's warnings, faults and firmware version. Standby, wake, the auto-standby wait, the input source, the input gains and presets can be changed here. Identify flashes a module's status LED until it is turned off; Find Unit flashes it for 5 seconds.\n",
+        "setup": "1. Give the array a static IP address or a DHCP reservation (ControlSpace\n   Designer or Dante Controller sets it), and note it.\n2. Enter that address here. Control uses UDP port 49494; leave the port\n   alone.\n3. Choose Array Modules: how many MSA12X modules make up the array. A\n   two-module array's modules are numbered 1 and 3. Once connected, the\n   array's own report sets it and saves it here.\n4. Bose lists one control connection for the MSA12X, so control it from\n   one system at a time.\n5. If the array is connected to an EX processor, the processor's settings\n   can replace changes made here. Make those changes in ControlSpace\n   Designer, and use this driver to read them.\n",
+        "connection": "The array answers on UDP port 49494. If ControlSpace Designer sees it and OpenAVC does not, a firewall between the server and the array is blocking UDP 49494.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Bose Professional",
+          "models": [
+            "MSA12X"
+          ],
+          "confidence": "untested",
+          "notes": "Built from the ControlSpace Serial Control Protocol v5.15; not yet run against an array. One device covers an array of one, two or three modules. When the array is connected to an EX processor, the processor's settings can replace changes sent here.\n"
+        }
+      ],
+      "discovery": {
+        "udp_probe": {
+          "port": 49494,
+          "send_ascii": "ARRAY\r",
+          "expect_regex": "^ACK ARRAY [123]\\s*$",
           "timeout_ms": 1500,
           "extract_manufacturer": "Bose Professional"
         },

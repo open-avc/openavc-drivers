@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 286,
+    "total_devices": 288,
     "shards": null,
     "category": "audio"
   },
@@ -1313,6 +1313,30 @@
           "id": "bose_controlspace_ex_ml",
           "confidence": "untested",
           "notes": "Built from the ControlSpace Serial Control Protocol v5.15; not yet run against an endpoint. When the endpoint is part of a ControlSpace design, the EX processor's settings can replace gain, phantom power and logic output changes sent here; make those changes in ControlSpace Designer. The EX processors themselves use the Bose ControlSpace driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "PS404D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_powershare",
+          "confidence": "untested",
+          "notes": "PowerShare adaptable power amplifiers: four inputs (analog or Dante), four outputs, TCP 10055 (fixed, up to eight connections). Built from the ControlSpace Serial Control Protocol v5.15 and the simulator; not yet run against an amplifier."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "PS604D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_powershare",
+          "confidence": "untested",
+          "notes": "PowerShare adaptable power amplifiers: four inputs (analog or Dante), four outputs, TCP 10055 (fixed, up to eight connections). Built from the ControlSpace Serial Control Protocol v5.15 and the simulator; not yet run against an amplifier."
         }
       ]
     },

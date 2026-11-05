@@ -55,8 +55,10 @@ loudspeaker and the WP / EP / EX Dante endpoints (a different ASCII grammar
 over UDP 49494). Each is its own roadmap row.
 
 Source (Bose Professional, manufacturer documents):
-    ControlSpace Serial Control Protocol v5.13, revision date June 5, 2024.
-    https://assets.boseprofessional.com/m/4998082f60dfee56/original/ControlSpace-Serial-Protocol-v5-13.pdf
+    ControlSpace Serial Control Protocol v5.15, revision date May 27, 2025
+    (published as a zip holding the PDF). Built from v5.13 (June 5, 2024);
+    v5.15 changes nothing for the processors (it adds PowerShareX text).
+    https://assets.boseprofessional.com/m/4b14907043cbedb3/original/ControlSpace-Serial-Protocol-v5-15.zip
     CSP Processors Serial Control Protocol Guide v1.0 (CSP-428 / CSP-1248).
     https://assets.boseprofessional.com/m/48b4f11e8a4922b9/original/ug_csp_control_serial.pdf
 """
@@ -201,10 +203,11 @@ def hex_level_to_db(raw: int) -> float:
     """System / device command level: 0h = -60 dB ... 90h = +12 dB in 0.5 dB
     steps; FFh = -60.5 dB (off).
 
-    The v5.13 document contradicts itself once here and the formula wins:
+    The document contradicts itself once here and the formula wins:
     section 4.2's example "GG 2,80" is "Group 2 is set to 1dB", but by the
     formula it states (which its SG 2,78 = 0 dB and SV 1,3,50 = -20 dB
-    examples follow) 80h is +4 dB."""
+    examples follow) 80h is +4 dB, and v5.15's Appendix B Volume Reference
+    table gives 4 dB = 80, 1 dB = 7A, 0 dB = 78, 12 dB = 90."""
     if raw >= HEX_LEVEL_OFF:
         return LEVEL_MIN
     return round(raw / 2.0 - 60.0, 1)
@@ -1758,7 +1761,7 @@ class BoseControlSpaceDriver(BaseDriver):
         "name": "Bose Professional ControlSpace (ESP / EX / CSP)",
         "manufacturer": "Bose Professional",
         "category": "audio",
-        "version": "1.0.7",
+        "version": "1.0.8",
         # confirm on the commands that erase, delete or reset needs 0.36.0;
         # BaseDriver.local_address(), which the Test Connection socket binds
         # to, needs 0.37.0 (set by hand: the contract check cannot see it).
@@ -1778,7 +1781,7 @@ class BoseControlSpaceDriver(BaseDriver):
             "subscriptions, so changes made from a CC-16 or CC-64 wall "
             "controller or from Designer appear at once."
         ),
-        "source_url": "https://assets.boseprofessional.com/m/4998082f60dfee56/original/ControlSpace-Serial-Protocol-v5-13.pdf",
+        "source_url": "https://assets.boseprofessional.com/m/4b14907043cbedb3/original/ControlSpace-Serial-Protocol-v5-15.zip",
         "tags": ["dsp", "bose", "controlspace", "esp", "ex", "csp", "install-audio",
                  "conference", "room-combine", "dante"],
         "verified": False,
@@ -1790,12 +1793,17 @@ class BoseControlSpaceDriver(BaseDriver):
         "discovery": {
             # ``IP`` with no argument asks the processor for its own address
             # (section 5.5) and changes nothing; every ControlSpace, PowerMatch
-            # and PowerShare answers it on 10055.
+            # and PowerShare answers it on 10055. So the second step asks
+            # ``GY`` (Get Standby Status, 5.8), which only the amplifiers
+            # answer ("not supported on ESP devices"): a processor stays
+            # silent, and an amplifier goes to its own driver instead of
+            # this one.
             "tcp_probe": {
                 "port": 10055,
                 "send_ascii": "IP\r",
                 "expect_regex": r"^IP \d{1,3}(\.\d{1,3}){3}",
                 "timeout_ms": 1500,
+                "then": {"send_ascii": "GY\r", "expect_silence": True, "timeout_ms": 600},
             },
             "port_open": [10055],
             # Bose Corporation's registered prefixes (IEEE registry, read

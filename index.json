@@ -3237,15 +3237,15 @@
       "name": "BSS Soundweb London (BLU)",
       "manufacturer": "BSS Audio",
       "category": "audio",
-      "version": "1.1.9",
+      "version": "1.1.10",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls BSS Soundweb London BLU-series processors through the London Direct Inject protocol on TCP port 1023. Declare the processing objects from your Audio Architect design (gains, mixers, automixers, matrices, routers, source selectors, meters, input and output cards, or any single state variable) and each becomes a child entity whose controls panels bind to. Every control is subscribed, so changes made from Architect or a wall controller appear instantly; venue and parameter presets recall by number.",
+      "description": "Controls BSS Soundweb London BLU-series processors and I/O expanders through the London Direct Inject protocol on TCP port 1023. Declare the processing objects from your Audio Architect design (gains, mixers, automixers, matrices, routers, source selectors, meters, input and output cards, or any single state variable) and each becomes a child entity whose controls panels bind to. Every control is subscribed, so changes made from Architect or a wall controller appear instantly; venue and parameter presets recall by number.",
       "source_url": "https://bssaudio.com/en-US/site_elements/soundweb-london-di-kit",
       "file": "audio/bss_soundweb_london.py",
       "format": "python",
       "files": {
-        "audio/bss_soundweb_london.py": "4bcc4f33b99dbe2b3d1c888cae9e671b9ff09616b37bf854001545783de59739",
+        "audio/bss_soundweb_london.py": "e9f347dedf96dc997947bfdbc90a4167decdcb2035d6d3a7eb0f6d93bd231cf6",
         "audio/bss_soundweb_london_sim.py": "b5e01e6f1f336639a8431c8d4990e0fd72ff25f5e541d516fdbb350c9beed491"
       },
       "ports": [
@@ -3267,7 +3267,7 @@
       ],
       "help": {
         "overview": "Soundweb London control over the Direct Inject protocol (TCP 1023, no login). Declare each processing object you want to control in the Objects table on the device page: its name, its HiQnet address from Architect, and its type. Every control of every object is subscribed, so panels update the moment a value changes anywhere. Drive them with Set / Toggle / Step Control (pick the object, then the control), recall presets by number, and use Set State Variable for anything the object types do not cover.",
-        "setup": "STEP 1 - Find the addresses.\nIn Audio Architect select a processing object: the Properties window shows its Object ID (0.1.0 for the first object placed, which is 0x100). London Architect shows the full HiQnet address instead, 0x083203000100 (node, virtual device 03, object 000100).\n\nSTEP 2 - Add the device.\nEnter the unit's IP address and port 1023. Leave the Node Address blank to control that unit; the address it answers as appears as Reported Node Address. Then add one row per object in the Objects table: its Object ID, the object type, and a size where the type needs one (8 inputs, 8x4, 1-4).\n\nSTEP 3 - Test.\nRun Test Connection / Verify Objects. Every object that answers is listed; one that stays silent has a wrong address or is not in the design loaded on the unit.\n\nMeters are off by default. Turn on 'Subscribe to meters' to stream them at the chosen rate.",
+        "setup": "STEP 1 - Find the addresses.\nIn Audio Architect select a processing object: the Properties window shows its Object ID (0.1.0 for the first object placed, which is 0x100). London Architect shows the full HiQnet address instead, 0x083203000100 (node, virtual device 03, object 000100).\n\nSTEP 2 - Add the device.\nEnter the unit's IP address and port 1023. Leave the Node Address blank to control that unit; the address it answers as appears as Reported Node Address. Then add one row per object in the Objects table: its Object ID, the object type, and a size where the type needs one (8 inputs, 8x4, 1-4). An I/O expander (BLU-326DA, BLU-325) has no processing objects: declare its input and output cards.\n\nSTEP 3 - Test.\nRun Test Connection / Verify Objects. Every object that answers is listed; one that stays silent has a wrong address or is not in the design loaded on the unit.\n\nMeters are off by default. Turn on 'Subscribe to meters' to stream them at the chosen rate.",
         "connection": "Port 1023 needs no login. If nothing answers, check the object addresses against Audio Architect and that the design is loaded on the unit."
       },
       "compatible_models": [
@@ -3298,6 +3298,25 @@
           ],
           "confidence": "untested",
           "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit."
+        },
+        {
+          "manufacturer": "BSS Audio",
+          "models": [
+            "BLU-50v2",
+            "BLU-50"
+          ],
+          "confidence": "untested",
+          "notes": "A 4 x 4 processor on the same Direct Inject protocol. Read its input and output Object IDs in Architect's Properties window."
+        },
+        {
+          "manufacturer": "BSS Audio",
+          "models": [
+            "BLU-326DA",
+            "BLU-326",
+            "BLU-325"
+          ],
+          "confidence": "untested",
+          "notes": "I/O expanders: four I/O card slots and logic, no signal processing, so the default Program, Mics and Source rows are not on the unit. Declare a row per analogue input or output card instead (cards A to D, 0.0.1 to 0.0.4; check each in Architect's Properties window) to set input gain and phantom power and read the meters. Gains, mixers and selectors are in the design of the processor the expander feeds: add that processor as a device of its own."
         }
       ],
       "discovery": {

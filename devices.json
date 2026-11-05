@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1218,
+    "total_devices": 1223,
     "shards": null
   },
   "devices": [
@@ -4393,6 +4393,66 @@
           "id": "bss_soundweb_london",
           "confidence": "untested",
           "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BSS Audio",
+      "model": "BLU-325",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bss_soundweb_london",
+          "confidence": "untested",
+          "notes": "I/O expanders: four I/O card slots and logic, no signal processing, so the default Program, Mics and Source rows are not on the unit. Declare a row per analogue input or output card instead (cards A to D, 0.0.1 to 0.0.4; check each in Architect's Properties window) to set input gain and phantom power and read the meters. Gains, mixers and selectors are in the design of the processor the expander feeds: add that processor as a device of its own."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BSS Audio",
+      "model": "BLU-326",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bss_soundweb_london",
+          "confidence": "untested",
+          "notes": "I/O expanders: four I/O card slots and logic, no signal processing, so the default Program, Mics and Source rows are not on the unit. Declare a row per analogue input or output card instead (cards A to D, 0.0.1 to 0.0.4; check each in Architect's Properties window) to set input gain and phantom power and read the meters. Gains, mixers and selectors are in the design of the processor the expander feeds: add that processor as a device of its own."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BSS Audio",
+      "model": "BLU-326DA",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bss_soundweb_london",
+          "confidence": "untested",
+          "notes": "I/O expanders: four I/O card slots and logic, no signal processing, so the default Program, Mics and Source rows are not on the unit. Declare a row per analogue input or output card instead (cards A to D, 0.0.1 to 0.0.4; check each in Architect's Properties window) to set input gain and phantom power and read the meters. Gains, mixers and selectors are in the design of the processor the expander feeds: add that processor as a device of its own."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BSS Audio",
+      "model": "BLU-50",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bss_soundweb_london",
+          "confidence": "untested",
+          "notes": "A 4 x 4 processor on the same Direct Inject protocol. Read its input and output Object IDs in Architect's Properties window."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BSS Audio",
+      "model": "BLU-50v2",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bss_soundweb_london",
+          "confidence": "untested",
+          "notes": "A 4 x 4 processor on the same Direct Inject protocol. Read its input and output Object IDs in Architect's Properties window."
         }
       ]
     },

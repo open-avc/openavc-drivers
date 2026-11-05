@@ -1,10 +1,11 @@
 """
 BSS Soundweb London (BLU series) — Direct Inject protocol driver.
 
-Controls any Soundweb London processor (BLU-100 / 101 / 102 / 103 / 120 /
-160 / 320 / 800 / 805 / 806 and the earlier BLU-16 / 32 / 80) through the
-London Direct Inject (DI) message protocol on TCP port 1023. The unit's 9-pin
-RS-232 port carries the same bytes.
+Controls any Soundweb London device (the BLU-100 / 101 / 102 / 103 / 50v2 /
+120 / 160 / 806DA processors, the BLU-326DA I/O expander, and the earlier
+BLU-16 / 32 / 50 / 80 / 320 / 325 / 326 / 800 / 805 / 806) through the London
+Direct Inject (DI) message protocol on TCP port 1023. The unit's RS-232 port
+carries the same bytes.
 
 Why Python (rules.md Principle 9):
     DI is a binary protocol: STX / ETX framing, five reserved bytes escaped
@@ -1151,14 +1152,15 @@ class BSSSoundwebLondonDriver(BaseDriver):
         "name": "BSS Soundweb London (BLU)",
         "manufacturer": "BSS Audio",
         "category": "audio",
-        "version": "1.1.9",
+        "version": "1.1.10",
         # Set by hand (the contract check cannot see a method call): the
         # Test Connection socket binds to BaseDriver.local_address(), 0.37.0.
         "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
-            "Controls BSS Soundweb London BLU-series processors through the "
-            "London Direct Inject protocol on TCP port 1023. Declare the "
+            "Controls BSS Soundweb London BLU-series processors and I/O "
+            "expanders through the London Direct Inject protocol on TCP port "
+            "1023. Declare the "
             "processing objects from your Audio Architect design (gains, "
             "mixers, automixers, matrices, routers, source selectors, meters, "
             "input and output cards, or any single state variable) and each "
@@ -1220,6 +1222,32 @@ class BSSSoundwebLondonDriver(BaseDriver):
                     "design loaded on the unit."
                 ),
             },
+            {
+                "manufacturer": "BSS Audio",
+                "models": ["BLU-50v2", "BLU-50"],
+                "confidence": "untested",
+                "notes": (
+                    "A 4 x 4 processor on the same Direct Inject protocol. "
+                    "Read its input and output Object IDs in Architect's "
+                    "Properties window."
+                ),
+            },
+            {
+                "manufacturer": "BSS Audio",
+                "models": ["BLU-326DA", "BLU-326", "BLU-325"],
+                "confidence": "untested",
+                "notes": (
+                    "I/O expanders: four I/O card slots and logic, no signal "
+                    "processing, so the default Program, Mics and Source "
+                    "rows are not on the unit. Declare a row per analogue "
+                    "input or output card instead (cards A to D, 0.0.1 to "
+                    "0.0.4; check each in Architect's Properties window) to "
+                    "set input gain and phantom power and read the meters. "
+                    "Gains, mixers and selectors are in the design of the "
+                    "processor the expander feeds: add that processor as a "
+                    "device of its own."
+                ),
+            },
         ],
         "help": {
             "overview": (
@@ -1245,7 +1273,9 @@ class BSSSoundwebLondonDriver(BaseDriver):
                 "Address blank to control that unit; the address it answers "
                 "as appears as Reported Node Address. Then add one row per "
                 "object in the Objects table: its Object ID, the object type, "
-                "and a size where the type needs one (8 inputs, 8x4, 1-4).\n\n"
+                "and a size where the type needs one (8 inputs, 8x4, 1-4). An "
+                "I/O expander (BLU-326DA, BLU-325) has no processing objects: "
+                "declare its input and output cards.\n\n"
                 "STEP 3 - Test.\n"
                 "Run Test Connection / Verify Objects. Every object that "
                 "answers is listed; one that stays silent has a wrong address "

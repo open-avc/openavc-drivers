@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 50,
+    "total_drivers": 51,
     "shards": null,
     "category": "audio"
   },
@@ -190,6 +190,82 @@
       }
     },
     {
+      "id": "allenheath_cq",
+      "name": "Allen & Heath CQ Digital Mixer",
+      "manufacturer": "Allen & Heath",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls the Allen & Heath CQ-12T, CQ-18T and CQ-20B compact mixers via MIDI over TCP/IP on port 51325. Every input, stereo input (stereo line, USB, Bluetooth), FX engine, output, DCA and mute group is a child entity with live mute, level, dB and pan state, kept current by the mixer's own reports. Mute, fader (position or dB), 1 dB nudges, pan and balance, sends to the outputs and FX units, scene recall (1-100) and SoftKey triggers.",
+      "source_url": "https://www.allen-heath.com/content/uploads/2024/06/CQ_MIDI_Protocol_V1_2_0_iss5.pdf",
+      "file": "audio/allenheath_cq.py",
+      "format": "python",
+      "files": {
+        "audio/allenheath_cq.py": "7aba3b2a977f1ae7d907e0a95e6efedfa9ddd4a2ebf24400e070dca0c5d57456",
+        "audio/allenheath_cq_sim.py": "453cbd48ca5cd93c5186a61b445fc78394631132f42bfd210c718dd76c356d66"
+      },
+      "ports": [
+        51325
+      ],
+      "protocols": [
+        "midi-over-tcp"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.25.0",
+      "tags": [
+        "mixer",
+        "console",
+        "midi",
+        "nrpn",
+        "allen-heath",
+        "cq"
+      ],
+      "help": {
+        "overview": "Controls an Allen & Heath CQ-12T, CQ-18T or CQ-20B over the network using MIDI over TCP/IP. Each input, stereo input, FX engine, output, DCA and mute group is listed under the device with live mute and level state (and pan on the inputs): bind child state (e.g. device.<id>.input.in05.mute) to panel elements and drive mutes, faders, sends and scene recall from macros and buttons. Levels are shown both as a fader position and in dB.",
+        "setup": "1. Update the CQ to firmware V1.2.0 or later (MIDI control arrived in V1.2.0).\n2. Connect the CQ's network port to the same network as the OpenAVC server and note its IP address.\n3. Enter the IP address here and pick the Model. The default port (51325) is correct.\n4. Save. The channels appear under the device with live state. Rename them in the project as you like: the CQ's MIDI protocol does not carry channel names, and a name you set is never overwritten.\n\nNotes:\n  * The CQ takes only ONE MIDI-over-TCP connection at a time. Close the Allen & Heath MIDI Control app, or anything else using MIDI over the network, before connecting.\n  * DCA and mute group mutes show what OpenAVC sent and what the CQ reports when they change on the mixer. The CQ cannot be asked for them over MIDI, so they read blank until one of those happens.\n  * For a stereo-linked output pair, use its odd output (Out 1 for Out 1/2). Pan to an output pair needs that pair's Follow Main LR Pan set to Off."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Allen & Heath",
+          "models": [
+            "CQ-12T",
+            "CQ-18T",
+            "CQ-20B"
+          ],
+          "confidence": "untested",
+          "notes": "Built from Allen & Heath's CQ MIDI Protocol (firmware V1.2, Issue 5); not yet run on a CQ. Requires CQ firmware V1.2.0 or later, which added MIDI control. Set the Model setting to the mixer's model."
+        }
+      ],
+      "discovery": {
+        "requires": "0.32.0",
+        "tcp_probe": {
+          "port": 51325,
+          "send_hex": "B0 63 00 B0 62 44 B0 60 7F",
+          "expect_regex": "\\xB0\\x63\\x00\\xB0\\x62\\x44",
+          "timeout_ms": 2000,
+          "then": {
+            "send_hex": "B0 63 00 B0 62 10 B0 60 7F",
+            "expect_silence": true,
+            "timeout_ms": 600
+          }
+        },
+        "oui": [
+          "00:04:c4"
+        ],
+        "port_open": [
+          51325
+        ],
+        "manufacturer_alias": [
+          "allen & heath",
+          "allen and heath",
+          "a&h",
+          "allen-heath",
+          "audiotonix"
+        ]
+      }
+    },
+    {
       "id": "allenheath_dlive",
       "name": "Allen & Heath dLive Digital Mixer",
       "manufacturer": "Allen & Heath",
@@ -348,7 +424,7 @@
       "name": "Allen & Heath Qu-5/6/7 Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the current Allen & Heath Qu generation (Qu-5, Qu-6, Qu-7 and the Dante -5D/-6D/-7D variants) via MIDI over TCP/IP on port 51325. On connect the driver probes the console and registers exactly the channels it really has, so any model and any mix-bus configuration comes up correct with nothing to declare. Every input, stereo input, mix, matrix, FX send/return, DCA and mute group is a child entity with live mute / level / dB state, and pan on the inputs. Mute, fader (position or dB), 1 dB nudges, pan, aux and FX sends, mix assignments, scene recall (1-300) and Soft Key triggers -- with every write confirmed by reading the console back, and a Get-probe watchdog that flips the device offline if the console vanishes.",
@@ -356,7 +432,7 @@
       "file": "audio/allenheath_qu567.py",
       "format": "python",
       "files": {
-        "audio/allenheath_qu567.py": "8b49933b2ee6039c06f8d183a3545f193def4e8cd1fdb6e58c453d3de2e89a65",
+        "audio/allenheath_qu567.py": "4024e2102f6e429489653539448e06dc16a66d2e4a50f55fb7756aaa30ee07e5",
         "audio/allenheath_qu567_sim.py": "2f5d730b17a68c83de3ab3ce4ee22666f105953e323f4d602f32ac3bd4f02e3a"
       },
       "ports": [
@@ -406,8 +482,8 @@
         "requires": "0.32.0",
         "tcp_probe": {
           "port": 51325,
-          "send_hex": "B0 63 00 B0 62 44 B0 60 7F",
-          "expect_hex": "B0 63 00 B0 62 44",
+          "send_hex": "B0 63 00 B0 62 10 B0 60 7F",
+          "expect_hex": "B0 63 00 B0 62 10",
           "timeout_ms": 2000,
           "then": {
             "send_hex": "B0 63 00 B0 62 27 B0 60 7F",

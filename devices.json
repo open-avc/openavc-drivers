@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1223,
+    "total_devices": 1226,
     "shards": null
   },
   "devices": [
@@ -351,6 +351,42 @@
           "id": "allenheath_avantis",
           "confidence": "untested",
           "notes": "Same MIDI command surface across the Avantis family. Requires console firmware V2.0 or later for TCP/IP control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "CQ-12T",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_cq",
+          "confidence": "untested",
+          "notes": "Built from Allen & Heath's CQ MIDI Protocol (firmware V1.2, Issue 5); not yet run on a CQ. Requires CQ firmware V1.2.0 or later, which added MIDI control. Set the Model setting to the mixer's model."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "CQ-18T",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_cq",
+          "confidence": "untested",
+          "notes": "Built from Allen & Heath's CQ MIDI Protocol (firmware V1.2, Issue 5); not yet run on a CQ. Requires CQ firmware V1.2.0 or later, which added MIDI control. Set the Model setting to the mixer's model."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "CQ-20B",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_cq",
+          "confidence": "untested",
+          "notes": "Built from Allen & Heath's CQ MIDI Protocol (firmware V1.2, Issue 5); not yet run on a CQ. Requires CQ firmware V1.2.0 or later, which added MIDI control. Set the Model setting to the mixer's model."
         }
       ]
     },

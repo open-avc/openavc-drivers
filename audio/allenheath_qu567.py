@@ -107,12 +107,11 @@ Scope notes:
     - **A scene recall is followed by a full re-read**, because the console
       sends nothing when a scene changes its values. It runs in the
       background, a second after the recall, so the command returns at once.
-    - **Discovery identifies this console by what it does NOT answer.** Every
-      console of this protocol generation answers a Get for the LR master
-      mute, the SQ family included, and the Qu's address map is a subset of
-      the SQ's -- so no question identifies a Qu positively. The declared
-      probe asks the shared question, then asks for Ip40 (which an SQ has and
-      a Qu does not) and requires silence. It is declarative rather than a
+    - **Discovery identifies this console by what it does NOT answer.** The
+      Qu's address map is a subset of the SQ's, so no question identifies a
+      Qu positively. The declared probe asks for Ip17 (which a Qu and an SQ
+      have and a CQ does not), then asks for Ip40 (which an SQ has and a Qu
+      does not) and requires silence. It is declarative rather than a
       Python companion on purpose: a companion only runs from an installed
       driver, and discovery exists to find gear nobody has installed a driver
       for yet.
@@ -850,7 +849,7 @@ class AllenHeathQu567Driver(BaseDriver):
         "name": "Allen & Heath Qu-5/6/7 Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.2.1",
+        "version": "1.2.2",
         "author": "OpenAVC",
         "description": (
             "Controls the current Allen & Heath Qu generation (Qu-5, Qu-6, "
@@ -879,18 +878,20 @@ class AllenHeathQu567Driver(BaseDriver):
         "ports": [51325],
         "transport": "tcp",
         "discovery": {
-            # Identifying this console needs an ABSENCE. Every Allen & Heath
-            # console of this protocol generation answers a Get for the LR
-            # master mute -- the SQ family included, because the SQ shares the
-            # protocol deliberately -- and the Qu's parameter map is a SUBSET
-            # of the SQ's, so nothing a Qu has identifies it positively. What
-            # separates them is Ip40: an SQ has 48 inputs and answers, a Qu-5
-            # has 32 plus ST1/ST2/USB and stays silent. Both halves measured on
-            # a real Qu-5.
+            # Identifying this console needs an ABSENCE. The Qu's parameter
+            # map is a SUBSET of the SQ's (the SQ shares the protocol
+            # deliberately), so nothing a Qu has identifies it positively.
+            # What separates them is Ip40: an SQ has 48 inputs and answers, a
+            # Qu-5 has 32 plus ST1/ST2/USB and stays silent. The first
+            # question is Ip17's mute, which every Qu-5/6/7 and SQ answers and
+            # a CQ (16 inputs at most) does not, so a CQ is not taken for a
+            # Qu. Ip17 answered and Ip40 stayed silent on a Qu-5 and a Qu-5D
+            # (every one of their 32 inputs answered the roster probe); the
+            # probe was first the LR mute, which a CQ answers too.
             "tcp_probe": {
                 "port": 51325,
-                "send_hex": "B0 63 00 B0 62 44 B0 60 7F",
-                "expect_hex": "B0 63 00 B0 62 44",
+                "send_hex": "B0 63 00 B0 62 10 B0 60 7F",
+                "expect_hex": "B0 63 00 B0 62 10",
                 "timeout_ms": 2000,
                 "then": {
                     "send_hex": "B0 63 00 B0 62 27 B0 60 7F",

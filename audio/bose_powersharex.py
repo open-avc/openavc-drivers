@@ -595,7 +595,7 @@ class BosePowerShareXDriver(BaseDriver):
         "name": "Bose Professional PowerShareX (PSX1204D / PSX2404D / PSX4804D)",
         "manufacturer": "Bose Professional",
         "category": "audio",
-        "version": "1.0.0",
+        "version": "1.0.1",
         # BaseDriver.local_address(), which the Test Connection socket binds
         # to, needs 0.37.0 (set by hand: the contract check cannot see it).
         "min_platform_version": "0.37.0",
@@ -652,7 +652,8 @@ class BosePowerShareXDriver(BaseDriver):
                 "the proxies run there), and a port of its own for each amplifier.\n\n"
                 "STEP 2 - Add the device.\n"
                 "Enter that address and port. When the proxies run on the PC that runs "
-                "OpenAVC, the address is 127.0.0.1.\n\n"
+                "OpenAVC, the address is 127.0.0.1, unless OpenAVC runs in Docker without "
+                "host networking: then enter the PC's own address.\n\n"
                 "STEP 3 - Groups and parameter sets (optional).\n"
                 "Add the volume groups and parameter sets from your design by number and "
                 "name if you want to recall them by name or bind group levels.\n\n"
@@ -683,7 +684,8 @@ class BosePowerShareXDriver(BaseDriver):
             "host": {"type": "string", "required": True, "label": "Processor or PC Address",
                      "help": "The IP address in the amplifier's PowerShareX Amplifier Properties "
                              "in ControlSpace Designer: the EX or ESP processor running its "
-                             "proxy, or the PC (127.0.0.1 on the same PC)."},
+                             "proxy, or the PC (127.0.0.1 on the same PC, the PC's own "
+                             "address from Docker without host networking)."},
             "port": {"type": "integer", "required": True, "label": "Amplifier Port", "min": 1,
                      "max": 65535,
                      "help": "The port in the amplifier's PowerShareX Amplifier Properties in "

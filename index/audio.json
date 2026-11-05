@@ -1439,7 +1439,7 @@
       "name": "Bose Professional PowerShareX (PSX1204D / PSX2404D / PSX4804D)",
       "manufacturer": "Bose Professional",
       "category": "audio",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Bose Professional PowerShareX PSX1204D, PSX2404D and PSX4804D amplifiers through the ControlSpace Serial Control Protocol, on the port ControlSpace Designer gives each amplifier on its EX or ESP processor: standby, each output's level, mute and polarity, the 4 x 4 matrix, each input's backup strategy and source, limiters, delays, EQs, the signal generator, the alarm panel, parameter sets, volume groups, signal levels, and the amplifier's fault and alarm reports. Values are subscribed, so changes made elsewhere appear at once.",
@@ -1447,7 +1447,7 @@
       "file": "audio/bose_powersharex.py",
       "format": "python",
       "files": {
-        "audio/bose_powersharex.py": "95a51d78fe619ba9d037b70c4b8d03de212f5ea269653e0b062a5a85f7b2a114",
+        "audio/bose_powersharex.py": "3e0c7d797458178b097711aa36915c5c24b9d5107b4e28cb4bc733fc5cdfef87",
         "audio/bose_powersharex_sim.py": "077875672d4357f1ed0a46296a21264c87847bbc128dce5c456d3ff33009363d"
       },
       "protocols": [
@@ -1466,7 +1466,7 @@
       ],
       "help": {
         "overview": "PowerShareX control over the ControlSpace Serial Control Protocol (no login), through the amplifier's own port on the processor that runs its PSXProxy. Each input and output is a child entity: output level, mute and polarity, the matrix cross-points into each output, each input's backup strategy and source, the limiter and delay, alarms and signal levels. Standby, the fault output, parameter sets, volume groups and the signal generator are on the device. A Discovery scan finds the processor, not the amplifier: add the amplifier by hand.",
-        "setup": "STEP 1 - Find the amplifier's address and port.\nIn ControlSpace Designer, open the amplifier's PowerShareX Amplifier Properties. It shows the IP address and port to use: the address of the EX or ESP processor running the amplifier's PSXProxy (or of the PC, when the proxies run there), and a port of its own for each amplifier.\n\nSTEP 2 - Add the device.\nEnter that address and port. When the proxies run on the PC that runs OpenAVC, the address is 127.0.0.1.\n\nSTEP 3 - Groups and parameter sets (optional).\nAdd the volume groups and parameter sets from your design by number and name if you want to recall them by name or bind group levels.\n\nSTEP 4 - Test.\nRun Test Connection. It reports whether the amplifier answered, whether it supports subscriptions, and whether its matrix, signal generator, backup strategy and alarm panel modules answered.",
+        "setup": "STEP 1 - Find the amplifier's address and port.\nIn ControlSpace Designer, open the amplifier's PowerShareX Amplifier Properties. It shows the IP address and port to use: the address of the EX or ESP processor running the amplifier's PSXProxy (or of the PC, when the proxies run there), and a port of its own for each amplifier.\n\nSTEP 2 - Add the device.\nEnter that address and port. When the proxies run on the PC that runs OpenAVC, the address is 127.0.0.1, unless OpenAVC runs in Docker without host networking: then enter the PC's own address.\n\nSTEP 3 - Groups and parameter sets (optional).\nAdd the volume groups and parameter sets from your design by number and name if you want to recall them by name or bind group levels.\n\nSTEP 4 - Test.\nRun Test Connection. It reports whether the amplifier answered, whether it supports subscriptions, and whether its matrix, signal generator, backup strategy and alarm panel modules answered.",
         "connection": "No login. A port that answers but is not a PowerShareX amplifier's (the processor's own 10055, for instance) never answers the standby query, and the device shows as not responding. Going online with ControlSpace Designer can close the connection; the driver reconnects on its own."
       },
       "compatible_models": [

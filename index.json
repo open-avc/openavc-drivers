@@ -343,7 +343,7 @@
       "name": "Allen & Heath Qu Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Allen & Heath Qu family (Qu-16, Qu-24, Qu-32, Qu-Pac, Qu-SB) via MIDI over TCP/IP on port 51325. Auto-identifies the model on connect and registers every input, stereo input, mix, group, matrix, DCA, mute group and FX send/return as a child entity with live mute / fader / pan state and its real channel name. Mute / fader / pan / send / assign / pre-post control, DCA and mute-group masters, PAFL, local preamp gain and 48V, scene recall (1-100), MMC transport, channel naming and remote shutdown, with bidirectional state from console-side moves.",
@@ -351,7 +351,7 @@
       "file": "audio/allenheath_qu.py",
       "format": "python",
       "files": {
-        "audio/allenheath_qu.py": "b96290be9718b0a016018d8f6caa1a82b3fdb07725d18200f7e997251ec2d203",
+        "audio/allenheath_qu.py": "87f0172b535eac4a3d77ade3362421c5bd1790822d80db5869b82dbd01f9b22c",
         "audio/allenheath_qu_sim.py": "3b6f63570ac8795032c379b79c4c91eb48019cde79ef69816bc99c4388b9d004"
       },
       "ports": [
@@ -400,7 +400,7 @@
         "tcp_probe": {
           "port": 51325,
           "send_hex": "F0 00 00 1A 50 11 01 00 7F 10 01 F7",
-          "expect_hex": "F0 00 00 1A 50 11 01 00",
+          "expect_regex": "\\xF0\\x00\\x00\\x1A\\x50\\x11\\x01\\x00",
           "timeout_ms": 2000
         },
         "oui": [

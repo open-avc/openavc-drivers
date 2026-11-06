@@ -644,7 +644,7 @@ class AllenHeathQuDriver(BaseDriver):
         "name": "Allen & Heath Qu Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.3.2",
+        "version": "1.3.3",
         # learned_from on the Model setting landed in 0.37.0.
         "min_platform_version": "0.37.0",
         "author": "OpenAVC",
@@ -686,10 +686,17 @@ class AllenHeathQuDriver(BaseDriver):
             # The AHNet UDP 51320 announce would be the obvious passive signal,
             # but its wire format is not published and reverse-engineering it
             # is out of bounds — hence an active probe.
+            #
+            # The answer is searched for (expect_regex, the reply read as
+            # latin-1) rather than matched as a prefix (expect_hex). Before
+            # 1.3.3 it was a prefix, and the probe never matched: a Qu sends an
+            # Active Sense byte (FE) as soon as a connection opens, "and then
+            # once every 300ms or so during any period of inactivity" (Qu MIDI
+            # Protocol V1.9), so an FE arrives ahead of the All-Call answer.
             "tcp_probe": {
                 "port": 51325,
                 "send_hex": "F0 00 00 1A 50 11 01 00 7F 10 01 F7",
-                "expect_hex": "F0 00 00 1A 50 11 01 00",
+                "expect_regex": "\\xF0\\x00\\x00\\x1A\\x50\\x11\\x01\\x00",
                 "timeout_ms": 2000,
             },
             "oui": ["00:04:c4"],

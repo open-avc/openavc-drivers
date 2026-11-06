@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 56,
+    "total_devices": 58,
     "shards": null,
     "category": "lighting"
   },
@@ -537,6 +537,30 @@
           "id": "etc_eos",
           "confidence": "untested",
           "notes": "All Eos-family consoles share the same OSC dictionary documented in the Eos Family Online Help. ColorSource AV exposes a subset of the same /eos OSC namespace."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ETC",
+      "model": "P-ACP-D Mk2",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "etc_paradigm",
+          "confidence": "untested",
+          "notes": "Paradigm Processor Mk2 (Enclosure and DIN), on Paradigm 6.0.0 or later with the PSAP 6.0.0 Input Handler. Status updates arrive on their own over RS-232 when the LightDesigner configuration has PSAP Triggers; over UDP they are read by polling."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ETC",
+      "model": "P-ACP-E Mk2",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "etc_paradigm",
+          "confidence": "untested",
+          "notes": "Paradigm Processor Mk2 (Enclosure and DIN), on Paradigm 6.0.0 or later with the PSAP 6.0.0 Input Handler. Status updates arrive on their own over RS-232 when the LightDesigner configuration has PSAP Triggers; over UDP they are read by polling."
         }
       ]
     },

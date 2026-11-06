@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 160,
+    "total_drivers": 161,
     "shards": null
   },
   "drivers": [
@@ -4352,6 +4352,65 @@
           "etc",
           "electronic theatre controls",
           "eos"
+        ]
+      }
+    },
+    {
+      "id": "etc_paradigm",
+      "name": "ETC Paradigm",
+      "manufacturer": "ETC",
+      "category": "lighting",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "udp",
+      "description": "Controls ETC Paradigm architectural lighting processors (P-ACP-E Mk2, P-ACP-D Mk2) through the Paradigm Serial Access Protocol over UDP or RS-232. List the channels, groups, presets, sequences, spaces, walls, macros and overrides to control by their LightDesigner names; each one shows its level or state.",
+      "source_url": "https://www.etcconnect.com/WorkArea/DownloadAsset.aspx?id=10737521406",
+      "file": "lighting/etc_paradigm.py",
+      "format": "python",
+      "files": {
+        "lighting/etc_paradigm.py": "9f9089a807104b442bf558bd21bd648d34091f334acb3c468faf8f0bc12d3b3e",
+        "lighting/etc_paradigm_sim.py": "a92a58d0a0e2d4a82ba12f3b2ff0d1bace75c40145014b0617a60a807cc39ec5"
+      },
+      "ports": [
+        4703
+      ],
+      "protocols": [
+        "etc_psap"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "lighting",
+        "architectural",
+        "paradigm",
+        "etc",
+        "psap",
+        "presets",
+        "rs-232"
+      ],
+      "help": {
+        "overview": "Controls an ETC Paradigm processor through PSAP, the Paradigm Serial Access Protocol. Each channel, group, preset, sequence, space, wall, macro and override you list under Objects appears under the device: a channel's or group's level, a preset's state (active, inactive or altered), a sequence's, a macro's, a wall's (open or closed) and an override's. Commands set levels, activate presets, start sequences, turn spaces off, open walls, run macros and enable overrides. Send PSAP Command sends any line, including a UString set up in LightDesigner.",
+        "setup": "1. In LightDesigner, select the processor and expand UDP Serial Config. Set Input UDP Port to a port from 4703 to 4727 (4703 here by default) and Input Handler to PSAP 6.0.0, then upload the configuration. For RS-232 instead, RS232 Serial Config already uses PSAP 6.0.0 at 9600 baud, 8 data bits, no parity, 1 stop bit.\n2. Leave End of Message Char at CR unless the site uses another, and set the same here.\n3. In OpenAVC, enter the processor's IP address and the UDP port, or pick Direct serial and the serial port.\n4. Under Objects, add a row for each thing to control: its type, its name exactly as LightDesigner shows it (case included), and the space that holds it. Fill in the space: a fade time needs it, and the processor reads a name in that space only. PSAP cannot read a name with a comma or a colon in it.\n5. Optional, RS-232 only: add PSAP Triggers in LightDesigner (user access Advanced) for the objects listed, so their changes show at once instead of at the next poll."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "ETC",
+          "models": [
+            "P-ACP-E Mk2",
+            "P-ACP-D Mk2"
+          ],
+          "confidence": "untested",
+          "notes": "Paradigm Processor Mk2 (Enclosure and DIN), on Paradigm 6.0.0 or later with the PSAP 6.0.0 Input Handler. Status updates arrive on their own over RS-232 when the LightDesigner configuration has PSAP Triggers; over UDP they are read by polling."
+        }
+      ],
+      "discovery": {
+        "oui": [
+          "00:c0:16"
+        ],
+        "manufacturer_alias": [
+          "etc",
+          "electronic theatre controls",
+          "paradigm"
         ]
       }
     },

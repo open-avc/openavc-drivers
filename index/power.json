@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 5,
+    "total_drivers": 6,
     "shards": null,
     "category": "power"
   },
@@ -102,6 +102,83 @@
           "american power conversion",
           "schneider electric",
           "apc by schneider electric"
+        ]
+      }
+    },
+    {
+      "id": "gude_epc8291",
+      "name": "GUDE Expert Power Control 8291",
+      "manufacturer": "GUDE",
+      "category": "power",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls the GUDE Expert Power Control 8291-2 AC / DC power distribution unit over its HTTP interface: the 21 ports (17 DC behind eFuses, 4 AC) switched on, off, over or power-cycled, with each port's eFuse state, the banks and power sources, the mains input meter (voltage, current, power, energy, residual current), the overvoltage protection and plug-in temperature, humidity and air pressure sensors.",
+      "source_url": "https://wiki.gude-systems.com/EPC_HTTP_Interface",
+      "file": "power/gude_epc8291.py",
+      "format": "python",
+      "files": {
+        "power/gude_epc8291.py": "2548e63d2b5b1716e321c55afeef3f0f56377e24ffe00c91f9549bcb0a78dcf9",
+        "power/gude_epc8291_sim.py": "cb89baa835897f5ed789db8a0e3ec034e3c3b262cded649e0c5abdca613fa42a"
+      },
+      "ports": [
+        80,
+        443
+      ],
+      "protocols": [
+        "http"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.34.0",
+      "tags": [
+        "pdu",
+        "power",
+        "dc-power",
+        "outlet-control",
+        "metering",
+        "efuse",
+        "rack",
+        "environmental-sensor"
+      ],
+      "help": {
+        "overview": "The Expert Power Control 8291 powers a rack's AV gear from one unit: 5 V, 12 V and 24 V DC terminals and USB sockets for the devices that would otherwise need plug-in power adapters, and four AC outlets. Each of the 21 ports is a child here, so a button, macro or schedule can switch one or power-cycle a stuck device, and a tripped eFuse (an overload or a short circuit on a DC port) shows on that port. The banks, the power supply's outputs, the mains meter, the overvoltage protection and up to two plug-in climate sensors come through as live values you can alert on.",
+        "setup": "1. Connect the unit to the network. It takes an address by DHCP; GUDE's GBL_Conf tool finds it.\n2. In its web interface, under Configuration > Ethernet > HTTP, note whether it serves HTTP, HTTPS or both. For HTTPS, turn on Use HTTPS here and set the port to 443.\n3. If password protection is on, enter admin or user and its password here. The user account can read and switch; Restart Controller may need admin. Any Authentication Mode works. With no passwords set on the unit (the factory state), leave the password blank.\n4. Ports, banks, power sources and sensors appear as children once connected. Port names are set in the unit's web interface, under Configuration > Power Ports."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "GUDE",
+          "models": [
+            "Expert Power Control 8291-2"
+          ],
+          "confidence": "untested",
+          "notes": "17 switched DC ports (5 V, and 12 V or 24 V per bank) behind eFuses, 4 switched AC ports. Its per-port DC metering appears as meter children named after the ports."
+        },
+        {
+          "manufacturer": "GUDE",
+          "models": [
+            "Expert Power Control 8291-1"
+          ],
+          "confidence": "untested",
+          "notes": "The predecessor (discontinued): the same banks, ports and interface without per-port DC metering."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 80,
+          "send_ascii": "GET /status.json?components=16 HTTP/1.0\r\n\r\n",
+          "expect_regex": "\"prodid\"\\s*:\\s*\"8291\"",
+          "timeout_ms": 3000
+        },
+        "oui": [
+          "00:19:32"
+        ],
+        "hostname": [
+          "epc-8291"
+        ],
+        "manufacturer_alias": [
+          "gude",
+          "gude systems",
+          "gude systems gmbh"
         ]
       }
     },

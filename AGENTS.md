@@ -151,10 +151,10 @@ openavc-drivers/
 ├── projectors/          # PJLink, Sony ADCP, Sharp NEC
 ├── displays/            # Samsung MDC, LG SICP, Sony Bravia
 ├── switchers/           # Extron SIS, Kramer P3000
-├── audio/               # Biamp Tesira, QSC Q-SYS, Shure, Audio-Technica
+├── audio/               # Biamp Tesira, QSC Q-SYS, Shure, Audio-Technica, Sonos
 ├── cameras/             # VISCA, BirdDog PTZ
 ├── video/               # vMix, NDI codecs
-├── streaming/           # NDI / RTSP encoders, streaming endpoints, Sonos
+├── streaming/           # NDI / RTSP encoders, streaming endpoints
 ├── lighting/            # DMX, Art-Net, sACN
 ├── power/               # PDUs, power sequencers
 ├── utility/             # Wake-on-LAN, relays, bridges, miscellaneous helpers
@@ -194,7 +194,7 @@ goes in `utility/`.
 | `audio` | `audio/` | DSPs, mixers, amplifiers, microphones, speakers |
 | `camera` | `cameras/` | PTZ cameras, webcams |
 | `video` | `video/` | Video production software, recorders |
-| `streaming` | `streaming/` | NDI / RTSP encoders, streaming endpoints, Sonos |
+| `streaming` | `streaming/` | NDI / RTSP encoders, streaming endpoints |
 | `lighting` | `lighting/` | DMX controllers, Art-Net nodes, sACN |
 | `power` | `power/` | PDUs, power sequencers, relay controllers |
 | `utility` | `utility/` | Wake-on-LAN, bridges, miscellaneous helpers |

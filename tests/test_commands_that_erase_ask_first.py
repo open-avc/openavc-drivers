@@ -60,6 +60,7 @@ SENDS_WITHOUT_ASKING: dict[tuple[str, str], str] = {
     ("soundcorehero", "input_remove_channels"): _LEAVES_A_GROUP,
     ("soundcorehero", "input_remove_zones"): _LEAVES_A_GROUP,
     ("soundcorehero", "dso_remove_channel"): _LEAVES_A_GROUP,
+    ("sonos", "remove_room_from_group"): _LEAVES_A_GROUP,
     ("vmix", "input_bus_off"): "stops sending one input's audio to a bus, a routing change",
     ("axis_vapix", "overlay_remove"): "takes off an overlay that Add Overlay puts back from the same fields",
     ("behringer_x32", "clear_solo"): "releases the solos, which only change what the engineer monitors",

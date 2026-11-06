@@ -10116,23 +10116,23 @@
       "name": "Sonos Speaker",
       "manufacturer": "Sonos",
       "category": "audio",
-      "version": "2.0.3",
+      "version": "2.1.0",
       "author": "OpenAVC",
       "transport": "http",
-      "description": "Controls Sonos speakers via the local UPnP API. Play/pause, volume, mute, bass/treble, track info, and transport control. The speaker pushes state changes as they happen (UPnP eventing).",
+      "description": "Controls Sonos speakers, amps and home theater products via the local UPnP API: playback and the queue, Sonos favorites and playlists, line-in and TV, groups and group volume, volume and fades, tone, home theater sound, alarms, now playing with album art, and the speaker's own settings. The speaker pushes state changes as they happen (UPnP eventing).",
       "source_url": "https://sonos.svrooij.io/services/",
       "file": "audio/sonos.py",
       "format": "python",
       "files": {
-        "audio/sonos.py": "38be91ef6b40ed8ed4b667335bdf789b4675ad51ea1866749aab2a38836facab",
-        "audio/sonos_sim.py": "81b822ced3814073ca8f2d924ca5a22b6971344ef85f65a82fb7d9ebdfab5756"
+        "audio/sonos.py": "a0bb5af3051eaa9bdbee5ba91362a21a92e840860ec3c9c10a82bf17bfd9aee0",
+        "audio/sonos_sim.py": "5b09abdec113792c6875124fb937452f180636f5a154a0cd44cc0ddbf7d9f432"
       },
       "ports": [
         1400
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "speaker",
         "wireless-audio",
@@ -10140,7 +10140,7 @@
         "upnp"
       ],
       "help": {
-        "overview": "Controls any Sonos speaker on the local network via UPnP. Works with all Sonos models including One, Five, Beam, Arc, Era, Move, Roam, Port, Amp, and legacy Play/Connect models. No cloud account or API key required. The speaker pushes state changes as they happen, so transport state, volume, mute and now-playing info update on panels within about a second \u2014 whether the change came from OpenAVC, the Sonos app, or a button on the speaker itself.",
+        "overview": "Controls any Sonos speaker on the local network via UPnP. Works with all Sonos models including One, Five, Beam, Arc, Era, Move, Roam, Port, Amp, and legacy Play/Connect models. No cloud account or API key required. Add one device per Sonos room. The speaker pushes state changes as they happen, so transport state, volume, mute and now-playing info update on panels within about a second, whether the change came from OpenAVC, the Sonos app, or a button on the speaker itself. A room grouped with another plays what the group's lead room plays, and its play, pause and skip commands go to the lead room.",
         "setup": "1. Ensure the Sonos speaker is on the same network\n2. Enter the speaker's IP address (find it in the Sonos app under Settings > System > About)\n3. Default port is 1400 (do not change)\n4. UPnP control must be enabled on the speaker (on by default)\n5. For instant updates the speaker must be able to reach the OpenAVC server, because it posts events back to it. If a firewall sits between them, allow that direction too. Without it everything still works, just at poll speed."
       },
       "compatible_models": [
@@ -10151,7 +10151,7 @@
             "Sonos S2 platform speakers"
           ],
           "confidence": "full",
-          "notes": "UPnP API stable across all Sonos models. Control and eventing verified on a Sonos Amp (S16) and a Sonos One (S18), firmware 95.1 (S2)."
+          "notes": "UPnP API stable across all Sonos models. Control, grouping and eventing verified on a Sonos Amp (S16) and a Sonos One (S18), S2. Home theater settings appear only on a speaker that reports them."
         }
       ],
       "discovery": {

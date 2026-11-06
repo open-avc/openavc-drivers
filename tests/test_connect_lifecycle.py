@@ -128,6 +128,9 @@ _CONFIG: dict[str, dict] = {
     # is sent. The sim accepts any but "invalid" when its config sets none.
     "bose_videobar": {"username": "admin", "password": "smokepw"},
     "crestron_automate_vx": {"username": "admin", "password": "smokepw"},
+    # The user is always jvc; a blank password is refused before it is sent.
+    # The sim accepts any password but "invalid" when its config sets none.
+    "jvc_ptz": {"password": "smokepw"},
 }
 
 

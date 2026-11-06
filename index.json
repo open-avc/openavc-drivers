@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 159,
+    "total_drivers": 160,
     "shards": null
   },
   "drivers": [
@@ -6002,6 +6002,97 @@
           "Just Add Power",
           "JustAddPower",
           "J+P"
+        ]
+      }
+    },
+    {
+      "id": "jvc_ptz",
+      "name": "JVC PTZ Camera",
+      "manufacturer": "JVC",
+      "category": "camera",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls JVC KY-PZ510, KY-PZ400N and KY-PZ200 PTZ cameras over the JVC Web API: pan, tilt and zoom with live position read-back, presets and home, focus, exposure, white balance and picture adjustments, tally, live stream start and stop, the on-screen menu, the KY-PZ510's auto tracking, and the camera's RTSP stream as a panel preview.",
+      "source_url": "https://jasc.jvc.com/files/prod/3978/5/JvcCamcorderApiReferenceV121_public.pdf",
+      "file": "cameras/jvc_ptz.py",
+      "format": "python",
+      "files": {
+        "cameras/jvc_ptz.py": "14c91fafa98f3bbf2355ce1b076ed176db1f530d6aa61610b3c8acedfda1e1be",
+        "cameras/jvc_ptz_sim.py": "ca10d2136204e51337a66dc38a95436cf1abcfec396a00b35f298c3610ac7cec"
+      },
+      "ports": [
+        80
+      ],
+      "protocols": [
+        "jvc_web_api"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "ptz",
+        "camera",
+        "jvc",
+        "auto-tracking",
+        "tally",
+        "rtsp",
+        "ndi"
+      ],
+      "help": {
+        "overview": "Controls a JVC KY-PZ PTZ camera over its web API: pan, tilt and zoom, presets and the home position, focus, exposure, white balance and picture adjustments, tally, and starting and stopping the live stream. On a KY-PZ510, auto tracking is turned on and off, its mode picked, and its framing and positions set from here. The live pan, tilt and zoom positions are read back from the camera, and its RTSP stream is offered to the Video Panel as a preview. The camera's power and standby can't be controlled through its web API.",
+        "setup": "1. Find the camera's IP address on its front LCD (192.168.0.10 from the factory).\n2. Open that address in a web browser and sign in as jvc with the factory password 0000; the camera asks for a new password. Set one.\n3. Enter the camera's IP address and that password here. Leave the port at 80 unless the camera's HTTP port was changed (Network > Port Settings).\n4. To show the camera on a panel, leave RTSP Auth off on the camera's Network page."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "JVC",
+          "models": [
+            "KY-PZ510NWU",
+            "KY-PZ510NBU",
+            "KY-PZ510NWE",
+            "KY-PZ510NBE",
+            "KY-PZ510WU",
+            "KY-PZ510BU",
+            "KY-PZ510WE",
+            "KY-PZ510BE"
+          ],
+          "confidence": "untested",
+          "notes": "Every command in JVC's Web API 1.21 for the KY-PZ510, auto tracking included (firmware 3.0.12 or later). Power and standby are not available through this API. Not yet tested on this hardware."
+        },
+        {
+          "manufacturer": "JVC",
+          "models": [
+            "KY-PZ400NWU",
+            "KY-PZ400NBU",
+            "KY-PZ400NWE",
+            "KY-PZ400NBE"
+          ],
+          "confidence": "untested",
+          "notes": "As the KY-PZ510 without auto tracking. Power and standby are not available through this API. Not yet tested on this hardware."
+        },
+        {
+          "manufacturer": "JVC",
+          "models": [
+            "KY-PZ200NWU",
+            "KY-PZ200NBU",
+            "KY-PZ200NWE",
+            "KY-PZ200NBE",
+            "KY-PZ200WU",
+            "KY-PZ200BU",
+            "KY-PZ200WE",
+            "KY-PZ200BE"
+          ],
+          "confidence": "untested",
+          "notes": "As the KY-PZ400N without a tally lamp: tally is reported but not controlled. Power and standby are not available through this API. Not yet tested on this hardware."
+        }
+      ],
+      "discovery": {
+        "hostname": [
+          "^PZ(510|400|200)"
+        ],
+        "manufacturer_alias": [
+          "jvc",
+          "jvckenwood",
+          "jvc kenwood"
         ]
       }
     },

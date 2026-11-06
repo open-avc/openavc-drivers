@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 128,
+    "total_devices": 148,
     "shards": null,
     "category": "camera"
   },
@@ -525,6 +525,246 @@
           "id": "visca_ip",
           "confidence": "untested",
           "notes": "Sony's VISCA-over-IP wire format is the de-facto cross-vendor standard for pro PTZ cameras. Brand-specific drivers expose more (vendor-specific image presets, preset-name strings, OSD/menu, lens controls) and should be preferred when available."
+        }
+      ]
+    },
+    {
+      "manufacturer": "JVC",
+      "model": "KY-PZ200BE",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "jvc_ptz",
+          "confidence": "untested",
+          "notes": "As the KY-PZ400N without a tally lamp: tally is reported but not controlled. Power and standby are not available through this API. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "JVC",
+      "model": "KY-PZ200BU",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "jvc_ptz",
+          "confidence": "untested",
+          "notes": "As the KY-PZ400N without a tally lamp: tally is reported but not controlled. Power and standby are not available through this API. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "JVC",
+      "model": "KY-PZ200NBE",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "jvc_ptz",
+          "confidence": "untested",
+          "notes": "As the KY-PZ400N without a tally lamp: tally is reported but not controlled. Power and standby are not available through this API. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "JVC",
+      "model": "KY-PZ200NBU",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "jvc_ptz",
+          "confidence": "untested",
+          "notes": "As the KY-PZ400N without a tally lamp: tally is reported but not controlled. Power and standby are not available through this API. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "JVC",
+      "model": "KY-PZ200NWE",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "jvc_ptz",
+          "confidence": "untested",
+          "notes": "As the KY-PZ400N without a tally lamp: tally is reported but not controlled. Power and standby are not available through this API. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "JVC",
+      "model": "KY-PZ200NWU",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "jvc_ptz",
+          "confidence": "untested",
+          "notes": "As the KY-PZ400N without a tally lamp: tally is reported but not controlled. Power and standby are not available through this API. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "JVC",
+      "model": "KY-PZ200WE",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "jvc_ptz",
+          "confidence": "untested",
+          "notes": "As the KY-PZ400N without a tally lamp: tally is reported but not controlled. Power and standby are not available through this API. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "JVC",
+      "model": "KY-PZ200WU",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "jvc_ptz",
+          "confidence": "untested",
+          "notes": "As the KY-PZ400N without a tally lamp: tally is reported but not controlled. Power and standby are not available through this API. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "JVC",
+      "model": "KY-PZ400NBE",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "jvc_ptz",
+          "confidence": "untested",
+          "notes": "As the KY-PZ510 without auto tracking. Power and standby are not available through this API. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "JVC",
+      "model": "KY-PZ400NBU",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "jvc_ptz",
+          "confidence": "untested",
+          "notes": "As the KY-PZ510 without auto tracking. Power and standby are not available through this API. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "JVC",
+      "model": "KY-PZ400NWE",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "jvc_ptz",
+          "confidence": "untested",
+          "notes": "As the KY-PZ510 without auto tracking. Power and standby are not available through this API. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "JVC",
+      "model": "KY-PZ400NWU",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "jvc_ptz",
+          "confidence": "untested",
+          "notes": "As the KY-PZ510 without auto tracking. Power and standby are not available through this API. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "JVC",
+      "model": "KY-PZ510BE",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "jvc_ptz",
+          "confidence": "untested",
+          "notes": "Every command in JVC's Web API 1.21 for the KY-PZ510, auto tracking included (firmware 3.0.12 or later). Power and standby are not available through this API. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "JVC",
+      "model": "KY-PZ510BU",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "jvc_ptz",
+          "confidence": "untested",
+          "notes": "Every command in JVC's Web API 1.21 for the KY-PZ510, auto tracking included (firmware 3.0.12 or later). Power and standby are not available through this API. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "JVC",
+      "model": "KY-PZ510NBE",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "jvc_ptz",
+          "confidence": "untested",
+          "notes": "Every command in JVC's Web API 1.21 for the KY-PZ510, auto tracking included (firmware 3.0.12 or later). Power and standby are not available through this API. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "JVC",
+      "model": "KY-PZ510NBU",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "jvc_ptz",
+          "confidence": "untested",
+          "notes": "Every command in JVC's Web API 1.21 for the KY-PZ510, auto tracking included (firmware 3.0.12 or later). Power and standby are not available through this API. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "JVC",
+      "model": "KY-PZ510NWE",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "jvc_ptz",
+          "confidence": "untested",
+          "notes": "Every command in JVC's Web API 1.21 for the KY-PZ510, auto tracking included (firmware 3.0.12 or later). Power and standby are not available through this API. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "JVC",
+      "model": "KY-PZ510NWU",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "jvc_ptz",
+          "confidence": "untested",
+          "notes": "Every command in JVC's Web API 1.21 for the KY-PZ510, auto tracking included (firmware 3.0.12 or later). Power and standby are not available through this API. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "JVC",
+      "model": "KY-PZ510WE",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "jvc_ptz",
+          "confidence": "untested",
+          "notes": "Every command in JVC's Web API 1.21 for the KY-PZ510, auto tracking included (firmware 3.0.12 or later). Power and standby are not available through this API. Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "JVC",
+      "model": "KY-PZ510WU",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "jvc_ptz",
+          "confidence": "untested",
+          "notes": "Every command in JVC's Web API 1.21 for the KY-PZ510, auto tracking included (firmware 3.0.12 or later). Power and standby are not available through this API. Not yet tested on this hardware."
         }
       ]
     },

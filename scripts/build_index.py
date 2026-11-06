@@ -1723,7 +1723,7 @@ def _format_validation_errors(file: str, exc: ValidationError) -> list[str]:
 
 
 def _with_catalog_platform_floor(
-    info: dict[str, Any], errors: list[str]
+    info: dict[str, Any], errors: list[str], tier: str = "yaml"
 ) -> list[str]:
     """Add the one min_platform_version rule that is publishing-only.
 
@@ -1738,10 +1738,16 @@ def _with_catalog_platform_floor(
     read the file, ignore the fields they do not recognise, and run it wrong.
     So the catalog asks the same rule the stricter way, and drops the message
     the platform already produced rather than saying it twice.
+
+    ``tier`` is the driver's format ("yaml" or "python"): a few floors bind a
+    YAML driver only, because an older release's YAML loader refuses the
+    value while its Python loader runs the driver without it.
     """
     extra = [
         err
-        for err in platform_version_errors(info, require_declaration=True)
+        for err in platform_version_errors(
+            info, require_declaration=True, tier=tier
+        )
         if err not in errors
     ]
     return list(errors) + extra
@@ -1940,7 +1946,7 @@ def main(argv: list[str] | None = None) -> int:
                 errors.extend(
                     f"{rel}: {err}"
                     for err in _with_catalog_platform_floor(
-                        full_info, python_driver_info_issues(full_info)
+                        full_info, python_driver_info_issues(full_info), "python"
                     )
                 )
                 for spot in opaque_spots:

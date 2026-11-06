@@ -483,7 +483,7 @@
       "name": "JVC PTZ Camera",
       "manufacturer": "JVC",
       "category": "camera",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls JVC KY-PZ510, KY-PZ400N and KY-PZ200 PTZ cameras over the JVC Web API: pan, tilt and zoom with live position read-back, presets and home, focus, exposure, white balance and picture adjustments, tally, live stream start and stop, the on-screen menu, the KY-PZ510's auto tracking, and the camera's RTSP stream as a panel preview.",
@@ -491,7 +491,7 @@
       "file": "cameras/jvc_ptz.py",
       "format": "python",
       "files": {
-        "cameras/jvc_ptz.py": "14c91fafa98f3bbf2355ce1b076ed176db1f530d6aa61610b3c8acedfda1e1be",
+        "cameras/jvc_ptz.py": "53c6a18f04fcf88762976f421fa520b9d53ad58c9a64237eb1c132bfad0fffd9",
         "cameras/jvc_ptz_sim.py": "ca10d2136204e51337a66dc38a95436cf1abcfec396a00b35f298c3610ac7cec"
       },
       "ports": [

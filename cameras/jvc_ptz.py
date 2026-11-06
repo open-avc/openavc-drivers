@@ -319,6 +319,17 @@ def _word(value: Any, kind: dict) -> Any:
     raise ValueError(f"{value!r} is not one of {sorted(str(v) for v in kind.values())}")
 
 
+def _say(value: Any) -> str:
+    """A value as a sentence says it: on / off for a switch, an enum's words."""
+    if value is True:
+        return "on"
+    if value is False:
+        return "off"
+    if value is None:
+        return "nothing"
+    return str(value).replace("_", " ")
+
+
 def _as_bool(value: Any) -> bool:
     if isinstance(value, bool):
         return value
@@ -345,7 +356,7 @@ class JVCPTZDriver(BaseDriver):
         "name": "JVC PTZ Camera",
         "manufacturer": "JVC",
         "category": "camera",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
         "description": (
@@ -1391,7 +1402,7 @@ class JVCPTZDriver(BaseDriver):
             if self.get_state(key) == expected:
                 return
         raise CommandRefusedError(
-            f"The camera accepted {what} but still reports {self.get_state(key)!r}."
+            f"The camera accepted {what} but still reports {_say(self.get_state(key))}."
         )
 
     def _require(self, key: str) -> None:
@@ -1599,10 +1610,10 @@ class JVCPTZDriver(BaseDriver):
 
         if key == "exposure_mode":
             await self._command("SetWebButtonEvent", {"Kind": "Exposure", "Button": _word(value, _EXPOSURE)}, label)
-            await self._verify(minimum, key, value, f"{label} = {value}")
+            await self._verify(minimum, key, value, f"{label} = {_say(value)}")
         elif key == "wb_mode":
             await self._command("SetWebButtonEvent", {"Kind": "Whb", "Button": _word(value, _WB)}, label)
-            await self._verify(minimum, key, value, f"{label} = {value}")
+            await self._verify(minimum, key, value, f"{label} = {_say(value)}")
         elif key in ("wb_red_paint", "wb_blue_paint"):
             await self._write_paint(key, _as_int(value, -1), label)
         elif key in ("flip", "mirror", "speed_with_zoom"):
@@ -1616,10 +1627,10 @@ class JVCPTZDriver(BaseDriver):
                 # JVC's tracking manual: the mode changes only with tracking off.
                 raise CommandRefusedError("Turn auto tracking off before changing its mode.")
             await self._command("SetTrackingMode", {"TrackingMode": _word(value, _TRACKING_MODE)}, label)
-            await self._verify(minimum, key, value, f"{label} = {value}")
+            await self._verify(minimum, key, value, f"{label} = {_say(value)}")
         elif key == "tracking_bounding_box":
             await self._command("SetTrackingBoundingBox", {"TrackingBoundingBox": _word(value, _BOUNDING_BOX)}, label)
-            await self._verify(full, key, value, f"{label} = {value}")
+            await self._verify(full, key, value, f"{label} = {_say(value)}")
         elif key in _TRACKING_SETTINGS:
             await self._write_tracking(key, value, label)
         else:
@@ -1633,15 +1644,15 @@ class JVCPTZDriver(BaseDriver):
         scale_field = "WhPRScale" if key == "wb_red_paint" else "WhPBScale"
         top = _as_int(whb.get(scale_field), 255) or 255
         if not 0 <= value <= top:
-            mode = self.get_state("wb_mode") or "the current"
+            mode = _say(self.get_state("wb_mode") or "the current")
             raise CommandRefusedError(f"In {mode} white balance, {label} goes from 0 to {top}.")
         red = value if key == "wb_red_paint" else _as_int(self.get_state("wb_red_paint"), 0)
         blue = value if key == "wb_blue_paint" else _as_int(self.get_state("wb_blue_paint"), 0)
         await self._command(
             "SetWebXYFieldEvent", {"Kind": "WhPaintRB", "XPosition": blue, "YPosition": red},
-            f"{label} = {value}",
+            f"{label} = {_say(value)}",
         )
-        await self._verify(lambda: self._read_status("minimum"), key, value, f"{label} = {value}")
+        await self._verify(lambda: self._read_status("minimum"), key, value, f"{label} = {_say(value)}")
 
     async def _write_tracking(self, key: str, value: Any, label: str) -> None:
         mode, field, kind = _TRACKING_SETTINGS[key]
@@ -1679,5 +1690,5 @@ class JVCPTZDriver(BaseDriver):
             command = f"SetTracking{mode}{field}"
             params = {field: _word(value, kind)}
             expected = value
-        await self._command(command, params, f"{label} = {value}")
-        await self._verify(self._read_tracking, key, expected, f"{label} = {value}")
+        await self._command(command, params, f"{label} = {_say(value)}")
+        await self._verify(self._read_tracking, key, expected, f"{label} = {_say(value)}")

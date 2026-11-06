@@ -205,6 +205,7 @@ def _platform() -> tuple[dict, str]:
             from openavc.simulator.http_simulator import HTTPSimulator  # noqa: PLC0415
             from openavc.simulator.mqtt_simulator import MQTTSimulator  # noqa: PLC0415
             from openavc.simulator.osc_simulator import OSCSimulator    # noqa: PLC0415
+            from openavc.simulator.snmp_simulator import SNMPSimulator  # noqa: PLC0415
             from openavc.simulator.tcp_simulator import TCPSimulator    # noqa: PLC0415
             from openavc.simulator.udp_simulator import UDPSimulator    # noqa: PLC0415
             from openavc.simulator.websocket_simulator import WebSocketSimulator  # noqa: PLC0415, E501
@@ -214,7 +215,7 @@ def _platform() -> tuple[dict, str]:
     drivers = _surface([BaseDriver])
     simulators = _surface([
         BaseSimulator, TCPSimulator, HTTPSimulator, UDPSimulator,
-        OSCSimulator, MQTTSimulator, WebSocketSimulator,
+        OSCSimulator, MQTTSimulator, SNMPSimulator, WebSocketSimulator,
     ])
     transports = _surface([
         TCPTransport, SerialTransport, UDPTransport, HTTPClientTransport,

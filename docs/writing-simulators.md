@@ -184,7 +184,7 @@ The handler code has access to:
 | `config` | Device config from the project file |
 | `respond(text)` | Send a response to the driver. Include the protocol delimiter. |
 | `reply(key)` | The text the device sends to report a state key's current value: the same reply a query of that key gets, in the device's own numbers (converted, padded to the width its rule reads), without the delimiter. `None` when no response rule describes the key. For a handler answering a "report everything" request, so it never repeats a conversion: `respond("".join(reply(k) + ">" for k in keys))`. TCP, serial and UDP handlers; needs platform 0.37.0. |
-| `notify(text)` | Send an unsolicited message on the device's push channel: the change notice or subscription update a real device emits *after* acknowledging a write. Delivered where this device's notifications go (its multicast group, SSE stream, dial-back subscribers or webhook callbacks; with no push block, every connected TCP client, or the last UDP peer). The delimiter is appended for you. |
+| `notify(text)` | Send an unsolicited message on the device's push channel: the change notice or subscription update a real device emits *after* acknowledging a write. Delivered where this device's notifications go (its multicast group, SSE stream, dial-back subscribers, webhook callbacks or UDP listener port; with no push block, every connected TCP client, or the last UDP peer). The delimiter is appended for you. |
 | `re`, `int`, `float`, `str`, `bool`, `max`, `min`, `round`, `abs`, `len`, `format`, `range`, `list`, `dict`, `set`, `tuple`, `sorted`, `enumerate`, `isinstance` | Built-in functions |
 | `json` | The standard `json` module, for a device whose protocol is JSON: `json.loads(match.group(0))` to read the request, `json.dumps(...)` to build the reply. Needs platform 0.34.0 — on an older simulator the name is missing, the handler raises, and the device answers nothing. |
 | `True`, `False`, `None` | Built-in constants |
@@ -535,6 +535,19 @@ simulator:
 
 See `cisco_roomos_xapi` for a full example (HttpFeedback registration + XML feedback bodies). Python HTTP simulators (`HTTPSimulator` subclasses) get the same capability from **`await self.post_http_callback(url, body, headers=..., method=...)`** — `sonos_sim.py` uses it to deliver UPnP GENA `NOTIFY` requests, and its `handle_request` returns a 3-tuple `(status, body, headers)` to answer the `SUBSCRIBE` handshake with its `SID` / `TIMEOUT` headers.
 
+**UDP-listener push drivers.** When a driver declares `push: {type: udp_listener}`, the real device is set to send each change as a UDP packet to OpenAVC's address and a port. The simulated device sends every `notifications` template as one packet to the port the push block names, resolved from the driver's config fields the same way the live driver resolves them, and to the computer OpenAVC runs on. It does **not** send them on the control connection, and nothing has to register, so `push_state` is not required. The device's own `delimiter` is appended, as for every notification. Author the templates as the packets the driver's `responses:` rules parse:
+
+```yaml
+push:
+  type: udp_listener
+  port: "{status_port}"
+simulator:
+  notifications:
+    door: "DOOR {value}"
+```
+
+Every simulated device sends from the same computer, so the packets leave from the device's own simulator port, and OpenAVC delivers each one only to the device whose simulator sent it. Two simulated units of the same driver sharing one listener port each update their own device, as two real units at two addresses do. The listener opens the port the device's settings name, so a port below 1024 (SNMP traps use 162) needs the same permission on the computer running the simulation as it would on site. Where it cannot open, the driver logs it and works at poll speed.
+
 ---
 
 ## Level 2: Python Simulator (30-60 Minutes)
@@ -884,6 +897,25 @@ Two override points, for a device that does more than store values:
 
 A write carrying several values is applied all-or-nothing, as SNMP requires: if one binding in the request is bad, none of them takes effect.
 
+A device that sends traps (its driver declares `push: {type: udp_listener}` on the trap port) sends one with `send_trap(trap_oid, varbinds, port)`. The base builds an SNMP v2c trap: sysUpTime and the trap OID first, as the standard requires, then your `(oid, type_name, value)` varbinds. It sends it under `TRAP_COMMUNITY` (`public` unless you set it) to the listener port, the way `send_to_listener` sends any packet. Call it where the simulated event happens; here, an outlet switched by a write:
+
+```python
+class MyPduSimulator(SNMPSimulator):
+    # SIMULATOR_INFO, the communities and OIDS as above
+
+    def write_oid(self, oid, type_name, value):
+        status = super().write_oid(oid, type_name, value)
+        if status == 0 and oid.startswith(OUTLET_STATE + "."):
+            self.send_trap(
+                "1.3.6.1.4.1.99999.0.1",
+                [(oid, "integer", value)],
+                port=int(self.config.get("trap_port", 162)),
+            )
+        return status
+```
+
+The driver reads it with `parse_snmp_trap(data)` from `openavc.transport.snmp_codec` (platform 0.40.0), which returns the community, the uptime, the trap OID and the varbinds, or `None` for anything that is not a v2c trap.
+
 ### File Naming and Placement
 
 - Simulator files use the `_sim.py` suffix
@@ -1020,6 +1052,14 @@ await self.push(b"TALLY 12001\r\n")
 # Send to a specific client
 await self.push_to(client_id, b"UPDATE power=on\r\n")
 ```
+
+A device whose driver declares `push: {type: udp_listener}` does not push on the connection: it sends each change as a packet to a port set on the device. Any simulator base sends one with `send_to_listener(data, port)`, where `port` is the driver's listener-port setting, read from `self.config` (with the driver's default when the device leaves it unset):
+
+```python
+self.send_to_listener(b"DOOR OPEN\r", int(self.config.get("status_port", 5001)))
+```
+
+It sends to the computer OpenAVC runs on, from this device's own port number: send through it rather than a socket of your own, because a packet from any other port does not reach the simulated device's driver. Nothing is sent while an error mode has the device not responding. It returns whether the packet went.
 
 ### Timed Transitions in Python
 

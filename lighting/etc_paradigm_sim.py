@@ -30,9 +30,14 @@ answers (the same), fade timing (levels change at once), and how presets
 share channels (activating an LTP preset makes the space's other LTP presets
 inactive, and a channel or group level changed in a space makes its active
 LTP presets altered). PSAP Triggers are modelled as one on every object: while the
-"PSAP Triggers" toggle is on, every change is sent to each TCP connection as
-its status line. Not over UDP: where a processor sends a trigger over UDP is
-set in LightDesigner, and the document does not say.
+"PSAP Triggers" toggle is on, every change is sent as its status line. With the
+device's Trigger Port set, a trigger goes over UDP to that port on the computer
+OpenAVC runs on, from this device's own port, as a processor sending its
+triggers to a destination set in LightDesigner would; the document does not say
+how that destination is set, so that half is a model of the setting, not of a
+documented one. With no Trigger Port, triggers go to each TCP connection (the
+serial line). A platform whose simulator cannot send to the listener (before
+OpenAVC 0.40.0) sends no UDP triggers.
 
 The "Station Preset" buttons act as a button station would: the Nth preset
 (the table's first, then the demonstration site's) is activated.
@@ -135,7 +140,7 @@ class EtcParadigmSimulator(DatagramServerMixin, TCPSimulator):
             "answer_unknown": True,
         },
         "controls": [
-            {"type": "toggle", "key": "triggers", "label": "PSAP Triggers (TCP / serial)"},
+            {"type": "toggle", "key": "triggers", "label": "PSAP Triggers"},
             {"type": "presets", "key": "station", "label": "Station Preset", "count": 6},
             {"type": "indicator", "key": "last_command", "label": "Last command"},
             {"type": "indicator", "key": "objects", "label": "Objects on the site"},
@@ -456,9 +461,16 @@ class EtcParadigmSimulator(DatagramServerMixin, TCPSimulator):
             return f"ovr {'enab' if rec['enabled'] else 'disab'} {name}"
         return "error invalid"
 
+    def _trigger_port(self) -> int:
+        try:
+            return int(self.config.get("trigger_port") or 0)
+        except (TypeError, ValueError):
+            return 0
+
     def _notify(self, changed: list[dict[str, Any]]) -> None:
-        """PSAP Triggers: each change goes out as its status line on every TCP
-        connection (the serial line), while the toggle is on."""
+        """PSAP Triggers, while the toggle is on: each change goes out as its
+        status line, to the Trigger Port when the device has one, else on
+        every TCP connection (the serial line)."""
         if not changed or not self.get_state("triggers"):
             return
         eom = self._eom()
@@ -469,5 +481,13 @@ class EtcParadigmSimulator(DatagramServerMixin, TCPSimulator):
             lines.append(self._status(rec) + eom)
             if rec["kind"] == "preset" and rec["htp"] != "dacth":
                 lines.append(self._status(rec, htp=True) + eom)
-        if lines:
-            asyncio.ensure_future(self.push("".join(lines).encode("utf-8")))
+        if not lines:
+            return
+        data = "".join(lines).encode("utf-8")
+        port = self._trigger_port()
+        if port > 0:
+            send = getattr(self, "send_to_listener", None)
+            if send is not None:  # OpenAVC 0.40.0+
+                send(data, port)
+            return
+        asyncio.ensure_future(self.push(data))

@@ -916,6 +916,8 @@ class MyPduSimulator(SNMPSimulator):
 
 The driver reads it with `parse_snmp_trap(data)` from `openavc.transport.snmp_codec` (platform 0.40.0), which returns the community, the uptime, the trap OID and the varbinds, or `None` for anything that is not a v2c trap.
 
+A value changed in the Simulator UI does not go through `write_oid`: the UI calls `set_state(key, value)`. So when the UI can change a value the device traps, send the trap from `set_state` as well, or the driver sees a UI change only at its next poll. The tidy form is one place for both: `write_oid` writes the MIB and mirrors the value into state with `set_state`, and `set_state` writes the MIB when the value came from the UI, then sends the trap, so each change is trapped once and a write of the value the device already holds is not trapped at all. A `select` or `slider` control can hand `set_state` text, so turn it into the OID's type first. `utility/snmp_v2c_sim.py` is the worked example. A simulator that must also run on a release before 0.40.0 looks the method up with `getattr(self, "send_trap", None)` and sends nothing when it is missing; `send_to_listener` is the same.
+
 ### File Naming and Placement
 
 - Simulator files use the `_sim.py` suffix

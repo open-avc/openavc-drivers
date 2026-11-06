@@ -4360,7 +4360,7 @@
       "name": "ETC Paradigm",
       "manufacturer": "ETC",
       "category": "lighting",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Controls ETC Paradigm architectural lighting processors (P-ACP-E Mk2, P-ACP-D Mk2) through the Paradigm Serial Access Protocol over UDP or RS-232. List the channels, groups, presets, sequences, spaces, walls, macros and overrides to control by their LightDesigner names; each one shows its level or state.",
@@ -4368,8 +4368,8 @@
       "file": "lighting/etc_paradigm.py",
       "format": "python",
       "files": {
-        "lighting/etc_paradigm.py": "9f9089a807104b442bf558bd21bd648d34091f334acb3c468faf8f0bc12d3b3e",
-        "lighting/etc_paradigm_sim.py": "a92a58d0a0e2d4a82ba12f3b2ff0d1bace75c40145014b0617a60a807cc39ec5"
+        "lighting/etc_paradigm.py": "81fdda428f5ab66c7c6b9e78574264eaea7ba799c11373ae9ad3d9c018fc99e9",
+        "lighting/etc_paradigm_sim.py": "15088855ebf2311f9efb5778ff670d609a0a6f0d2033488c9d6ddac6e612559c"
       },
       "ports": [
         4703
@@ -4390,7 +4390,7 @@
       ],
       "help": {
         "overview": "Controls an ETC Paradigm processor through PSAP, the Paradigm Serial Access Protocol. Each channel, group, preset, sequence, space, wall, macro and override you list under Objects appears under the device: a channel's or group's level, a preset's state (active, inactive or altered), a sequence's, a macro's, a wall's (open or closed) and an override's. Commands set levels, activate presets, start sequences, turn spaces off, open walls, run macros and enable overrides. Send PSAP Command sends any line, including a UString set up in LightDesigner.",
-        "setup": "1. In LightDesigner, select the processor and expand UDP Serial Config. Set Input UDP Port to a port from 4703 to 4727 (4703 here by default) and Input Handler to PSAP 6.0.0, then upload the configuration. For RS-232 instead, RS232 Serial Config already uses PSAP 6.0.0 at 9600 baud, 8 data bits, no parity, 1 stop bit.\n2. Leave End of Message Char at CR unless the site uses another, and set the same here.\n3. In OpenAVC, enter the processor's IP address and the UDP port, or pick Direct serial and the serial port.\n4. Under Objects, add a row for each thing to control: its type, its name exactly as LightDesigner shows it (case included), and the space that holds it. Fill in the space: a fade time needs it, and the processor reads a name in that space only. PSAP cannot read a name with a comma or a colon in it.\n5. Optional, RS-232 only: add PSAP Triggers in LightDesigner (user access Advanced) for the objects listed, so their changes show at once instead of at the next poll."
+        "setup": "1. In LightDesigner, select the processor and expand UDP Serial Config. Set Input UDP Port to a port from 4703 to 4727 (4703 here by default) and Input Handler to PSAP 6.0.0, then upload the configuration. For RS-232 instead, RS232 Serial Config already uses PSAP 6.0.0 at 9600 baud, 8 data bits, no parity, 1 stop bit.\n2. Leave End of Message Char at CR unless the site uses another, and set the same here.\n3. In OpenAVC, enter the processor's IP address and the UDP port, or pick Direct serial and the serial port.\n4. Under Objects, add a row for each thing to control: its type, its name exactly as LightDesigner shows it (case included), and the space that holds it. Fill in the space: a fade time needs it, and the processor reads a name in that space only. PSAP cannot read a name with a comma or a colon in it.\n5. Optional: add PSAP Triggers in LightDesigner (user access Advanced) for the objects listed, so their changes show at once instead of at the next poll. Over RS-232 they arrive on the serial line. Over UDP, ETC's PSAP guide does not say where a trigger is sent: if LightDesigner lets you send it to an IP address and UDP port, use this computer's address and a free port, and enter that port as Trigger Port here (OpenAVC 0.40.0 or later). The poll still reads every listed object either way."
       },
       "compatible_models": [
         {
@@ -5523,16 +5523,16 @@
       "name": "SNMP Device (v2c)",
       "manufacturer": "Generic",
       "category": "utility",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "snmp",
-      "description": "Read and control any SNMP v2c device by declaring the OIDs from its MIB.",
+      "description": "Read and control any SNMP v2c device by declaring the OIDs from its MIB, with its traps applied as they arrive.",
       "source_url": "https://www.rfc-editor.org/rfc/rfc3416",
       "file": "utility/snmp_v2c.py",
       "format": "python",
       "files": {
-        "utility/snmp_v2c.py": "189dd5f287ca7c6beb4836f4b895badfee15cf4335b1f22da6b7ab17d80c6791",
-        "utility/snmp_v2c_sim.py": "3bb91bba6eb2a15fd9fd41437c5066755770bf162164dae7ac57829e8f5c514b"
+        "utility/snmp_v2c.py": "ec2b528ded0348a85b9218b6bfd6aab237928c1448091996105cc3477338436f",
+        "utility/snmp_v2c_sim.py": "b47e3372faa0aa157dabb0d0f3a13c87d686e23cac5628ae5a0e1bed052cabbb"
       },
       "protocols": [
         "snmp"
@@ -5540,8 +5540,8 @@
       "simulated": true,
       "min_platform_version": "0.34.0",
       "help": {
-        "overview": "Controls any device that speaks SNMP v2c \u2014 switched PDUs, UPSes, managed switches, environmental sensors, and displays or projectors with a MIB. You declare the OIDs from the manufacturer's MIB on the device page; the driver turns read OIDs into live status values, write OIDs into commands, and read/write OIDs into device settings. A MIB table becomes one child entity per row.",
-        "setup": "Enter the IP address and the read community string (devices ship with 'public'), then run Test Connection \u2014 it reads the device's own description back, which confirms both the address and the community string. Add the write community only if you need to control the device; it is usually a different string from the read one. Then add the OIDs from the manufacturer's MIB."
+        "overview": "Controls any device that speaks SNMP v2c \u2014 switched PDUs, UPSes, managed switches, environmental sensors, and displays or projectors with a MIB. You declare the OIDs from the manufacturer's MIB on the device page; the driver turns read OIDs into live status values, write OIDs into commands, and read/write OIDs into device settings. A MIB table becomes one child entity per row. Traps the device sends update the values they carry at once, and every value is read again straight after.",
+        "setup": "Enter the IP address and the read community string (devices ship with 'public'), then run Test Connection \u2014 it reads the device's own description back, which confirms both the address and the community string. Add the write community only if you need to control the device; it is usually a different string from the read one. Then add the OIDs from the manufacturer's MIB.\nFor traps, set the device's trap destination (trap receiver, or manager) to this computer's IP address and the Trap Port (162 unless you change it), with SNMP v2c traps. Traps need OpenAVC 0.40.0 or later; until then, and for any trap that is lost on the network, changes show at the next poll. Only one program on this computer can listen on a port: if another trap receiver already uses 162, pick another port here and on the device."
       }
     },
     {

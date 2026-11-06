@@ -185,16 +185,16 @@
       "name": "SNMP Device (v2c)",
       "manufacturer": "Generic",
       "category": "utility",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "snmp",
-      "description": "Read and control any SNMP v2c device by declaring the OIDs from its MIB.",
+      "description": "Read and control any SNMP v2c device by declaring the OIDs from its MIB, with its traps applied as they arrive.",
       "source_url": "https://www.rfc-editor.org/rfc/rfc3416",
       "file": "utility/snmp_v2c.py",
       "format": "python",
       "files": {
-        "utility/snmp_v2c.py": "189dd5f287ca7c6beb4836f4b895badfee15cf4335b1f22da6b7ab17d80c6791",
-        "utility/snmp_v2c_sim.py": "3bb91bba6eb2a15fd9fd41437c5066755770bf162164dae7ac57829e8f5c514b"
+        "utility/snmp_v2c.py": "ec2b528ded0348a85b9218b6bfd6aab237928c1448091996105cc3477338436f",
+        "utility/snmp_v2c_sim.py": "b47e3372faa0aa157dabb0d0f3a13c87d686e23cac5628ae5a0e1bed052cabbb"
       },
       "protocols": [
         "snmp"
@@ -202,8 +202,8 @@
       "simulated": true,
       "min_platform_version": "0.34.0",
       "help": {
-        "overview": "Controls any device that speaks SNMP v2c \u2014 switched PDUs, UPSes, managed switches, environmental sensors, and displays or projectors with a MIB. You declare the OIDs from the manufacturer's MIB on the device page; the driver turns read OIDs into live status values, write OIDs into commands, and read/write OIDs into device settings. A MIB table becomes one child entity per row.",
-        "setup": "Enter the IP address and the read community string (devices ship with 'public'), then run Test Connection \u2014 it reads the device's own description back, which confirms both the address and the community string. Add the write community only if you need to control the device; it is usually a different string from the read one. Then add the OIDs from the manufacturer's MIB."
+        "overview": "Controls any device that speaks SNMP v2c \u2014 switched PDUs, UPSes, managed switches, environmental sensors, and displays or projectors with a MIB. You declare the OIDs from the manufacturer's MIB on the device page; the driver turns read OIDs into live status values, write OIDs into commands, and read/write OIDs into device settings. A MIB table becomes one child entity per row. Traps the device sends update the values they carry at once, and every value is read again straight after.",
+        "setup": "Enter the IP address and the read community string (devices ship with 'public'), then run Test Connection \u2014 it reads the device's own description back, which confirms both the address and the community string. Add the write community only if you need to control the device; it is usually a different string from the read one. Then add the OIDs from the manufacturer's MIB.\nFor traps, set the device's trap destination (trap receiver, or manager) to this computer's IP address and the Trap Port (162 unless you change it), with SNMP v2c traps. Traps need OpenAVC 0.40.0 or later; until then, and for any trap that is lost on the network, changes show at the next poll. Only one program on this computer can listen on a port: if another trap receiver already uses 162, pick another port here and on the device."
       }
     },
     {

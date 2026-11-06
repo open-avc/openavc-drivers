@@ -28,11 +28,30 @@ Python, not YAML, for two reasons ConfigurableDriver cannot cover: SNMP is a
 Python-only transport (a request is a list of OIDs, not a send string), and the
 schema is derived from config rather than declared in the driver file.
 
-**Polling, and why that is not a Principle-2 violation.** SNMP's push channel is
-the trap (an unsolicited datagram to UDP 162). The platform has no listener
-shape for a unicast UDP port shared across devices and demuxed by source
-address, so traps are deferred rather than dropped silently — see the pending
-push tracker in the driver roadmap. Everything here is polled.
+**Push vs poll: hybrid.** SNMP's push channel is the trap: an unsolicited v2c
+datagram the agent sends to a manager address and port set on the device (UDP
+162 by convention). The driver declares ``push: {type: udp_listener}`` on its
+Trap Port setting, so on OpenAVC 0.40.0 and later the platform listens on that
+port (one socket shared by every device sending there, each datagram handed to
+the device whose address sent it) and a trap is applied at once:
+
+  * every value the trap carries for a declared OID (a scalar, or a column of
+    a table row the walk found) is written straight into its state;
+  * Last Trap and Traps Received say which notification arrived, and the count
+    changes on every trap, so a trigger fires on a repeat;
+  * every declared value is then read again about a second later, because many
+    traps name the event and carry a description rather than the value that
+    changed (a UPS's on-battery trap). Traps that arrive together share one
+    read.
+
+The poll still reads everything, so a missed trap (UDP drops them without
+saying so) or a device with no trap destination set is read at the next poll.
+On a release without the listener the push block is ignored with one warning
+each connect, the decoder is not imported, and the device is polled as before.
+Trap Port 0 listens for nothing. Only v2c traps are read: an SNMPv1 trap or an
+inform is logged once and dropped. Traps are taken under any community string:
+the listener already accepts a datagram only from the device's own address, and
+a device's trap community is often a setting of its own.
 
 **v2c only.** Version 3 adds USM authentication and privacy, which the platform
 transport does not implement.
@@ -55,9 +74,21 @@ from openavc.drivers.base import BaseDriver
 from openavc.transport.snmp import SnmpError
 from openavc.utils.logger import get_logger
 
+try:  # OpenAVC 0.40.0+, with the UDP listener that delivers traps.
+    from openavc.transport.snmp_codec import parse_snmp_trap
+except ImportError:  # pragma: no cover - depends on the platform release
+    # An older release never hands the driver a trap, so nothing calls it.
+    parse_snmp_trap = None
+
 log = get_logger(__name__)
 
 DEFAULT_PORT = 161
+DEFAULT_TRAP_PORT = 162
+
+# How long after a trap every declared value is read again. Long enough that a
+# burst of traps (a PDU reporting several outlets) shares one read, short
+# enough that the values the trap does not carry follow it closely.
+TRAP_REREAD_DELAY_S = 1.0
 
 # How many varbinds to put in one request. SNMP allows many, but a PDU that
 # outgrows the path MTU is answered with tooBig (or dropped by a middlebox),
@@ -327,23 +358,30 @@ class SNMPv2cDriver(BaseDriver):
         "name": "SNMP Device (v2c)",
         "manufacturer": "Generic",
         "category": "utility",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": "Read and control any SNMP v2c device by declaring the "
-                       "OIDs from its MIB.",
+                       "OIDs from its MIB, with its traps applied as they "
+                       "arrive.",
         "source_url": "https://www.rfc-editor.org/rfc/rfc3416",
         "simulated": True,
         # transport: snmp is the floor the contract computes — an older
         # platform answers "Unsupported transport type" and the device never
-        # connects.
+        # connects. The push block raises no floor for a Python driver: a
+        # release without the UDP listener warns once a connect and polls.
         "min_platform_version": "0.34.0",
         "transport": "snmp",
         "protocols": ["snmp"],
+        # Traps (OpenAVC 0.40.0+): the device sends them to this computer's
+        # address on the Trap Port; the listener hands each one to
+        # _handle_push_datagram.
+        "push": {"type": "udp_listener", "port": "{trap_port}"},
         "default_config": {
             "host": "",
             "port": DEFAULT_PORT,
             "community": "public",
             "write_community": "",
+            "trap_port": DEFAULT_TRAP_PORT,
             "timeout": 2.0,
             "retries": 1,
             "poll_interval": 30,
@@ -365,6 +403,13 @@ class SNMPv2cDriver(BaseDriver):
                                 "description": "The community string that may write, "
                                                "often 'private'. Leave blank to write "
                                                "with the read community."},
+            "trap_port": {"type": "integer", "default": DEFAULT_TRAP_PORT,
+                          "label": "Trap Port", "min": 0, "max": 65535,
+                          "description": "The UDP port this device sends its "
+                                         "traps to. Set the device's trap "
+                                         "destination to this computer's address "
+                                         "and this port, as SNMP v2c. 162 is the "
+                                         "standard; 0 stops listening for traps."},
             "timeout": {"type": "number", "default": 2.0, "label": "Timeout (sec)",
                         "min": 0.5, "max": 30},
             "retries": {"type": "integer", "default": 1, "label": "Retries",
@@ -404,6 +449,14 @@ class SNMPv2cDriver(BaseDriver):
             "sys_contact": {"type": "string", "label": "Contact"},
             "sys_uptime": {"type": "integer", "label": "Uptime (sec)",
                            "unit": "s", "cloud_priority": "low"},
+            "last_trap": {"type": "string", "label": "Last Trap",
+                          "help": "The OID of the last trap the device sent, "
+                                  "which names the notification. The "
+                                  "manufacturer's MIB lists them."},
+            "trap_count": {"type": "integer", "label": "Traps Received",
+                           "help": "Counts the traps received, so a trigger on "
+                                   "it fires on every one, the same trap twice "
+                                   "included."},
         },
         "commands": {},
         "device_settings": {},
@@ -429,14 +482,24 @@ class SNMPv2cDriver(BaseDriver):
                         "the driver turns read OIDs into live status values, "
                         "write OIDs into commands, and read/write OIDs into "
                         "device settings. A MIB table becomes one child entity "
-                        "per row.",
+                        "per row. Traps the device sends update the values "
+                        "they carry at once, and every value is read again "
+                        "straight after.",
             "setup": "Enter the IP address and the read community string "
                      "(devices ship with 'public'), then run Test Connection — "
                      "it reads the device's own description back, which "
                      "confirms both the address and the community string. Add "
                      "the write community only if you need to control the "
                      "device; it is usually a different string from the read "
-                     "one. Then add the OIDs from the manufacturer's MIB.",
+                     "one. Then add the OIDs from the manufacturer's MIB.\n"
+                     "For traps, set the device's trap destination (trap "
+                     "receiver, or manager) to this computer's IP address and "
+                     "the Trap Port (162 unless you change it), with SNMP v2c "
+                     "traps. Traps need OpenAVC 0.40.0 or later; until then, "
+                     "and for any trap that is lost on the network, changes "
+                     "show at the next poll. Only one program on this computer "
+                     "can listen on a port: if another trap receiver already "
+                     "uses 162, pick another port here and on the device.",
         },
     }
 
@@ -458,6 +521,12 @@ class SNMPv2cDriver(BaseDriver):
         # Names already reported absent, so a device that lacks a declared OID
         # says so once rather than on every poll forever.
         self._absent: set[str] = set()
+        # Traps: how many arrived, the read that follows them, and whether a
+        # datagram that is not a v2c trap has been reported already.
+        self._trap_count = 0
+        self._reread_task: asyncio.Task | None = None
+        self._reread_again = False
+        self._not_a_trap_reported = False
         self.DRIVER_INFO = self._build_driver_info()
         super().__init__(device_id, config, state, events)
 
@@ -600,7 +669,11 @@ class SNMPv2cDriver(BaseDriver):
             scaled = float(value) * spec["scale"] + spec["offset"]
         except (TypeError, ValueError):
             return str(value)
-        return int(scaled) if _state_type(spec) == "integer" else scaled
+        if _state_type(spec) == "integer":
+            return int(scaled)
+        # 34 x 0.1 is 3.4000000000000004 in binary floating point: round off
+        # what the multiplication added, or a device page shows it.
+        return round(scaled, 9)
 
     def _to_wire(self, spec: dict[str, Any], value: Any) -> Any:
         """Turn what the user asked for into what goes on the wire."""
@@ -793,6 +866,109 @@ class SNMPv2cDriver(BaseDriver):
             "manufacturer's MIB — the value will stay blank.",
             self.device_id, name, kind,
         )
+
+    # ── Traps ──
+
+    def _trap_port(self) -> int:
+        try:
+            return int(self.config.get("trap_port", DEFAULT_TRAP_PORT) or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    async def _start_push(self) -> None:
+        # Trap Port 0 means no traps: open nothing and warn about nothing.
+        if self._trap_port() <= 0:
+            return
+        await super()._start_push()
+
+    async def _handle_push_datagram(
+        self, data: bytes, source: tuple[str, int]
+    ) -> None:
+        """One datagram the device sent to the Trap Port (OpenAVC 0.40.0+)."""
+        trap = parse_snmp_trap(data) if parse_snmp_trap is not None else None
+        if trap is None:
+            if not self._not_a_trap_reported:
+                self._not_a_trap_reported = True
+                log.warning(
+                    "[%s] The device sent something to the trap port that is "
+                    "not an SNMP v2c trap (an SNMPv1 trap or an inform reads "
+                    "this way). Set the device to send v2c traps.",
+                    self.device_id,
+                )
+            return
+        self._apply_trap(trap)
+        self._schedule_reread()
+
+    def _apply_trap(self, trap: Any) -> None:
+        """Write what a trap carries into state, before the count moves, so a
+        trigger on the count sees the values that came with it."""
+        values: dict[str, Any] = {}
+        readable = {s["oid"]: s for s in self._scalars if s["access"] in ("r", "rw")}
+        rows: dict[str, dict[str, Any]] = {
+            child_type: {suffix: local_id for local_id, suffix in index.items()}
+            for child_type, index in self._child_index.items()
+        }
+        per_child: dict[tuple[str, Any], dict[str, Any]] = {}
+        for varbind in trap.varbinds:
+            if varbind.is_exception:
+                continue
+            spec = readable.get(varbind.oid)
+            if spec is not None:
+                values[spec["name"]] = self._to_state(spec, varbind.value)
+                continue
+            for child_type, columns in self._columns.items():
+                for column in columns:
+                    if column["access"] not in ("r", "rw"):
+                        continue
+                    prefix = column["oid"] + "."
+                    if not varbind.oid.startswith(prefix):
+                        continue
+                    local_id = rows.get(child_type, {}).get(varbind.oid[len(prefix):])
+                    if local_id is not None:
+                        per_child.setdefault((child_type, local_id), {})[
+                            column["name"]
+                        ] = self._to_state(column, varbind.value)
+        if per_child:
+            self.set_children_state_batch([
+                (child_type, local_id, props)
+                for (child_type, local_id), props in per_child.items()
+            ])
+        if trap.uptime is not None:
+            values["sys_uptime"] = int(trap.uptime) // 100
+        self._trap_count += 1
+        values["last_trap"] = trap.trap_oid or ""
+        values["trap_count"] = self._trap_count
+        self.set_states(values)
+
+    def _schedule_reread(self) -> None:
+        if self._reread_task is not None and not self._reread_task.done():
+            # A read is waiting or running: a trap during the wait is covered
+            # by it, one during the read gets one more read after it.
+            self._reread_again = True
+            return
+        self._reread_task = asyncio.ensure_future(self._reread_after_traps())
+
+    async def _reread_after_traps(self) -> None:
+        """Read every declared value again shortly after a trap: many traps
+        name the event and carry a description, not the value that changed."""
+        while True:
+            await asyncio.sleep(TRAP_REREAD_DELAY_S)
+            self._reread_again = False
+            try:
+                await self.poll()
+            except (ConnectionError, SnmpError, asyncio.TimeoutError) as e:
+                # The poll and the liveness check judge the link; this read
+                # only brings values forward.
+                log.debug("[%s] Read after a trap failed: %s", self.device_id, e)
+                return
+            if not self._reread_again:
+                return
+
+    async def _close_session(self) -> None:
+        task, self._reread_task = self._reread_task, None
+        if task is not None and not task.done():
+            task.cancel()
+        await super()._close_session()
 
     # ── Writes ──
 

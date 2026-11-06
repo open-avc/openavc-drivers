@@ -39,10 +39,18 @@ Hybrid. PSAP answers each "get" with a status line, and a processor whose
 LightDesigner configuration has PSAP Triggers sends the same line by itself
 whenever that object changes. Over RS-232 (or a serial line through a
 bridge) those lines arrive on the connection and are applied like any
-answer. Over UDP the guide does not say where a trigger is sent, and the
-platform's UDP socket takes an ephemeral local port, so a trigger aimed at a
-fixed address and port in LightDesigner cannot reach it: changes are read by
-the poll. Every listed object is read at connect and then by the poll (at
+answer. Over UDP the guide does not say where a trigger is sent. A trigger
+aimed at a fixed address and port set in LightDesigner reaches the Trigger
+Port: the driver declares it as ``push: {type: udp_listener}``, so on
+OpenAVC 0.40.0 and later the platform listens there and hands over each
+datagram the processor's address sends. Such a line is applied like any
+status line, but it is never taken as the answer to the request in flight
+and does not count as the processor answering on the control link, so a
+trigger cannot stand in for the answer the connect check or the liveness
+probe asks for. Trigger Port 0 (the default) opens nothing. On a release
+without the listener a Trigger Port set is ignored with one warning each
+connect. Any line that does reach the driver's own socket is applied as
+well. Every listed object is read at connect and then by the poll (at
 most MAX_READS_PER_POLL a poll, in turn, so a long list is read across
 several polls), and each command reads its object back at once, again once
 its fade has run, and the other listed objects in its space after a preset,
@@ -328,9 +336,11 @@ class EtcParadigmDriver(BaseDriver):
         "name": "ETC Paradigm",
         "manufacturer": "ETC",
         "category": "lighting",
-        "version": "1.0.0",
+        "version": "1.1.0",
         # Computed: commands.preset_record.confirm (0.36.0). Checked on the
         # v0.36.0 tag with its simulator: every hook the code calls is there.
+        # The push block raises no floor for a Python driver: a release
+        # without the UDP listener warns once a connect and polls.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
         "description": (
@@ -348,6 +358,9 @@ class EtcParadigmDriver(BaseDriver):
         "ports": [4703],
         "transport": "udp",
         "transports": ["udp", "serial"],
+        # PSAP Triggers sent over UDP to this computer (OpenAVC 0.40.0+), on
+        # the Trigger Port; 0 opens nothing (_start_push).
+        "push": {"type": "udp_listener", "port": "{trigger_port}"},
         "discovery": {
             # No probe: the processor's UDP input is off until LightDesigner
             # sets a port, and the port is the site's choice (4703-4727
@@ -396,9 +409,14 @@ class EtcParadigmDriver(BaseDriver):
                 "the space that holds it. Fill in the space: a fade time needs "
                 "it, and the processor reads a name in that space only. PSAP "
                 "cannot read a name with a comma or a colon in it.\n"
-                "5. Optional, RS-232 only: add PSAP Triggers in LightDesigner (user "
-                "access Advanced) for the objects listed, so their changes show at "
-                "once instead of at the next poll."
+                "5. Optional: add PSAP Triggers in LightDesigner (user access "
+                "Advanced) for the objects listed, so their changes show at once "
+                "instead of at the next poll. Over RS-232 they arrive on the serial "
+                "line. Over UDP, ETC's PSAP guide does not say where a trigger is "
+                "sent: if LightDesigner lets you send it to an IP address and UDP "
+                "port, use this computer's address and a free port, and enter that "
+                "port as Trigger Port here (OpenAVC 0.40.0 or later). The poll "
+                "still reads every listed object either way."
             ),
         },
         "quick_actions": ["preset_activate", "preset_deactivate", "channel_set_level"],
@@ -559,6 +577,7 @@ class EtcParadigmDriver(BaseDriver):
             "objects": [],
             "end_of_message": "cr",
             "read_htp": False,
+            "trigger_port": 0,
             "poll_interval": 10,
         },
         "config_schema": {
@@ -625,12 +644,21 @@ class EtcParadigmDriver(BaseDriver):
                     "the site plays presets HTP."
                 ),
             },
+            "trigger_port": {
+                "type": "integer", "default": 0, "min": 0, "max": 65535,
+                "label": "Trigger Port",
+                "description": (
+                    "The UDP port on this computer that the processor's PSAP "
+                    "Triggers are sent to, when LightDesigner sends them over "
+                    "UDP. 0: none."
+                ),
+            },
             "poll_interval": {
                 "type": "integer", "default": 10, "min": 0,
                 "label": "Status Read Interval (sec)",
                 "description": (
-                    "How often to read the listed objects. Over RS-232, PSAP "
-                    "Triggers report changes at once as well."
+                    "How often to read the listed objects. PSAP Triggers report "
+                    "changes at once as well, over RS-232 or to the Trigger Port."
                 ),
             },
         },
@@ -1263,12 +1291,39 @@ class EtcParadigmDriver(BaseDriver):
             if line:
                 self._handle_line(line)
 
-    def _handle_line(self, line: str) -> None:
+    # ── PSAP Triggers on the Trigger Port (OpenAVC 0.40.0+) ──
+
+    def _trigger_port(self) -> int:
+        try:
+            return int(self.config.get("trigger_port") or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    async def _start_push(self) -> None:
+        # Trigger Port 0 means none: open nothing and warn about nothing.
+        if self._trigger_port() <= 0:
+            return
+        await super()._start_push()
+
+    async def _handle_push_datagram(
+        self, data: bytes, source: tuple[str, int]
+    ) -> None:
+        text = data.decode("utf-8", errors="replace")
+        for line in re.split(r"[\r\n]+", text):
+            line = line.strip()
+            if line:
+                self._handle_line(line, pushed=True)
+
+    def _handle_line(self, line: str, *, pushed: bool = False) -> None:
         # No awaits here: a line is applied before the next one is read.
+        # A pushed line (a trigger on the Trigger Port) is applied, but it
+        # answers no request and is not the processor answering on the
+        # control link: the connect check, the probe and the poll ask that.
         now = time.monotonic()
-        self._last_rx = now
+        if not pushed:
+            self._last_rx = now
         status = parse_line(line)
-        req = self._inflight
+        req = None if pushed else self._inflight
         if status.kind == "error":
             if req is not None and not req.future.done():
                 if req.matcher is None:
@@ -1281,7 +1336,7 @@ class EtcParadigmDriver(BaseDriver):
         obj = self._find(status) if status.kind else None
         if obj is not None:
             self._apply(obj, status)
-        elif self._help_pending or now < self._help_until:
+        elif not pushed and (self._help_pending or now < self._help_until):
             # A line of the help list (one reads like a status line for no
             # listed object): the next one may follow it.
             self._help_until = now + HELP_GAP_S

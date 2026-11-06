@@ -356,7 +356,7 @@ class JVCPTZDriver(BaseDriver):
         "name": "JVC PTZ Camera",
         "manufacturer": "JVC",
         "category": "camera",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
         "description": (
@@ -464,6 +464,11 @@ class JVCPTZDriver(BaseDriver):
             },
             "model": {
                 "type": "enum", "default": "", "label": "Model",
+                # GetSystemInfo's Model ("PZ400" in the Web API 1.21 example) is
+                # saved here once the real camera connects. An enhancement since
+                # platform 0.37.0: an older one keeps the pick, and the driver
+                # narrows by the reported model either way.
+                "learned_from": "model",
                 "values": [
                     {"value": "", "label": "Detect automatically"},
                     {"value": "PZ510", "label": "KY-PZ510"},

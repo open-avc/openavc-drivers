@@ -613,7 +613,7 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
         "name": "AVPro Edge MXnet Network Switch",
         "manufacturer": "AVPro Edge",
         "category": "utility",
-        "version": "1.3.0",
+        "version": "1.3.1",
         "author": "OpenAVC",
         # Above the computed floor (0.24.0, from `web_ui`) on purpose: SSH is
         # the default from 1.3.0, and 0.39.0 is the first platform with an SSH
@@ -629,10 +629,7 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
             "is the switch that carries an MXnet system; video routing lives "
             "in the MXnet Control Box driver."
         ),
-        "source_url": (
-            "https://support.avproglobal.com/portal/en/kb/articles/"
-            "mxnet-network-switch-guides"
-        ),
+        "source_url": "https://support.avproglobal.com/kb/15140733/",
         "tags": ["network", "switch", "poe", "av-over-ip", "igmp", "multicast",
                  "mxnet"],
         # Validated end to end against a real AC-MXNET-SW8P, including the

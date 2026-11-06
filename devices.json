@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1254,
+    "total_devices": 1255,
     "shards": null
   },
   "devices": [
@@ -1737,6 +1737,11 @@
           "id": "avproedge_mxnet_1g",
           "confidence": "untested",
           "notes": "Add the CONTROL BOX as the device \u2014 the encoders and decoders it manages appear as children. Endpoints covered: AC-MXNET-1G-E / -EV2 / -EWP / -AVDM-E / -DANTE-E encoders and AC-MXNET-1G-D / -DV2 / -AVDM-D / -DANTE-D decoders. The CBOX-HA's high-availability pairing and the MV41V2 multiview companion are configured in MENTOR, not here."
+        },
+        {
+          "id": "avproedge_mxnet_usp",
+          "confidence": "untested",
+          "notes": "In its MXnet USP mode only (the mode is chosen when the control box is first set up). In MXnet 1G mode use the AVPro Edge MXNet 1G driver, in MXnet 10G mode the MXNet 10G driver."
         }
       ]
     },
@@ -1809,6 +1814,18 @@
           "id": "avproedge_mxnet_switch",
           "confidence": "full",
           "notes": "Validated against an AC-MXNET-SW8P (software V705R002C013): identity, all 12 ports, PoE draw and enable/disable/power-cycle against a live encoder, IGMP membership, MAC table, counters, and system health exercised on hardware. SW12 is the same switch under its former SKU."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVPro Edge",
+      "model": "AC-MXNET-USP-CBOX",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "avproedge_mxnet_usp",
+          "confidence": "untested",
+          "notes": "Add the CONTROL BOX as the device; the AC-MXNET-USP-ES, -PL and -PR encoders and decoders it manages appear as children. The 1G, 10G and Dante control boxes speak different command sets and have their own drivers."
         }
       ]
     },

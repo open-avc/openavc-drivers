@@ -96,7 +96,7 @@ Reading the routes
     encoders. Unverified against hardware.
 
 Source: IPCBox-10G Commands v1.05 (AVPro Global Holdings), published at
-https://support.avproglobal.com/portal/en/kb/articles/mxnet-api
+https://support.avproglobal.com/kb/15140748/
 """
 
 from __future__ import annotations
@@ -462,7 +462,7 @@ class AVProEdgeMXNet10GDriver(BaseDriver):
         "name": "AVPro Edge MXNet 10G",
         "manufacturer": "AVPro Edge",
         "category": "switcher",
-        "version": "1.0.2",
+        "version": "1.0.3",
         # Computed, not chosen: `routing:` needs 0.27.0, sharing a route
         # property between the All-streams and Video planes needs 0.28.0,
         # BaseDriver.child_fault() needs 0.29.0, `restarts_device_for`
@@ -478,7 +478,7 @@ class AVProEdgeMXNet10GDriver(BaseDriver):
             "per-plane routing (video, audio, analog audio, USB, IR, RS-232), EDID, "
             "CEC/IR/RS-232 passthrough, and video wall, multiview and matrix recall."
         ),
-        "source_url": "https://support.avproglobal.com/portal/en/kb/articles/mxnet-api",
+        "source_url": "https://support.avproglobal.com/kb/15140748/",
         "tags": [
             "av-over-ip",
             "mxnet",
@@ -2653,17 +2653,24 @@ class AVProEdgeMXNet10GDriver(BaseDriver):
         await writer.drain()
         buf = b""
         while True:
+            # Drain every frame already buffered before reading again: a reply
+            # that arrives behind a line ending, or behind an unsolicited event
+            # frame (one with a `source`), is otherwise left unread until the
+            # timeout.
+            frame, buf = _json_frame(buf)
+            while frame is not None:
+                if frame.strip():
+                    try:
+                        doc = json.loads(frame.decode("utf-8", errors="replace"))
+                    except (ValueError, TypeError):
+                        doc = None
+                    if isinstance(doc, dict) and doc.get("source") is None:
+                        return doc
+                frame, buf = _json_frame(buf)
             chunk = await asyncio.wait_for(reader.read(4096), timeout=REQUEST_TIMEOUT_S)
             if not chunk:
                 return {}
             buf += chunk
-            frame, buf = _json_frame(buf)
-            if frame:
-                try:
-                    doc = json.loads(frame.decode("utf-8", errors="replace"))
-                except (ValueError, TypeError):
-                    return {}
-                return doc if isinstance(doc, dict) else {}
 
     async def _probe(self, reader: Any, writer: Any, line: str) -> str:
         doc = await self._probe_json(reader, writer, line)

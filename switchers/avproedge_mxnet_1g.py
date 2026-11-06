@@ -54,7 +54,7 @@ Hardware notes
     unreliable (see _request).
 
 Source: AC-MXNET-CBOX / -B / -HA API Command List v1.26.1 (AVPro Global Holdings),
-published at https://support.avproglobal.com/portal/en/kb/articles/mxnet-api
+published at https://support.avproglobal.com/kb/15140570/
 """
 
 from __future__ import annotations
@@ -299,7 +299,7 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
         "name": "AVPro Edge MXNet 1G",
         "manufacturer": "AVPro Edge",
         "category": "switcher",
-        "version": "1.4.4",
+        "version": "1.4.5",
         # Gated on the platform surface this driver actually calls, which is
         # the newest thing it needs -- currently BaseDriver.local_address(),
         # which the Test Connection socket binds to (0.37.0), after
@@ -314,7 +314,7 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
             "per-stream routing, EDID, scaling, CEC/IR/RS-232 passthrough, and video "
             "wall, scene, KVM and matrix preset recall."
         ),
-        "source_url": "https://support.avproglobal.com/portal/en/kb/articles/mxnet-api",
+        "source_url": "https://support.avproglobal.com/kb/15140570/",
         "tags": [
             "av-over-ip",
             "mxnet",
@@ -2515,19 +2515,25 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
         writer.write((line + "\r\n").encode())
         await writer.drain()
         buf = b""
-        deadline = REQUEST_TIMEOUT_S
         while True:
-            chunk = await asyncio.wait_for(reader.read(4096), timeout=deadline)
+            # Drain every frame already buffered before reading again: a reply
+            # that arrives behind a line ending, or behind an unsolicited event
+            # frame (one with a `source`), is otherwise left unread until the
+            # timeout.
+            frame, buf = _json_frame(buf)
+            while frame is not None:
+                if frame.strip():
+                    try:
+                        doc = json.loads(frame.decode("utf-8", errors="replace"))
+                    except (ValueError, TypeError):
+                        doc = None
+                    if isinstance(doc, dict) and doc.get("source") is None:
+                        return doc
+                frame, buf = _json_frame(buf)
+            chunk = await asyncio.wait_for(reader.read(4096), timeout=REQUEST_TIMEOUT_S)
             if not chunk:
                 return {}
             buf += chunk
-            frame, buf = _json_frame(buf)
-            if frame:
-                try:
-                    doc = json.loads(frame.decode("utf-8", errors="replace"))
-                except (ValueError, TypeError):
-                    return {}
-                return doc if isinstance(doc, dict) else {}
 
     async def _probe(self, reader: Any, writer: Any, line: str) -> str:
         doc = await self._probe_json(reader, writer, line)

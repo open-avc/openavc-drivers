@@ -68,7 +68,7 @@ import json
 import re
 import struct
 import time
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import quote
 
 import httpx
@@ -629,6 +629,348 @@ def _pairs(value: str) -> list[tuple[int, str]]:
         except ValueError:
             continue
     return pairs
+
+
+def _options(value: str) -> str:
+    """A picker list from ``1,Lectern,2,Wide`` (a preset with no name shows
+    its number alone)."""
+    return json.dumps(
+        [
+            {"value": n, "label": f"{n}: {label}" if label else str(n)}
+            for n, label in _pairs(value)
+        ]
+    )
+
+
+def _settle(future: asyncio.Future | None, value: Any) -> None:
+    """Give a waiting future its result; one already settled is left alone."""
+    if future is not None and not future.done():
+        future.set_result(value)
+
+
+# ── Values a command takes ──
+
+
+def _bounded(value: Any, low: int, high: int) -> int:
+    number = int(value)
+    if not low <= number <= high:
+        raise ValueError(f"{number} is outside {low}-{high}.")
+    return number
+
+
+def _preset_number(params: dict[str, Any]) -> int:
+    number = int(params["number"])
+    if not 1 <= number <= 256:
+        raise ValueError("Presets are numbered 1-256.")
+    return number
+
+
+def _name_value(name: str, what: str) -> str:
+    bad = sorted(set(name) & _NAME_FORBIDDEN)
+    if bad:
+        raise ValueError(f"A {what} cannot contain {' '.join(bad)}.")
+    if len(name.encode("utf-8")) > 32:
+        raise ValueError(f"A {what} is at most 32 bytes.")
+    return quote(name, safe="")
+
+
+def _text_value(text: str, what: str, safe: str = "") -> str:
+    bad = sorted(set(text) & _VALUE_SEPARATORS)
+    if bad:
+        raise ValueError(
+            f"The camera reads {' and '.join(bad)} as a separator, so a {what} "
+            f"cannot contain it."
+        )
+    return quote(text, safe=safe)
+
+
+def _url_value(url: str, schemes: tuple[str, ...]) -> str:
+    if url and not url.lower().startswith(schemes):
+        raise ValueError(f"The URL starts with {' or '.join(schemes)}.")
+    if len(url.encode("utf-8")) > 512:
+        raise ValueError("The URL is at most 512 bytes.")
+    return _text_value(url, "URL", safe=":/")
+
+
+def _one_of(value: str, choices) -> str:
+    if value not in choices:
+        raise ValueError(f"{value!r} is not one of {', '.join(choices)}.")
+    return value
+
+
+# A CGI setting's value as the camera's word, by the setting's kind.
+
+
+def _encode_bool(value: Any, _choices: Any) -> str:
+    return "on" if value else "off"
+
+
+def _encode_int(value: Any, choices: tuple[int, int]) -> str:
+    low, high = choices
+    return str(_bounded(value, low, high))
+
+
+def _encode_enum(value: Any, choices: dict[str, str]) -> str:
+    if str(value) not in choices:
+        raise ValueError(f"{value!r} is not one of {', '.join(choices)}.")
+    return choices[str(value)]
+
+
+def _encode_text(value: Any, choices: tuple[int, int]) -> str:
+    low, high = choices
+    text = str(value or "")
+    if not low <= len(text.encode("utf-8")) <= high:
+        raise ValueError(f"Up to {high} bytes.")
+    return _text_value(text, "name")
+
+
+_CGI_ENCODERS: dict[str, Callable[[Any, Any], str]] = {
+    "bool": _encode_bool,
+    "int": _encode_int,
+    "enum": _encode_enum,
+}
+
+
+# ── Values the camera reports ──
+
+# An inquiry reply as the state it sets. Each reader takes the whole reply
+# (90 50 ... FF) and returns the values to write, nothing for a reply it
+# cannot read.
+_Reader = Callable[[bytes], dict[str, Any]]
+
+
+def _sized(length: int, read: _Reader) -> _Reader:
+    """Read only a reply of exactly ``length`` bytes."""
+
+    def check(reply: bytes) -> dict[str, Any]:
+        return read(reply) if len(reply) == length else {}
+
+    return check
+
+
+def _flag_reader(key: str, words: tuple[Any, Any] = (True, False)) -> _Reader:
+    """On (02) / off (03): ``words`` are the values for on and off."""
+
+    def read(reply: bytes) -> dict[str, Any]:
+        code = reply[2]
+        if code not in _ON_OFF:
+            return {}
+        return {key: words[0] if _ON_OFF[code] else words[1]}
+
+    return read
+
+
+def _code_reader(key: str, names: dict[int, Any] | None = None) -> _Reader:
+    """One code: ``names`` maps it to the value (a code not in it writes
+    nothing); with no names the code is the value."""
+
+    def read(reply: bytes) -> dict[str, Any]:
+        code = reply[2]
+        if names is None:
+            return {key: code}
+        return {key: names[code]} if code in names else {}
+
+    return read
+
+
+def _position_reader(key: str) -> _Reader:
+    """0p 0q 0r 0s: a 16-bit position."""
+    return lambda reply: {key: _nibbles(reply[2:6])}
+
+
+def _level_reader(key: str, convert: Callable[[int], Any] = int) -> _Reader:
+    """00 00 0p 0q: an 8-bit level."""
+    return lambda reply: {key: convert(_nibbles(reply[4:6]))}
+
+
+def _read_auto_framing(reply: bytes) -> dict[str, Any]:
+    code = reply[2]
+    return {"auto_framing": code == 0x01} if code in (0x00, 0x01) else {}
+
+
+def _read_last_preset(reply: bytes) -> dict[str, Any]:
+    # pp is the preset number less one (00-63); 7F means none.
+    code = reply[2]
+    return {"last_preset": code + 1 if code <= 0x3F else 0}
+
+
+def _read_pan_tilt(reply: bytes) -> dict[str, Any]:
+    return {
+        "pan_position": _signed16(_nibbles(reply[2:6])),
+        "tilt_position": _signed16(_nibbles(reply[6:10])),
+    }
+
+
+def _read_iris(reply: bytes) -> dict[str, Any]:
+    value = _IRIS_NAMES.get(_nibbles(reply[4:6]))
+    return {} if value is None else {"iris": value}
+
+
+def _read_defog(reply: bytes) -> dict[str, Any]:
+    code = reply[2]
+    if code not in _ON_OFF:
+        return {}
+    return {"defog": _ON_OFF[code], "defog_level": reply[3]}
+
+
+def _read_video_format(reply: bytes) -> dict[str, Any]:
+    fmt = (reply[2] << 4) | (reply[3] & 0x0F)
+    return {"video_format": _VIDEO_FORMATS.get(fmt, f"code {fmt:02X}")}
+
+
+_READERS: dict[str, _Reader] = {
+    "power": _flag_reader("power", ("on", "standby")),
+    "auto_framing": _sized(4, _read_auto_framing),
+    "tally": _flag_reader("tally"),
+    "osd_menu": _flag_reader("osd_menu"),
+    "focus_mode": _flag_reader("focus_mode", ("auto", "manual")),
+    "last_preset": _sized(4, _read_last_preset),
+    "pan_tilt": _sized(11, _read_pan_tilt),
+    "zoom_position": _sized(7, _position_reader("zoom_position")),
+    "focus_position": _sized(7, _position_reader("focus_position")),
+    "iris": _sized(7, _read_iris),
+    # GAIN 01 (0 dB) to 11 (48 dB), 3 dB a step.
+    "gain": _sized(7, _level_reader("gain_db", lambda n: (n - 1) * 3)),
+    # 00 (-10.5 dB) to 07 (0) to 0E (+10.5 dB).
+    "exposure_comp_level": _sized(
+        7, _level_reader("exposure_comp_level", lambda n: n - 7)
+    ),
+    "red_gain": _sized(7, _level_reader("red_gain")),
+    "blue_gain": _sized(7, _level_reader("blue_gain")),
+    "detail_level": _sized(7, _level_reader("detail_level")),
+    "shutter": _sized(7, _level_reader("shutter")),
+    "wb_speed": _sized(4, _code_reader("wb_speed")),
+    "chroma_suppress": _sized(4, _code_reader("chroma_suppress")),
+    "noise_reduction": _sized(4, _code_reader("noise_reduction", _NR_NAMES)),
+    "defog": _sized(5, _read_defog),
+    "video_format": _sized(5, _read_video_format),
+}
+
+
+def _table_readers() -> dict[str, _Reader]:
+    """Readers for the on / off and one-code settings of the VISCA tables."""
+    readers: dict[str, _Reader] = {}
+    for state, _prefix, on, off in _VISCA_SWITCHES.values():
+        readers[state] = _code_reader(state, {on: True, off: False})
+    for state, _prefix, codes in _VISCA_ENUMS.values():
+        names = {code: value for value, code in codes.items()}
+        readers[state] = _code_reader(state, names)
+    return readers
+
+
+_READERS.update(_table_readers())
+
+# An inquiry.cgi value as the state it sets, by the parameter's kind.
+_SKIP = object()  # a value the state does not take: nothing is written
+_UNREAD = object()  # a value that cannot be read: logged once
+
+
+def _as_bool(raw: str, _choices: Any) -> Any:
+    return raw == "on" if raw in ("on", "off") else _SKIP
+
+
+def _as_flag(raw: str, _choices: Any) -> Any:
+    return raw == "1" if raw in ("0", "1") else _SKIP
+
+
+def _as_int(raw: str, _choices: Any) -> Any:
+    try:
+        return int(raw)
+    except ValueError:
+        return _UNREAD
+
+
+def _as_enum(raw: str, choices: dict[str, str]) -> Any:
+    if not raw:
+        return "other"
+    reverse = {word: value for value, word in choices.items()}
+    return reverse.get(raw, "other")
+
+
+_CGI_DECODERS: dict[str, Callable[[str, Any], Any]] = {
+    "bool": _as_bool,
+    "flag": _as_flag,
+    "int": _as_int,
+    "enum": _as_enum,
+}
+
+# The picker lists the camera's name lists feed.
+_PICKERS = {
+    "PresetName": "preset_options",
+    "PtzAutoFramingPresetName": "composition_preset_options",
+}
+
+# VISCA errors (90 6y ee FF) as the sentence a person reads.
+_VISCA_REFUSALS = {
+    0x02: "The camera does not support this command or value.",
+    0x03: "The camera is busy with two commands already; send it again.",
+    0x41: "The camera cannot do this in its current state.",
+}
+
+# CGI actions with nothing to set: command -> (path, query, the inquiry
+# group read back after it, if any).
+_CGI_ACTIONS: dict[str, tuple[str, str, str | None]] = {
+    "auto_framing_restart": (
+        "analytics/ptzautoframingexe.cgi",
+        "PtzAutoFramingRestart=on",
+        None,
+    ),
+    "auto_framing_save_start_position": (
+        "analytics/ptzautoframingexe.cgi",
+        "PtzAutoFramingDecideStartPosition=on",
+        None,
+    ),
+    "auto_framing_go_to_start_position": (
+        "analytics/ptzautoframingexe.cgi",
+        "PtzAutoFramingMoveStartPosition=on",
+        None,
+    ),
+    "fixed_angle_save": (
+        "analytics/ptzautoframingexe.cgi",
+        "PtzAutoFramingFixedAnglePositionSet=1",
+        None,
+    ),
+    "fixed_angle_recall": (
+        "analytics/ptzautoframingexe.cgi",
+        "PtzAutoFramingFixedAnglePositionCall=1",
+        None,
+    ),
+    "rtmp_start": ("command/rtmpexe.cgi", "RtmpStreaming=on", "stream"),
+    "rtmp_stop": ("command/rtmpexe.cgi", "RtmpStreaming=off", "stream"),
+    "srt_start": ("command/srtexe.cgi", "SrtStreaming=on", "stream"),
+    "srt_stop": ("command/srtexe.cgi", "SrtStreaming=off", "stream"),
+    "reboot": ("command/main.cgi", "System=reboot", None),
+}
+
+# Zoom and focus drives: command -> (the code at standard speed, the base a
+# speed 0-7 is added to). Zoom has no standard-speed form.
+_ZOOM_DRIVE = {"zoom_tele": 0x20, "zoom_wide": 0x30}
+_FOCUS_DRIVE = {"focus_far": (0x02, 0x20), "focus_near": (0x03, 0x30)}
+
+# Composition presets 1-3 recalled or reset: command -> the parameter.
+_COMPOSITION_PRESET_ACTIONS = {
+    "composition_preset_recall": "PtzAutoFramingPresetCall",
+    "composition_preset_reset": "PtzAutoFramingPresetReset",
+}
+
+# Stream destination URLs: command -> (the schemes it takes, path, parameter,
+# the inquiry group that reads it back, the state key that holds it).
+_STREAM_URLS: dict[str, tuple[tuple[str, ...], str, str, str, str]] = {
+    "save_rtmp_url": (
+        ("rtmp://", "rtmps://"),
+        "command/rtmp.cgi",
+        "RtmpServerUrl1",
+        "rtmp",
+        "rtmp_url",
+    ),
+    "save_srt_url": (
+        ("srt://",),
+        "command/srt.cgi",
+        "SrtServerUrl1",
+        "srt",
+        "srt_url",
+    ),
+}
 
 
 class SonySRGADriver(BaseDriver):
@@ -3083,40 +3425,47 @@ class SonySRGADriver(BaseDriver):
         self._visca_transport = transport
 
     async def _post_connect(self) -> None:
-        try:
-            await self._control_reset()
-        except asyncio.TimeoutError:
-            pass
-        visca_ok = await self._inquire(_INQUIRY["power"]) is not None
-        try:
-            http_ok = await self._read_groups(_CGI_AT_CONNECT, quiet=False)
-        except ConnectionFaultError:
-            raise
-        except ConnectionError:
-            http_ok = False
+        visca_ok = await self._visca_answers()
+        http_ok = await self._http_answers()
         if not visca_ok and not http_ok:
             raise ConnectionError(
                 f"The camera at {self.config.get('host')} answered neither "
                 f"VISCA over IP (UDP {_VISCA_PORT}) nor HTTP."
             )
-        host = self.config.get("host")
         port = int(self.config.get("port", 80))
+        self.set_states(self._stream_urls())
+        if port and not visca_ok:
+            log.info(f"[{self.device_id}] VISCA over IP is not answering; HTTP is")
+
+    async def _visca_answers(self) -> bool:
+        try:
+            await self._control_reset()
+        except asyncio.TimeoutError:
+            pass
+        return await self._inquire(_INQUIRY["power"]) is not None
+
+    async def _http_answers(self) -> bool:
+        try:
+            return await self._read_groups(_CGI_AT_CONNECT, quiet=False)
+        except ConnectionFaultError:
+            raise
+        except ConnectionError:
+            return False
+
+    def _stream_urls(self) -> dict[str, str]:
+        host = self.config.get("host")
         rtsp_port = int(self.config.get("rtsp_port", 554))
         rtsp = (
             f"rtsp://{host}/video1"
             if rtsp_port == 554
             else f"rtsp://{host}:{rtsp_port}/video1"
         )
-        self.set_states(
-            {
-                "preview_url": rtsp,
-                "preview_format": "rtsp",
-                "mjpeg_url": f"{self._base_url}/mjpeg",
-                "snapshot_url": f"{self._base_url}/oneshotimage1",
-            }
-        )
-        if port and not visca_ok:
-            log.info(f"[{self.device_id}] VISCA over IP is not answering; HTTP is")
+        return {
+            "preview_url": rtsp,
+            "preview_format": "rtsp",
+            "mjpeg_url": f"{self._base_url}/mjpeg",
+            "snapshot_url": f"{self._base_url}/oneshotimage1",
+        }
 
     async def _initial_sync(self) -> None:
         try:
@@ -3152,38 +3501,34 @@ class SonySRGADriver(BaseDriver):
             return
         payload_type, sequence, payload = unwrapped
         if payload_type == PAYLOAD_CONTROL_REPLY:
-            if self._control_reply is not None and not self._control_reply.done():
-                self._control_reply.set_result(None)
-            return
-        waiter = self._visca_waiter
-        if payload_type == PAYLOAD_CONTROL_CMD:
+            _settle(self._control_reply, None)
+        elif payload_type == PAYLOAD_CONTROL_CMD:
             # ERROR 0F 01 (abnormality in the sequence number) or 0F 02 (in
             # the message type): the camera's answer to the message in flight.
-            if payload[:1] == b"\x0f" and waiter is not None and not waiter.done():
-                waiter.set_result(b"\x0f" + payload[1:2])
+            if payload[:1] == b"\x0f":
+                _settle(self._visca_waiter, b"\x0f" + payload[1:2])
+        elif payload_type == PAYLOAD_VISCA_REPLY:
+            self._on_visca_reply(payload, sequence)
+
+    def _on_visca_reply(self, payload: bytes, sequence: int) -> None:
+        if len(payload) < 3 or payload[0] != 0x90:
             return
-        if (
-            payload_type != PAYLOAD_VISCA_REPLY
-            or len(payload) < 3
-            or payload[0] != 0x90
-        ):
-            return
-        if waiter is None or waiter.done():
-            return
-        kind = payload[1]
+        if self._answers_waiter(payload[1], sequence):
+            _settle(self._visca_waiter, payload)
+
+    def _answers_waiter(self, kind: int, sequence: int) -> bool:
+        """Whether a reply of this kind answers the message in flight."""
         if self._waiting_for == "inquiry":
             # An inquiry's answer is exactly 50 with data, or an error (6y).
             # A command's late completion (5y, y = socket) is not it.
-            if kind == 0x50 or kind & 0xF0 == 0x60:
-                waiter.set_result(payload)
-        elif kind & 0xF0 in (0x40, 0x60) or (
-            kind & 0xF0 == 0x50 and sequence == self._sequence
-        ):
-            # A command waits for its acknowledgement or the error refusing
-            # it. A completion counts only with this command's sequence
-            # number: the previous command's completion can arrive after its
-            # acknowledgement (aver_tr's simulation finding, kept).
-            waiter.set_result(payload)
+            return kind == 0x50 or kind & 0xF0 == 0x60
+        # A command waits for its acknowledgement or the error refusing it.
+        if kind & 0xF0 in (0x40, 0x60):
+            return True
+        # A completion counts only with this command's sequence number: the
+        # previous command's completion can arrive after its acknowledgement
+        # (aver_tr's simulation finding, kept).
+        return kind & 0xF0 == 0x50 and sequence == self._sequence
 
     def _send(self, payload: bytes, payload_type: int) -> None:
         if self._visca_transport is None:
@@ -3254,101 +3599,25 @@ class SonySRGADriver(BaseDriver):
                 "The camera did not answer the command over VISCA over IP."
             )
         if reply[1] & 0xF0 == 0x60:
-            code = reply[2]
-            if code == 0x02:
-                raise CommandRefusedError(
-                    "The camera does not support this command or value."
-                )
-            if code == 0x03:
-                raise CommandRefusedError(
-                    "The camera is busy with two commands already; send it again."
-                )
-            if code == 0x41:
-                if self.get_state("osd_menu"):
-                    raise CommandRefusedError(
-                        "The camera's on-screen menu is open, and the camera takes no "
-                        "commands while it is. Close it with OSD Menu."
-                    )
-                raise CommandRefusedError(
-                    "The camera cannot do this in its current state."
-                )
-            raise CommandRefusedError(
-                f"The camera refused the command (VISCA error {code:02X})."
+            raise CommandRefusedError(self._refusal(reply[2]))
+
+    def _refusal(self, code: int) -> str:
+        if code == 0x41 and self.get_state("osd_menu"):
+            return (
+                "The camera's on-screen menu is open, and the camera takes no "
+                "commands while it is. Close it with OSD Menu."
             )
+        return _VISCA_REFUSALS.get(
+            code, f"The camera refused the command (VISCA error {code:02X})."
+        )
 
     def _apply(self, name: str, reply: bytes) -> None:
         """Write one inquiry's answer into state. An error reply writes nothing."""
-        if not reply:
+        reader = _READERS.get(name)
+        if not reply or reader is None:
             return
-        code = reply[2]
-        one = len(reply) == 4
-        if name == "power":
-            if code in _ON_OFF:
-                self.set_state("power", "on" if _ON_OFF[code] else "standby")
-        elif name == "auto_framing":
-            if one and code in (0x00, 0x01):
-                self.set_state("auto_framing", code == 0x01)
-        elif name in ("tally", "osd_menu"):
-            if code in _ON_OFF:
-                self.set_state(name, _ON_OFF[code])
-        elif name == "focus_mode":
-            if code in _ON_OFF:
-                self.set_state("focus_mode", "auto" if _ON_OFF[code] else "manual")
-        elif name == "last_preset":
-            # pp is the preset number less one (00-63); 7F means none.
-            if one:
-                self.set_state("last_preset", code + 1 if code <= 0x3F else 0)
-        elif name == "pan_tilt":
-            if len(reply) == 11:
-                self.set_state("pan_position", _signed16(_nibbles(reply[2:6])))
-                self.set_state("tilt_position", _signed16(_nibbles(reply[6:10])))
-        elif name in ("zoom_position", "focus_position"):
-            if len(reply) == 7:
-                self.set_state(name, _nibbles(reply[2:6]))
-        elif name == "iris":
-            if len(reply) == 7:
-                value = _IRIS_NAMES.get(_nibbles(reply[4:6]))
-                if value is not None:
-                    self.set_state("iris", value)
-        elif name == "gain":
-            # GAIN 01 (0 dB) to 11 (48 dB), 3 dB a step.
-            if len(reply) == 7:
-                self.set_state("gain_db", (_nibbles(reply[4:6]) - 1) * 3)
-        elif name == "exposure_comp_level":
-            # 00 (-10.5 dB) to 07 (0) to 0E (+10.5 dB).
-            if len(reply) == 7:
-                self.set_state("exposure_comp_level", _nibbles(reply[4:6]) - 7)
-        elif name in ("red_gain", "blue_gain", "detail_level", "shutter"):
-            if len(reply) == 7:
-                self.set_state(name, _nibbles(reply[4:6]))
-        elif name in ("wb_speed", "chroma_suppress"):
-            if one:
-                self.set_state(name, code)
-        elif name == "noise_reduction":
-            if one and code in _NR_NAMES:
-                self.set_state("noise_reduction", _NR_NAMES[code])
-        elif name == "defog":
-            if len(reply) == 5 and code in _ON_OFF:
-                self.set_state("defog", _ON_OFF[code])
-                self.set_state("defog_level", reply[3])
-        elif name == "video_format":
-            if len(reply) == 5:
-                fmt = (reply[2] << 4) | (reply[3] & 0x0F)
-                self.set_state(
-                    "video_format", _VIDEO_FORMATS.get(fmt, f"code {fmt:02X}")
-                )
-        else:
-            for state, _prefix, on, off in _VISCA_SWITCHES.values():
-                if state == name:
-                    if code in (on, off):
-                        self.set_state(name, code == on)
-                    return
-            for state, _prefix, codes in _VISCA_ENUMS.values():
-                if state == name:
-                    for value, c in codes.items():
-                        if c == code:
-                            self.set_state(name, value)
-                    return
+        for key, value in reader(reply).items():
+            self.set_state(key, value)
 
     async def _read_back(self, names: tuple[str, ...]) -> None:
         for name in names:
@@ -3384,12 +3653,13 @@ class SonySRGADriver(BaseDriver):
     def _check_tally(self) -> None:
         """A tally read off soon after the driver lit it was turned off by
         another controller: stop holding it on."""
-        if (
-            self._tally_hold
-            and self.get_state("tally") is False
-            and time.monotonic() - self._tally_lit_at < _TALLY_OVERRIDE_S
-        ):
+        if self._tally_hold and self._tally_turned_off():
             self._tally_hold = False
+
+    def _tally_turned_off(self) -> bool:
+        if self.get_state("tally") is not False:
+            return False
+        return time.monotonic() - self._tally_lit_at < _TALLY_OVERRIDE_S
 
     # ── HTTP CGI ──
 
@@ -3397,31 +3667,35 @@ class SonySRGADriver(BaseDriver):
         """GET /<path>. Returns the body of a 2xx; raises otherwise."""
         if self._http is None:
             raise ConnectionError("Not connected")
+        options = {} if timeout is None else {"timeout": timeout}
         try:
-            if timeout is None:
-                resp = await self._http.get(f"/{path}")
-            else:
-                resp = await self._http.get(f"/{path}", timeout=timeout)
+            resp = await self._http.get(f"/{path}", **options)
         except httpx.TransportError as exc:
             raise ConnectionError(
                 f"The camera at {self._base_url} is not answering HTTP: {exc}"
             ) from exc
-        if resp.status_code == 401:
-            if self.config.get("username"):
-                # The camera counts refusals as a brute force attack (8 by
-                # default) and locks the address out: never retried.
-                raise ConnectionFaultError(
-                    "The camera refused the web username and password.",
-                    code="auth_failed",
-                )
-            raise _LoginRequired()
-        if resp.status_code == 403:
-            raise _Forbidden()
-        if not 200 <= resp.status_code < 300:
-            raise CommandRefusedError(
-                f"The camera answered HTTP {resp.status_code} to that request."
-            )
+        self._check_status(resp.status_code)
         return resp.text
+
+    def _check_status(self, status: int) -> None:
+        if status == 401:
+            self._refused_login()
+        if status == 403:
+            raise _Forbidden()
+        if not 200 <= status < 300:
+            raise CommandRefusedError(
+                f"The camera answered HTTP {status} to that request."
+            )
+
+    def _refused_login(self) -> None:
+        if self.config.get("username"):
+            # The camera counts refusals as a brute force attack (8 by
+            # default) and locks the address out: never retried.
+            raise ConnectionFaultError(
+                "The camera refused the web username and password.",
+                code="auth_failed",
+            )
+        raise _LoginRequired()
 
     async def _cgi_set(self, path: str, query: str) -> None:
         try:
@@ -3436,65 +3710,46 @@ class SonySRGADriver(BaseDriver):
         for name, raw in values.items():
             spec = _CGI_READS.get(name)
             if spec is not None:
-                state, kind, choices = spec
-                if kind == "bool":
-                    if raw in ("on", "off"):
-                        self.set_state(state, raw == "on")
-                elif kind == "flag":
-                    if raw in ("0", "1"):
-                        self.set_state(state, raw == "1")
-                elif kind == "int":
-                    try:
-                        self.set_state(state, int(raw))
-                    except ValueError:
-                        self._unread(name, raw)
-                elif kind == "enum":
-                    reverse = {word: value for value, word in choices.items()}
-                    self.set_state(state, reverse.get(raw, "other") if raw else "other")
-                else:
-                    self.set_state(state, raw)
-            elif name == "PtzAutoFramingAdjustSetting":
-                parts = raw.split(",")
-                try:
-                    vertical, horizontal, size = (int(p) for p in parts[:3])
-                except ValueError:
-                    self._unread(name, raw)
-                    continue
-                self.set_states(
-                    {
-                        "composition_vertical": vertical,
-                        "composition_horizontal": horizontal,
-                        "composition_size": size,
-                    }
-                )
-            elif name == "PtzAutoFramingMultiTrackingCurrentTargetNum":
-                try:
-                    self.set_state("auto_framing_targets", int(raw.split(",")[0]))
-                except ValueError:
-                    self._unread(name, raw)
-            elif name == "PresetName":
-                self.set_state(
-                    "preset_options",
-                    json.dumps(
-                        [
-                            {"value": n, "label": f"{n}: {label}" if label else str(n)}
-                            for n, label in _pairs(raw)
-                        ]
-                    ),
-                )
-            elif name == "PtzAutoFramingPresetName":
-                self.set_state(
-                    "composition_preset_options",
-                    json.dumps(
-                        [
-                            {"value": n, "label": f"{n}: {label}" if label else str(n)}
-                            for n, label in _pairs(raw)
-                        ]
-                    ),
-                )
-            elif name == "RtmpStreamKey1Used":
-                if raw in ("0", "1"):
-                    self.set_state("rtmp_key_set", raw == "1")
+                self._apply_cgi_value(name, raw, spec)
+                continue
+            read = _CGI_SPECIAL_READS.get(name)
+            if read is not None:
+                read(self, name, raw)
+
+    def _apply_cgi_value(self, name: str, raw: str, spec: tuple[str, str, Any]) -> None:
+        state, kind, choices = spec
+        value = _CGI_DECODERS.get(kind, lambda text, _c: text)(raw, choices)
+        if value is _UNREAD:
+            self._unread(name, raw)
+        elif value is not _SKIP:
+            self.set_state(state, value)
+
+    def _read_composition(self, name: str, raw: str) -> None:
+        try:
+            vertical, horizontal, size = (int(p) for p in raw.split(",")[:3])
+        except ValueError:
+            self._unread(name, raw)
+            return
+        self.set_states(
+            {
+                "composition_vertical": vertical,
+                "composition_horizontal": horizontal,
+                "composition_size": size,
+            }
+        )
+
+    def _read_target_count(self, name: str, raw: str) -> None:
+        try:
+            self.set_state("auto_framing_targets", int(raw.split(",")[0]))
+        except ValueError:
+            self._unread(name, raw)
+
+    def _read_picker(self, name: str, raw: str) -> None:
+        self.set_state(_PICKERS[name], _options(raw))
+
+    def _read_key_set(self, _name: str, raw: str) -> None:
+        if raw in ("0", "1"):
+            self.set_state("rtmp_key_set", raw == "1")
 
     def _unread(self, what: str, text: str) -> None:
         if what not in self._unread_logged:
@@ -3546,25 +3801,6 @@ class SonySRGADriver(BaseDriver):
     def _model_zoom_max(self) -> int:
         return _ZOOM_MAX.get(str(self.get_state("model") or ""), 0x7AC0)
 
-    @staticmethod
-    def _name_value(name: str, what: str) -> str:
-        bad = sorted(set(name) & _NAME_FORBIDDEN)
-        if bad:
-            raise ValueError(f"A {what} cannot contain {' '.join(bad)}.")
-        if len(name.encode("utf-8")) > 32:
-            raise ValueError(f"A {what} is at most 32 bytes.")
-        return quote(name, safe="")
-
-    @staticmethod
-    def _text_value(text: str, what: str, safe: str = "") -> str:
-        bad = sorted(set(text) & _VALUE_SEPARATORS)
-        if bad:
-            raise ValueError(
-                f"The camera reads {' and '.join(bad)} as a separator, so a {what} "
-                f"cannot contain it."
-            )
-        return quote(text, safe=safe)
-
     # ── Commands ──
 
     async def send_command(
@@ -3584,344 +3820,203 @@ class SonySRGADriver(BaseDriver):
             await self._read_back(names)
 
     async def _dispatch(self, command: str, params: dict[str, Any]) -> None:
-        if command in _SIMPLE_COMMANDS:
-            if command == "power_on" and self._standby_at:
-                wait = _POWER_ON_GAP_S - (time.monotonic() - self._standby_at)
-                if wait > 0:
-                    await asyncio.sleep(wait)
-            await self._visca_command(_SIMPLE_COMMANDS[command])
-            if command == "power_off":
-                self._standby_at = time.monotonic()
+        handler = _COMMAND_HANDLERS.get(command)
+        if handler is None:
+            raise ValueError(f"Unknown command: {command}")
+        await handler(self, command, params)
+
+    # Commands from the VISCA tables.
+
+    async def _run_simple(self, command: str, _params: dict[str, Any]) -> None:
+        if command == "power_on":
+            await self._wait_after_standby()
+        await self._visca_command(_SIMPLE_COMMANDS[command])
+        if command == "power_off":
+            self._standby_at = time.monotonic()
+
+    async def _wait_after_standby(self) -> None:
+        if not self._standby_at:
             return
-        if command in _PT_DIRECTIONS:
-            pan_dir, tilt_dir = _PT_DIRECTIONS[command]
-            await self._visca_command(
-                b"\x81\x01\x06\x01"
-                + bytes(
-                    [
-                        self._speed("pan_speed", 24),
-                        self._speed("tilt_speed", 23),
-                        pan_dir,
-                        tilt_dir,
-                    ]
-                )
-                + b"\xff"
+        wait = _POWER_ON_GAP_S - (time.monotonic() - self._standby_at)
+        if wait > 0:
+            await asyncio.sleep(wait)
+
+    async def _run_drive(self, command: str, _params: dict[str, Any]) -> None:
+        pan_dir, tilt_dir = _PT_DIRECTIONS[command]
+        speeds = [self._speed("pan_speed", 24), self._speed("tilt_speed", 23)]
+        await self._visca_command(
+            b"\x81\x01\x06\x01" + bytes(speeds + [pan_dir, tilt_dir]) + b"\xff"
+        )
+
+    async def _run_switch(self, command: str, params: dict[str, Any]) -> None:
+        _state, prefix, on, off = _VISCA_SWITCHES[command]
+        await self._visca_command(
+            prefix + bytes([on if params["enabled"] else off, 0xFF])
+        )
+
+    async def _run_enum(self, command: str, params: dict[str, Any]) -> None:
+        _state, prefix, codes = _VISCA_ENUMS[command]
+        value = _one_of(str(params["value"]), codes)
+        if command == "set_zoom_mode":
+            self._check_zoom_mode(value)
+        await self._visca_command(prefix + bytes([codes[value], 0xFF]))
+
+    def _check_zoom_mode(self, value: str) -> None:
+        if value != "optical" and self.get_state("model") == "SRG-A12":
+            raise CommandRefusedError(
+                "The SRG-A12 has no Clear Image Zoom or digital zoom."
             )
-            return
-        if command in _VISCA_SWITCHES:
-            _state, prefix, on, off = _VISCA_SWITCHES[command]
-            await self._visca_command(
-                prefix + bytes([on if params["enabled"] else off, 0xFF])
-            )
-            return
-        if command in _VISCA_ENUMS:
-            _state, prefix, codes = _VISCA_ENUMS[command]
-            value = str(params["value"])
-            if value not in codes:
-                raise ValueError(f"{value!r} is not one of {', '.join(codes)}.")
-            if (
-                command == "set_zoom_mode"
-                and value != "optical"
-                and self.get_state("model") == "SRG-A12"
-            ):
-                raise CommandRefusedError(
-                    "The SRG-A12 has no Clear Image Zoom or digital zoom."
-                )
-            await self._visca_command(prefix + bytes([codes[value], 0xFF]))
-            return
-        if command in _VISCA_NIBBLE_LEVELS:
-            _state, prefix, low, high = _VISCA_NIBBLE_LEVELS[command]
-            level = self._bounded(params["level"], low, high)
-            await self._visca_command(prefix + bytes([level, 0xFF]))
-            return
-        if command in _VISCA_BYTE_LEVELS:
-            _state, prefix, low, high = _VISCA_BYTE_LEVELS[command]
-            level = self._bounded(params["level"], low, high)
-            await self._visca_command(
-                prefix + b"\x00\x00" + _to_nibbles(level, 2) + b"\xff"
-            )
-            return
-        if command in _CGI_SETTINGS:
-            await self._cgi_setting(command, params["value"])
-            return
-        await self._other(command, params)
+
+    async def _run_nibble_level(self, command: str, params: dict[str, Any]) -> None:
+        _state, prefix, low, high = _VISCA_NIBBLE_LEVELS[command]
+        level = _bounded(params["level"], low, high)
+        await self._visca_command(prefix + bytes([level, 0xFF]))
+
+    async def _run_byte_level(self, command: str, params: dict[str, Any]) -> None:
+        _state, prefix, low, high = _VISCA_BYTE_LEVELS[command]
+        level = _bounded(params["level"], low, high)
+        await self._visca_command(
+            prefix + b"\x00\x00" + _to_nibbles(level, 2) + b"\xff"
+        )
+
+    async def _run_cgi_setting(self, command: str, params: dict[str, Any]) -> None:
+        await self._cgi_setting(command, params["value"])
 
     async def _cgi_setting(self, command: str, value: Any) -> None:
         path, name, _state, kind, choices, group = _CGI_SETTINGS[command]
-        if kind == "bool":
-            word = "on" if value else "off"
-        elif kind == "int":
-            low, high = choices
-            word = str(self._bounded(value, low, high))
-        elif kind == "enum":
-            if str(value) not in choices:
-                raise ValueError(f"{value!r} is not one of {', '.join(choices)}.")
-            word = choices[str(value)]
-        else:
-            low, high = choices
-            text = str(value or "")
-            if not low <= len(text.encode("utf-8")) <= high:
-                raise ValueError(f"Up to {high} bytes.")
-            word = self._text_value(text, "name")
+        word = _CGI_ENCODERS.get(kind, _encode_text)(value, choices)
         await self._cgi_set(path, f"{name}={word}")
         await self._read_groups((group,), quiet=False)
 
-    async def _other(self, command: str, params: dict[str, Any]) -> None:
-        match command:
-            case "pt_absolute":
-                pan = self._bounded(params["pan"], -8704, 8704) & 0xFFFF
-                tilt = self._bounded(params["tilt"], -4608, 4608) & 0xFFFF
-                speed = params.get("speed")
-                speed = (
-                    self._speed("pan_speed", 24)
-                    if speed in (None, "")
-                    else self._bounded(speed, 1, 24)
-                )
-                await self._visca_command(
-                    b"\x81\x01\x06\x02"
-                    + bytes([speed, 0x00])
-                    + _to_nibbles(pan)
-                    + _to_nibbles(tilt)
-                    + b"\xff"
-                )
-            case "zoom_tele" | "zoom_wide":
-                speed = params.get("speed")
-                if speed is None or speed == "":
-                    speed = self.config.get("zoom_speed", 4)
-                speed = self._bounded(speed, 0, 7)
-                base = 0x20 if command == "zoom_tele" else 0x30
-                await self._visca_command(
-                    bytes([0x81, 0x01, 0x04, 0x07, base | speed, 0xFF])
-                )
-            case "zoom_direct":
-                position = int(params["position"])
-                limit = self._model_zoom_max()
-                if not 0 <= position <= limit:
-                    raise ValueError(
-                        f"Zoom position 0-{limit} on this camera "
-                        f"({self.get_state('model') or 'model not read'})."
-                    )
-                await self._visca_command(
-                    b"\x81\x01\x04\x47" + _to_nibbles(position) + b"\xff"
-                )
-            case "focus_far" | "focus_near":
-                speed = params.get("speed")
-                if speed is None or speed == "":
-                    # Standard speed (8x 01 04 08 02 / 03 FF).
-                    code = 0x02 if command == "focus_far" else 0x03
-                else:
-                    base = 0x20 if command == "focus_far" else 0x30
-                    code = base | self._bounded(speed, 0, 7)
-                await self._visca_command(bytes([0x81, 0x01, 0x04, 0x08, code, 0xFF]))
-            case "focus_direct":
-                position = self._bounded(params["position"], 0x1000, 0xF000)
-                await self._visca_command(
-                    b"\x81\x01\x04\x48" + _to_nibbles(position) + b"\xff"
-                )
-            case "set_iris":
-                value = str(params["value"])
-                if value not in _IRIS_CODES:
-                    raise ValueError(
-                        f"{value!r} is not one of {', '.join(_IRIS_CODES)}."
-                    )
-                await self._visca_command(
-                    b"\x81\x01\x04\x4b\x00\x00"
-                    + _to_nibbles(_IRIS_CODES[value], 2)
-                    + b"\xff"
-                )
-            case "set_gain":
-                db = int(params["db"])
-                if db % 3 or not 0 <= db <= 48:
-                    raise ValueError("Gain is 0-48 dB in 3 dB steps.")
-                await self._visca_command(
-                    b"\x81\x01\x04\x4c\x00\x00" + _to_nibbles(db // 3 + 1, 2) + b"\xff"
-                )
-            case "set_exposure_comp_level":
-                level = self._bounded(params["level"], -7, 7)
-                await self._visca_command(
-                    b"\x81\x01\x04\x4e\x00\x00" + _to_nibbles(level + 7, 2) + b"\xff"
-                )
-            case "set_noise_reduction":
-                value = str(params["value"])
-                if value not in _NR_CODES:
-                    raise ValueError(f"{value!r} is not one of {', '.join(_NR_CODES)}.")
-                await self._visca_command(
-                    bytes([0x81, 0x01, 0x04, 0x53, _NR_CODES[value], 0xFF])
-                )
-            case "set_defog":
-                level = self._bounded(params.get("level") or 0, 0, 3)
-                await self._visca_command(
-                    bytes(
-                        [
-                            0x81,
-                            0x01,
-                            0x04,
-                            0x37,
-                            0x02 if params["enabled"] else 0x03,
-                            level,
-                            0xFF,
-                        ]
-                    )
-                )
-            case "set_tally":
-                if params["enabled"]:
-                    await self._visca_command(b"\x81\x01\x7e\x01\x0a\x00\x02\xff")
-                    self._hold_tally()
-                else:
-                    self._tally_hold = False
-                    await self._visca_command(b"\x81\x01\x7e\x01\x0a\x00\x03\xff")
-            case "preset_recall":
-                number = self._preset_number(params)
-                if number <= _PRESETS_OVER_VISCA:
-                    await self._visca_command(
-                        bytes([0x81, 0x01, 0x04, 0x3F, 0x02, number - 1, 0xFF])
-                    )
-                else:
-                    await self._cgi_set(
-                        "command/presetposition.cgi", f"PresetCall={number}"
-                    )
-            case "preset_save":
-                number = self._preset_number(params)
-                name = str(params.get("name") or "")
-                if number <= _PRESETS_OVER_VISCA and not name:
-                    await self._visca_command(
-                        bytes([0x81, 0x01, 0x04, 0x3F, 0x01, number - 1, 0xFF])
-                    )
-                else:
-                    value = self._name_value(name, "preset name")
-                    await self._cgi_set(
-                        "command/presetposition.cgi", f"PresetSet={number},{value},off"
-                    )
-                await self._read_presets_quietly()
-            case "preset_clear":
-                number = self._preset_number(params)
-                if number <= _PRESETS_OVER_VISCA:
-                    await self._visca_command(
-                        bytes([0x81, 0x01, 0x04, 0x3F, 0x00, number - 1, 0xFF])
-                    )
-                else:
-                    await self._cgi_set(
-                        "command/presetposition.cgi", f"PresetClear={number}"
-                    )
-                await self._read_presets_quietly()
-            case "preset_rename":
-                number = self._preset_number(params)
-                value = self._name_value(str(params.get("name") or ""), "preset name")
-                await self._cgi_set(
-                    "command/presetposition.cgi", f"PresetName={number},{value}"
-                )
-                await self._read_groups(("presetposition",), quiet=False)
-            case "set_composition":
-                vertical = self._bounded(params["vertical"], -50, 70)
-                horizontal = self._bounded(params["horizontal"], -50, 50)
-                size = self._bounded(params["size"], 160, 3500)
-                await self._cgi_set(
-                    "analytics/ptzautoframing.cgi",
-                    f"PtzAutoFramingAdjustSetting={vertical},{horizontal},{size}",
-                )
-                await self._read_groups(("ptzautoframing",), quiet=False)
-            case "composition_preset_recall":
-                number = self._bounded(params["number"], 1, 3)
-                await self._cgi_set(
-                    "analytics/ptzautoframing.cgi", f"PtzAutoFramingPresetCall={number}"
-                )
-                await self._read_groups(("ptzautoframing",), quiet=False)
-            case "composition_preset_save":
-                number = self._bounded(params["number"], 1, 3)
-                value = self._name_value(
-                    str(params.get("name") or ""), "composition preset name"
-                )
-                await self._cgi_set(
-                    "analytics/ptzautoframing.cgi",
-                    f"PtzAutoFramingPresetSet={number},{value}",
-                )
-                await self._read_groups(("ptzautoframing",), quiet=False)
-            case "composition_preset_reset":
-                number = self._bounded(params["number"], 1, 3)
-                await self._cgi_set(
-                    "analytics/ptzautoframing.cgi",
-                    f"PtzAutoFramingPresetReset={number}",
-                )
-                await self._read_groups(("ptzautoframing",), quiet=False)
-            case "track_subject_at":
-                x = self._bounded(params["x"], 0, 10000)
-                y = self._bounded(params["y"], 0, 10000)
-                await self._cgi_set(
-                    "analytics/ptzautoframing.cgi",
-                    f"PtzAutoFramingObjectPosition={x},{y}",
-                )
-            case "auto_framing_restart":
-                await self._cgi_set(
-                    "analytics/ptzautoframingexe.cgi", "PtzAutoFramingRestart=on"
-                )
-            case "auto_framing_save_start_position":
-                await self._cgi_set(
-                    "analytics/ptzautoframingexe.cgi",
-                    "PtzAutoFramingDecideStartPosition=on",
-                )
-            case "auto_framing_go_to_start_position":
-                await self._cgi_set(
-                    "analytics/ptzautoframingexe.cgi",
-                    "PtzAutoFramingMoveStartPosition=on",
-                )
-            case "fixed_angle_save":
-                await self._cgi_set(
-                    "analytics/ptzautoframingexe.cgi",
-                    "PtzAutoFramingFixedAnglePositionSet=1",
-                )
-            case "fixed_angle_recall":
-                await self._cgi_set(
-                    "analytics/ptzautoframingexe.cgi",
-                    "PtzAutoFramingFixedAnglePositionCall=1",
-                )
-            case "rtmp_start" | "rtmp_stop":
-                word = "on" if command == "rtmp_start" else "off"
-                await self._cgi_set("command/rtmpexe.cgi", f"RtmpStreaming={word}")
-                await self._read_groups(("stream",), quiet=False)
-            case "srt_start" | "srt_stop":
-                word = "on" if command == "srt_start" else "off"
-                await self._cgi_set("command/srtexe.cgi", f"SrtStreaming={word}")
-                await self._read_groups(("stream",), quiet=False)
-            case "save_rtmp_url" | "save_srt_url":
-                url = str(params.get("url") or "")
-                scheme = (
-                    ("rtmp://", "rtmps://")
-                    if command == "save_rtmp_url"
-                    else ("srt://",)
-                )
-                if url and not url.lower().startswith(scheme):
-                    raise ValueError(f"The URL starts with {' or '.join(scheme)}.")
-                if len(url.encode("utf-8")) > 512:
-                    raise ValueError("The URL is at most 512 bytes.")
-                value = self._text_value(url, "URL", safe=":/")
-                if command == "save_rtmp_url":
-                    await self._cgi_set("command/rtmp.cgi", f"RtmpServerUrl1={value}")
-                    await self._read_groups(("rtmp",), quiet=False)
-                    kept = self.get_state("rtmp_url")
-                else:
-                    await self._cgi_set("command/srt.cgi", f"SrtServerUrl1={value}")
-                    await self._read_groups(("srt",), quiet=False)
-                    kept = self.get_state("srt_url")
-                if kept != url:
-                    raise CommandRefusedError("The camera did not keep that URL.")
-            case "save_rtmp_key":
-                key = str(params.get("key") or "")
-                if len(key.encode("utf-8")) > 190:
-                    raise ValueError("The stream key is at most 190 bytes.")
-                value = self._text_value(key, "stream key")
-                # The camera reports only whether a key is set; the key itself
-                # is never read and never put in state, which reaches the cloud.
-                await self._cgi_set("command/rtmp.cgi", f"RtmpStreamKey1={value}")
-                await self._read_groups(("rtmp",), quiet=False)
-            case "reboot":
-                await self._cgi_set("command/main.cgi", "System=reboot")
-            case "factory_reset":
-                mode = str(params.get("mode") or "soft")
-                if mode not in ("soft", "hard"):
-                    raise ValueError("Factory Reset is soft or hard.")
-                await self._cgi_set("command/main.cgi", f"FactoryDefault={mode}")
-            case _:
-                raise ValueError(f"Unknown command: {command}")
+    # Lens and position.
+
+    async def _pt_absolute(self, _command: str, params: dict[str, Any]) -> None:
+        pan = _bounded(params["pan"], -8704, 8704) & 0xFFFF
+        tilt = _bounded(params["tilt"], -4608, 4608) & 0xFFFF
+        speed = params.get("speed")
+        speed = (
+            self._speed("pan_speed", 24)
+            if speed in (None, "")
+            else _bounded(speed, 1, 24)
+        )
+        await self._visca_command(
+            b"\x81\x01\x06\x02"
+            + bytes([speed, 0x00])
+            + _to_nibbles(pan)
+            + _to_nibbles(tilt)
+            + b"\xff"
+        )
+
+    async def _zoom_drive(self, command: str, params: dict[str, Any]) -> None:
+        speed = params.get("speed")
+        if speed in (None, ""):
+            speed = self.config.get("zoom_speed", 4)
+        code = _ZOOM_DRIVE[command] | _bounded(speed, 0, 7)
+        await self._visca_command(bytes([0x81, 0x01, 0x04, 0x07, code, 0xFF]))
+
+    async def _zoom_direct(self, _command: str, params: dict[str, Any]) -> None:
+        position = int(params["position"])
+        limit = self._model_zoom_max()
+        if not 0 <= position <= limit:
+            raise ValueError(
+                f"Zoom position 0-{limit} on this camera "
+                f"({self.get_state('model') or 'model not read'})."
+            )
+        await self._visca_command(b"\x81\x01\x04\x47" + _to_nibbles(position) + b"\xff")
+
+    async def _focus_drive(self, command: str, params: dict[str, Any]) -> None:
+        standard, base = _FOCUS_DRIVE[command]
+        speed = params.get("speed")
+        # No speed: the standard-speed form (8x 01 04 08 02 / 03 FF).
+        code = standard if speed in (None, "") else base | _bounded(speed, 0, 7)
+        await self._visca_command(bytes([0x81, 0x01, 0x04, 0x08, code, 0xFF]))
+
+    async def _focus_direct(self, _command: str, params: dict[str, Any]) -> None:
+        position = _bounded(params["position"], 0x1000, 0xF000)
+        await self._visca_command(b"\x81\x01\x04\x48" + _to_nibbles(position) + b"\xff")
+
+    # Picture.
+
+    async def _set_iris(self, _command: str, params: dict[str, Any]) -> None:
+        value = _one_of(str(params["value"]), _IRIS_CODES)
+        await self._visca_command(
+            b"\x81\x01\x04\x4b\x00\x00" + _to_nibbles(_IRIS_CODES[value], 2) + b"\xff"
+        )
+
+    async def _set_gain(self, _command: str, params: dict[str, Any]) -> None:
+        db = int(params["db"])
+        if db % 3 or not 0 <= db <= 48:
+            raise ValueError("Gain is 0-48 dB in 3 dB steps.")
+        await self._visca_command(
+            b"\x81\x01\x04\x4c\x00\x00" + _to_nibbles(db // 3 + 1, 2) + b"\xff"
+        )
+
+    async def _set_exposure_comp_level(
+        self, _command: str, params: dict[str, Any]
+    ) -> None:
+        level = _bounded(params["level"], -7, 7)
+        await self._visca_command(
+            b"\x81\x01\x04\x4e\x00\x00" + _to_nibbles(level + 7, 2) + b"\xff"
+        )
+
+    async def _set_noise_reduction(self, _command: str, params: dict[str, Any]) -> None:
+        value = _one_of(str(params["value"]), _NR_CODES)
+        await self._visca_command(
+            bytes([0x81, 0x01, 0x04, 0x53, _NR_CODES[value], 0xFF])
+        )
+
+    async def _set_defog(self, _command: str, params: dict[str, Any]) -> None:
+        level = _bounded(params.get("level") or 0, 0, 3)
+        on = 0x02 if params["enabled"] else 0x03
+        await self._visca_command(bytes([0x81, 0x01, 0x04, 0x37, on, level, 0xFF]))
+
+    async def _set_tally(self, _command: str, params: dict[str, Any]) -> None:
+        if params["enabled"]:
+            await self._visca_command(b"\x81\x01\x7e\x01\x0a\x00\x02\xff")
+            self._hold_tally()
+        else:
+            self._tally_hold = False
+            await self._visca_command(b"\x81\x01\x7e\x01\x0a\x00\x03\xff")
+
+    # Presets: 1-64 over VISCA (pp = the number less one), the rest and the
+    # names over the CGI.
+
+    async def _preset_action(self, number: int, visca_action: int, query: str) -> None:
+        if number <= _PRESETS_OVER_VISCA:
+            await self._visca_command(
+                bytes([0x81, 0x01, 0x04, 0x3F, visca_action, number - 1, 0xFF])
+            )
+        else:
+            await self._cgi_set("command/presetposition.cgi", query)
+
+    async def _preset_recall(self, _command: str, params: dict[str, Any]) -> None:
+        number = _preset_number(params)
+        await self._preset_action(number, 0x02, f"PresetCall={number}")
+
+    async def _preset_save(self, _command: str, params: dict[str, Any]) -> None:
+        number = _preset_number(params)
+        name = str(params.get("name") or "")
+        if number <= _PRESETS_OVER_VISCA and not name:
+            await self._preset_action(number, 0x01, "")
+        else:
+            value = _name_value(name, "preset name")
+            await self._cgi_set(
+                "command/presetposition.cgi", f"PresetSet={number},{value},off"
+            )
+        await self._read_presets_quietly()
+
+    async def _preset_clear(self, _command: str, params: dict[str, Any]) -> None:
+        number = _preset_number(params)
+        await self._preset_action(number, 0x00, f"PresetClear={number}")
+        await self._read_presets_quietly()
+
+    async def _preset_rename(self, _command: str, params: dict[str, Any]) -> None:
+        number = _preset_number(params)
+        value = _name_value(str(params.get("name") or ""), "preset name")
+        await self._cgi_set(
+            "command/presetposition.cgi", f"PresetName={number},{value}"
+        )
+        await self._read_groups(("presetposition",), quiet=False)
 
     async def _read_presets_quietly(self) -> None:
         """Preset names come from the CGI; without it they wait for the poll."""
@@ -3930,19 +4025,69 @@ class SonySRGADriver(BaseDriver):
         except (ConnectionError, _LoginRequired):
             pass
 
-    @staticmethod
-    def _preset_number(params: dict[str, Any]) -> int:
-        number = int(params["number"])
-        if not 1 <= number <= 256:
-            raise ValueError("Presets are numbered 1-256.")
-        return number
+    # PTZ Auto Framing.
 
-    @staticmethod
-    def _bounded(value: Any, low: int, high: int) -> int:
-        number = int(value)
-        if not low <= number <= high:
-            raise ValueError(f"{number} is outside {low}-{high}.")
-        return number
+    async def _auto_framing_set(self, query: str) -> None:
+        await self._cgi_set("analytics/ptzautoframing.cgi", query)
+        await self._read_groups(("ptzautoframing",), quiet=False)
+
+    async def _set_composition(self, _command: str, params: dict[str, Any]) -> None:
+        vertical = _bounded(params["vertical"], -50, 70)
+        horizontal = _bounded(params["horizontal"], -50, 50)
+        size = _bounded(params["size"], 160, 3500)
+        await self._auto_framing_set(
+            f"PtzAutoFramingAdjustSetting={vertical},{horizontal},{size}"
+        )
+
+    async def _composition_preset(self, command: str, params: dict[str, Any]) -> None:
+        number = _bounded(params["number"], 1, 3)
+        await self._auto_framing_set(f"{_COMPOSITION_PRESET_ACTIONS[command]}={number}")
+
+    async def _composition_preset_save(
+        self, _command: str, params: dict[str, Any]
+    ) -> None:
+        number = _bounded(params["number"], 1, 3)
+        value = _name_value(str(params.get("name") or ""), "composition preset name")
+        await self._auto_framing_set(f"PtzAutoFramingPresetSet={number},{value}")
+
+    async def _track_subject_at(self, _command: str, params: dict[str, Any]) -> None:
+        x = _bounded(params["x"], 0, 10000)
+        y = _bounded(params["y"], 0, 10000)
+        await self._cgi_set(
+            "analytics/ptzautoframing.cgi", f"PtzAutoFramingObjectPosition={x},{y}"
+        )
+
+    async def _cgi_action(self, command: str, _params: dict[str, Any]) -> None:
+        path, query, group = _CGI_ACTIONS[command]
+        await self._cgi_set(path, query)
+        if group:
+            await self._read_groups((group,), quiet=False)
+
+    # Streaming and the system.
+
+    async def _save_stream_url(self, command: str, params: dict[str, Any]) -> None:
+        schemes, path, name, group, key = _STREAM_URLS[command]
+        url = str(params.get("url") or "")
+        await self._cgi_set(path, f"{name}={_url_value(url, schemes)}")
+        await self._read_groups((group,), quiet=False)
+        if self.get_state(key) != url:
+            raise CommandRefusedError("The camera did not keep that URL.")
+
+    async def _save_rtmp_key(self, _command: str, params: dict[str, Any]) -> None:
+        key = str(params.get("key") or "")
+        if len(key.encode("utf-8")) > 190:
+            raise ValueError("The stream key is at most 190 bytes.")
+        value = _text_value(key, "stream key")
+        # The camera reports only whether a key is set; the key itself is
+        # never read and never put in state, which reaches the cloud.
+        await self._cgi_set("command/rtmp.cgi", f"RtmpStreamKey1={value}")
+        await self._read_groups(("rtmp",), quiet=False)
+
+    async def _factory_reset(self, _command: str, params: dict[str, Any]) -> None:
+        mode = str(params.get("mode") or "soft")
+        if mode not in ("soft", "hard"):
+            raise ValueError("Factory Reset is soft or hard.")
+        await self._cgi_set("command/main.cgi", f"FactoryDefault={mode}")
 
     # ── Device settings ──
 
@@ -3981,11 +4126,19 @@ class SonySRGADriver(BaseDriver):
         self._poll_count += 1
         slow = full or self._poll_count % _SLOW_EVERY == 0
         problems: list[str] = []
-        # VISCA: stop at the first inquiry nothing answers. The camera answers
-        # one it does not support with an error, so silence means VISCA over
-        # IP is not reaching it, and waiting out the rest would only make the
-        # poll run long.
-        visca_answered = False
+        visca_answered = await self._poll_visca(slow, problems)
+        self._check_tally()
+        await self._poll_cgi(self._poll_groups(full, slow), visca_answered, problems)
+        self._report_problems(problems)
+
+    async def _poll_visca(self, slow: bool, problems: list[str]) -> bool:
+        """The VISCA inquiries; True when the camera answered any.
+
+        Stops at the first inquiry nothing answers. The camera answers one
+        it does not support with an error, so silence means VISCA over IP is
+        not reaching it, and waiting out the rest would only make the poll
+        run long."""
+        answered = False
         inquiries = _FAST_INQUIRIES + (_SLOW_INQUIRIES if slow else ())
         for name, payload in inquiries:
             reply = await self._inquire(payload)
@@ -3995,9 +4148,11 @@ class SonySRGADriver(BaseDriver):
                     f"check that CAMERA SETUP switch 3 (VISCA) is on."
                 )
                 break
-            visca_answered = True
+            answered = True
             self._apply(name, reply)
-        self._check_tally()
+        return answered
+
+    def _poll_groups(self, full: bool, slow: bool) -> tuple[str, ...]:
         groups = _CGI_EVERY_POLL
         if slow:
             groups += _CGI_EVERY_6TH
@@ -4005,8 +4160,13 @@ class SonySRGADriver(BaseDriver):
             groups += _CGI_EVERY_12TH
         if full:
             groups += _CGI_AT_CONNECT
-        # The CGI. With VISCA silent too, a transport error raises: that is
-        # what takes a camera that stopped answering offline.
+        return groups
+
+    async def _poll_cgi(
+        self, groups: tuple[str, ...], visca_answered: bool, problems: list[str]
+    ) -> None:
+        # With VISCA silent too, a transport error raises: that is what takes
+        # a camera that stopped answering offline.
         try:
             await self._read_groups(groups)
         except ConnectionFaultError:
@@ -4015,6 +4175,8 @@ class SonySRGADriver(BaseDriver):
             if not visca_answered:
                 raise
             problems.append(self._http_silent())
+
+    def _report_problems(self, problems: list[str]) -> None:
         if self._cgi_unavailable:
             problems.append(self._cgi_unavailable)
         problems.extend(self._cgi_refusals.values())
@@ -4101,6 +4263,54 @@ _SETTING_COMMANDS.update(
 _SETTING_COMMANDS.update(
     {spec[2]: (cmd, "value") for cmd, spec in _CGI_SETTINGS.items()}
 )
+
+# Every command and the method that sends it. The VISCA and CGI tables share
+# a method per table; no command is in two of them.
+_D = SonySRGADriver
+_COMMAND_HANDLERS: dict[str, Callable[..., Any]] = {
+    **dict.fromkeys(_SIMPLE_COMMANDS, _D._run_simple),
+    **dict.fromkeys(_PT_DIRECTIONS, _D._run_drive),
+    **dict.fromkeys(_VISCA_SWITCHES, _D._run_switch),
+    **dict.fromkeys(_VISCA_ENUMS, _D._run_enum),
+    **dict.fromkeys(_VISCA_NIBBLE_LEVELS, _D._run_nibble_level),
+    **dict.fromkeys(_VISCA_BYTE_LEVELS, _D._run_byte_level),
+    **dict.fromkeys(_CGI_SETTINGS, _D._run_cgi_setting),
+    **dict.fromkeys(_CGI_ACTIONS, _D._cgi_action),
+    **dict.fromkeys(_COMPOSITION_PRESET_ACTIONS, _D._composition_preset),
+    **dict.fromkeys(_STREAM_URLS, _D._save_stream_url),
+    "pt_absolute": _D._pt_absolute,
+    "zoom_tele": _D._zoom_drive,
+    "zoom_wide": _D._zoom_drive,
+    "zoom_direct": _D._zoom_direct,
+    "focus_far": _D._focus_drive,
+    "focus_near": _D._focus_drive,
+    "focus_direct": _D._focus_direct,
+    "set_iris": _D._set_iris,
+    "set_gain": _D._set_gain,
+    "set_exposure_comp_level": _D._set_exposure_comp_level,
+    "set_noise_reduction": _D._set_noise_reduction,
+    "set_defog": _D._set_defog,
+    "set_tally": _D._set_tally,
+    "preset_recall": _D._preset_recall,
+    "preset_save": _D._preset_save,
+    "preset_clear": _D._preset_clear,
+    "preset_rename": _D._preset_rename,
+    "set_composition": _D._set_composition,
+    "composition_preset_save": _D._composition_preset_save,
+    "track_subject_at": _D._track_subject_at,
+    "save_rtmp_key": _D._save_rtmp_key,
+    "factory_reset": _D._factory_reset,
+}
+
+# inquiry.cgi parameters that set more than one value, or a picker list.
+_CGI_SPECIAL_READS: dict[str, Callable[[Any, str, str], None]] = {
+    "PtzAutoFramingAdjustSetting": _D._read_composition,
+    "PtzAutoFramingMultiTrackingCurrentTargetNum": _D._read_target_count,
+    "PresetName": _D._read_picker,
+    "PtzAutoFramingPresetName": _D._read_picker,
+    "RtmpStreamKey1Used": _D._read_key_set,
+}
+del _D
 
 
 class _LoginRequired(Exception):

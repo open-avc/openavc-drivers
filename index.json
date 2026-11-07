@@ -10684,7 +10684,7 @@
       "file": "cameras/sony_srg_a.py",
       "format": "python",
       "files": {
-        "cameras/sony_srg_a.py": "1ba6cf7b777b3369c47c3e696e4e7762ba5eddef13682ef77db8c18959b38715",
+        "cameras/sony_srg_a.py": "61e77c2768b3b0daabb5480fa7f26fa361011b55dc92f3ef89f250b0402d8625",
         "cameras/sony_srg_a_sim.py": "8f87ff3ff631c7d0aa4e277d81aeca8c85129720d4aa333ca720d5e050711728"
       },
       "ports": [

@@ -192,7 +192,7 @@ class VISCAIPDriver(BaseDriver):
         "name": "Generic VISCA-IP PTZ Camera",
         "manufacturer": "Generic",
         "category": "camera",
-        "version": "1.3.7",
+        "version": "1.3.8",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
@@ -281,8 +281,12 @@ class VISCAIPDriver(BaseDriver):
                     "use the dedicated `aver_ptz` driver instead -- it adds "
                     "AVer's HTTP CGI surface (image quality, SmartShoot, "
                     "SmartFraming, RTMP, bulk status) on top of the VISCA-IP "
-                    "wire format. Other AVer cameras don't have a comparably "
-                    "documented HTTP CGI guide and continue here."
+                    "wire format. AVer's TR-series tracking cameras (TR313 and "
+                    "TR315 here) document an HTTP CGI of their own, a "
+                    "different command set from the PTZ310 / PTZ330's, in "
+                    "AVer's TR3XX V2 HTTP CGI Commands and each TR model's "
+                    "user manual. No driver speaks it, so the TR cameras use "
+                    "this driver for pan, tilt, zoom, presets and power."
                 ),
             },
             {

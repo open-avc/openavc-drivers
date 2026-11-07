@@ -21,7 +21,16 @@ HTTP CGI surface is publicly documented and stable.
 
 Other AVer cameras (CAM5xx, VC520, VB342+, CAM570, etc.) speak the same
 VISCA subset but their HTTP surface either differs or is undocumented;
-those continue to use ``visca_ip`` until AVer ships matching CGI guides.
+those use ``visca_ip``.
+
+AVer's TR-series tracking cameras do document an HTTP CGI, a different
+command set from the ``/storks`` one this driver speaks
+(``/cgi-bin?Set=...``, ``/cgi-bin?SetPtzf=...``, ``/cgi-bin?ActPreset=...``):
+the TR310 / TR311 / TR311HN / TR313 / TR331 / TR333 and the TR311HWV2 /
+TR313V2 / TR323NV2 / TR333V2 in AVer's "HTTP CGI Commands (Updated
+6/2/2022)", and the TR211 / TR315 / TR335, the TR535 / TR535N and the
+TR615 in the CGI Commands chapter of each model's user manual. This driver
+does not speak that CGI, so those cameras use ``visca_ip``.
 
 Push vs poll
 ------------
@@ -170,7 +179,7 @@ class AVerPTZDriver(BaseDriver):
         "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
         "manufacturer": "AVer",
         "category": "camera",
-        "version": "1.3.9",
+        "version": "1.3.10",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # confirm on factory_reset needs 0.36.0; binding the VISCA socket to
         # Reach devices through, 0.37.0.
@@ -183,8 +192,9 @@ class AVerPTZDriver(BaseDriver):
             "(shutter, iris, gain, white balance, color temperature, "
             "saturation, contrast, sharpness), AI features (SmartShoot, "
             "SmartFraming), bulk status query, RTMP streaming, mirror/"
-            "flip, and reboot. For other AVer models without a documented "
-            "HTTP CGI guide, prefer the generic 'visca_ip' driver."
+            "flip, and reboot. For other AVer cameras, the TR-series "
+            "tracking cameras included (their HTTP CGI is a different "
+            "command set), use the generic 'visca_ip' driver."
         ),
         "source_url": (
             "https://www.averusa.com/pro-av/downloads/control-codes/"

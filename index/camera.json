@@ -1037,7 +1037,7 @@
       "format": "python",
       "files": {
         "cameras/sony_srg_a.py": "61e77c2768b3b0daabb5480fa7f26fa361011b55dc92f3ef89f250b0402d8625",
-        "cameras/sony_srg_a_sim.py": "8f87ff3ff631c7d0aa4e277d81aeca8c85129720d4aa333ca720d5e050711728"
+        "cameras/sony_srg_a_sim.py": "2e98d2e8d864244c9e25c77fa83ac1a4fc8a7a109cf0240609e3c7ea473725f9"
       },
       "ports": [
         80,

@@ -130,6 +130,19 @@ _GROUP_OF = {
     "ndi": ("NdiSourceName",),
 }
 
+_COMP_NAMES = {1: "Full Body", 2: "Waist", 3: "Closeup"}
+_COMPOSITION_LIMITS = ((-50, 70), (-50, 50), (160, 3500))
+_OBJECT_LIMITS = ((0, 10000), (0, 10000))
+_DECLARED_CGIS = ("ptzautoframing.cgi", "tally.cgi", "stream.cgi", "ndi.cgi")
+
+# A level's Reset / Up / Down code and the step it takes.
+_STEP = {0x00: None, 0x02: 1, 0x03: -1}
+
+# What the camera takes with its on-screen menu open: power, the menu key,
+# and the menu's Enter.
+_MENU_KEYS = (b"\x81\x01\x04\x00", b"\x81\x01\x06\x06")
+_OSD_ENTER = b"\x81\x01\x7e\x01\x02\x00\x01\xff"
+
 _EXE = {
     "PtzAutoFramingRestart": "on", "PtzAutoFramingDecideStartPosition": "on",
     "PtzAutoFramingMoveStartPosition": "on", "PtzAutoFramingFixedAnglePositionSet": "1",
@@ -146,6 +159,61 @@ def _nibbles(data: bytes) -> int:
 
 def _to_nibbles(value: int, count: int = 4) -> bytes:
     return bytes((value >> (4 * (count - 1 - i))) & 0x0F for i in range(count))
+
+
+def _signed16(value: int) -> int:
+    return value - 0x10000 if value & 0x8000 else value
+
+
+def _int(text: str) -> int | None:
+    try:
+        return int(text)
+    except ValueError:
+        return None
+
+
+def _ints(value: str, count: int) -> tuple[int, ...] | None:
+    """``count`` comma-separated whole numbers, or None."""
+    fields = value.split(",")
+    if len(fields) != count:
+        return None
+    try:
+        return tuple(int(f) for f in fields)
+    except ValueError:
+        return None
+
+
+def _within(numbers: tuple[int, ...], limits: tuple[tuple[int, int], ...]) -> bool:
+    return all(low <= n <= high for n, (low, high) in zip(numbers, limits))
+
+
+def _is_range(allowed: Any) -> bool:
+    """A setting's (low, high), against a tuple of the words it takes."""
+    if not isinstance(allowed, tuple) or not allowed:
+        return False
+    return isinstance(allowed[0], int)
+
+
+def _is_message(p: bytes, second: int) -> bool:
+    """8x <second> ... FF, at least four bytes."""
+    if len(p) < 4 or p[-1] != 0xFF:
+        return False
+    return p[:2] == bytes([0x81, second])
+
+
+def _first_packet(payload: bytes) -> bytes:
+    """A packet ends at its first FF, whatever follows."""
+    end = payload.find(b"\xff")
+    return payload[: end + 1] if end >= 0 else payload
+
+
+def _cgi_of(path: str) -> str | None:
+    """The CGI a path names, when it is in the folder the camera serves it
+    from: the auto framing CGIs under /analytics, the rest under /command."""
+    cgi = path.rsplit("/", 1)[-1]
+    folder = path.rsplit("/", 2)[-2] if path.count("/") >= 2 else ""
+    analytics = cgi in ("ptzautoframing.cgi", "ptzautoframingexe.cgi")
+    return cgi if folder == ("analytics" if analytics else "command") else None
 
 
 class SonySrgASimulator(DatagramServerMixin, HTTPSimulator):
@@ -282,7 +350,7 @@ class SonySrgASimulator(DatagramServerMixin, HTTPSimulator):
     def __init__(self, device_id: str, config: dict | None = None) -> None:
         super().__init__(device_id, config)
         self._presets: dict[int, tuple[int, int, int, str]] = {}
-        self._comp_names = {1: "Full Body", 2: "Waist", 3: "Closeup"}
+        self._comp_names = dict(_COMP_NAMES)
         self._last_seq = 0
         self._tally_lit = 0.0
         # The camera's 15 s; a proof shortens it.
@@ -311,11 +379,14 @@ class SonySrgASimulator(DatagramServerMixin, HTTPSimulator):
         return 0x4000 if self.model == "SRG-A12" else 0x7AC0
 
     def _tally_on(self) -> bool:
-        if self.state.get("tally") and self._tally_lit and (
-            time.monotonic() - self._tally_lit > self.tally_expiry_s
-        ):
+        if self.state.get("tally") and self._tally_expired():
             self.set_state("tally", False)
         return bool(self.state.get("tally"))
+
+    def _tally_expired(self) -> bool:
+        if not self._tally_lit:
+            return False
+        return time.monotonic() - self._tally_lit > self.tally_expiry_s
 
     # ── HTTP CGI ──
 
@@ -327,27 +398,35 @@ class SonySrgASimulator(DatagramServerMixin, HTTPSimulator):
 
     def handle_request(self, method: str, path: str, headers: dict[str, str], body: str):
         lower = {k.lower(): str(v) for k, v in headers.items()}
-        auth = lower.get("authorization", "")
-        if not auth.lower().startswith("digest ") or "wrong_password" in self.active_errors:
-            challenge = (
-                f'Digest realm="Sony Network Camera {self.model}", '
-                f'nonce="{int(time.time() * 1000):x}", qop="auth", algorithm=MD5'
-            )
-            return 401, "Unauthorized", {"WWW-Authenticate": challenge}
-        if "referer" not in lower:
-            # Referer Check, on at the factory.
-            return 403, "Forbidden"
+        refused = self._refuse(lower)
+        if refused is not None:
+            return refused
         parts = urlsplit(path)
         pairs = parse_qsl(parts.query, keep_blank_values=True)
         if parts.path == "/command/inquiry.cgi":
             return self._inquiry_cgi(pairs)
         if "viewer_account" in self.active_errors:
             return 403, "Forbidden"
-        cgi = parts.path.rsplit("/", 1)[-1]
-        folder = parts.path.rsplit("/", 2)[-2] if parts.path.count("/") >= 2 else ""
-        analytics = cgi in ("ptzautoframing.cgi", "ptzautoframingexe.cgi")
-        if folder != ("analytics" if analytics else "command"):
+        cgi = _cgi_of(parts.path)
+        if cgi is None:
             return 404, "Not Found"
+        return self._set_all(cgi, pairs)
+
+    def _refuse(self, headers: dict[str, str]):
+        """The Digest sign-in and the Referer Check, as the camera applies them."""
+        auth = headers.get("authorization", "")
+        if not auth.lower().startswith("digest ") or "wrong_password" in self.active_errors:
+            challenge = (
+                f'Digest realm="Sony Network Camera {self.model}", '
+                f'nonce="{int(time.time() * 1000):x}", qop="auth", algorithm=MD5'
+            )
+            return 401, "Unauthorized", {"WWW-Authenticate": challenge}
+        if "referer" not in headers:
+            # Referer Check, on at the factory.
+            return 403, "Forbidden"
+        return None
+
+    def _set_all(self, cgi: str, pairs: list[tuple[str, str]]):
         for name, value in pairs:
             status = self._set_cgi(cgi, name, value)
             if status != 200:
@@ -355,61 +434,80 @@ class SonySrgASimulator(DatagramServerMixin, HTTPSimulator):
         return 200, ""
 
     def _inquiry_cgi(self, pairs: list[tuple[str, str]]):
-        s = self.state
         out: list[str] = []
         for key, group in pairs:
-            if key != "inq":
+            lines = self._inquiry_group(group) if key == "inq" else None
+            if lines is None:
                 return 400, "Bad Request"
-            if group == "ptzautoframing":
-                multi = s.get("multi") == "on"
-                out += [
-                    f"PtzAutoFraming={'on' if s.get('af') else 'off'}",
-                    f"PtzAutoFramingTrackingStatus={s.get('af_status') or 'idle'}",
-                    f"PtzAutoFramingAdjustSetting={self._i('comp_v')},{self._i('comp_h')},{self._i('comp_size')}",
-                    f"PtzAutoFramingMultiTrackingCurrentTargetNum={(self._i('multi_num') if multi else 1) if s.get('af') else 0},8",
-                    "PtzAutoFramingPresetName=" + ",".join(
-                        f"{n},{name}" for n, name in sorted(self._comp_names.items())
-                    ),
-                ]
-                out += [
-                    f"{name}={s.get(key)}" for name, (key, _a) in _CGI.items()
-                    if name.startswith("PtzAutoFraming")
-                ]
-            elif group == "presetposition":
-                out += [
-                    "PresetName=" + ",".join(
-                        f"{n},{p[3]}" for n, p in sorted(self._presets.items())
-                    ),
-                    "PresetNum=256",
-                    f"CallMode={'freeze' if self._i('call_mode') == 2 else 'normal'}",
-                ]
-            elif group in _GROUP_OF:
-                out += [f"{name}={s.get(_CGI[name][0])}" for name in _GROUP_OF[group]]
-                if group == "tally":
-                    out.append(f"TallyControl={'on' if self._tally_on() else 'off'}")
-                if group == "stream":
-                    out.append(f"StreamStatus={self._stream_status()}")
-            elif group == "status":
-                out.append(f"TemperatureWarning={1 if s.get('temp_warning') else 0}")
-            elif group == "rtmp":
-                out += [
-                    f"RtmpServerUrl1={s.get('rtmp_url') or ''}",
-                    f"RtmpStreamKey1Used={1 if s.get('rtmp_key') else 0}",
-                    "RtmpCertInstalled=0",
-                ]
-            elif group == "srt":
-                out += [f"SrtServerUrl1={s.get('srt_url') or ''}", "SrtListenPort=4201"]
-            elif group == "system":
-                out += [f"ModelName={self.model}", "Serial=01234567", "BuildNumber=4000"]
-            elif group == "sysinfo":
-                out += [
-                    "SoftVersion=4.00",
-                    f"Power={'on' if s.get('power') else 'standby'}",
-                    "PasswordChanged=1",
-                ]
-            else:
-                return 400, "Bad Request"
+            out += lines
         return 200, "&".join(out)
+
+    def _inquiry_group(self, group: str) -> list[str] | None:
+        if group in _GROUP_OF:
+            return self._declared_group(group)
+        read = _INQUIRY_GROUPS.get(group)
+        return None if read is None else read(self)
+
+    def _declared_group(self, group: str) -> list[str]:
+        s = self.state
+        lines = [f"{name}={s.get(_CGI[name][0])}" for name in _GROUP_OF[group]]
+        if group == "tally":
+            lines.append(f"TallyControl={'on' if self._tally_on() else 'off'}")
+        if group == "stream":
+            lines.append(f"StreamStatus={self._stream_status()}")
+        return lines
+
+    def _inq_ptzautoframing(self) -> list[str]:
+        s = self.state
+        lines = [
+            f"PtzAutoFraming={'on' if s.get('af') else 'off'}",
+            f"PtzAutoFramingTrackingStatus={s.get('af_status') or 'idle'}",
+            f"PtzAutoFramingAdjustSetting={self._i('comp_v')},{self._i('comp_h')},{self._i('comp_size')}",
+            f"PtzAutoFramingMultiTrackingCurrentTargetNum={self._target_count()},8",
+            "PtzAutoFramingPresetName=" + ",".join(
+                f"{n},{name}" for n, name in sorted(self._comp_names.items())
+            ),
+        ]
+        return lines + [
+            f"{name}={s.get(key)}" for name, (key, _a) in _CGI.items()
+            if name.startswith("PtzAutoFraming")
+        ]
+
+    def _target_count(self) -> int:
+        if not self.state.get("af"):
+            return 0
+        return self._i("multi_num") if self.state.get("multi") == "on" else 1
+
+    def _inq_presetposition(self) -> list[str]:
+        return [
+            "PresetName=" + ",".join(f"{n},{p[3]}" for n, p in sorted(self._presets.items())),
+            "PresetNum=256",
+            f"CallMode={'freeze' if self._i('call_mode') == 2 else 'normal'}",
+        ]
+
+    def _inq_status(self) -> list[str]:
+        return [f"TemperatureWarning={1 if self.state.get('temp_warning') else 0}"]
+
+    def _inq_rtmp(self) -> list[str]:
+        s = self.state
+        return [
+            f"RtmpServerUrl1={s.get('rtmp_url') or ''}",
+            f"RtmpStreamKey1Used={1 if s.get('rtmp_key') else 0}",
+            "RtmpCertInstalled=0",
+        ]
+
+    def _inq_srt(self) -> list[str]:
+        return [f"SrtServerUrl1={self.state.get('srt_url') or ''}", "SrtListenPort=4201"]
+
+    def _inq_system(self) -> list[str]:
+        return [f"ModelName={self.model}", "Serial=01234567", "BuildNumber=4000"]
+
+    def _inq_sysinfo(self) -> list[str]:
+        return [
+            "SoftVersion=4.00",
+            f"Power={'on' if self.state.get('power') else 'standby'}",
+            "PasswordChanged=1",
+        ]
 
     def _stream_status(self) -> str:
         if not self.state.get("streaming"):
@@ -417,67 +515,87 @@ class SonySrgASimulator(DatagramServerMixin, HTTPSimulator):
         return "streaming"
 
     def _set_cgi(self, cgi: str, name: str, value: str) -> int:
-        if cgi in ("ptzautoframing.cgi", "tally.cgi", "stream.cgi", "ndi.cgi") and name in _CGI:
-            key, allowed = _CGI[name]
-            if allowed is None:
-                if len(value.encode("utf-8")) > 64:
-                    return 400
-                self.set_state(key, value)
-                return 200
-            if isinstance(allowed, tuple) and allowed and isinstance(allowed[0], int):
-                try:
-                    number = int(value)
-                except ValueError:
-                    return 400
-                if not allowed[0] <= number <= allowed[1]:
-                    return 400
-                self.set_state(key, number)
-                return 200
-            if value not in allowed:
-                return 400
-            if name == "StreamMode" and value != self.state.get("stream_mode"):
-                self.set_state("streaming", False)
-            self.set_state(key, value)
-            return 200
+        if cgi in _DECLARED_CGIS and name in _CGI:
+            return self._set_declared(name, value)
         handler = getattr(self, f"_cgi_{cgi.replace('.cgi', '').replace('-', '_')}", None)
         if handler is None:
             return 404
         return handler(name, value)
 
-    def _cgi_ptzautoframing(self, name: str, value: str) -> int:
-        fields = value.split(",")
-        if name == "PtzAutoFraming" and value in _ON_OFF_WORD:
-            self._set_af(value == "on")
-        elif name == "PtzAutoFramingAdjustSetting" and len(fields) == 3:
-            try:
-                v, h, size = (int(f) for f in fields)
-            except ValueError:
-                return 400
-            if not (-50 <= v <= 70 and -50 <= h <= 50 and 160 <= size <= 3500):
-                return 400
-            self.set_state("comp_v", v)
-            self.set_state("comp_h", h)
-            self.set_state("comp_size", size)
-        elif name == "PtzAutoFramingPresetCall" and value in ("1", "2", "3"):
-            # A recalled composition: the simulator keeps one per preset number.
-            self.set_state("comp_size", {"1": 600, "2": 1200, "3": 2400}[value])
-        elif name == "PtzAutoFramingPresetSet" and len(fields) == 2 and fields[0] in ("1", "2", "3"):
-            if len(fields[1].encode("utf-8")) > 32 or set(fields[1]) & set('"%&,:~'):
-                return 400
-            self._comp_names[int(fields[0])] = fields[1]
-        elif name == "PtzAutoFramingPresetReset" and value in ("1", "2", "3"):
-            self._comp_names[int(value)] = {1: "Full Body", 2: "Waist", 3: "Closeup"}[int(value)]
-        elif name == "PtzAutoFramingObjectPosition" and len(fields) == 2:
-            try:
-                x, y = (int(f) for f in fields)
-            except ValueError:
-                return 400
-            if not (0 <= x <= 10000 and 0 <= y <= 10000):
-                return 400
-            if self.state.get("af"):
-                self.set_state("af_status", "tracking")
-        else:
+    def _set_declared(self, name: str, value: str) -> int:
+        key, allowed = _CGI[name]
+        if allowed is None:
+            return self._set_text(key, value)
+        if _is_range(allowed):
+            return self._set_number(key, value, allowed)
+        if value not in allowed:
             return 400
+        if name == "StreamMode" and value != self.state.get("stream_mode"):
+            self.set_state("streaming", False)
+        self.set_state(key, value)
+        return 200
+
+    def _set_text(self, key: str, value: str) -> int:
+        if len(value.encode("utf-8")) > 64:
+            return 400
+        self.set_state(key, value)
+        return 200
+
+    def _set_number(self, key: str, value: str, limits: tuple[int, int]) -> int:
+        number = _int(value)
+        if number is None or not limits[0] <= number <= limits[1]:
+            return 400
+        self.set_state(key, number)
+        return 200
+
+    def _cgi_ptzautoframing(self, name: str, value: str) -> int:
+        setter = _AUTOFRAMING_SETTERS.get(name)
+        return 400 if setter is None else setter(self, value)
+
+    def _af_switch(self, value: str) -> int:
+        if value not in _ON_OFF_WORD:
+            return 400
+        self._set_af(value == "on")
+        return 200
+
+    def _af_composition(self, value: str) -> int:
+        numbers = _ints(value, 3)
+        if numbers is None or not _within(numbers, _COMPOSITION_LIMITS):
+            return 400
+        v, h, size = numbers
+        self.set_state("comp_v", v)
+        self.set_state("comp_h", h)
+        self.set_state("comp_size", size)
+        return 200
+
+    def _af_preset_call(self, value: str) -> int:
+        if value not in ("1", "2", "3"):
+            return 400
+        # A recalled composition: the simulator keeps one per preset number.
+        self.set_state("comp_size", {"1": 600, "2": 1200, "3": 2400}[value])
+        return 200
+
+    def _af_preset_set(self, value: str) -> int:
+        fields = value.split(",")
+        if len(fields) != 2 or fields[0] not in ("1", "2", "3"):
+            return 400
+        if len(fields[1].encode("utf-8")) > 32 or set(fields[1]) & set('"%&,:~'):
+            return 400
+        self._comp_names[int(fields[0])] = fields[1]
+        return 200
+
+    def _af_preset_reset(self, value: str) -> int:
+        if value not in ("1", "2", "3"):
+            return 400
+        self._comp_names[int(value)] = _COMP_NAMES[int(value)]
+        return 200
+
+    def _af_object_position(self, value: str) -> int:
+        numbers = _ints(value, 2)
+        if numbers is None or not _within(numbers, _OBJECT_LIMITS):
+            return 400
+        if self.state.get("af"):
+            self.set_state("af_status", "tracking")
         return 200
 
     def _cgi_ptzautoframingexe(self, name: str, value: str) -> int:
@@ -489,27 +607,37 @@ class SonySrgASimulator(DatagramServerMixin, HTTPSimulator):
 
     def _cgi_presetposition(self, name: str, value: str) -> int:
         fields = value.split(",")
-        try:
-            number = int(fields[0])
-        except ValueError:
+        number = _int(fields[0])
+        if number is None or not 1 <= number <= 256:
             return 400
-        if not 1 <= number <= 256:
+        setter = _PRESET_SETTERS.get(name)
+        return 400 if setter is None else setter(self, number, fields)
+
+    def _preset_set(self, number: int, fields: list[str]) -> int:
+        if len(fields) != 3 or fields[2] not in _ON_OFF_WORD:
             return 400
-        if name == "PresetSet" and len(fields) == 3 and fields[2] in _ON_OFF_WORD:
-            if len(fields[1].encode("utf-8")) > 32:
-                return 400
-            self._save_preset(number, fields[1])
-        elif name == "PresetCall" and len(fields) == 1:
-            self._recall_preset(number)
-        elif name == "PresetClear" and len(fields) == 1:
-            self._presets.pop(number, None)
-        elif name == "PresetName" and len(fields) == 2:
-            if number not in self._presets:
-                return 400
-            pan, tilt, zoom, _old = self._presets[number]
-            self._presets[number] = (pan, tilt, zoom, fields[1])
-        else:
+        if len(fields[1].encode("utf-8")) > 32:
             return 400
+        self._save_preset(number, fields[1])
+        return 200
+
+    def _preset_call(self, number: int, fields: list[str]) -> int:
+        if len(fields) != 1:
+            return 400
+        self._recall_preset(number)
+        return 200
+
+    def _preset_clear(self, number: int, fields: list[str]) -> int:
+        if len(fields) != 1:
+            return 400
+        self._presets.pop(number, None)
+        return 200
+
+    def _preset_name(self, number: int, fields: list[str]) -> int:
+        if len(fields) != 2 or number not in self._presets:
+            return 400
+        pan, tilt, zoom, _old = self._presets[number]
+        self._presets[number] = (pan, tilt, zoom, fields[1])
         return 200
 
     def _cgi_rtmpexe(self, name: str, value: str) -> int:
@@ -540,24 +668,27 @@ class SonySrgASimulator(DatagramServerMixin, HTTPSimulator):
         return 200
 
     def _cgi_srt(self, name: str, value: str) -> int:
-        if name != "SrtServerUrl1" or (value and not value.lower().startswith("srt://")):
+        if name != "SrtServerUrl1":
+            return 400
+        if value and not value.lower().startswith("srt://"):
             return 400
         self.set_state("srt_url", unquote(value))
         return 200
 
     def _cgi_main(self, name: str, value: str) -> int:
         if name == "System" and value in ("on", "reboot", "standby"):
-            if value == "standby":
-                self.set_state("power", False)
-            elif value == "on":
-                self.set_state("power", True)
-        elif name == "FactoryDefault" and value in ("hard", "soft"):
-            for key, initial in self.SIMULATOR_INFO["initial_state"].items():
-                self.set_state(key, initial)
-            self._presets.clear()
-        else:
-            return 400
-        return 200
+            if value != "reboot":
+                self.set_state("power", value == "on")
+            return 200
+        if name == "FactoryDefault" and value in ("hard", "soft"):
+            self._factory_default()
+            return 200
+        return 400
+
+    def _factory_default(self) -> None:
+        for key, initial in self.SIMULATOR_INFO["initial_state"].items():
+            self.set_state(key, initial)
+        self._presets.clear()
 
     def _save_preset(self, number: int, name: str = "") -> None:
         old = self._presets.get(number)
@@ -583,48 +714,60 @@ class SonySrgASimulator(DatagramServerMixin, HTTPSimulator):
         return None  # every datagram goes through dispatch_datagram below
 
     async def dispatch_datagram(self, data: bytes, addr: tuple[str, int]) -> None:
-        if "visca_off" in self.active_errors or len(data) < 9:
+        message = self._unpack(data)
+        if message is None:
             return
-        payload_type, length, sequence = struct.unpack(">HHI", data[:8])
-        payload = data[8:]
-        if len(payload) != length:
-            return
+        payload_type, sequence, payload = message
 
         def reply(kind: int, body: bytes) -> None:
             self.send_datagram(struct.pack(">HHI", kind, len(body), sequence) + body, addr)
 
         if payload_type == _CONTROL_CMD:
-            if payload == b"\x01":
-                self._last_seq = 0
-                reply(_CONTROL_REPLY, b"\x01")
-            return
-        if sequence and sequence == self._last_seq:
+            self._control(payload, reply)
+        elif sequence and sequence == self._last_seq:
             # A sequence number the camera has already seen.
             reply(_CONTROL_CMD, b"\x0f\x01")
-            return
-        self._last_seq = sequence
-        # A packet ends at its first FF, whatever follows.
-        end = payload.find(b"\xff")
-        p = payload[: end + 1] if end >= 0 else payload
+        else:
+            self._last_seq = sequence
+            self._visca(payload_type, _first_packet(payload), reply)
+
+    def _unpack(self, data: bytes) -> tuple[int, int, bytes] | None:
+        if "visca_off" in self.active_errors or len(data) < 9:
+            return None
+        payload_type, length, sequence = struct.unpack(">HHI", data[:8])
+        payload = data[8:]
+        return (payload_type, sequence, payload) if len(payload) == length else None
+
+    def _control(self, payload: bytes, reply) -> None:
+        if payload == b"\x01":
+            self._last_seq = 0
+            reply(_CONTROL_REPLY, b"\x01")
+
+    def _visca(self, payload_type: int, p: bytes, reply) -> None:
         if payload_type == 0x0110:
             answer = self._inquiry(p)
             reply(_REPLY, b"\x90\x50" + answer + b"\xff" if answer is not None else b"\x90\x60\x02\xff")
-            return
-        if payload_type == 0x0100:
-            if self.state.get("osd") and not (
-                p.startswith(b"\x81\x01\x04\x00") or p.startswith(b"\x81\x01\x06\x06")
-                or p == b"\x81\x01\x7e\x01\x02\x00\x01\xff"
-            ):
-                reply(_REPLY, b"\x90\x61\x41\xff")
-                return
-            if self._command(p):
-                reply(_REPLY, b"\x90\x41\xff")
-                reply(_REPLY, b"\x90\x51\xff")
-            else:
-                reply(_REPLY, b"\x90\x60\x02\xff")
+        elif payload_type == 0x0100:
+            self._answer_command(p, reply)
+
+    def _answer_command(self, p: bytes, reply) -> None:
+        if self._menu_refuses(p):
+            reply(_REPLY, b"\x90\x61\x41\xff")
+        elif self._command(p):
+            reply(_REPLY, b"\x90\x41\xff")
+            reply(_REPLY, b"\x90\x51\xff")
+        else:
+            reply(_REPLY, b"\x90\x60\x02\xff")
+
+    def _menu_refuses(self, p: bytes) -> bool:
+        """With the on-screen menu open the camera takes power and the menu's
+        own keys only."""
+        if not self.state.get("osd"):
+            return False
+        return not (p.startswith(_MENU_KEYS) or p == _OSD_ENTER)
 
     def _inquiry(self, p: bytes) -> bytes | None:
-        if len(p) < 4 or p[0] != 0x81 or p[1] != 0x09 or p[-1] != 0xFF:
+        if not _is_message(p, 0x09):
             return None
         group = p[2:-1]
         s = self.state
@@ -651,115 +794,245 @@ class SonySrgASimulator(DatagramServerMixin, HTTPSimulator):
         return answer() if answer else None
 
     def _command(self, p: bytes) -> bool:
-        if len(p) < 4 or p[0] != 0x81 or p[1] != 0x01 or p[-1] != 0xFF:
+        if not _is_message(p, 0x01):
             return False
         body = p[2:-1]
-        for group, (key, allowed) in _CODES.items():
-            if len(body) == len(group) + 1 and body.startswith(group):
-                code = body[-1]
-                if code not in allowed:
-                    return False
-                if key == "zoom_mode" and code != 0x03 and self.model == "SRG-A12":
-                    return False  # optical only on the A12
-                self.set_state(key, code)
-                return True
-        for group, (key, low, high) in _LEVELS.items():
-            if len(body) == len(group) + 4 and body.startswith(group + b"\x00\x00"):
-                value = _nibbles(body[-2:])
-                if not low <= value <= high or (key == "iris" and 0 < value < 5):
-                    return False
-                if key == "gain" and value > 0x0D and self._i("high_sens") != 2:
-                    return False
-                self.set_state(key, value)
-                return True
-        if len(body) == 3 and body[:2] in _STEPS and body[2] in (0x00, 0x02, 0x03):
-            level, reset = _STEPS[body[:2]]
-            key, low, high = _LEVELS[level]
-            step = {0x00: None, 0x02: 1, 0x03: -1}[body[2]]
-            self.set_state(key, reset if step is None else max(low, min(high, self._i(key) + step)))
-            return True
+        for take in (self._take_code, self._take_level, self._take_step):
+            taken = take(body)
+            if taken is not None:
+                return taken
         return self._other(body)
 
+    def _take_code(self, body: bytes) -> bool | None:
+        """A one-code setting (8x 01 <group> pp FF); None when it is not one."""
+        for group, (key, allowed) in _CODES.items():
+            if len(body) == len(group) + 1 and body.startswith(group):
+                return self._set_code(key, allowed, body[-1])
+        return None
+
+    def _set_code(self, key: str, allowed: frozenset[int], code: int) -> bool:
+        if code not in allowed:
+            return False
+        if key == "zoom_mode" and not self._zoom_mode_allowed(code):
+            return False
+        self.set_state(key, code)
+        return True
+
+    def _zoom_mode_allowed(self, code: int) -> bool:
+        # Optical only on the A12.
+        return code == 0x03 or self.model != "SRG-A12"
+
+    def _take_level(self, body: bytes) -> bool | None:
+        """A level (8x 01 <group> 00 00 0p 0q FF); None when it is not one."""
+        for group, limits in _LEVELS.items():
+            if len(body) == len(group) + 4 and body.startswith(group + b"\x00\x00"):
+                return self._set_level(limits, _nibbles(body[-2:]))
+        return None
+
+    def _set_level(self, limits: tuple[str, int, int], value: int) -> bool:
+        key, low, high = limits
+        if not low <= value <= high or not self._level_allowed(key, value):
+            return False
+        self.set_state(key, value)
+        return True
+
+    def _level_allowed(self, key: str, value: int) -> bool:
+        if key == "iris":
+            return not 0 < value < 5
+        if key == "gain" and value > 0x0D:
+            return self._i("high_sens") == 2
+        return True
+
+    def _take_step(self, body: bytes) -> bool | None:
+        """Reset / Up / Down of a level (8x 01 <group> 00|02|03 FF)."""
+        if len(body) != 3 or body[:2] not in _STEPS:
+            return None
+        if body[2] not in _STEP:
+            return None
+        level, reset = _STEPS[body[:2]]
+        key, low, high = _LEVELS[level]
+        step = _STEP[body[2]]
+        self.set_state(key, reset if step is None else max(low, min(high, self._i(key) + step)))
+        return True
+
     def _other(self, body: bytes) -> bool:
-        if body in (b"\x04\x00\x02", b"\x04\x00\x03"):
-            self.set_state("power", body[-1] == 0x02)
-            if body[-1] == 0x02 and 1 in self._presets:
-                # "After the camera is turned on from standby mode, the camera
-                # position moves to the position recorded on PRESET1."
-                self._recall_preset(1)
-            return True
-        if body in (b"\x7e\x04\x3a\x01", b"\x7e\x04\x3a\x00"):
-            self._set_af(body[-1] == 0x01)
-            return True
-        if body[:2] == b"\x06\x01" and len(body) == 6:
-            return 1 <= body[2] <= 0x18 and 1 <= body[3] <= 0x17
-        if body[:2] == b"\x06\x02" and len(body) == 12:
-            pan = _nibbles(body[4:8])
-            tilt = _nibbles(body[8:12])
-            pan_s = pan - 0x10000 if pan & 0x8000 else pan
-            tilt_s = tilt - 0x10000 if tilt & 0x8000 else tilt
-            if not 1 <= body[2] <= 0x18 or not -0x2200 <= pan_s <= 0x2200:
-                return False
-            low, high = (-0x1200, 0x0400) if self._i("flip") == 2 else (-0x0400, 0x1200)
-            if not low <= tilt_s <= high:
-                return False
-            self.set_state("pan", pan_s)
-            self.set_state("tilt", tilt_s)
-            return True
-        if body in (b"\x06\x04", b"\x06\x05"):
-            self.set_state("pan", 0)
-            self.set_state("tilt", 0)
-            return True
-        if body[:2] == b"\x04\x07" and len(body) == 3:
-            return body[2] in (0x00, 0x02, 0x03) or body[2] >> 4 in (2, 3)
-        if body[:2] == b"\x04\x47" and len(body) == 6:
-            position = _nibbles(body[2:])
-            if position > self._zoom_max():
-                return False
-            self.set_state("zoom", position)
-            return True
-        if body[:2] == b"\x04\x08" and len(body) == 3:
-            return body[2] in (0x00, 0x02, 0x03) or body[2] >> 4 in (2, 3)
-        if body[:2] == b"\x04\x48" and len(body) == 6:
-            position = _nibbles(body[2:])
-            if not 0x1000 <= position <= 0xF000:
-                return False
-            self.set_state("focus", position)
-            return True
-        if body in (b"\x04\x38\x02", b"\x04\x38\x03"):
-            self.set_state("focus_auto", body[-1] == 0x02)
-            return True
-        if body in (b"\x04\x18\x01", b"\x04\x18\x02"):
-            if body[-1] == 0x02:
-                self.set_state("focus", 0x1000)
-            return True
-        if body[:2] == b"\x04\x3f" and len(body) == 4 and body[2] in (0, 1, 2) and body[3] <= 0x3F:
-            number = body[3] + 1
-            if body[2] == 0x00:
-                self._presets.pop(number, None)
-            elif body[2] == 0x01:
-                self._save_preset(number)
-            else:
-                self._recall_preset(number)
-            return True
-        if body[:2] == b"\x04\x37" and len(body) == 4 and body[2] in (2, 3) and body[3] <= 3:
-            self.set_state("defog", body[2])
-            self.set_state("defog_level", body[3])
-            return True
-        if body[:4] == b"\x7e\x01\x0a\x00" and len(body) == 5 and body[4] in (2, 3):
-            on = body[4] == 0x02
-            self.set_state("tally", on)
-            self._tally_lit = time.monotonic() if on else 0.0
-            return True
-        if body[:4] == b"\x7e\x01\x0a\x01" and len(body) == 5 and body[4] in (0, 4, 5):
-            self.set_state("tally_level", {0: "off", 4: "low", 5: "high"}[body[4]])
-            return True
-        if body[:4] == b"\x7e\x01\x03\x00" and len(body) == 5 and body[4] in (0, 1):
-            self.set_state("hdmi_color", body[4])
-            return True
-        if body in (b"\x06\x06\x02", b"\x06\x06\x03", b"\x06\x06\x10"):
-            self.set_state("osd", {0x02: True, 0x03: False, 0x10: not self.state.get("osd")}[body[-1]])
-            return True
-        if body in (b"\x7e\x01\x02\x00\x01", b"\x04\x10\x05"):
-            return True
+        handler = _EXACT_COMMANDS.get(body)
+        if handler is not None:
+            return handler(self, body)
+        for prefix, length, handler in _SHAPED_COMMANDS:
+            if len(body) == length and body.startswith(prefix):
+                return handler(self, body)
         return False
+
+    def _power(self, body: bytes) -> bool:
+        on = body[-1] == 0x02
+        self.set_state("power", on)
+        if on and 1 in self._presets:
+            # "After the camera is turned on from standby mode, the camera
+            # position moves to the position recorded on PRESET1."
+            self._recall_preset(1)
+        return True
+
+    def _auto_framing(self, body: bytes) -> bool:
+        self._set_af(body[-1] == 0x01)
+        return True
+
+    def _home(self, _body: bytes) -> bool:
+        self.set_state("pan", 0)
+        self.set_state("tilt", 0)
+        return True
+
+    def _focus_mode(self, body: bytes) -> bool:
+        self.set_state("focus_auto", body[-1] == 0x02)
+        return True
+
+    def _focus_trigger(self, body: bytes) -> bool:
+        if body[-1] == 0x02:
+            self.set_state("focus", 0x1000)
+        return True
+
+    def _osd(self, body: bytes) -> bool:
+        toggle = {0x02: True, 0x03: False, 0x10: not self.state.get("osd")}
+        self.set_state("osd", toggle[body[-1]])
+        return True
+
+    def _accepted(self, _body: bytes) -> bool:
+        return True
+
+    def _drive(self, body: bytes) -> bool:
+        return 1 <= body[2] <= 0x18 and 1 <= body[3] <= 0x17
+
+    def _absolute(self, body: bytes) -> bool:
+        pan = _signed16(_nibbles(body[4:8]))
+        tilt = _signed16(_nibbles(body[8:12]))
+        if not 1 <= body[2] <= 0x18 or not -0x2200 <= pan <= 0x2200:
+            return False
+        low, high = (-0x1200, 0x0400) if self._i("flip") == 2 else (-0x0400, 0x1200)
+        if not low <= tilt <= high:
+            return False
+        self.set_state("pan", pan)
+        self.set_state("tilt", tilt)
+        return True
+
+    def _lens_drive(self, body: bytes) -> bool:
+        return body[2] in (0x00, 0x02, 0x03) or body[2] >> 4 in (2, 3)
+
+    def _zoom_direct(self, body: bytes) -> bool:
+        position = _nibbles(body[2:])
+        if position > self._zoom_max():
+            return False
+        self.set_state("zoom", position)
+        return True
+
+    def _focus_direct(self, body: bytes) -> bool:
+        position = _nibbles(body[2:])
+        if not 0x1000 <= position <= 0xF000:
+            return False
+        self.set_state("focus", position)
+        return True
+
+    def _preset(self, body: bytes) -> bool:
+        action, pp = body[2], body[3]
+        if action not in (0, 1, 2) or pp > 0x3F:
+            return False
+        number = pp + 1
+        if action == 0x00:
+            self._presets.pop(number, None)
+        elif action == 0x01:
+            self._save_preset(number)
+        else:
+            self._recall_preset(number)
+        return True
+
+    def _defog(self, body: bytes) -> bool:
+        if body[2] not in (2, 3) or body[3] > 3:
+            return False
+        self.set_state("defog", body[2])
+        self.set_state("defog_level", body[3])
+        return True
+
+    def _tally(self, body: bytes) -> bool:
+        if body[4] not in (2, 3):
+            return False
+        on = body[4] == 0x02
+        self.set_state("tally", on)
+        self._tally_lit = time.monotonic() if on else 0.0
+        return True
+
+    def _tally_level(self, body: bytes) -> bool:
+        level = {0: "off", 4: "low", 5: "high"}.get(body[4])
+        if level is None:
+            return False
+        self.set_state("tally_level", level)
+        return True
+
+    def _hdmi_color(self, body: bytes) -> bool:
+        if body[4] not in (0, 1):
+            return False
+        self.set_state("hdmi_color", body[4])
+        return True
+
+
+_S = SonySrgASimulator
+
+# inquiry.cgi groups other than the declared settings' (_GROUP_OF).
+_INQUIRY_GROUPS = {
+    "ptzautoframing": _S._inq_ptzautoframing,
+    "presetposition": _S._inq_presetposition,
+    "status": _S._inq_status,
+    "rtmp": _S._inq_rtmp,
+    "srt": _S._inq_srt,
+    "system": _S._inq_system,
+    "sysinfo": _S._inq_sysinfo,
+}
+
+# ptzautoframing.cgi parameters other than the declared settings (_CGI).
+_AUTOFRAMING_SETTERS = {
+    "PtzAutoFraming": _S._af_switch,
+    "PtzAutoFramingAdjustSetting": _S._af_composition,
+    "PtzAutoFramingPresetCall": _S._af_preset_call,
+    "PtzAutoFramingPresetSet": _S._af_preset_set,
+    "PtzAutoFramingPresetReset": _S._af_preset_reset,
+    "PtzAutoFramingObjectPosition": _S._af_object_position,
+}
+
+_PRESET_SETTERS = {
+    "PresetSet": _S._preset_set,
+    "PresetCall": _S._preset_call,
+    "PresetClear": _S._preset_clear,
+    "PresetName": _S._preset_name,
+}
+
+# VISCA commands other than the one-code settings and the levels: those
+# known by their whole body, and those by a prefix and a length.
+_EXACT_COMMANDS = {
+    b"\x04\x00\x02": _S._power,
+    b"\x04\x00\x03": _S._power,
+    b"\x7e\x04\x3a\x01": _S._auto_framing,
+    b"\x7e\x04\x3a\x00": _S._auto_framing,
+    b"\x06\x04": _S._home,
+    b"\x06\x05": _S._home,
+    b"\x04\x38\x02": _S._focus_mode,
+    b"\x04\x38\x03": _S._focus_mode,
+    b"\x04\x18\x01": _S._focus_trigger,
+    b"\x04\x18\x02": _S._focus_trigger,
+    b"\x06\x06\x02": _S._osd,
+    b"\x06\x06\x03": _S._osd,
+    b"\x06\x06\x10": _S._osd,
+    b"\x7e\x01\x02\x00\x01": _S._accepted,  # menu Enter
+    b"\x04\x10\x05": _S._accepted,  # WB one push trigger
+}
+_SHAPED_COMMANDS = (
+    (b"\x06\x01", 6, _S._drive),
+    (b"\x06\x02", 12, _S._absolute),
+    (b"\x04\x07", 3, _S._lens_drive),
+    (b"\x04\x47", 6, _S._zoom_direct),
+    (b"\x04\x08", 3, _S._lens_drive),
+    (b"\x04\x48", 6, _S._focus_direct),
+    (b"\x04\x3f", 4, _S._preset),
+    (b"\x04\x37", 4, _S._defog),
+    (b"\x7e\x01\x0a\x00", 5, _S._tally),
+    (b"\x7e\x01\x0a\x01", 5, _S._tally_level),
+    (b"\x7e\x01\x03\x00", 5, _S._hdmi_color),
+)
+del _S

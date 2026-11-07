@@ -27,7 +27,7 @@
         {
           "id": "visca_ip",
           "confidence": "untested",
-          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. AVer's TR-series tracking cameras (TR313 and TR315 here) document an HTTP CGI of their own, a different command set from the PTZ310 / PTZ330's, in AVer's TR3XX V2 HTTP CGI Commands and each TR model's user manual. No driver speaks it, so the TR cameras use this driver for pan, tilt, zoom, presets and power."
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. AVer's TR-series tracking cameras (TR313 and TR315 here) document an HTTP CGI of their own, a different command set from the PTZ310 / PTZ330's, in AVer's TR3XX V2 HTTP CGI Commands and each TR model's user manual. For the TR315 (and the TR615, TR211 and TR335) use the dedicated `aver_tr` driver instead: it adds that CGI and reads back every value the camera reports. The other TR cameras use this driver for pan, tilt, zoom, presets and power."
         }
       ]
     },
@@ -39,7 +39,7 @@
         {
           "id": "visca_ip",
           "confidence": "untested",
-          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. AVer's TR-series tracking cameras (TR313 and TR315 here) document an HTTP CGI of their own, a different command set from the PTZ310 / PTZ330's, in AVer's TR3XX V2 HTTP CGI Commands and each TR model's user manual. No driver speaks it, so the TR cameras use this driver for pan, tilt, zoom, presets and power."
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. AVer's TR-series tracking cameras (TR313 and TR315 here) document an HTTP CGI of their own, a different command set from the PTZ310 / PTZ330's, in AVer's TR3XX V2 HTTP CGI Commands and each TR model's user manual. For the TR315 (and the TR615, TR211 and TR335) use the dedicated `aver_tr` driver instead: it adds that CGI and reads back every value the camera reports. The other TR cameras use this driver for pan, tilt, zoom, presets and power."
         }
       ]
     },
@@ -51,7 +51,7 @@
         {
           "id": "visca_ip",
           "confidence": "untested",
-          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. AVer's TR-series tracking cameras (TR313 and TR315 here) document an HTTP CGI of their own, a different command set from the PTZ310 / PTZ330's, in AVer's TR3XX V2 HTTP CGI Commands and each TR model's user manual. No driver speaks it, so the TR cameras use this driver for pan, tilt, zoom, presets and power."
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. AVer's TR-series tracking cameras (TR313 and TR315 here) document an HTTP CGI of their own, a different command set from the PTZ310 / PTZ330's, in AVer's TR3XX V2 HTTP CGI Commands and each TR model's user manual. For the TR315 (and the TR615, TR211 and TR335) use the dedicated `aver_tr` driver instead: it adds that CGI and reads back every value the camera reports. The other TR cameras use this driver for pan, tilt, zoom, presets and power."
         }
       ]
     },
@@ -63,7 +63,7 @@
         {
           "id": "visca_ip",
           "confidence": "untested",
-          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. AVer's TR-series tracking cameras (TR313 and TR315 here) document an HTTP CGI of their own, a different command set from the PTZ310 / PTZ330's, in AVer's TR3XX V2 HTTP CGI Commands and each TR model's user manual. No driver speaks it, so the TR cameras use this driver for pan, tilt, zoom, presets and power."
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. AVer's TR-series tracking cameras (TR313 and TR315 here) document an HTTP CGI of their own, a different command set from the PTZ310 / PTZ330's, in AVer's TR3XX V2 HTTP CGI Commands and each TR model's user manual. For the TR315 (and the TR615, TR211 and TR335) use the dedicated `aver_tr` driver instead: it adds that CGI and reads back every value the camera reports. The other TR cameras use this driver for pan, tilt, zoom, presets and power."
         }
       ]
     },
@@ -75,7 +75,7 @@
         {
           "id": "visca_ip",
           "confidence": "untested",
-          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. AVer's TR-series tracking cameras (TR313 and TR315 here) document an HTTP CGI of their own, a different command set from the PTZ310 / PTZ330's, in AVer's TR3XX V2 HTTP CGI Commands and each TR model's user manual. No driver speaks it, so the TR cameras use this driver for pan, tilt, zoom, presets and power."
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. AVer's TR-series tracking cameras (TR313 and TR315 here) document an HTTP CGI of their own, a different command set from the PTZ310 / PTZ330's, in AVer's TR3XX V2 HTTP CGI Commands and each TR model's user manual. For the TR315 (and the TR615, TR211 and TR335) use the dedicated `aver_tr` driver instead: it adds that CGI and reads back every value the camera reports. The other TR cameras use this driver for pan, tilt, zoom, presets and power."
         }
       ]
     },
@@ -87,7 +87,7 @@
         {
           "id": "visca_ip",
           "confidence": "untested",
-          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. AVer's TR-series tracking cameras (TR313 and TR315 here) document an HTTP CGI of their own, a different command set from the PTZ310 / PTZ330's, in AVer's TR3XX V2 HTTP CGI Commands and each TR model's user manual. No driver speaks it, so the TR cameras use this driver for pan, tilt, zoom, presets and power."
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. AVer's TR-series tracking cameras (TR313 and TR315 here) document an HTTP CGI of their own, a different command set from the PTZ310 / PTZ330's, in AVer's TR3XX V2 HTTP CGI Commands and each TR model's user manual. For the TR315 (and the TR615, TR211 and TR335) use the dedicated `aver_tr` driver instead: it adds that CGI and reads back every value the camera reports. The other TR cameras use this driver for pan, tilt, zoom, presets and power."
         }
       ]
     },
@@ -183,7 +183,7 @@
         {
           "id": "visca_ip",
           "confidence": "untested",
-          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. AVer's TR-series tracking cameras (TR313 and TR315 here) document an HTTP CGI of their own, a different command set from the PTZ310 / PTZ330's, in AVer's TR3XX V2 HTTP CGI Commands and each TR model's user manual. No driver speaks it, so the TR cameras use this driver for pan, tilt, zoom, presets and power."
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. AVer's TR-series tracking cameras (TR313 and TR315 here) document an HTTP CGI of their own, a different command set from the PTZ310 / PTZ330's, in AVer's TR3XX V2 HTTP CGI Commands and each TR model's user manual. For the TR315 (and the TR615, TR211 and TR335) use the dedicated `aver_tr` driver instead: it adds that CGI and reads back every value the camera reports. The other TR cameras use this driver for pan, tilt, zoom, presets and power."
         }
       ]
     },
@@ -255,7 +255,7 @@
         {
           "id": "visca_ip",
           "confidence": "untested",
-          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. AVer's TR-series tracking cameras (TR313 and TR315 here) document an HTTP CGI of their own, a different command set from the PTZ310 / PTZ330's, in AVer's TR3XX V2 HTTP CGI Commands and each TR model's user manual. No driver speaks it, so the TR cameras use this driver for pan, tilt, zoom, presets and power."
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. AVer's TR-series tracking cameras (TR313 and TR315 here) document an HTTP CGI of their own, a different command set from the PTZ310 / PTZ330's, in AVer's TR3XX V2 HTTP CGI Commands and each TR model's user manual. For the TR315 (and the TR615, TR211 and TR335) use the dedicated `aver_tr` driver instead: it adds that CGI and reads back every value the camera reports. The other TR cameras use this driver for pan, tilt, zoom, presets and power."
         }
       ]
     },
@@ -267,7 +267,7 @@
         {
           "id": "visca_ip",
           "confidence": "untested",
-          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. AVer's TR-series tracking cameras (TR313 and TR315 here) document an HTTP CGI of their own, a different command set from the PTZ310 / PTZ330's, in AVer's TR3XX V2 HTTP CGI Commands and each TR model's user manual. No driver speaks it, so the TR cameras use this driver for pan, tilt, zoom, presets and power."
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. AVer's TR-series tracking cameras (TR313 and TR315 here) document an HTTP CGI of their own, a different command set from the PTZ310 / PTZ330's, in AVer's TR3XX V2 HTTP CGI Commands and each TR model's user manual. For the TR315 (and the TR615, TR211 and TR335) use the dedicated `aver_tr` driver instead: it adds that CGI and reads back every value the camera reports. The other TR cameras use this driver for pan, tilt, zoom, presets and power."
         }
       ]
     },

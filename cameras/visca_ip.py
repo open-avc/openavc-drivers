@@ -192,7 +192,7 @@ class VISCAIPDriver(BaseDriver):
         "name": "Generic VISCA-IP PTZ Camera",
         "manufacturer": "Generic",
         "category": "camera",
-        "version": "1.3.8",
+        "version": "1.3.9",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
@@ -285,8 +285,11 @@ class VISCAIPDriver(BaseDriver):
                     "TR315 here) document an HTTP CGI of their own, a "
                     "different command set from the PTZ310 / PTZ330's, in "
                     "AVer's TR3XX V2 HTTP CGI Commands and each TR model's "
-                    "user manual. No driver speaks it, so the TR cameras use "
-                    "this driver for pan, tilt, zoom, presets and power."
+                    "user manual. For the TR315 (and the TR615, TR211 and "
+                    "TR335) use the dedicated `aver_tr` driver instead: it adds "
+                    "that CGI and reads back every value the camera reports. "
+                    "The other TR cameras use this driver for pan, tilt, zoom, "
+                    "presets and power."
                 ),
             },
             {

@@ -30,7 +30,8 @@ the TR310 / TR311 / TR311HN / TR313 / TR331 / TR333 and the TR311HWV2 /
 TR313V2 / TR323NV2 / TR333V2 in AVer's "HTTP CGI Commands (Updated
 6/2/2022)", and the TR211 / TR315 / TR335, the TR535 / TR535N and the
 TR615 in the CGI Commands chapter of each model's user manual. This driver
-does not speak that CGI, so those cameras use ``visca_ip``.
+does not speak that CGI: the TR615 and TR211 / TR315 / TR335 have their own
+driver, ``aver_tr``, and the other TR cameras use ``visca_ip``.
 
 Push vs poll
 ------------
@@ -179,7 +180,7 @@ class AVerPTZDriver(BaseDriver):
         "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
         "manufacturer": "AVer",
         "category": "camera",
-        "version": "1.3.10",
+        "version": "1.3.11",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # confirm on factory_reset needs 0.36.0; binding the VISCA socket to
         # Reach devices through, 0.37.0.
@@ -192,9 +193,9 @@ class AVerPTZDriver(BaseDriver):
             "(shutter, iris, gain, white balance, color temperature, "
             "saturation, contrast, sharpness), AI features (SmartShoot, "
             "SmartFraming), bulk status query, RTMP streaming, mirror/"
-            "flip, and reboot. For other AVer cameras, the TR-series "
-            "tracking cameras included (their HTTP CGI is a different "
-            "command set), use the generic 'visca_ip' driver."
+            "flip, and reboot. For the TR615 and TR211 / TR315 / TR335 "
+            "tracking cameras use 'aver_tr'; for other AVer cameras, the "
+            "generic 'visca_ip' driver."
         ),
         "source_url": (
             "https://www.averusa.com/pro-av/downloads/control-codes/"

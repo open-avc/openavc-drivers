@@ -21,7 +21,7 @@ two CGI chapters match row for row and the VISCA tables match except where
 the help says a command is one model's. AVer confirmed by email (2026-11)
 that these manuals, not the 2022 TR3XX V2 CGI document, are the reference
 for them. The TR535 / TR535N is a dual-lens camera with a different command
-list and is not covered here.
+list and has its own driver, ``aver_tr535``.
 
 Push vs poll
 ------------
@@ -269,7 +269,7 @@ class AVerTRDriver(BaseDriver):
         "name": "AVer TR Auto Tracking Camera (TR615, TR335 / TR315 / TR211)",
         "manufacturer": "AVer",
         "category": "camera",
-        "version": "1.0.0",
+        "version": "1.0.1",
         # Binding the VISCA socket to Reach devices through (local_address)
         # needs 0.37.0; the contract check cannot see a method call.
         "min_platform_version": "0.37.0",
@@ -748,8 +748,10 @@ class AVerTRDriver(BaseDriver):
             },
             "preset_clear": {
                 "label": "Preset Clear",
-                "params": {"number": {"type": "integer", "required": True, "min": 0, "max": 255, "label": "Preset"}},
-                "help": "Erases a saved preset.",
+                # 255 would put FF, the byte that ends a VISCA packet, inside
+                # 8x 01 04 3F 00 pp FF (1.0.0 allowed it).
+                "params": {"number": {"type": "integer", "required": True, "min": 0, "max": 254, "label": "Preset"}},
+                "help": "Erases a saved preset (0-254).",
                 "confirm": "Erases the position saved in this preset.",
             },
             "set_preset_speed": {
@@ -1227,11 +1229,12 @@ class AVerTRDriver(BaseDriver):
         """Read trk_mode over the CGI. True when the camera answered it.
 
         A camera with a web login answers 401 here when none is entered: that
-        is a missing login, not a dead camera, so the CGI reads stop for this
-        connection and Last Error says why; VISCA keeps working."""
+        is a missing login, not a dead camera, so Last Error says why and
+        VISCA keeps working. The read is still made on every poll: the 401 is
+        what shows the camera is still there (1.0.0 stopped reading, so a
+        camera with no login entered never went offline when it died)."""
         self._cgi_refusal = ""
-        if self._cgi_unavailable:
-            return True
+        self._cgi_unavailable = ""
         try:
             text = await self._cgi(f"Get=trk_mode,3&_={self._next_id()}")
         except _LoginRequired:

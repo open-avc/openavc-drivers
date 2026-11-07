@@ -388,6 +388,8 @@ class AverTrSimulator(DatagramServerMixin, HTTPSimulator):
     def _command(self, p: bytes) -> bool:
         if len(p) < 4 or p[0] != 0x81 or p[1] != 0x01 or p[-1] != 0xFF:
             return False
+        if 0xFF in p[:-1]:
+            return False  # the camera reads the packet as ending at the first FF
         body = bytes(p[2:-1])
         flags = {0x33: "blc", 0x3D: "wdr", 0x7D: "tracking", 0xA0: "auto_zoom",
                  0xA1: "tracking_area", 0xA2: "rtmp", 0xA5: "preset_ptz_only",

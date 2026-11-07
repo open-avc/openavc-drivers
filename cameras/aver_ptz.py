@@ -31,7 +31,8 @@ TR313V2 / TR323NV2 / TR333V2 in AVer's "HTTP CGI Commands (Updated
 6/2/2022)", and the TR211 / TR315 / TR335, the TR535 / TR535N and the
 TR615 in the CGI Commands chapter of each model's user manual. This driver
 does not speak that CGI: the TR615 and TR211 / TR315 / TR335 have their own
-driver, ``aver_tr``, and the other TR cameras use ``visca_ip``.
+driver, ``aver_tr``, the TR535 / TR535N theirs, ``aver_tr535``, and the other
+TR cameras use ``visca_ip``.
 
 Push vs poll
 ------------
@@ -180,7 +181,7 @@ class AVerPTZDriver(BaseDriver):
         "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
         "manufacturer": "AVer",
         "category": "camera",
-        "version": "1.3.11",
+        "version": "1.3.12",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # confirm on factory_reset needs 0.36.0; binding the VISCA socket to
         # Reach devices through, 0.37.0.

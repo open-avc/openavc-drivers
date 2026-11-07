@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 165,
+    "total_drivers": 166,
     "shards": null
   },
   "drivers": [
@@ -5264,7 +5264,7 @@
       "name": "Generic VISCA-IP PTZ Camera",
       "manufacturer": "Generic",
       "category": "camera",
-      "version": "1.3.10",
+      "version": "1.3.11",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Generic Sony-specification VISCA-over-IP driver (UDP port 52381). Pan/tilt/zoom/focus, presets, auto-exposure, white balance, backlight, power. Covers Sony SRG/BRC, AVer, Marshall, Lumens and many other pro PTZ cameras that adopt Sony's wire format. PTZOptics uses a different framing on TCP/5678 -- prefer the dedicated `ptzoptics` driver for those.",
@@ -5272,7 +5272,7 @@
       "file": "cameras/visca_ip.py",
       "format": "python",
       "files": {
-        "cameras/visca_ip.py": "f85408294dfc942dcf037e6d38a54caf0afc711ae1cfa6b863fbb312829e1f03",
+        "cameras/visca_ip.py": "af154af1f1740f9ffcf3401f7e0904d936a5ccae40a481138b933596e48ce31b",
         "cameras/visca_ip_discovery.py": "e579627a0af0646f4c29561471e50514506ae4f787ace7295622c5536bf3a3f0",
         "cameras/visca_ip_sim.py": "6828c91c1b8354591b0a0c60c312398f562cee4d303a92855db17b6d1c0905f9"
       },
@@ -5311,7 +5311,7 @@
             "EVI-H100V / H100S"
           ],
           "confidence": "untested",
-          "notes": "Older Sony EVI cameras that speak Sony-spec VISCA-IP but predate the BRC/SRG picture-profile / PRESET MODE / PTZ TRACE / tally surface. For SRG-X400/X402/201M2, SRG-X120/HD1M2, and BRC-X400/X401/H800/H900 use the dedicated `sony_visca` driver instead -- it adds picture profiles, R/B gain, color matrix, defog, PRESET MODE, PTZ TRACE, tally, IR correction, AF mode, AE speed, min/max shutter, high sensitivity, and OSD."
+          "notes": "Older Sony EVI cameras that speak Sony-spec VISCA-IP but predate the BRC/SRG picture-profile / PRESET MODE / PTZ TRACE / tally surface. For SRG-X400/X402/201M2, SRG-X120/HD1M2, and BRC-X400/X401/H800/H900 use the dedicated `sony_visca` driver instead -- it adds picture profiles, R/B gain, color matrix, defog, PRESET MODE, PTZ TRACE, tally, IR correction, AF mode, AE speed, min/max shutter, high sensitivity, and OSD. For the SRG-A40 / SRG-A12 auto framing cameras use `sony_srg_a`."
         },
         {
           "manufacturer": "AVer",
@@ -10672,11 +10672,69 @@
       }
     },
     {
+      "id": "sony_srg_a",
+      "name": "Sony SRG-A40 / SRG-A12 PTZ Auto Framing Camera",
+      "manufacturer": "Sony",
+      "category": "camera",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Sony SRG-A40 and SRG-A12 PTZ cameras with PTZ Auto Framing. VISCA over IP (UDP 52381) for power, pan, tilt, zoom, focus, presets 1-64, exposure, white balance, picture, tally and auto framing start and stop, every value the camera reports read back; the web interface (HTTP CGI, Digest login) for presets 1-256 with names, PTZ Auto Framing's settings, compositions and status, RTMP, SRT and NDI|HX streaming, reboot and factory reset. The camera's RTSP, MJPEG and snapshot URLs are offered for preview.",
+      "source_url": "https://www.sony.com/electronics/support/res/manuals/5053/f48354480e724f0aef3d45d2e1eeab63/50531551M.pdf",
+      "file": "cameras/sony_srg_a.py",
+      "format": "python",
+      "files": {
+        "cameras/sony_srg_a.py": "1ba6cf7b777b3369c47c3e696e4e7762ba5eddef13682ef77db8c18959b38715",
+        "cameras/sony_srg_a_sim.py": "8f87ff3ff631c7d0aa4e277d81aeca8c85129720d4aa333ca720d5e050711728"
+      },
+      "ports": [
+        80,
+        52381
+      ],
+      "protocols": [
+        "visca-ip",
+        "sony-cgi"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "ptz",
+        "camera",
+        "sony",
+        "visca",
+        "visca-ip",
+        "auto-framing",
+        "auto-tracking",
+        "ndi",
+        "lecture-capture"
+      ],
+      "help": {
+        "overview": "Sony SRG-A40 / SRG-A12 PTZ cameras with AI auto framing. Power, pan, tilt, zoom, focus, presets 1-64, exposure, white balance, picture, tally and auto framing start and stop use VISCA over IP; presets 65-256 and preset names, the auto framing settings, compositions and status, streaming, reboot and factory reset use the camera's web interface.",
+        "setup": "1. Give the camera a fixed IP address (RM-IP Setup Tool or the web page's Network menu).\n2. Turn on CAMERA SETUP switch 3 (VISCA) on the back of the camera, then power it off and on: without it the camera does not answer VISCA over IP (UDP 52381).\n3. Enter the camera's web user name (admin unless you added another) and password. The camera asks for a password the first time anyone signs in to its web page. Settings, power, streaming, Reboot and Factory Reset need an Administrator account; a Full user can run presets and auto framing. Without a login, VISCA control still works.\n4. The camera counts wrong passwords and blocks the address after 8 (Brute Force Attack Protection). A refused password is not tried again: correct it here.\n5. If the camera answers only HTTPS, turn on HTTPS here and set the HTTP Port to 443."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Sony",
+          "models": [
+            "SRG-A40",
+            "SRG-A12"
+          ],
+          "confidence": "untested",
+          "notes": "Built from Sony's VISCA Command List / CGI Command List for the SRG-A40 / A12, Software Version 4.0 (June 2026). The SRG-A12 has optical zoom only (12x). Ball Sports framing, the Lead Room Effect and the composition presets need camera software 4.0."
+        }
+      ],
+      "discovery": {
+        "hostname": [
+          "^SRG-A(40|12)"
+        ]
+      }
+    },
+    {
       "id": "sony_visca",
       "name": "Sony VISCA-IP PTZ Camera",
       "manufacturer": "Sony",
       "category": "camera",
-      "version": "1.3.5",
+      "version": "1.3.6",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Dedicated Sony SRG / BRC / EVI VISCA-over-IP driver (UDP port 52381). Adds Sony picture profiles, R/B gain, color matrix, defog, visibility enhancer, low-light, chroma suppress, PRESET MODE + PTZ TRACE (BRC-X400/X401), tally, IR correction, ICR, AF mode, AE speed, min/max shutter, high sensitivity, and OSD on/off \u2014 on top of the standard PTZ + AE/WB command set.",
@@ -10684,7 +10742,7 @@
       "file": "cameras/sony_visca.py",
       "format": "python",
       "files": {
-        "cameras/sony_visca.py": "098e8a7e0353b6594f986743be3d38aa2af9e89d311be9ca49d270b44a62c420",
+        "cameras/sony_visca.py": "7447945bd0066e3f55ba64e7f4e77f90239cfc86f12012a71ad14c38407d2e2d",
         "cameras/sony_visca_sim.py": "a7f7224b3127909f777db7874b69bccf97f58f2c75bfbffe71ed1a71def02c30"
       },
       "ports": [
@@ -10716,7 +10774,7 @@
             "BRC-H800 / H900"
           ],
           "confidence": "untested",
-          "notes": "BRC-X400 / X401 expose the full feature set (picture profiles, color matrix, defog, PRESET MODE, PTZ TRACE, tally). SRG-X400/X402/201M2 and SRG-X120/HD1M2 share the picture profile / R-B gain / chroma suppress / IR correction surface but lack PRESET MODE, PTZ TRACE, tally, color matrix and defog (commands return error harmlessly). BRC-H800 / H900 are older but speak the same Command List wire format."
+          "notes": "BRC-X400 / X401 expose the full feature set (picture profiles, color matrix, defog, PRESET MODE, PTZ TRACE, tally). SRG-X400/X402/201M2 and SRG-X120/HD1M2 share the picture profile / R-B gain / chroma suppress / IR correction surface but lack PRESET MODE, PTZ TRACE, tally, color matrix and defog (commands return error harmlessly). BRC-H800 / H900 are older but speak the same Command List wire format. For the SRG-A40 / SRG-A12 auto framing cameras use the sony_srg_a driver: their command list differs and adds PTZ Auto Framing and a web interface (CGI)."
         }
       ],
       "discovery": {
@@ -10724,7 +10782,7 @@
           "sony"
         ],
         "hostname": [
-          "^SRG-",
+          "^SRG-(?!A)",
           "^BRC-",
           "^EVI-"
         ]

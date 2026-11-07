@@ -192,7 +192,7 @@ class VISCAIPDriver(BaseDriver):
         "name": "Generic VISCA-IP PTZ Camera",
         "manufacturer": "Generic",
         "category": "camera",
-        "version": "1.3.10",
+        "version": "1.3.11",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
@@ -257,7 +257,8 @@ class VISCAIPDriver(BaseDriver):
                     "dedicated `sony_visca` driver instead -- it adds picture "
                     "profiles, R/B gain, color matrix, defog, PRESET MODE, "
                     "PTZ TRACE, tally, IR correction, AF mode, AE speed, "
-                    "min/max shutter, high sensitivity, and OSD."
+                    "min/max shutter, high sensitivity, and OSD. For the "
+                    "SRG-A40 / SRG-A12 auto framing cameras use `sony_srg_a`."
                 ),
             },
             {

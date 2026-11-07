@@ -242,7 +242,7 @@ class SonyVISCADriver(BaseDriver):
         "name": "Sony VISCA-IP PTZ Camera",
         "manufacturer": "Sony",
         "category": "camera",
-        "version": "1.3.5",
+        "version": "1.3.6",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
@@ -272,9 +272,11 @@ class SonyVISCADriver(BaseDriver):
             # Skip oui — Sony has dozens of OUI blocks across consumer /
             # pro / mobile / appliance gear; declaring them surfaces
             # every Sony PlayStation as a "possible PTZ." Hostnames are
-            # the SRG / BRC / EVI families.
+            # the SRG / BRC / EVI families, less the SRG-A auto framing
+            # cameras (SRG-A40 / A12), which have a command list and a
+            # driver of their own (sony_srg_a).
             "manufacturer_alias": ["sony"],
-            "hostname": ["^SRG-", "^BRC-", "^EVI-"],
+            "hostname": ["^SRG-(?!A)", "^BRC-", "^EVI-"],
         },
         "compatible_models": [
             {
@@ -294,7 +296,10 @@ class SonyVISCADriver(BaseDriver):
                     "correction surface but lack PRESET MODE, PTZ TRACE, "
                     "tally, color matrix and defog (commands return error "
                     "harmlessly). BRC-H800 / H900 are older but speak the "
-                    "same Command List wire format."
+                    "same Command List wire format. For the SRG-A40 / SRG-A12 "
+                    "auto framing cameras use the sony_srg_a driver: their "
+                    "command list differs and adds PTZ Auto Framing and a web "
+                    "interface (CGI)."
                 ),
             },
         ],

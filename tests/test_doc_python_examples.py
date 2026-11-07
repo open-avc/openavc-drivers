@@ -184,7 +184,11 @@ def _self_assigned_attrs(cls: type) -> set[str]:
 def _surface(classes) -> frozenset[str]:
     names: set[str] = set()
     for cls in classes:
-        names |= set(dir(cls)) | _self_assigned_attrs(cls)
+        names |= set(dir(cls))
+        # Every class in the MRO: a platform base's mixins set attributes of
+        # their own (BaseDriver's self._children, self._push_subscription).
+        for base in cls.__mro__:
+            names |= _self_assigned_attrs(base)
     return frozenset(names)
 
 

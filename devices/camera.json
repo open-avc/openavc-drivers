@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 148,
+    "total_devices": 154,
     "shards": null,
     "category": "camera"
   },
@@ -165,6 +165,18 @@
     },
     {
       "manufacturer": "AVer",
+      "model": "TR211",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "aver_tr",
+          "confidence": "untested",
+          "notes": "Built from the AI Auto Tracking PTZ Camera User Manual for the TR211 / TR315 / TR315N / TR335 / TR335N (2025.12), VISCA and CGI chapters. The Framing tracking mode is set in this manual only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVer",
       "model": "TR313 / TR315 / TR320 / TR530",
       "category": "camera",
       "drivers": [
@@ -172,6 +184,66 @@
           "id": "visca_ip",
           "confidence": "untested",
           "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. AVer's TR-series tracking cameras (TR313 and TR315 here) document an HTTP CGI of their own, a different command set from the PTZ310 / PTZ330's, in AVer's TR3XX V2 HTTP CGI Commands and each TR model's user manual. No driver speaks it, so the TR cameras use this driver for pan, tilt, zoom, presets and power."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVer",
+      "model": "TR315",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "aver_tr",
+          "confidence": "untested",
+          "notes": "Built from the AI Auto Tracking PTZ Camera User Manual for the TR211 / TR315 / TR315N / TR335 / TR335N (2025.12), VISCA and CGI chapters. The Framing tracking mode is set in this manual only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVer",
+      "model": "TR315N",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "aver_tr",
+          "confidence": "untested",
+          "notes": "Built from the AI Auto Tracking PTZ Camera User Manual for the TR211 / TR315 / TR315N / TR335 / TR335N (2025.12), VISCA and CGI chapters. The Framing tracking mode is set in this manual only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVer",
+      "model": "TR335",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "aver_tr",
+          "confidence": "untested",
+          "notes": "Built from the AI Auto Tracking PTZ Camera User Manual for the TR211 / TR315 / TR315N / TR335 / TR335N (2025.12), VISCA and CGI chapters. The Framing tracking mode is set in this manual only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVer",
+      "model": "TR335N",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "aver_tr",
+          "confidence": "untested",
+          "notes": "Built from the AI Auto Tracking PTZ Camera User Manual for the TR211 / TR315 / TR315N / TR335 / TR335N (2025.12), VISCA and CGI chapters. The Framing tracking mode is set in this manual only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVer",
+      "model": "TR615",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "aver_tr",
+          "confidence": "untested",
+          "notes": "Built from the TR615 User Manual (2026.05, firmware 0.0.0000.36), VISCA and CGI chapters. Autofocus Mode is in this manual only."
         }
       ]
     },

@@ -74,6 +74,14 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from openavc.drivers.child_ids import",
                 "from .child_ids import",
             ),
+            (
+                "from openavc.drivers.command_checks import",
+                "from .command_checks import",
+            ),
+            (
+                "from openavc.drivers.param_aid_checks import",
+                "from .param_aid_checks import",
+            ),
             ("from openavc.drivers.spec import (", "from .spec import ("),
             (
                 "from openavc.utils.regex_safety import",
@@ -102,6 +110,21 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         ),
     ),
     (
+        "openavc/drivers/command_checks.py",
+        "scripts/_vendor/command_checks.py",
+        (
+            (
+                "from openavc.drivers.declared_names import",
+                "from .declared_names import",
+            ),
+            (
+                "from openavc.drivers.param_aid_checks import",
+                "from .param_aid_checks import",
+            ),
+            ("from openavc.drivers.spec import (", "from .spec import ("),
+        ),
+    ),
+    (
         "openavc/drivers/condition_checks.py",
         "scripts/_vendor/condition_checks.py",
         (("from openavc.drivers.spec import", "from .spec import"),),
@@ -110,6 +133,17 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         "openavc/drivers/declared_names.py",
         "scripts/_vendor/declared_names.py",
         (("from openavc.drivers.spec import", "from .spec import"),),
+    ),
+    (
+        "openavc/drivers/param_aid_checks.py",
+        "scripts/_vendor/param_aid_checks.py",
+        (
+            ("from openavc.drivers.spec import", "from .spec import"),
+            (
+                "from openavc.utils.regex_safety import",
+                "from .regex_safety import",
+            ),
+        ),
     ),
     (
         "openavc/drivers/push_block_checks.py",
@@ -161,6 +195,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
             (
                 "from openavc.drivers.avcdriver_semantic import (",
                 "from .avcdriver_semantic import (",
+            ),
+            (
+                "from openavc.drivers.command_checks import",
+                "from .command_checks import",
             ),
         ),
     ),

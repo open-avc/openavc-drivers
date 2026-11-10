@@ -29,11 +29,11 @@ import pytest
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "scripts"))
 
-from build_index import (  # noqa: E402
-    _validate_discovery_block as discovery_block_errors,
-    _validate_locator_disambiguation as locator_errors,
-    _validate_no_signal_collisions as collision_errors,
-    _with_discovery_requires as with_discovery_requires,
+from catalog_discovery import (  # noqa: E402
+    validate_discovery_block as discovery_block_errors,
+    validate_locator_disambiguation as locator_errors,
+    validate_no_signal_collisions as collision_errors,
+    with_discovery_requires,
 )
 
 FIXTURE = HERE / "fixtures" / "build_index_discovery_pins.json"

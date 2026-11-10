@@ -12,8 +12,9 @@ written with.
 The platform's parser is the authority and this is a hand copy of it. A new
 discovery key lands there first; here it needs its place in the known keys,
 its check, and a gate in ``_DISCOVERY_FEATURE_GATES`` when an older parser
-would misread it rather than refuse it. A new fingerprint kind also needs its
-claim in ``discovery_claims``.
+would misread it rather than refuse it. A new fingerprint kind is its key in
+``_KNOWN_DISCOVERY_KEYS``, an entry check and its row in
+``_FINGERPRINT_ENTRIES`` here, and its claim in ``discovery_claims``.
 """
 
 from __future__ import annotations
@@ -639,9 +640,10 @@ def validate_discovery_block(
     fingerprint_errors, normalized = _fingerprints(file, discovery, yaml_dir)
     hint_errors, hints = _hints(file, discovery)
     errors += fingerprint_errors + hint_errors
+    declares_a_signal = _declares_a_signal(discovery, normalized, hints)
     normalized["hostname"] = [p for p in hints["hostname"] if isinstance(p, str) and p]
 
-    if not _declares_a_signal(discovery, normalized, hints):
+    if not declares_a_signal:
         sys.stderr.write(
             f"warning: {file}: discovery block declares no fingerprints or "
             "hints; this driver will never participate in matching.\n"
@@ -703,19 +705,17 @@ def _top_level_errors(file: str, discovery: dict[str, Any]) -> list[str]:
     return errors
 
 
-_SIGNAL_FLAGS = ("mdns", "ssdp", "amx_ddp", "has_tcp_probe", "has_udp_probe", "has_python")
-
-
 def _declares_a_signal(
-    discovery: dict[str, Any], normalized: dict[str, Any], hints: dict[str, list[Any]],
+    discovery: dict[str, Any], fingerprints: dict[str, Any], hints: dict[str, list[Any]],
 ) -> bool:
     """Whether anything in the block can take part in matching.
 
-    A fingerprint counts only with a well-formed entry; a probe, a companion,
-    ``snmp_pen`` or a list hint counts as soon as it is declared.
+    ``fingerprints`` is what ``_fingerprints`` recorded, every key of it: an
+    entry kind counts only with a well-formed entry, a probe or a companion as
+    soon as it is declared. So do ``snmp_pen`` and a list hint.
     """
     return (
-        any(normalized[key] for key in _SIGNAL_FLAGS)
+        any(fingerprints.values())
         or "snmp_pen" in discovery
         or any(hints.values())
     )

@@ -10,7 +10,9 @@ returns for each driver: ``mdns`` ({service, txt}), ``ssdp`` ({device_type,
 fields}) and ``amx_ddp`` ({make, model_pattern}) as lists of the well-formed
 entries, ``has_tcp_probe``, ``has_udp_probe`` and ``has_python`` as
 declared-or-not, and ``hostname`` as the well-formed patterns. A new
-fingerprint kind is a new key there and a claim in ``_signal_claims`` here.
+fingerprint kind is a new key there, its claim in ``_signal_claims`` here, and
+a place in ``_DECLARATIVE_FINGERPRINTS`` when the engine evaluates it straight
+from the catalog, before the driver is installed.
 """
 
 from __future__ import annotations

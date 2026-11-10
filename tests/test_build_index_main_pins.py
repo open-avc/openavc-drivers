@@ -18,9 +18,12 @@ is changed on purpose, and the fixture regenerated with
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import io
 import json
+import os
 import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -836,6 +839,55 @@ def test_entry_fields(name: str, fields: dict[str, Any]) -> None:
 def test_files_an_install_fetches(name: str, suffix: str) -> None:
     shape = dict(COMPANION_SHAPES)[name]
     assert _run_files(shape, suffix) == _expected()["files"][f"{name}{suffix}"]
+
+
+# --- What only a whole process shows -----------------------------------------
+
+
+def test_the_default_schema_sits_under_the_resolved_root(tmp_path: Path) -> None:
+    """--root reached through a link names the schema under the real directory."""
+    real = (tmp_path / "real").resolve()
+    real.mkdir()
+    one_yaml(real)
+    link = tmp_path / "link"
+    link.symlink_to(real, target_is_directory=True)
+    log: list[list[str]] = []
+    with _recording(log):
+        rc = build_index.main(["--root", str(link)])
+    err = "".join(text for stream, text in log if stream == "err")
+    assert rc == 0
+    assert f"JSON Schema file not found at {real / 'avcdriver.schema.json'}," in err, err
+
+
+def test_a_stale_catalog_reports_after_the_validation_line(tmp_path: Path) -> None:
+    """stdout is buffered in a pipe and stderr is not: the stale report still
+    prints after the line before it when both share one pipe."""
+    root = tmp_path.resolve()
+    _then(_built(valid_tree), edit_driver)(root)
+    script = REPO / "scripts" / "build_index.py"
+    result = subprocess.run(
+        [sys.executable, "-B", str(script), "--root", str(root),
+         "--json-schema-file", str(SCHEMA), "--check"],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        env={k: v for k, v in os.environ.items() if k != "PYTHONUNBUFFERED"},
+    )
+    assert result.returncode == 1
+    validated = result.stdout.index("Validated 4 driver(s)")
+    stale = result.stdout.index("FAILED: the catalog is out of date")
+    assert validated < stale, result.stdout
+
+
+def test_the_file_loads_without_being_registered(tmp_path: Path) -> None:
+    """The golden master loads build_index.py by path and never registers it in
+    sys.modules; everything defined at import must survive that."""
+    spec = importlib.util.spec_from_file_location(
+        "build_index_unregistered", REPO / "scripts" / "build_index.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert "build_index_unregistered" not in sys.modules
+    path = _py(tmp_path, "projectors/acme_py.py", ports=[-1, 2])
+    assert module.extract_python_driver_info(path)["ports"] == [-1, 2]
 
 
 if __name__ == "__main__":

@@ -17,7 +17,8 @@ that latitude, because a misspelled key silently does nothing.
 
 One carve-out: the platform loader also validates the ``discovery:`` block
 through its discovery engine, which is not vendored here (the catalog runs
-its own deep discovery checks in scripts/build_index.py). Those loader-side
+its own deep discovery checks, in scripts/catalog_discovery.py and
+scripts/discovery_claims.py). Those loader-side
 messages all carry the ``discovery: `` prefix and are filtered from the
 expectations before comparing.
 """

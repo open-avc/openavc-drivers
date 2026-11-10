@@ -159,7 +159,7 @@ openavc-drivers/
 ├── power/               # PDUs, power sequencers
 ├── utility/             # Wake-on-LAN, relays, bridges, miscellaneous helpers
 ├── docs/                # Contributing guide, writing simulators
-├── scripts/             # Build + validation scripts (build_index.py)
+├── scripts/             # Build + validation scripts (build_index.py; its discovery checks are catalog_discovery.py and discovery_claims.py)
 │   └── _vendor/         # Generated copies of the platform's validation rules — never edit
 ├── index/               # Generated per-category index shards
 ├── devices/             # Generated per-category device shards

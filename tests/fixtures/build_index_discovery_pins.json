@@ -1607,6 +1607,15 @@
       "locator": [],
       "stderr": ""
     },
+    "companion_ids_meet_probes": {
+      "collisions": [
+        "Signal collision: probe:custom_acme_companion_tcp claimed by both 'acme' (audio/driver_0.avcdriver) and 'acme_companion' (audio/driver_1.avcdriver)",
+        "Signal collision: broadcast:custom_acme_companion_udp claimed by both 'acme' (audio/driver_0.avcdriver) and 'acme_companion' (audio/driver_1.avcdriver)"
+      ],
+      "errors": [],
+      "locator": [],
+      "stderr": ""
+    },
     "generic_and_bad_blocks_skipped": {
       "collisions": [],
       "errors": [

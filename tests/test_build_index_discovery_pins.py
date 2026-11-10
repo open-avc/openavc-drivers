@@ -457,6 +457,13 @@ CATALOG_CASES: list[tuple[str, list[dict]]] = [
         d({"tcp_probe": {"port": 1}, "udp_probe": {"port": 2, "send_ascii": "q", "expect": "a"},
            "python": "x.py"}, driver_id="acme_b"),
     ]),
+    # A companion's source ids are custom_<id>_companion_udp/_tcp, which a driver
+    # whose id ends in _companion reaches with its own probes.
+    ("companion_ids_meet_probes", [
+        d({"python": "x.py"}, driver_id="acme"),
+        d({"tcp_probe": {"port": 1}, "udp_probe": {"port": 2, "send_ascii": "q", "expect": "a"}},
+          driver_id="acme_companion"),
+    ]),
     ("probes_same_id", [
         d({"tcp_probe": {"port": 1}}, driver_id="acme_a"),
         d({"tcp_probe": {"port": 1}, "python": "y.py"}, driver_id="acme_a"),

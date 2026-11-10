@@ -9,8 +9,8 @@ messages the platform records for each — replays against the vendored
 validator and must reproduce those messages exactly.
 
 The corpus is what an *authoring* gate refuses, so the replay validates
-with ``strict=True`` — the same bar this repo's build_index.py holds a
-submitted driver to. Strict adds one rule: keys the contract does not
+with ``strict=True`` — the same bar this repo's catalog build holds a
+submitted driver to (scripts/catalog_contract.py). Strict adds one rule: keys the contract does not
 declare. The platform's runtime loader softens that one to a warning, so a
 driver written for a newer platform still runs; publishing does not get
 that latitude, because a misspelled key silently does nothing.

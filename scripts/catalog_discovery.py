@@ -934,22 +934,23 @@ def _version_tuple(version: str) -> tuple[int, ...] | None:
 # they are. Add a (predicate, version) pair here whenever a new discovery
 # feature extends the meaning of an existing key.
 def _ssdp_has_description_filters(discovery: dict[str, Any]) -> bool:
-    for entry in _as_list(discovery.get("ssdp")):
-        if isinstance(entry, dict) and any(
-            entry.get(k) is not None for k in _SSDP_FILTER_KEYS
-        ):
-            return True
-    return False
+    return any(
+        isinstance(entry, dict) and bool(_declared(entry, _SSDP_FILTER_KEYS))
+        for entry in _as_list(discovery.get("ssdp"))
+    )
+
+
+def _probe_declares(discovery: dict[str, Any], kind: str, key: str) -> bool:
+    probe = discovery.get(f"{kind}_probe")
+    return isinstance(probe, dict) and bool(_declared(probe, (key,)))
 
 
 def _probe_has_follow_up(discovery: dict[str, Any]) -> bool:
-    probe = discovery.get("tcp_probe")
-    return isinstance(probe, dict) and probe.get("then") is not None
+    return _probe_declares(discovery, "tcp", "then")
 
 
 def _udp_probe_has_reply_port(discovery: dict[str, Any]) -> bool:
-    probe = discovery.get("udp_probe")
-    return isinstance(probe, dict) and probe.get("reply_port") is not None
+    return _probe_declares(discovery, "udp", "reply_port")
 
 
 _DISCOVERY_FEATURE_GATES: tuple[tuple[Any, str], ...] = (
@@ -974,17 +975,21 @@ def with_discovery_requires(discovery: dict[str, Any]) -> dict[str, Any]:
     already newer). Blocks that use no gated features emit unchanged so
     every platform keeps reading them.
     """
-    needed: str | None = discovery.get("requires")
+    declared = discovery.get("requires")
+    needed = declared
     for predicate, version in _DISCOVERY_FEATURE_GATES:
-        if not predicate(discovery):
-            continue
-        if needed is None or (
-            (_version_tuple(version) or ())
-            > (_version_tuple(needed) or ())
-        ):
+        if predicate(discovery) and _newer(version, needed):
             needed = version
-    if needed is None or needed == discovery.get("requires"):
+    if needed is None or needed == declared:
         return discovery
     return {"requires": needed, **{
         k: v for k, v in discovery.items() if k != "requires"
     }}
+
+
+def _newer(version: str, than: str | None) -> bool:
+    """Whether a gate's ``version`` is newer than the ``requires`` so far
+    (none yet counts as older; so does one that is not a version)."""
+    if than is None:
+        return True
+    return (_version_tuple(version) or ()) > (_version_tuple(than) or ())

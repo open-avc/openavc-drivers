@@ -82,6 +82,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from openavc.drivers.command_checks import",
                 "from .command_checks import",
             ),
+            (
+                "from openavc.drivers.conversion_checks import (",
+                "from .conversion_checks import (",
+            ),
             ("from openavc.drivers.spec import (", "from .spec import ("),
             (
                 "from openavc.drivers.declared_names import",
@@ -252,6 +256,17 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         (
             ("from openavc.drivers.child_ids import", "from .child_ids import"),
             ("from openavc.drivers.spec import (", "from .spec import ("),
+        ),
+    ),
+    (
+        "openavc/drivers/conversion_checks.py",
+        "scripts/_vendor/conversion_checks.py",
+        (
+            (
+                "from openavc.drivers.setting_checks import",
+                "from .setting_checks import",
+            ),
+            ("from openavc.drivers.spec import", "from .spec import"),
         ),
     ),
     (

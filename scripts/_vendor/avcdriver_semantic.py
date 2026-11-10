@@ -17,7 +17,8 @@ setting and learned config field (``setting_checks``), the push block
 (``push_block_checks``), the Quick Action blocks (``action_checks``), the
 framing each way (``framing_checks``), the sign-in (``sign_in_checks``), the
 watchdog (``liveness_checks``), the ``routing:`` block
-(``routing_checks``) and the ``{name}`` placeholders in its wire templates
+(``routing_checks``), where a value conversion may be declared
+(``conversion_checks``) and the ``{name}`` placeholders in its wire templates
 (``substitution_checks``). ``validate_driver_warnings`` walks it the same
 way for the rules that only warn (``driver_warnings``). The runtime
 loader wraps it (adding the discovery-block check, which needs the
@@ -48,6 +49,9 @@ from .child_type_checks import (
     undeclared_child_type_reason as undeclared_child_type_reason,
 )
 from .command_checks import CommandSection
+from .conversion_checks import (
+    value_conversion_errors as value_conversion_errors,
+)
 from .declared_names import UNEVALUATED_KEY as UNEVALUATED_KEY
 from .driver_warnings import (
     masked_default_warnings,
@@ -173,70 +177,105 @@ def unknown_key_errors(driver_def: dict[str, Any]) -> list[str]:
     devices offline — worse than the typo. The loader logs these as warnings;
     only the authoring gates treat them as errors.
     """
-    errors = _TaggedErrors()
+    walk = _KeyWalk()
+    walk.walk({"fields": FIELDS, "extra": False}, driver_def, "")
+    return walk.errors
 
-    def walk(node: Any, value: Any, loc: str) -> None:
+
+class _KeyWalk:
+    """``unknown_key_errors``' descent: a definition's value read against the
+    registry node that declares it, one method per kind of node. A reference
+    is followed, a list's entries are read against its ``items``, a block of
+    author-chosen names against its ``extra`` and a block of declared
+    ``fields`` against those fields; anything else is not descended. Each
+    message is tagged with the place the walk last set, which is why a name
+    that is not text is tagged with the place its map's previous entry left.
+    Both places are set through the local name ``errors``, the form the
+    section-tag scan in ``tests/test_driver_definition_validate.py`` reads.
+    """
+
+    def __init__(self) -> None:
+        self.errors = _TaggedErrors()
+
+    def walk(self, node: Any, value: Any, loc: str) -> None:
         if not isinstance(node, dict):
             return
         if "ref" in node:
-            walk(DEFS.get(node["ref"]), value, loc)
-            return
-        if isinstance(value, list):
-            item = node.get("items")
-            if item is not None:
-                for i, entry in enumerate(value):
-                    walk(item, entry, f"{loc}[{i}]")
-            return
-        if not isinstance(value, dict):
-            return
+            self.walk(DEFS.get(node["ref"]), value, loc)
+        elif isinstance(value, list):
+            self._entries(node.get("items"), value, loc)
+        elif isinstance(value, dict):
+            self._block(node, value, loc)
 
+    def _entries(self, item: Any, value: list[Any], loc: str) -> None:
+        if item is None:
+            return
+        for i, entry in enumerate(value):
+            self.walk(item, entry, f"{loc}[{i}]")
+
+    def _block(self, node: dict[str, Any], value: dict[Any, Any], loc: str) -> None:
         fields = node.get("fields")
         extra = node.get("extra")
-
         # A block whose keys are author-chosen names (commands, state
         # variables, a config map) declares its value shape in `extra`. The
-        # names are data, not contract keys — descend, don't judge.
-        #
-        # The one thing worth judging is whether the name is text at all.
-        # YAML reads a bare `on`, `off`, `yes` or `no` as a boolean and bare
-        # digits as a number, so a parameter an author reasonably calls `on`
-        # arrives as the key `True`. Nothing downstream can substitute it,
-        # and the failure surfaces far from the cause.
+        # names are data, not contract keys: descend, don't judge them.
         if isinstance(extra, dict) and not fields:
-            errors.ctx = loc
-            for key, sub in value.items():
-                if not isinstance(key, str):
-                    where = f"{loc}: " if loc else ""
-                    errors.append(
-                        f"{where}name '{key}' is not text. YAML reads bare "
-                        f"on/off/yes/no/true/false as booleans and bare "
-                        f"digits as numbers. Put it in quotes."
-                    )
-                walk(extra, sub, f"{loc}.{key}" if loc else str(key))
-            return
+            self._names(extra, value, loc)
+        elif isinstance(fields, dict):
+            self._fields(node, fields, value, loc)
 
-        if isinstance(fields, dict):
-            # Flagged only where the registry says the key set is fixed, so
-            # this and the schema always agree; an open or type-conditional
-            # block is still descended, just never judged here.
-            if block_has_fixed_keys(node):
-                known = set(fields)
-                # This walk already knows exactly where it is, so it tags its
-                # own entries rather than inheriting the caller's section.
-                errors.ctx = loc
-                for key in sorted(set(value) - known):
-                    close = _difflib.get_close_matches(
-                        str(key), sorted(known), n=1, cutoff=0.7
-                    )
-                    hint = f" (did you mean '{close[0]}'?)" if close else ""
-                    where = f"{loc}: " if loc else ""
-                    errors.append(f"{where}unknown key '{key}'{hint}")
-            for key, sub_node in fields.items():
-                if key in value:
-                    walk(sub_node, value[key], f"{loc}.{key}" if loc else str(key))
+    def _names(self, extra: dict[str, Any], value: dict[Any, Any], loc: str) -> None:
+        """A block of names the author chose. The one thing worth judging is
+        whether a name is text at all: YAML reads a bare ``on``, ``off``,
+        ``yes`` or ``no`` as a boolean and bare digits as a number, so a
+        parameter an author reasonably calls ``on`` arrives as the key
+        ``True``. Nothing downstream can substitute it, and the failure
+        surfaces far from the cause."""
+        errors = self.errors
+        errors.ctx = loc
+        for key, sub in value.items():
+            if not isinstance(key, str):
+                errors.append(
+                    f"{_at(loc)}name '{key}' is not text. YAML reads bare "
+                    f"on/off/yes/no/true/false as booleans and bare "
+                    f"digits as numbers. Put it in quotes."
+                )
+            self.walk(extra, sub, _inside(loc, key))
 
-    walk({"fields": FIELDS, "extra": False}, driver_def, "")
-    return errors
+    def _fields(
+        self, node: dict[str, Any], fields: dict[str, Any], value: dict[Any, Any], loc: str,
+    ) -> None:
+        """A block of declared fields: a key it does not declare is reported
+        only where the registry says the key set is fixed, so this and the
+        schema always agree; an open or type-conditional block is still
+        descended, just never judged here."""
+        if block_has_fixed_keys(node):
+            self._undeclared(set(fields), value, loc)
+        for key, sub_node in fields.items():
+            if key in value:
+                self.walk(sub_node, value[key], _inside(loc, key))
+
+    def _undeclared(self, known: set[str], value: dict[Any, Any], loc: str) -> None:
+        # This walk knows exactly where it is, so it tags its own entries
+        # rather than inheriting the caller's section.
+        errors = self.errors
+        errors.ctx = loc
+        for key in sorted(set(value) - known):
+            close = _difflib.get_close_matches(
+                str(key), sorted(known), n=1, cutoff=0.7
+            )
+            hint = f" (did you mean '{close[0]}'?)" if close else ""
+            errors.append(f"{_at(loc)}unknown key '{key}'{hint}")
+
+
+def _at(loc: str) -> str:
+    """A message's opening: the place it names, or nothing at the top."""
+    return f"{loc}: " if loc else ""
+
+
+def _inside(loc: str, key: Any) -> str:
+    """The place of ``key`` inside ``loc``."""
+    return f"{loc}.{key}" if loc else str(key)
 
 
 # How many offending fields a min_platform_version message names before it
@@ -502,7 +541,8 @@ def validate_driver_definition(
         )
 
     # scale / offset / unknown on state variables, child state variables and
-    # command params: the shared rule (python_info runs it with python=True).
+    # command and action params, checked in conversion_checks (python_info asks
+    # it with python=True). Every message is tagged state_variables.
     errors.ctx = "state_variables"
     errors.extend(value_conversion_errors(driver_def))
 
@@ -678,84 +718,3 @@ def validate_driver_issues(
     )
     warnings = validate_driver_warnings(driver_def)
     return _as_issues(errors, "error") + _as_issues(warnings, "warning")
-
-
-_CONVERTIBLE_TYPES = ("integer", "number", "float")
-
-
-def value_conversion_errors(
-    driver_def: dict[str, Any], *, python: bool = False
-) -> list[str]:
-    """Where ``scale`` / ``offset`` / ``unknown`` may appear, and on what.
-
-    The platform converts a YAML driver's values; a Python driver converts in
-    its own code, so on the Python surface (``python=True``) every one is
-    refused rather than silently doing nothing, and so is a device setting's
-    ``map``, which only the YAML write applies. On a YAML driver all three
-    need a numeric type, a scale of 0 cannot be converted back, and an
-    action's params are never converted (the command's own params are).
-    """
-    errors: list[str] = []
-
-    def check(where: str, decl: Any, *, in_action: bool = False) -> None:
-        if not isinstance(decl, dict):
-            return
-        present = [k for k in ("scale", "offset", "unknown") if k in decl]
-        if not present:
-            return
-        if python:
-            names = ", ".join(present)
-            errors.append(
-                f"{where}: remove {names}; the platform converts values only "
-                f"for YAML drivers, and a Python driver converts in its own code"
-            )
-            return
-        if in_action:
-            errors.append(
-                f"{where}: put scale and offset on the command's own "
-                f"parameter; an action's parameters are not converted"
-            )
-            return
-        if decl.get("type", "string") not in _CONVERTIBLE_TYPES:
-            errors.append(
-                f"{where}: the type must be integer, number or float to use "
-                f"{', '.join(present)}"
-            )
-        scale = decl.get("scale")
-        if isinstance(scale, (int, float)) and not isinstance(scale, bool) and scale == 0:
-            errors.append(f"{where}: scale cannot be 0")
-
-    def entries(block: Any) -> list[tuple[Any, Any]]:
-        return list(block.items()) if isinstance(block, dict) else []
-
-    for name, decl in entries(driver_def.get("state_variables")):
-        check(f"State variable '{name}'", decl)
-    for ctype, type_def in entries(driver_def.get("child_entity_types")):
-        if isinstance(type_def, dict):
-            for name, decl in entries(type_def.get("state_variables")):
-                check(f"child_entity_types.{ctype}.state_variables.{name}", decl)
-    for cmd_name, cmd_def in entries(driver_def.get("commands")):
-        if isinstance(cmd_def, dict):
-            for pname, pdef in entries(cmd_def.get("params")):
-                check(f"Command '{cmd_name}' param '{pname}'", pdef)
-    actions = driver_def.get("actions")
-    for action in actions if isinstance(actions, list) else []:
-        if isinstance(action, dict):
-            for pname, pdef in entries(action.get("params")):
-                check(
-                    f"Action '{action.get('id')}' param '{pname}'",
-                    pdef,
-                    in_action=True,
-                )
-    # A device setting's map is applied by the YAML runtime's write; a Python
-    # driver writes its settings in code (on YAML the key is checked with the
-    # rest of the setting, device_setting_map_errors).
-    if python:
-        for name, sdef in entries(driver_def.get("device_settings")):
-            if isinstance(sdef, dict) and "map" in sdef:
-                errors.append(
-                    f"Device setting '{name}': remove map; the platform maps "
-                    f"a setting's value only for YAML drivers, and a Python "
-                    f"driver writes its settings in its own code"
-                )
-    return errors

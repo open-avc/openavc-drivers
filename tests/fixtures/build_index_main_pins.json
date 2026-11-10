@@ -1,0 +1,2462 @@
+{
+  "cross": {
+    "clean": {
+      "errors": []
+    },
+    "devices_order": {
+      "errors": [
+        "f1: compatible_models manufacturer 'acme' not in manufacturers.json"
+      ]
+    },
+    "empty": {
+      "errors": []
+    },
+    "every_check_interleaved": {
+      "errors": [
+        "duplicate driver id 'a': f1 vs f2",
+        "f1: manufacturer 'Nobody' not in manufacturers.json. Add it there first if it's legitimately new.",
+        "f3: manufacturer 'Nobody2' not in manufacturers.json. Add it there first if it's legitimately new.",
+        "f1: compatible_models manufacturer 'Ghost' not in manufacturers.json",
+        "f2: compatible_models manufacturer 'Ghost' not in manufacturers.json",
+        "f2: replacement_id 'q' does not match any driver",
+        "f3: replacement_id 'r' does not match any driver",
+        "f2: claims full support for Ghost M, but f1 already does. Add a `notes:` field on both entries justifying the overlap."
+      ]
+    },
+    "full_notes_alternate": {
+      "errors": [
+        "f2: claims full support for Acme M, but f1 already does. Add a `notes:` field on both entries justifying the overlap.",
+        "f3: claims full support for Acme M, but f2 already does. Add a `notes:` field on both entries justifying the overlap."
+      ]
+    },
+    "full_notes_empty_string": {
+      "errors": [
+        "f2: claims full support for Acme M, but f1 already does. Add a `notes:` field on both entries justifying the overlap."
+      ]
+    },
+    "full_self_overlap": {
+      "errors": [
+        "f1: claims full support for Acme M, but f1 already does. Add a `notes:` field on both entries justifying the overlap.",
+        "f1: claims full support for Acme M, but f1 already does. Add a `notes:` field on both entries justifying the overlap."
+      ]
+    },
+    "full_three_ways": {
+      "errors": [
+        "f2: claims full support for Acme M, but f1 already does. Add a `notes:` field on both entries justifying the overlap.",
+        "f3: claims full support for Acme M, but f2 already does. Add a `notes:` field on both entries justifying the overlap."
+      ]
+    },
+    "manufacturers": {
+      "errors": [
+        "f1: manufacturer 'Nobody' not in manufacturers.json. Add it there first if it's legitimately new.",
+        "f2: manufacturer 'Other2' not in manufacturers.json. Add it there first if it's legitimately new.",
+        "f1: compatible_models manufacturer 'Ghost' not in manufacturers.json",
+        "f1: compatible_models manufacturer 'Other2' not in manufacturers.json"
+      ]
+    },
+    "partial_and_untested_ignored": {
+      "errors": []
+    },
+    "replacements": {
+      "errors": [
+        "f2: replacement_id 'zzz' does not match any driver"
+      ]
+    },
+    "three_same_id": {
+      "errors": [
+        "duplicate driver id 'a': f1 vs f2",
+        "duplicate driver id 'a': f2 vs f3"
+      ]
+    }
+  },
+  "devices": {
+    "clean+collide_with_each_other": {
+      "raised": "ValueError: devices-extra.json: (Other, Q) is also produced from a driver's compatible_models. Move the entry into the driver."
+    },
+    "clean+collides_with_driver": {
+      "raised": "ValueError: devices-extra.json: (Acme, M) is also produced from a driver's compatible_models. Move the entry into the driver."
+    },
+    "clean+merged_and_sorted": {
+      "devices": [
+        {
+          "category": "audio",
+          "drivers": [],
+          "manufacturer": "acme",
+          "model": "0"
+        },
+        {
+          "category": "audio",
+          "drivers": [
+            {
+              "confidence": "full",
+              "id": "b"
+            }
+          ],
+          "manufacturer": "Acme",
+          "model": "M"
+        },
+        {
+          "manufacturer": "Zulu",
+          "model": "a"
+        }
+      ]
+    },
+    "clean+missing_keys": {
+      "raised": "KeyError: 'manufacturer'"
+    },
+    "clean+non_string_manufacturer": {
+      "raised": "AttributeError: 'int' object has no attribute 'lower'"
+    },
+    "clean+none": {
+      "devices": [
+        {
+          "category": "audio",
+          "drivers": [
+            {
+              "confidence": "full",
+              "id": "b"
+            }
+          ],
+          "manufacturer": "Acme",
+          "model": "M"
+        }
+      ]
+    },
+    "clean+not_a_mapping": {
+      "raised": "AttributeError: 'str' object has no attribute 'get'"
+    },
+    "devices_order+collide_with_each_other": {
+      "raised": "ValueError: devices-extra.json: (Other, Q) is also produced from a driver's compatible_models. Move the entry into the driver."
+    },
+    "devices_order+collides_with_driver": {
+      "raised": "ValueError: devices-extra.json: (Acme, M) is also produced from a driver's compatible_models. Move the entry into the driver."
+    },
+    "devices_order+merged_and_sorted": {
+      "devices": [
+        {
+          "category": "audio",
+          "drivers": [],
+          "manufacturer": "acme",
+          "model": "0"
+        },
+        {
+          "category": "video",
+          "drivers": [
+            {
+              "confidence": "partial",
+              "id": "zed",
+              "notes": "n"
+            }
+          ],
+          "manufacturer": "acme",
+          "model": "a"
+        },
+        {
+          "category": "video",
+          "drivers": [
+            {
+              "confidence": "untested",
+              "id": "zed"
+            }
+          ],
+          "manufacturer": "Acme",
+          "model": "b"
+        },
+        {
+          "category": "audio",
+          "drivers": [
+            {
+              "confidence": "full",
+              "id": "alpha"
+            }
+          ],
+          "manufacturer": "Acme",
+          "model": "B"
+        },
+        {
+          "category": "video",
+          "drivers": [
+            {
+              "confidence": "full",
+              "id": "mid"
+            },
+            {
+              "confidence": "untested",
+              "id": "alpha"
+            },
+            {
+              "confidence": "untested",
+              "id": "beta",
+              "notes": "x"
+            },
+            {
+              "confidence": "untested",
+              "id": "zed"
+            }
+          ],
+          "manufacturer": "Acme",
+          "model": "M"
+        },
+        {
+          "manufacturer": "Zulu",
+          "model": "a"
+        }
+      ]
+    },
+    "devices_order+missing_keys": {
+      "raised": "KeyError: 'manufacturer'"
+    },
+    "devices_order+non_string_manufacturer": {
+      "raised": "AttributeError: 'int' object has no attribute 'lower'"
+    },
+    "devices_order+none": {
+      "devices": [
+        {
+          "category": "video",
+          "drivers": [
+            {
+              "confidence": "partial",
+              "id": "zed",
+              "notes": "n"
+            }
+          ],
+          "manufacturer": "acme",
+          "model": "a"
+        },
+        {
+          "category": "video",
+          "drivers": [
+            {
+              "confidence": "untested",
+              "id": "zed"
+            }
+          ],
+          "manufacturer": "Acme",
+          "model": "b"
+        },
+        {
+          "category": "audio",
+          "drivers": [
+            {
+              "confidence": "full",
+              "id": "alpha"
+            }
+          ],
+          "manufacturer": "Acme",
+          "model": "B"
+        },
+        {
+          "category": "video",
+          "drivers": [
+            {
+              "confidence": "full",
+              "id": "mid"
+            },
+            {
+              "confidence": "untested",
+              "id": "alpha"
+            },
+            {
+              "confidence": "untested",
+              "id": "beta",
+              "notes": "x"
+            },
+            {
+              "confidence": "untested",
+              "id": "zed"
+            }
+          ],
+          "manufacturer": "Acme",
+          "model": "M"
+        }
+      ]
+    },
+    "devices_order+not_a_mapping": {
+      "raised": "AttributeError: 'str' object has no attribute 'get'"
+    },
+    "empty+collide_with_each_other": {
+      "raised": "ValueError: devices-extra.json: (Other, Q) is also produced from a driver's compatible_models. Move the entry into the driver."
+    },
+    "empty+collides_with_driver": {
+      "devices": [
+        {
+          "manufacturer": "Acme",
+          "model": "M"
+        }
+      ]
+    },
+    "empty+merged_and_sorted": {
+      "devices": [
+        {
+          "category": "audio",
+          "drivers": [],
+          "manufacturer": "acme",
+          "model": "0"
+        },
+        {
+          "manufacturer": "Zulu",
+          "model": "a"
+        }
+      ]
+    },
+    "empty+missing_keys": {
+      "raised": "KeyError: 'manufacturer'"
+    },
+    "empty+non_string_manufacturer": {
+      "raised": "AttributeError: 'int' object has no attribute 'lower'"
+    },
+    "empty+none": {
+      "devices": []
+    },
+    "empty+not_a_mapping": {
+      "raised": "AttributeError: 'str' object has no attribute 'get'"
+    },
+    "full_self_overlap+collide_with_each_other": {
+      "raised": "ValueError: devices-extra.json: (Other, Q) is also produced from a driver's compatible_models. Move the entry into the driver."
+    },
+    "full_self_overlap+collides_with_driver": {
+      "raised": "ValueError: devices-extra.json: (Acme, M) is also produced from a driver's compatible_models. Move the entry into the driver."
+    },
+    "full_self_overlap+merged_and_sorted": {
+      "devices": [
+        {
+          "category": "audio",
+          "drivers": [],
+          "manufacturer": "acme",
+          "model": "0"
+        },
+        {
+          "category": "audio",
+          "drivers": [
+            {
+              "confidence": "full",
+              "id": "a"
+            },
+            {
+              "confidence": "full",
+              "id": "a"
+            },
+            {
+              "confidence": "full",
+              "id": "a",
+              "notes": "n"
+            }
+          ],
+          "manufacturer": "Acme",
+          "model": "M"
+        },
+        {
+          "manufacturer": "Zulu",
+          "model": "a"
+        }
+      ]
+    },
+    "full_self_overlap+missing_keys": {
+      "raised": "KeyError: 'manufacturer'"
+    },
+    "full_self_overlap+non_string_manufacturer": {
+      "raised": "AttributeError: 'int' object has no attribute 'lower'"
+    },
+    "full_self_overlap+none": {
+      "devices": [
+        {
+          "category": "audio",
+          "drivers": [
+            {
+              "confidence": "full",
+              "id": "a"
+            },
+            {
+              "confidence": "full",
+              "id": "a"
+            },
+            {
+              "confidence": "full",
+              "id": "a",
+              "notes": "n"
+            }
+          ],
+          "manufacturer": "Acme",
+          "model": "M"
+        }
+      ]
+    },
+    "full_self_overlap+not_a_mapping": {
+      "raised": "AttributeError: 'str' object has no attribute 'get'"
+    },
+    "manufacturers+collide_with_each_other": {
+      "raised": "ValueError: devices-extra.json: (Other, Q) is also produced from a driver's compatible_models. Move the entry into the driver."
+    },
+    "manufacturers+collides_with_driver": {
+      "devices": [
+        {
+          "manufacturer": "Acme",
+          "model": "M"
+        },
+        {
+          "category": "audio",
+          "drivers": [
+            {
+              "confidence": "full",
+              "id": "a"
+            }
+          ],
+          "manufacturer": "Acme",
+          "model": "N"
+        },
+        {
+          "category": "audio",
+          "drivers": [
+            {
+              "confidence": "full",
+              "id": "a"
+            }
+          ],
+          "manufacturer": "Ghost",
+          "model": "M"
+        },
+        {
+          "category": "audio",
+          "drivers": [
+            {
+              "confidence": "partial",
+              "id": "a"
+            }
+          ],
+          "manufacturer": "Other2",
+          "model": "O"
+        }
+      ]
+    },
+    "manufacturers+merged_and_sorted": {
+      "devices": [
+        {
+          "category": "audio",
+          "drivers": [],
+          "manufacturer": "acme",
+          "model": "0"
+        },
+        {
+          "category": "audio",
+          "drivers": [
+            {
+              "confidence": "full",
+              "id": "a"
+            }
+          ],
+          "manufacturer": "Acme",
+          "model": "N"
+        },
+        {
+          "category": "audio",
+          "drivers": [
+            {
+              "confidence": "full",
+              "id": "a"
+            }
+          ],
+          "manufacturer": "Ghost",
+          "model": "M"
+        },
+        {
+          "category": "audio",
+          "drivers": [
+            {
+              "confidence": "partial",
+              "id": "a"
+            }
+          ],
+          "manufacturer": "Other2",
+          "model": "O"
+        },
+        {
+          "manufacturer": "Zulu",
+          "model": "a"
+        }
+      ]
+    },
+    "manufacturers+missing_keys": {
+      "raised": "KeyError: 'manufacturer'"
+    },
+    "manufacturers+non_string_manufacturer": {
+      "raised": "AttributeError: 'int' object has no attribute 'lower'"
+    },
+    "manufacturers+none": {
+      "devices": [
+        {
+          "category": "audio",
+          "drivers": [
+            {
+              "confidence": "full",
+              "id": "a"
+            }
+          ],
+          "manufacturer": "Acme",
+          "model": "N"
+        },
+        {
+          "category": "audio",
+          "drivers": [
+            {
+              "confidence": "full",
+              "id": "a"
+            }
+          ],
+          "manufacturer": "Ghost",
+          "model": "M"
+        },
+        {
+          "category": "audio",
+          "drivers": [
+            {
+              "confidence": "partial",
+              "id": "a"
+            }
+          ],
+          "manufacturer": "Other2",
+          "model": "O"
+        }
+      ]
+    },
+    "manufacturers+not_a_mapping": {
+      "raised": "AttributeError: 'str' object has no attribute 'get'"
+    }
+  },
+  "files": {
+    "discovery_not_a_mapping.avcdriver": {
+      "files": [
+        "<root>/audio/drv.avcdriver"
+      ]
+    },
+    "discovery_not_a_mapping.py": {
+      "files": [
+        "<root>/audio/drv.py",
+        "<root>/audio/drv_discovery.py",
+        "<root>/audio/drv_sim.py"
+      ]
+    },
+    "int.avcdriver": {
+      "files": [
+        "<root>/audio/drv.avcdriver"
+      ]
+    },
+    "int.py": {
+      "files": [
+        "<root>/audio/drv.py",
+        "<root>/audio/drv_discovery.py",
+        "<root>/audio/drv_sim.py"
+      ]
+    },
+    "list.avcdriver": {
+      "files": [
+        "<root>/audio/drv.avcdriver"
+      ]
+    },
+    "list.py": {
+      "files": [
+        "<root>/audio/drv.py",
+        "<root>/audio/drv_discovery.py",
+        "<root>/audio/drv_sim.py"
+      ]
+    },
+    "mapping.avcdriver": {
+      "files": [
+        "<root>/audio/drv.avcdriver",
+        "<root>/audio/comp_discovery.py"
+      ]
+    },
+    "mapping.py": {
+      "files": [
+        "<root>/audio/drv.py",
+        "<root>/audio/drv_discovery.py",
+        "<root>/audio/drv_sim.py"
+      ]
+    },
+    "mapping_empty_file.avcdriver": {
+      "files": [
+        "<root>/audio/drv.avcdriver"
+      ]
+    },
+    "mapping_empty_file.py": {
+      "files": [
+        "<root>/audio/drv.py",
+        "<root>/audio/drv_discovery.py",
+        "<root>/audio/drv_sim.py"
+      ]
+    },
+    "mapping_extra_keys.avcdriver": {
+      "files": [
+        "<root>/audio/drv.avcdriver",
+        "<root>/audio/comp_discovery.py"
+      ]
+    },
+    "mapping_extra_keys.py": {
+      "files": [
+        "<root>/audio/drv.py",
+        "<root>/audio/drv_discovery.py",
+        "<root>/audio/drv_sim.py"
+      ]
+    },
+    "mapping_int_file.avcdriver": {
+      "files": [
+        "<root>/audio/drv.avcdriver"
+      ]
+    },
+    "mapping_int_file.py": {
+      "files": [
+        "<root>/audio/drv.py",
+        "<root>/audio/drv_discovery.py",
+        "<root>/audio/drv_sim.py"
+      ]
+    },
+    "mapping_no_file.avcdriver": {
+      "files": [
+        "<root>/audio/drv.avcdriver"
+      ]
+    },
+    "mapping_no_file.py": {
+      "files": [
+        "<root>/audio/drv.py",
+        "<root>/audio/drv_discovery.py",
+        "<root>/audio/drv_sim.py"
+      ]
+    },
+    "no_discovery.avcdriver": {
+      "files": [
+        "<root>/audio/drv.avcdriver"
+      ]
+    },
+    "no_discovery.py": {
+      "files": [
+        "<root>/audio/drv.py",
+        "<root>/audio/drv_discovery.py",
+        "<root>/audio/drv_sim.py"
+      ]
+    },
+    "no_python_key.avcdriver": {
+      "files": [
+        "<root>/audio/drv.avcdriver"
+      ]
+    },
+    "no_python_key.py": {
+      "files": [
+        "<root>/audio/drv.py",
+        "<root>/audio/drv_discovery.py",
+        "<root>/audio/drv_sim.py"
+      ]
+    },
+    "none.avcdriver": {
+      "files": [
+        "<root>/audio/drv.avcdriver"
+      ]
+    },
+    "none.py": {
+      "files": [
+        "<root>/audio/drv.py",
+        "<root>/audio/drv_discovery.py",
+        "<root>/audio/drv_sim.py"
+      ]
+    },
+    "string.avcdriver": {
+      "files": [
+        "<root>/audio/drv.avcdriver",
+        "<root>/audio/comp_discovery.py"
+      ]
+    },
+    "string.py": {
+      "files": [
+        "<root>/audio/drv.py",
+        "<root>/audio/drv_discovery.py",
+        "<root>/audio/drv_sim.py"
+      ]
+    },
+    "string_a_directory.avcdriver": {
+      "files": [
+        "<root>/audio/drv.avcdriver"
+      ]
+    },
+    "string_a_directory.py": {
+      "files": [
+        "<root>/audio/drv.py",
+        "<root>/audio/drv_discovery.py",
+        "<root>/audio/drv_sim.py"
+      ]
+    },
+    "string_dot_slash.avcdriver": {
+      "files": [
+        "<root>/audio/drv.avcdriver",
+        "<root>/audio/comp_discovery.py"
+      ]
+    },
+    "string_dot_slash.py": {
+      "files": [
+        "<root>/audio/drv.py",
+        "<root>/audio/drv_discovery.py",
+        "<root>/audio/drv_sim.py"
+      ]
+    },
+    "string_empty.avcdriver": {
+      "files": [
+        "<root>/audio/drv.avcdriver"
+      ]
+    },
+    "string_empty.py": {
+      "files": [
+        "<root>/audio/drv.py",
+        "<root>/audio/drv_discovery.py",
+        "<root>/audio/drv_sim.py"
+      ]
+    },
+    "string_missing.avcdriver": {
+      "files": [
+        "<root>/audio/drv.avcdriver"
+      ]
+    },
+    "string_missing.py": {
+      "files": [
+        "<root>/audio/drv.py",
+        "<root>/audio/drv_discovery.py",
+        "<root>/audio/drv_sim.py"
+      ]
+    },
+    "string_outside.avcdriver": {
+      "files": [
+        "<root>/audio/drv.avcdriver",
+        "<root>/outside_discovery.py"
+      ]
+    },
+    "string_outside.py": {
+      "files": [
+        "<root>/audio/drv.py",
+        "<root>/audio/drv_discovery.py",
+        "<root>/audio/drv_sim.py"
+      ]
+    }
+  },
+  "info": {
+    "binop": {
+      "raised": "drv.py: DRIVER_INFO must contain only literal data (no calls, comprehensions, or f-strings). Offending node: BinOp"
+    },
+    "binop_annotated": {
+      "raised": "drv.py: DRIVER_INFO must contain only literal data (no calls, comprehensions, or f-strings). Offending node: BinOp"
+    },
+    "call": {
+      "raised": "drv.py: DRIVER_INFO must contain only literal data (no calls, comprehensions, or f-strings). Offending node: Call"
+    },
+    "call_annotated": {
+      "raised": "drv.py: DRIVER_INFO must contain only literal data (no calls, comprehensions, or f-strings). Offending node: Call"
+    },
+    "comprehension": {
+      "raised": "drv.py: DRIVER_INFO must contain only literal data (no calls, comprehensions, or f-strings). Offending node: ListComp"
+    },
+    "comprehension_annotated": {
+      "raised": "drv.py: DRIVER_INFO must contain only literal data (no calls, comprehensions, or f-strings). Offending node: ListComp"
+    },
+    "discovery_kept": {
+      "value": "{'id': 'x', 'discovery': {'port_open': [1, 2], 'python': {'file': 'a.py'}}}"
+    },
+    "discovery_kept_annotated": {
+      "value": "{'id': 'x', 'discovery': {'port_open': [1, 2], 'python': {'file': 'a.py'}}}"
+    },
+    "f_string": {
+      "raised": "drv.py: DRIVER_INFO must contain only literal data (no calls, comprehensions, or f-strings). Offending node: JoinedStr"
+    },
+    "f_string_annotated": {
+      "raised": "drv.py: DRIVER_INFO must contain only literal data (no calls, comprehensions, or f-strings). Offending node: JoinedStr"
+    },
+    "literals": {
+      "value": "{'id': 'x', 'ports': [1, -2, [3, 4]], 'help': {'overview': 'o', 'setup': None}, 'verified': True}"
+    },
+    "literals_annotated": {
+      "value": "{'id': 'x', 'ports': [1, -2, [3, 4]], 'help': {'overview': 'o', 'setup': None}, 'verified': True}"
+    },
+    "name": {
+      "raised": "drv.py: DRIVER_INFO must contain only literal data (no calls, comprehensions, or f-strings). Offending node: Name"
+    },
+    "name_annotated": {
+      "raised": "drv.py: DRIVER_INFO must contain only literal data (no calls, comprehensions, or f-strings). Offending node: Name"
+    },
+    "negated_name": {
+      "raised": "drv.py: DRIVER_INFO must contain only literal data (no calls, comprehensions, or f-strings). Offending node: UnaryOp"
+    },
+    "negated_name_annotated": {
+      "raised": "drv.py: DRIVER_INFO must contain only literal data (no calls, comprehensions, or f-strings). Offending node: UnaryOp"
+    },
+    "negated_string": {
+      "raised": "drv.py: DRIVER_INFO must contain only literal data (no calls, comprehensions, or f-strings). Offending node: UnaryOp"
+    },
+    "negated_string_annotated": {
+      "raised": "drv.py: DRIVER_INFO must contain only literal data (no calls, comprehensions, or f-strings). Offending node: UnaryOp"
+    },
+    "negative_numbers": {
+      "value": "{'ports': [-1, -2.5, -1, 0]}"
+    },
+    "negative_numbers_annotated": {
+      "value": "{'ports': [-1, -2.5, -1, 0]}"
+    },
+    "nested_lists_and_tuples": {
+      "value": "{'compatible_models': [{'models': ['a', ['b', ['c']]]}]}"
+    },
+    "nested_lists_and_tuples_annotated": {
+      "value": "{'compatible_models': [{'models': ['a', ['b', ['c']]]}]}"
+    },
+    "nested_non_string_key": {
+      "raised": "drv.py: dict keys must be string literals (found non-string key in DRIVER_INFO)"
+    },
+    "nested_non_string_key_annotated": {
+      "raised": "drv.py: dict keys must be string literals (found non-string key in DRIVER_INFO)"
+    },
+    "nested_spread": {
+      "raised": "drv.py: dict keys must be string literals (found non-string key in DRIVER_INFO)"
+    },
+    "nested_spread_annotated": {
+      "raised": "drv.py: dict keys must be string literals (found non-string key in DRIVER_INFO)"
+    },
+    "not_constant": {
+      "raised": "drv.py: DRIVER_INFO must contain only literal data (no calls, comprehensions, or f-strings). Offending node: UnaryOp"
+    },
+    "not_constant_annotated": {
+      "raised": "drv.py: DRIVER_INFO must contain only literal data (no calls, comprehensions, or f-strings). Offending node: UnaryOp"
+    },
+    "other_constants": {
+      "value": "{'tags': [1j, b'raw', Ellipsis, None, '\u00e9']}"
+    },
+    "other_constants_annotated": {
+      "value": "{'tags': [1j, b'raw', Ellipsis, None, '\u00e9']}"
+    },
+    "runtime_field_left_alone": {
+      "value": "{'id': 'x'}"
+    },
+    "runtime_field_left_alone_annotated": {
+      "value": "{'id': 'x'}"
+    },
+    "set_literal": {
+      "raised": "drv.py: DRIVER_INFO must contain only literal data (no calls, comprehensions, or f-strings). Offending node: Set"
+    },
+    "set_literal_annotated": {
+      "raised": "drv.py: DRIVER_INFO must contain only literal data (no calls, comprehensions, or f-strings). Offending node: Set"
+    },
+    "top_level_non_string_key": {
+      "raised": "drv.py: DRIVER_INFO keys must be string literals"
+    },
+    "top_level_non_string_key_annotated": {
+      "raised": "drv.py: DRIVER_INFO keys must be string literals"
+    },
+    "top_level_non_string_key_runtime_value": {
+      "raised": "drv.py: DRIVER_INFO keys must be string literals"
+    },
+    "top_level_non_string_key_runtime_value_annotated": {
+      "raised": "drv.py: DRIVER_INFO keys must be string literals"
+    },
+    "top_level_spread": {
+      "raised": "drv.py: DRIVER_INFO keys must be string literals"
+    },
+    "top_level_spread_annotated": {
+      "raised": "drv.py: DRIVER_INFO keys must be string literals"
+    },
+    "uplus": {
+      "raised": "drv.py: DRIVER_INFO must contain only literal data (no calls, comprehensions, or f-strings). Offending node: UnaryOp"
+    },
+    "uplus_annotated": {
+      "raised": "drv.py: DRIVER_INFO must contain only literal data (no calls, comprehensions, or f-strings). Offending node: UnaryOp"
+    }
+  },
+  "main": {
+    "bad_yaml": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "ERROR: broken.avcdriver: invalid YAML \u2014 while parsing a flow sequence\n  in \"<unicode string>\", line 1, column 5:\n    id: [unclosed\n        ^\nexpected ',' or ']', but got '<stream end>'\n  in \"<unicode string>\", line 2, column 1:\n    \n    ^\n"
+        ]
+      ]
+    },
+    "both_flags_stale": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "warning: audio/acme_amp.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: displays/acme_old.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+        ],
+        [
+          "out",
+          "Validated 4 driver(s), 5 device(s).\n"
+        ],
+        [
+          "err",
+          "\nFAILED: the catalog is out of date \u2014 5 generated file(s) no longer match the drivers they come from:\n\n  - devices.json\n  - devices/audio.json\n  - devices/projector.json\n  - index.json\n  - index/audio.json\n\nThe catalog is what the platform installs from, and it carries a checksum\nfor every driver file. A checksum that no longer matches is refused, not\nwarned about, so a driver whose entry is stale cannot be installed at all.\n\nRegenerate and commit the result alongside your driver change:\n\n    python scripts/build_index.py\n\n"
+        ]
+      ]
+    },
+    "build_valid_tree": {
+      "catalog": {
+        "devices.json": {
+          "_meta": {
+            "generator_version": "1.1.0",
+            "schema_version": "1",
+            "shards": null,
+            "total_devices": 7
+          },
+          "devices": [
+            {
+              "category": "audio",
+              "drivers": [],
+              "manufacturer": "acme",
+              "model": "aaa"
+            },
+            {
+              "category": "audio",
+              "drivers": [
+                {
+                  "confidence": "full",
+                  "id": "acme_amp"
+                },
+                {
+                  "confidence": "partial",
+                  "id": "acme_py"
+                }
+              ],
+              "manufacturer": "Acme",
+              "model": "AMP-1"
+            },
+            {
+              "category": "audio",
+              "drivers": [
+                {
+                  "confidence": "full",
+                  "id": "acme_amp"
+                }
+              ],
+              "manufacturer": "Acme",
+              "model": "amp-2"
+            },
+            {
+              "category": "projector",
+              "drivers": [
+                {
+                  "confidence": "partial",
+                  "id": "acme_py"
+                }
+              ],
+              "manufacturer": "Acme",
+              "model": "PJ-1"
+            },
+            {
+              "category": "switcher",
+              "drivers": [
+                {
+                  "confidence": "partial",
+                  "id": "acme_sw"
+                }
+              ],
+              "manufacturer": "Acme",
+              "model": "SW-8"
+            },
+            {
+              "category": "audio",
+              "drivers": [
+                {
+                  "confidence": "untested",
+                  "id": "acme_amp",
+                  "notes": "Rebadge."
+                }
+              ],
+              "manufacturer": "AcmeAudio",
+              "model": "Zed"
+            },
+            {
+              "category": "switcher",
+              "drivers": [],
+              "manufacturer": "Other",
+              "model": "Zeta-9",
+              "status": "no_driver"
+            }
+          ]
+        },
+        "devices/audio.json": "06b27fff109ccefd3e57da8fde1862a68c7a8212c64fcf8a8eeaf9da8dbe4e6a",
+        "devices/camera.json": "59fdba9941655f60be3e20e759cb0811af6a5ec7db8e40c2159222fd5f3079bf",
+        "devices/display.json": "d0b02aaf31570db55e6a206bd727d4eec0ec9b245d9e9aeb570526c706fe76e9",
+        "devices/lighting.json": "3c1c49b46477d2ee10a8df91078b911d729262d0440f895eae2b549f04ea9c1d",
+        "devices/power.json": "513fe8e0134c53e8465141acb103d6a693688ee22db5d4dd2b7d6cc5ee0108aa",
+        "devices/projector.json": "87b968f18682c10c056fbcb57688f3e25a4c65ce93863a7cbd8f36a1401d58d2",
+        "devices/streaming.json": "f8facf37b8e78918a5beef88bb3058170adea021177a8405181796b6f746c11f",
+        "devices/switcher.json": "c73d5ce6bf310a56af9cbc7c6029f32dfb42ea503adce8e6d7b647bb4e797e7f",
+        "devices/utility.json": "a818c08861f18e2387106e4c4d790555beb6059211f613d712cff4eed042fe11",
+        "devices/video.json": "a7d223d7da7b6d5c135f589f4ac3f1a655cd3ed97239cb8fd999939a3519b237",
+        "index.json": {
+          "_meta": {
+            "generator_version": "1.1.0",
+            "schema_version": "1",
+            "shards": null,
+            "total_drivers": 4
+          },
+          "drivers": [
+            {
+              "author": "Tester",
+              "category": "audio",
+              "compatible_models": [
+                {
+                  "confidence": "full",
+                  "manufacturer": "Acme",
+                  "models": [
+                    "AMP-1",
+                    "amp-2"
+                  ]
+                },
+                {
+                  "confidence": "untested",
+                  "manufacturer": "AcmeAudio",
+                  "models": [
+                    "Zed"
+                  ],
+                  "notes": "Rebadge."
+                }
+              ],
+              "description": "Fixture driver.",
+              "discovery": {
+                "hostname": [
+                  "^acme-amp-"
+                ]
+              },
+              "file": "audio/acme_amp.avcdriver",
+              "files": {
+                "audio/acme_amp.avcdriver": "be7c6f2b8977d4200ecef2a56e32ed1e390c40ebe1b4e615a233553c082f54e9"
+              },
+              "format": "avcdriver",
+              "help": {
+                "overview": "An amp.",
+                "setup": "Plug it in."
+              },
+              "id": "acme_amp",
+              "manufacturer": "Acme",
+              "name": "Acme Amp",
+              "ports": [
+                23,
+                4998
+              ],
+              "protocols": [
+                "telnet"
+              ],
+              "simulated": true,
+              "source_url": "https://example.com/protocol",
+              "tags": [
+                "ceiling-mic",
+                "dsp"
+              ],
+              "transport": "tcp",
+              "version": "1.0.0"
+            },
+            {
+              "author": "Tester",
+              "category": "display",
+              "deprecated": true,
+              "description": "Fixture driver.",
+              "file": "displays/acme_old.avcdriver",
+              "files": {
+                "displays/acme_old.avcdriver": "d553e68c3ad6c393933175f766c42cb529cf5cd1c67e170848628d818d8aa959"
+              },
+              "format": "avcdriver",
+              "id": "acme_old",
+              "manufacturer": "Acme",
+              "name": "Acme Old",
+              "replacement_id": "acme_amp",
+              "source_url": "https://example.com/protocol",
+              "transport": "tcp",
+              "version": "1.0.0"
+            },
+            {
+              "author": "Tester",
+              "category": "projector",
+              "compatible_models": [
+                {
+                  "confidence": "partial",
+                  "manufacturer": "Acme",
+                  "models": [
+                    "PJ-1"
+                  ]
+                },
+                {
+                  "confidence": "partial",
+                  "manufacturer": "Acme",
+                  "models": [
+                    "AMP-1"
+                  ]
+                }
+              ],
+              "description": "Fixture driver.",
+              "file": "projectors/acme_py.py",
+              "files": {
+                "projectors/acme_py.py": "576b06f6b66604ec958f8387982f4ad225578fbf7ae763ec43f6404d5d09388a",
+                "projectors/acme_py_discovery.py": "6fcee505a0dad76caa02a7a28baef1594b5a49c29174637eb6da9a761982fcea",
+                "projectors/acme_py_sim.py": "576b40765dcb439d6b4bea23ac01c7b8dc1777338a804e6a390bc94a22a9ceee"
+              },
+              "format": "python",
+              "id": "acme_py",
+              "manufacturer": "Acme",
+              "name": "Acme Py",
+              "ports": [
+                4352
+              ],
+              "source_url": "https://example.com/protocol",
+              "transport": "tcp",
+              "verified": true,
+              "version": "1.0.0"
+            },
+            {
+              "author": "Tester",
+              "category": "switcher",
+              "compatible_models": [
+                {
+                  "confidence": "partial",
+                  "manufacturer": "Acme",
+                  "models": [
+                    "SW-8"
+                  ]
+                }
+              ],
+              "description": "Fixture driver.",
+              "discovery": {
+                "port_open": [
+                  5000
+                ],
+                "python": "./acme_sw_discovery.py"
+              },
+              "file": "switchers/acme_sw.avcdriver",
+              "files": {
+                "switchers/acme_sw.avcdriver": "23a291d8fa30d75f3976708165072543bc1e87936cb9fe9f34c947fe320be8b9",
+                "switchers/acme_sw_discovery.py": "a55da86ca9d6a22bb68290397d20c03388054c671f7a1c90e1e4c8498f127597"
+              },
+              "format": "avcdriver",
+              "id": "acme_sw",
+              "manufacturer": "Acme",
+              "name": "acme switch",
+              "source_url": "https://example.com/protocol",
+              "transport": "tcp",
+              "version": "1.0.0"
+            }
+          ]
+        },
+        "index/audio.json": "02d1c538e53c800c21eb520e90da824a74a8ec3b71e7a1780009dffeccea6143",
+        "index/camera.json": "832bd975491f861cdb8d43d8c16d09967fa3f4d73fb16c4e5cab48c094e209c9",
+        "index/display.json": "5586461f592c078d6809477581b208111375cbfd59aae5a737011b3dfb9377b4",
+        "index/lighting.json": "39a19946b0acf073818dbb55b6a03b897e77bdb2a2d214142e8479728c96e6a5",
+        "index/power.json": "63538a3d0c576ff632c84894dc6d221b26dfeef5295e3a9414bc75c5fa4ef538",
+        "index/projector.json": "707b7ed1a0153f74f4b3db5cf14fcdd07d419ce55a087744888f714a7aabe0d1",
+        "index/streaming.json": "af7444cb2c9669b495af87fec3c37ef7604884630b61ba9c5376428c2d02104f",
+        "index/switcher.json": "fb9f31418c4d9aff534bfaaf80b5785caa844e64352ed0c79490607d46989d4f",
+        "index/utility.json": "70b4c393fbd35a66251c86ebc3104e62c6515ab2c371288f817caf1e0bad0b6e",
+        "index/video.json": "5dec762b62f84f87df9d74df5329dfd8a87d3f20c6a843aa20774a644f800a89"
+      },
+      "raised": null,
+      "rc": 0,
+      "transcript": [
+        [
+          "err",
+          "warning: displays/acme_old.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+        ],
+        [
+          "out",
+          "Validated 4 driver(s), 7 device(s).\nWrote index.json, devices.json, and 20 category shard files.\n"
+        ]
+      ]
+    },
+    "build_valid_tree_no_schema": {
+      "catalog": {
+        "devices.json": {
+          "_meta": {
+            "generator_version": "1.1.0",
+            "schema_version": "1",
+            "shards": null,
+            "total_devices": 7
+          },
+          "devices": [
+            {
+              "category": "audio",
+              "drivers": [],
+              "manufacturer": "acme",
+              "model": "aaa"
+            },
+            {
+              "category": "audio",
+              "drivers": [
+                {
+                  "confidence": "full",
+                  "id": "acme_amp"
+                },
+                {
+                  "confidence": "partial",
+                  "id": "acme_py"
+                }
+              ],
+              "manufacturer": "Acme",
+              "model": "AMP-1"
+            },
+            {
+              "category": "audio",
+              "drivers": [
+                {
+                  "confidence": "full",
+                  "id": "acme_amp"
+                }
+              ],
+              "manufacturer": "Acme",
+              "model": "amp-2"
+            },
+            {
+              "category": "projector",
+              "drivers": [
+                {
+                  "confidence": "partial",
+                  "id": "acme_py"
+                }
+              ],
+              "manufacturer": "Acme",
+              "model": "PJ-1"
+            },
+            {
+              "category": "switcher",
+              "drivers": [
+                {
+                  "confidence": "partial",
+                  "id": "acme_sw"
+                }
+              ],
+              "manufacturer": "Acme",
+              "model": "SW-8"
+            },
+            {
+              "category": "audio",
+              "drivers": [
+                {
+                  "confidence": "untested",
+                  "id": "acme_amp",
+                  "notes": "Rebadge."
+                }
+              ],
+              "manufacturer": "AcmeAudio",
+              "model": "Zed"
+            },
+            {
+              "category": "switcher",
+              "drivers": [],
+              "manufacturer": "Other",
+              "model": "Zeta-9",
+              "status": "no_driver"
+            }
+          ]
+        },
+        "devices/audio.json": "06b27fff109ccefd3e57da8fde1862a68c7a8212c64fcf8a8eeaf9da8dbe4e6a",
+        "devices/camera.json": "59fdba9941655f60be3e20e759cb0811af6a5ec7db8e40c2159222fd5f3079bf",
+        "devices/display.json": "d0b02aaf31570db55e6a206bd727d4eec0ec9b245d9e9aeb570526c706fe76e9",
+        "devices/lighting.json": "3c1c49b46477d2ee10a8df91078b911d729262d0440f895eae2b549f04ea9c1d",
+        "devices/power.json": "513fe8e0134c53e8465141acb103d6a693688ee22db5d4dd2b7d6cc5ee0108aa",
+        "devices/projector.json": "87b968f18682c10c056fbcb57688f3e25a4c65ce93863a7cbd8f36a1401d58d2",
+        "devices/streaming.json": "f8facf37b8e78918a5beef88bb3058170adea021177a8405181796b6f746c11f",
+        "devices/switcher.json": "c73d5ce6bf310a56af9cbc7c6029f32dfb42ea503adce8e6d7b647bb4e797e7f",
+        "devices/utility.json": "a818c08861f18e2387106e4c4d790555beb6059211f613d712cff4eed042fe11",
+        "devices/video.json": "a7d223d7da7b6d5c135f589f4ac3f1a655cd3ed97239cb8fd999939a3519b237",
+        "index.json": {
+          "_meta": {
+            "generator_version": "1.1.0",
+            "schema_version": "1",
+            "shards": null,
+            "total_drivers": 4
+          },
+          "drivers": [
+            {
+              "author": "Tester",
+              "category": "audio",
+              "compatible_models": [
+                {
+                  "confidence": "full",
+                  "manufacturer": "Acme",
+                  "models": [
+                    "AMP-1",
+                    "amp-2"
+                  ]
+                },
+                {
+                  "confidence": "untested",
+                  "manufacturer": "AcmeAudio",
+                  "models": [
+                    "Zed"
+                  ],
+                  "notes": "Rebadge."
+                }
+              ],
+              "description": "Fixture driver.",
+              "discovery": {
+                "hostname": [
+                  "^acme-amp-"
+                ]
+              },
+              "file": "audio/acme_amp.avcdriver",
+              "files": {
+                "audio/acme_amp.avcdriver": "be7c6f2b8977d4200ecef2a56e32ed1e390c40ebe1b4e615a233553c082f54e9"
+              },
+              "format": "avcdriver",
+              "help": {
+                "overview": "An amp.",
+                "setup": "Plug it in."
+              },
+              "id": "acme_amp",
+              "manufacturer": "Acme",
+              "name": "Acme Amp",
+              "ports": [
+                23,
+                4998
+              ],
+              "protocols": [
+                "telnet"
+              ],
+              "simulated": true,
+              "source_url": "https://example.com/protocol",
+              "tags": [
+                "ceiling-mic",
+                "dsp"
+              ],
+              "transport": "tcp",
+              "version": "1.0.0"
+            },
+            {
+              "author": "Tester",
+              "category": "display",
+              "deprecated": true,
+              "description": "Fixture driver.",
+              "file": "displays/acme_old.avcdriver",
+              "files": {
+                "displays/acme_old.avcdriver": "d553e68c3ad6c393933175f766c42cb529cf5cd1c67e170848628d818d8aa959"
+              },
+              "format": "avcdriver",
+              "id": "acme_old",
+              "manufacturer": "Acme",
+              "name": "Acme Old",
+              "replacement_id": "acme_amp",
+              "source_url": "https://example.com/protocol",
+              "transport": "tcp",
+              "version": "1.0.0"
+            },
+            {
+              "author": "Tester",
+              "category": "projector",
+              "compatible_models": [
+                {
+                  "confidence": "partial",
+                  "manufacturer": "Acme",
+                  "models": [
+                    "PJ-1"
+                  ]
+                },
+                {
+                  "confidence": "partial",
+                  "manufacturer": "Acme",
+                  "models": [
+                    "AMP-1"
+                  ]
+                }
+              ],
+              "description": "Fixture driver.",
+              "file": "projectors/acme_py.py",
+              "files": {
+                "projectors/acme_py.py": "576b06f6b66604ec958f8387982f4ad225578fbf7ae763ec43f6404d5d09388a",
+                "projectors/acme_py_discovery.py": "6fcee505a0dad76caa02a7a28baef1594b5a49c29174637eb6da9a761982fcea",
+                "projectors/acme_py_sim.py": "576b40765dcb439d6b4bea23ac01c7b8dc1777338a804e6a390bc94a22a9ceee"
+              },
+              "format": "python",
+              "id": "acme_py",
+              "manufacturer": "Acme",
+              "name": "Acme Py",
+              "ports": [
+                4352
+              ],
+              "source_url": "https://example.com/protocol",
+              "transport": "tcp",
+              "verified": true,
+              "version": "1.0.0"
+            },
+            {
+              "author": "Tester",
+              "category": "switcher",
+              "compatible_models": [
+                {
+                  "confidence": "partial",
+                  "manufacturer": "Acme",
+                  "models": [
+                    "SW-8"
+                  ]
+                }
+              ],
+              "description": "Fixture driver.",
+              "discovery": {
+                "port_open": [
+                  5000
+                ],
+                "python": "./acme_sw_discovery.py"
+              },
+              "file": "switchers/acme_sw.avcdriver",
+              "files": {
+                "switchers/acme_sw.avcdriver": "23a291d8fa30d75f3976708165072543bc1e87936cb9fe9f34c947fe320be8b9",
+                "switchers/acme_sw_discovery.py": "a55da86ca9d6a22bb68290397d20c03388054c671f7a1c90e1e4c8498f127597"
+              },
+              "format": "avcdriver",
+              "id": "acme_sw",
+              "manufacturer": "Acme",
+              "name": "acme switch",
+              "source_url": "https://example.com/protocol",
+              "transport": "tcp",
+              "version": "1.0.0"
+            }
+          ]
+        },
+        "index/audio.json": "02d1c538e53c800c21eb520e90da824a74a8ec3b71e7a1780009dffeccea6143",
+        "index/camera.json": "832bd975491f861cdb8d43d8c16d09967fa3f4d73fb16c4e5cab48c094e209c9",
+        "index/display.json": "5586461f592c078d6809477581b208111375cbfd59aae5a737011b3dfb9377b4",
+        "index/lighting.json": "39a19946b0acf073818dbb55b6a03b897e77bdb2a2d214142e8479728c96e6a5",
+        "index/power.json": "63538a3d0c576ff632c84894dc6d221b26dfeef5295e3a9414bc75c5fa4ef538",
+        "index/projector.json": "707b7ed1a0153f74f4b3db5cf14fcdd07d419ce55a087744888f714a7aabe0d1",
+        "index/streaming.json": "af7444cb2c9669b495af87fec3c37ef7604884630b61ba9c5376428c2d02104f",
+        "index/switcher.json": "fb9f31418c4d9aff534bfaaf80b5785caa844e64352ed0c79490607d46989d4f",
+        "index/utility.json": "70b4c393fbd35a66251c86ebc3104e62c6515ab2c371288f817caf1e0bad0b6e",
+        "index/video.json": "5dec762b62f84f87df9d74df5329dfd8a87d3f20c6a843aa20774a644f800a89"
+      },
+      "raised": null,
+      "rc": 0,
+      "transcript": [
+        [
+          "err",
+          "WARNING: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt), skipping schema validation.\nwarning: displays/acme_old.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+        ],
+        [
+          "out",
+          "Validated 4 driver(s), 7 device(s).\nWrote index.json, devices.json, and 20 category shard files.\n"
+        ]
+      ]
+    },
+    "check_fresh": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 0,
+      "transcript": [
+        [
+          "err",
+          "warning: displays/acme_old.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+        ],
+        [
+          "out",
+          "Validated 4 driver(s), 7 device(s).\nCatalog is up to date with the driver files.\n"
+        ]
+      ]
+    },
+    "check_json_schema_does_not_ask_freshness": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 0,
+      "transcript": [
+        [
+          "err",
+          "warning: audio/acme_amp.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: displays/acme_old.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+        ],
+        [
+          "out",
+          "Validated 4 driver(s), 5 device(s).\n"
+        ]
+      ]
+    },
+    "check_json_schema_valid": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 0,
+      "transcript": [
+        [
+          "err",
+          "warning: displays/acme_old.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+        ],
+        [
+          "out",
+          "Validated 4 driver(s), 7 device(s).\n"
+        ]
+      ]
+    },
+    "check_never_built": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "warning: displays/acme_old.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+        ],
+        [
+          "out",
+          "Validated 4 driver(s), 7 device(s).\n"
+        ],
+        [
+          "err",
+          "\nFAILED: the catalog is out of date \u2014 22 generated file(s) no longer match the drivers they come from:\n\n  - devices.json\n  - devices/audio.json\n  - devices/camera.json\n  - devices/display.json\n  - devices/lighting.json\n  - devices/power.json\n  - devices/projector.json\n  - devices/streaming.json\n  - devices/switcher.json\n  - devices/utility.json\n  - devices/video.json\n  - index.json\n  - index/audio.json\n  - index/camera.json\n  - index/display.json\n  - index/lighting.json\n  - index/power.json\n  - index/projector.json\n  - index/streaming.json\n  - index/switcher.json\n  - index/utility.json\n  - index/video.json\n\nThe catalog is what the platform installs from, and it carries a checksum\nfor every driver file. A checksum that no longer matches is refused, not\nwarned about, so a driver whose entry is stale cannot be installed at all.\n\nRegenerate and commit the result alongside your driver change:\n\n    python scripts/build_index.py\n\n"
+        ]
+      ]
+    },
+    "check_stale": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "warning: audio/acme_amp.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: displays/acme_old.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+        ],
+        [
+          "out",
+          "Validated 4 driver(s), 5 device(s).\n"
+        ],
+        [
+          "err",
+          "\nFAILED: the catalog is out of date \u2014 5 generated file(s) no longer match the drivers they come from:\n\n  - devices.json\n  - devices/audio.json\n  - devices/projector.json\n  - index.json\n  - index/audio.json\n\nThe catalog is what the platform installs from, and it carries a checksum\nfor every driver file. A checksum that no longer matches is refused, not\nwarned about, so a driver whose entry is stale cannot be installed at all.\n\nRegenerate and commit the result alongside your driver change:\n\n    python scripts/build_index.py\n\n"
+        ]
+      ]
+    },
+    "companion_outside_root": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "\nFAILED: 1 validation error(s):\n\n  - audio/acme_widget.avcdriver: '<root>_outside_discovery.py' is not in the subpath of '<root>'\n"
+        ]
+      ]
+    },
+    "companion_shapes": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "WARNING: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt), skipping schema validation.\n\nFAILED: 12 validation error(s):\n\n  - audio/acme_c1.avcdriver: discovery.python has unknown keys: ['extra']\n  - audio/acme_c10.avcdriver: discovery.python must be a string path or {file, cross_vendor} mapping\n  - audio/acme_c2.avcdriver: discovery.python.file must be a non-empty string\n  - audio/acme_c3.avcdriver: discovery.python.file must be a non-empty string\n  - audio/acme_c4.avcdriver: discovery.python.file must be a non-empty string\n  - audio/acme_c5.avcdriver: discovery.python path must be a non-empty string\n  - audio/acme_c6.avcdriver: discovery.python.file='missing_discovery.py' but no such file exists at <root>/audio/missing_discovery.py \u2014 drivers must ship the sibling _discovery.py companion alongside the .avcdriver\n  - audio/acme_c7.avcdriver: discovery.python.file='a_dir_discovery.py' but no such file exists at <root>/audio/a_dir_discovery.py \u2014 drivers must ship the sibling _discovery.py companion alongside the .avcdriver\n  - audio/acme_c8.avcdriver: discovery.python must be a string path or {file, cross_vendor} mapping\n  - audio/acme_c9.avcdriver: discovery.python must be a string path or {file, cross_vendor} mapping\n  - audio/acme_cx.avcdriver: discovery: Input should be a valid dictionary\n  - audio/acme_cx.avcdriver: discovery: must be a mapping\n"
+        ]
+      ]
+    },
+    "crlf_companion_in_checkout": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "warning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n\nFAILED: 1 validation error(s):\n\n  - projectors/acme_py.py: <root>/projectors/acme_py_sim.py: file contains CRLF line endings, so its checksum would not match the bytes GitHub serves and the platform would refuse to install it.\n    Renormalize this checkout, then rebuild:\n        git add --renormalize .\n        git rm -r --cached . && git reset --hard\n        python scripts/build_index.py\n"
+        ]
+      ]
+    },
+    "crlf_in_checkout": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "warning: audio/acme_fine.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n\nFAILED: 3 validation error(s):\n\n  - audio/acme_widget.avcdriver: <root>/audio/acme_widget.avcdriver: file contains CRLF line endings, so its checksum would not match the bytes GitHub serves and the platform would refuse to install it.\n    Renormalize this checkout, then rebuild:\n        git add --renormalize .\n        git rm -r --cached . && git reset --hard\n        python scripts/build_index.py\n  - audio/acme_widget.avcdriver: Command 'go': must have 'send' (TCP/serial), 'path'/'method' (HTTP), 'address' (OSC), or 'udp' (a datagram beside the main transport)\n  - audio/acme_widget.avcdriver: commands.go: unknown key 'sned' (did you mean 'send'?)\n"
+        ]
+      ]
+    },
+    "crlf_without_checkout": {
+      "catalog": {
+        "devices.json": {
+          "_meta": {
+            "generator_version": "1.1.0",
+            "schema_version": "1",
+            "shards": null,
+            "total_devices": 0
+          },
+          "devices": []
+        },
+        "devices/audio.json": "037e433651ac348ac83ce7579f53a64776fdd7754787f40a62a628520b5be445",
+        "devices/camera.json": "59fdba9941655f60be3e20e759cb0811af6a5ec7db8e40c2159222fd5f3079bf",
+        "devices/display.json": "d0b02aaf31570db55e6a206bd727d4eec0ec9b245d9e9aeb570526c706fe76e9",
+        "devices/lighting.json": "3c1c49b46477d2ee10a8df91078b911d729262d0440f895eae2b549f04ea9c1d",
+        "devices/power.json": "513fe8e0134c53e8465141acb103d6a693688ee22db5d4dd2b7d6cc5ee0108aa",
+        "devices/projector.json": "dd475a2e98ea4abe3b7bc151ebe0b624e1f3c8ca1988f7039048defa39f1fd6a",
+        "devices/streaming.json": "f8facf37b8e78918a5beef88bb3058170adea021177a8405181796b6f746c11f",
+        "devices/switcher.json": "de4882beedc4997f627f4dfcfc8102f1c0a6fd32ddd4c140781c463402954fbf",
+        "devices/utility.json": "a818c08861f18e2387106e4c4d790555beb6059211f613d712cff4eed042fe11",
+        "devices/video.json": "a7d223d7da7b6d5c135f589f4ac3f1a655cd3ed97239cb8fd999939a3519b237",
+        "index.json": {
+          "_meta": {
+            "generator_version": "1.1.0",
+            "schema_version": "1",
+            "shards": null,
+            "total_drivers": 1
+          },
+          "drivers": [
+            {
+              "author": "Tester",
+              "category": "audio",
+              "description": "Fixture driver.",
+              "file": "audio/acme_widget.avcdriver",
+              "files": {
+                "audio/acme_widget.avcdriver": "3cdeddb6ce234d4b3fe0cc6be915e22be6505121993135fa69d28118302e346d"
+              },
+              "format": "avcdriver",
+              "id": "acme_widget",
+              "manufacturer": "Acme",
+              "name": "Acme Widget",
+              "source_url": "https://example.com/protocol",
+              "transport": "tcp",
+              "version": "1.0.0"
+            }
+          ]
+        },
+        "index/audio.json": "365e0b7db89be874e1eb4946de4276e1afa5bb584541dc20a25a8e087e78a021",
+        "index/camera.json": "832bd975491f861cdb8d43d8c16d09967fa3f4d73fb16c4e5cab48c094e209c9",
+        "index/display.json": "a444289c04bd939384e388b977a843e75d202e93fbe623bd09a23a4cf3afaed6",
+        "index/lighting.json": "39a19946b0acf073818dbb55b6a03b897e77bdb2a2d214142e8479728c96e6a5",
+        "index/power.json": "63538a3d0c576ff632c84894dc6d221b26dfeef5295e3a9414bc75c5fa4ef538",
+        "index/projector.json": "d9eec60973d0e11a94c710552e3f8df5513f2e2bfd8920d8b8a32d5e5ef1a2b6",
+        "index/streaming.json": "af7444cb2c9669b495af87fec3c37ef7604884630b61ba9c5376428c2d02104f",
+        "index/switcher.json": "56b1b692040f8b238fcfc5d55af4a0e14d9f7b28ce65ee6ffbd743f943ea7a37",
+        "index/utility.json": "70b4c393fbd35a66251c86ebc3104e62c6515ab2c371288f817caf1e0bad0b6e",
+        "index/video.json": "5dec762b62f84f87df9d74df5329dfd8a87d3f20c6a843aa20774a644f800a89"
+      },
+      "raised": null,
+      "rc": 0,
+      "transcript": [
+        [
+          "err",
+          "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+        ],
+        [
+          "out",
+          "Validated 1 driver(s), 0 device(s).\nWrote index.json, devices.json, and 20 category shard files.\n"
+        ]
+      ]
+    },
+    "cross_driver": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "WARNING: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt), skipping schema validation.\n\nFAILED: 8 validation error(s):\n\n  - duplicate driver id 'dup': audio/a.avcdriver vs audio/b.avcdriver\n  - audio/a.avcdriver: manufacturer 'Nobody' not in manufacturers.json. Add it there first if it's legitimately new.\n  - audio/a.avcdriver: compatible_models manufacturer 'Ghost' not in manufacturers.json\n  - audio/b.avcdriver: replacement_id 'gone' does not match any driver\n  - audio/c.avcdriver: claims full support for Acme M1, but audio/b.avcdriver already does. Add a `notes:` field on both entries justifying the overlap.\n  - audio/c.avcdriver: claims full support for Acme M1, but audio/c.avcdriver already does. Add a `notes:` field on both entries justifying the overlap.\n  - Locator ambiguity: 'c_drv' (audio/c.avcdriver) shares the hostname pattern '^acme-' with ['d_drv'] but declares no pre-install fingerprint (tcp_probe / udp_probe / mdns / ssdp / amx_ddp). An uninstalled device matching that hostname can't be told apart from its siblings; a python: companion only runs once the driver is installed, so it can't disambiguate first. Add a declarative fingerprint (e.g. a tcp_probe matching this driver's banner token).\n  - Locator ambiguity: 'd_drv' (audio/d.avcdriver) shares the hostname pattern '^acme-' with ['c_drv'] but declares no pre-install fingerprint (tcp_probe / udp_probe / mdns / ssdp / amx_ddp). An uninstalled device matching that hostname can't be told apart from its siblings; a python: companion only runs once the driver is installed, so it can't disambiguate first. Add a declarative fingerprint (e.g. a tcp_probe matching this driver's banner token).\n"
+        ]
+      ]
+    },
+    "default_schema_path_absent": {
+      "catalog": {
+        "devices.json": {
+          "_meta": {
+            "generator_version": "1.1.0",
+            "schema_version": "1",
+            "shards": null,
+            "total_devices": 0
+          },
+          "devices": []
+        },
+        "devices/audio.json": "037e433651ac348ac83ce7579f53a64776fdd7754787f40a62a628520b5be445",
+        "devices/camera.json": "59fdba9941655f60be3e20e759cb0811af6a5ec7db8e40c2159222fd5f3079bf",
+        "devices/display.json": "d0b02aaf31570db55e6a206bd727d4eec0ec9b245d9e9aeb570526c706fe76e9",
+        "devices/lighting.json": "3c1c49b46477d2ee10a8df91078b911d729262d0440f895eae2b549f04ea9c1d",
+        "devices/power.json": "513fe8e0134c53e8465141acb103d6a693688ee22db5d4dd2b7d6cc5ee0108aa",
+        "devices/projector.json": "dd475a2e98ea4abe3b7bc151ebe0b624e1f3c8ca1988f7039048defa39f1fd6a",
+        "devices/streaming.json": "f8facf37b8e78918a5beef88bb3058170adea021177a8405181796b6f746c11f",
+        "devices/switcher.json": "de4882beedc4997f627f4dfcfc8102f1c0a6fd32ddd4c140781c463402954fbf",
+        "devices/utility.json": "a818c08861f18e2387106e4c4d790555beb6059211f613d712cff4eed042fe11",
+        "devices/video.json": "a7d223d7da7b6d5c135f589f4ac3f1a655cd3ed97239cb8fd999939a3519b237",
+        "index.json": {
+          "_meta": {
+            "generator_version": "1.1.0",
+            "schema_version": "1",
+            "shards": null,
+            "total_drivers": 1
+          },
+          "drivers": [
+            {
+              "author": "Tester",
+              "category": "audio",
+              "description": "Fixture driver.",
+              "file": "audio/acme_widget.avcdriver",
+              "files": {
+                "audio/acme_widget.avcdriver": "b1821513ba6efc73d4cebe1bb3502816e77e0a1cf035096e3fec880a3a254315"
+              },
+              "format": "avcdriver",
+              "id": "acme_widget",
+              "manufacturer": "Acme",
+              "name": "Acme Widget",
+              "source_url": "https://example.com/protocol",
+              "transport": "tcp",
+              "version": "1.0.0"
+            }
+          ]
+        },
+        "index/audio.json": "283c57ad3f5ad290799907d29bb74aff8ec8aae875ae38993d2611f3dddbc349",
+        "index/camera.json": "832bd975491f861cdb8d43d8c16d09967fa3f4d73fb16c4e5cab48c094e209c9",
+        "index/display.json": "a444289c04bd939384e388b977a843e75d202e93fbe623bd09a23a4cf3afaed6",
+        "index/lighting.json": "39a19946b0acf073818dbb55b6a03b897e77bdb2a2d214142e8479728c96e6a5",
+        "index/power.json": "63538a3d0c576ff632c84894dc6d221b26dfeef5295e3a9414bc75c5fa4ef538",
+        "index/projector.json": "d9eec60973d0e11a94c710552e3f8df5513f2e2bfd8920d8b8a32d5e5ef1a2b6",
+        "index/streaming.json": "af7444cb2c9669b495af87fec3c37ef7604884630b61ba9c5376428c2d02104f",
+        "index/switcher.json": "56b1b692040f8b238fcfc5d55af4a0e14d9f7b28ce65ee6ffbd743f943ea7a37",
+        "index/utility.json": "70b4c393fbd35a66251c86ebc3104e62c6515ab2c371288f817caf1e0bad0b6e",
+        "index/video.json": "5dec762b62f84f87df9d74df5329dfd8a87d3f20c6a843aa20774a644f800a89"
+      },
+      "raised": null,
+      "rc": 0,
+      "transcript": [
+        [
+          "err",
+          "WARNING: JSON Schema file not found at <root>/avcdriver.schema.json, skipping schema validation.\nwarning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+        ],
+        [
+          "out",
+          "Validated 1 driver(s), 0 device(s).\nWrote index.json, devices.json, and 20 category shard files.\n"
+        ]
+      ]
+    },
+    "default_schema_path_absent_flag": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "ERROR: JSON Schema file not found at <root>/avcdriver.schema.json\n"
+        ]
+      ]
+    },
+    "everything_reports": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "warning: audio/acme_floor.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_low.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_serial.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_typo.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_computed.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_floor.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_push.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_refs.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_typo.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+        ],
+        [
+          "out",
+          "Note: 3 computed value(s) in 2 Python driver(s) could not be read; keys nested under them are unchecked.\nNote: 3 cross-reference group(s) in 2 Python driver(s) were not checked; the set they resolve against is computed at runtime.\n"
+        ],
+        [
+          "err",
+          "warning: audio/acme_serial.avcdriver: Nothing notices if the device stops answering over serial: it sends no poll at its default config, and there is no liveness block, so the device reads connected for as long as the connection stays open. Add a liveness block that asks something the device answers in every state.\n\nFAILED: 9 validation error(s):\n\n  - audio/acme_floor.avcdriver: min_platform_version is not declared, but this driver uses push.type: udp_listener, which needs platform 0.40.0. Without it the driver installs on older releases that ignore that field. Add min_platform_version: \"0.40.0\".\n  - audio/acme_low.avcdriver: min_platform_version is \"0.1.0\", but this driver uses liveness, which needs platform 0.22.0. Raise it to \"0.22.0\", or drop that field if the driver has to keep installing on 0.1.0.\n  - audio/acme_typo.avcdriver: unknown key 'polling_interval'\n  - projectors/acme_floor.py: min_platform_version is \"0.1.0\", but this driver uses transport: snmp, which needs platform 0.34.0. Raise it to \"0.34.0\", or drop that field if the driver has to keep installing on 0.1.0.\n  - projectors/acme_push.py: min_platform_version is not declared, but this driver uses push, which needs platform 0.23.0. Without it the driver installs on older releases that ignore that field. Add min_platform_version: \"0.23.0\".\n  - projectors/acme_refs.py: actions[0]: missing required 'id' (non-empty string)\n  - projectors/acme_typo.py: commands.go: unknown key 'untis'\n  - duplicate driver id 'acme_floor': audio/acme_floor.avcdriver vs projectors/acme_floor.py\n  - duplicate driver id 'acme_typo': audio/acme_typo.avcdriver vs projectors/acme_typo.py\n"
+        ]
+      ]
+    },
+    "everything_reports_flag": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "\nFAILED: 1 JSON Schema validation error(s):\n\n  - <root>/audio/acme_typo.avcdriver: JSON Schema validation error: Additional properties are not allowed ('polling_interval' was unexpected)\n"
+        ]
+      ]
+    },
+    "extra_bad_json": {
+      "catalog": "unchanged",
+      "raised": "JSONDecodeError: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)",
+      "rc": null,
+      "transcript": []
+    },
+    "extra_collides_with_driver": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "warning: displays/acme_old.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nERROR building devices catalog: devices-extra.json: (Acme, AMP-1) is also produced from a driver's compatible_models. Move the entry into the driver.\n"
+        ]
+      ]
+    },
+    "extra_devices_a_string": {
+      "catalog": "unchanged",
+      "raised": "AttributeError: 'str' object has no attribute 'get'",
+      "rc": null,
+      "transcript": [
+        [
+          "err",
+          "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+        ]
+      ]
+    },
+    "extra_entries_collide": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nERROR building devices catalog: devices-extra.json: (Other, Q) is also produced from a driver's compatible_models. Move the entry into the driver.\n"
+        ]
+      ]
+    },
+    "extra_entry_without_manufacturer": {
+      "catalog": "unchanged",
+      "raised": "KeyError: 'manufacturer'",
+      "rc": null,
+      "transcript": [
+        [
+          "err",
+          "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+        ]
+      ]
+    },
+    "extra_not_a_dict": {
+      "catalog": {
+        "devices.json": {
+          "_meta": {
+            "generator_version": "1.1.0",
+            "schema_version": "1",
+            "shards": null,
+            "total_devices": 0
+          },
+          "devices": []
+        },
+        "devices/audio.json": "037e433651ac348ac83ce7579f53a64776fdd7754787f40a62a628520b5be445",
+        "devices/camera.json": "59fdba9941655f60be3e20e759cb0811af6a5ec7db8e40c2159222fd5f3079bf",
+        "devices/display.json": "d0b02aaf31570db55e6a206bd727d4eec0ec9b245d9e9aeb570526c706fe76e9",
+        "devices/lighting.json": "3c1c49b46477d2ee10a8df91078b911d729262d0440f895eae2b549f04ea9c1d",
+        "devices/power.json": "513fe8e0134c53e8465141acb103d6a693688ee22db5d4dd2b7d6cc5ee0108aa",
+        "devices/projector.json": "dd475a2e98ea4abe3b7bc151ebe0b624e1f3c8ca1988f7039048defa39f1fd6a",
+        "devices/streaming.json": "f8facf37b8e78918a5beef88bb3058170adea021177a8405181796b6f746c11f",
+        "devices/switcher.json": "de4882beedc4997f627f4dfcfc8102f1c0a6fd32ddd4c140781c463402954fbf",
+        "devices/utility.json": "a818c08861f18e2387106e4c4d790555beb6059211f613d712cff4eed042fe11",
+        "devices/video.json": "a7d223d7da7b6d5c135f589f4ac3f1a655cd3ed97239cb8fd999939a3519b237",
+        "index.json": {
+          "_meta": {
+            "generator_version": "1.1.0",
+            "schema_version": "1",
+            "shards": null,
+            "total_drivers": 1
+          },
+          "drivers": [
+            {
+              "author": "Tester",
+              "category": "audio",
+              "description": "Fixture driver.",
+              "file": "audio/acme_widget.avcdriver",
+              "files": {
+                "audio/acme_widget.avcdriver": "b1821513ba6efc73d4cebe1bb3502816e77e0a1cf035096e3fec880a3a254315"
+              },
+              "format": "avcdriver",
+              "id": "acme_widget",
+              "manufacturer": "Acme",
+              "name": "Acme Widget",
+              "source_url": "https://example.com/protocol",
+              "transport": "tcp",
+              "version": "1.0.0"
+            }
+          ]
+        },
+        "index/audio.json": "283c57ad3f5ad290799907d29bb74aff8ec8aae875ae38993d2611f3dddbc349",
+        "index/camera.json": "832bd975491f861cdb8d43d8c16d09967fa3f4d73fb16c4e5cab48c094e209c9",
+        "index/display.json": "a444289c04bd939384e388b977a843e75d202e93fbe623bd09a23a4cf3afaed6",
+        "index/lighting.json": "39a19946b0acf073818dbb55b6a03b897e77bdb2a2d214142e8479728c96e6a5",
+        "index/power.json": "63538a3d0c576ff632c84894dc6d221b26dfeef5295e3a9414bc75c5fa4ef538",
+        "index/projector.json": "d9eec60973d0e11a94c710552e3f8df5513f2e2bfd8920d8b8a32d5e5ef1a2b6",
+        "index/streaming.json": "af7444cb2c9669b495af87fec3c37ef7604884630b61ba9c5376428c2d02104f",
+        "index/switcher.json": "56b1b692040f8b238fcfc5d55af4a0e14d9f7b28ce65ee6ffbd743f943ea7a37",
+        "index/utility.json": "70b4c393fbd35a66251c86ebc3104e62c6515ab2c371288f817caf1e0bad0b6e",
+        "index/video.json": "5dec762b62f84f87df9d74df5329dfd8a87d3f20c6a843aa20774a644f800a89"
+      },
+      "raised": null,
+      "rc": 0,
+      "transcript": [
+        [
+          "err",
+          "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+        ],
+        [
+          "out",
+          "Validated 1 driver(s), 0 device(s).\nWrote index.json, devices.json, and 20 category shard files.\n"
+        ]
+      ]
+    },
+    "first_extra_then_yaml": {
+      "catalog": "unchanged",
+      "raised": "JSONDecodeError: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)",
+      "rc": null,
+      "transcript": []
+    },
+    "first_manufacturers_then_yaml": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "ERROR: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)\n"
+        ]
+      ]
+    },
+    "first_no_package_warning_then_manufacturers": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "WARNING: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt), skipping schema validation.\nERROR: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)\n"
+        ]
+      ]
+    },
+    "first_python_schema_then_manufacturers": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "ERROR: JSON Schema file not found at <root>/schemas/pythondriver.schema.json\n"
+        ]
+      ]
+    },
+    "first_schema_then_manufacturers": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "ERROR: JSON Schema file not found at <root>/absent.schema.json\n"
+        ]
+      ]
+    },
+    "manufacturers_bad_json": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "ERROR: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)\n"
+        ]
+      ]
+    },
+    "manufacturers_missing": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "ERROR: <root>/manufacturers.json not found \u2014 required for cross-driver validation\n"
+        ]
+      ]
+    },
+    "manufacturers_not_a_list": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "ERROR: manufacturers.json must be a JSON array of strings\n"
+        ]
+      ]
+    },
+    "no_driver_files": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "ERROR: no driver files found under <root>\n"
+        ]
+      ]
+    },
+    "no_package": {
+      "catalog": {
+        "devices.json": {
+          "_meta": {
+            "generator_version": "1.1.0",
+            "schema_version": "1",
+            "shards": null,
+            "total_devices": 0
+          },
+          "devices": []
+        },
+        "devices/audio.json": "037e433651ac348ac83ce7579f53a64776fdd7754787f40a62a628520b5be445",
+        "devices/camera.json": "59fdba9941655f60be3e20e759cb0811af6a5ec7db8e40c2159222fd5f3079bf",
+        "devices/display.json": "d0b02aaf31570db55e6a206bd727d4eec0ec9b245d9e9aeb570526c706fe76e9",
+        "devices/lighting.json": "3c1c49b46477d2ee10a8df91078b911d729262d0440f895eae2b549f04ea9c1d",
+        "devices/power.json": "513fe8e0134c53e8465141acb103d6a693688ee22db5d4dd2b7d6cc5ee0108aa",
+        "devices/projector.json": "dd475a2e98ea4abe3b7bc151ebe0b624e1f3c8ca1988f7039048defa39f1fd6a",
+        "devices/streaming.json": "f8facf37b8e78918a5beef88bb3058170adea021177a8405181796b6f746c11f",
+        "devices/switcher.json": "de4882beedc4997f627f4dfcfc8102f1c0a6fd32ddd4c140781c463402954fbf",
+        "devices/utility.json": "a818c08861f18e2387106e4c4d790555beb6059211f613d712cff4eed042fe11",
+        "devices/video.json": "a7d223d7da7b6d5c135f589f4ac3f1a655cd3ed97239cb8fd999939a3519b237",
+        "index.json": {
+          "_meta": {
+            "generator_version": "1.1.0",
+            "schema_version": "1",
+            "shards": null,
+            "total_drivers": 1
+          },
+          "drivers": [
+            {
+              "author": "Tester",
+              "category": "projector",
+              "description": "Fixture driver.",
+              "file": "projectors/acme_py.py",
+              "files": {
+                "projectors/acme_py.py": "cc7dcd6c28006504c4bd220caad571fcafa738249efa247a820aaeb05e5f91e8"
+              },
+              "format": "python",
+              "id": "acme_py",
+              "manufacturer": "Acme",
+              "name": "Acme Py",
+              "source_url": "https://example.com/protocol",
+              "transport": "tcp",
+              "version": "1.0.0"
+            }
+          ]
+        },
+        "index/audio.json": "5654d7815265011abc13a9f0a473b221dfa7b2298f778cc4cebe62dd5aff4564",
+        "index/camera.json": "832bd975491f861cdb8d43d8c16d09967fa3f4d73fb16c4e5cab48c094e209c9",
+        "index/display.json": "a444289c04bd939384e388b977a843e75d202e93fbe623bd09a23a4cf3afaed6",
+        "index/lighting.json": "39a19946b0acf073818dbb55b6a03b897e77bdb2a2d214142e8479728c96e6a5",
+        "index/power.json": "63538a3d0c576ff632c84894dc6d221b26dfeef5295e3a9414bc75c5fa4ef538",
+        "index/projector.json": "e14014de83b1c28e978f79981cdd00e96ba20b016ece4b1e3afd9e8209a47d2e",
+        "index/streaming.json": "af7444cb2c9669b495af87fec3c37ef7604884630b61ba9c5376428c2d02104f",
+        "index/switcher.json": "56b1b692040f8b238fcfc5d55af4a0e14d9f7b28ce65ee6ffbd743f943ea7a37",
+        "index/utility.json": "70b4c393fbd35a66251c86ebc3104e62c6515ab2c371288f817caf1e0bad0b6e",
+        "index/video.json": "5dec762b62f84f87df9d74df5329dfd8a87d3f20c6a843aa20774a644f800a89"
+      },
+      "raised": null,
+      "rc": 0,
+      "transcript": [
+        [
+          "err",
+          "WARNING: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt), skipping schema validation.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+        ],
+        [
+          "out",
+          "Validated 1 driver(s), 0 device(s).\nWrote index.json, devices.json, and 20 category shard files.\n"
+        ]
+      ]
+    },
+    "no_package_flag": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "ERROR: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt)\n"
+        ]
+      ]
+    },
+    "no_python_schema": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "WARNING: JSON Schema file not found at <root>/schemas/pythondriver.schema.json, skipping schema validation for Python drivers.\nwarning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n\nFAILED: 1 validation error(s):\n\n  - projectors/acme_py.py: polling: unknown key 'interval'\n"
+        ]
+      ]
+    },
+    "no_python_schema_flag": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "ERROR: JSON Schema file not found at <root>/schemas/pythondriver.schema.json\n"
+        ]
+      ]
+    },
+    "per_driver_order": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "warning: audio/acme_bad.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_ok.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n\nFAILED: 11 validation error(s):\n\n  - audio/acme_bad.avcdriver: id: Value error, id must be lowercase alphanumeric with underscores\n  - audio/acme_bad.avcdriver: category: Value error, must be one of ('projector', 'display', 'switcher', 'audio', 'camera', 'video', 'streaming', 'lighting', 'power', 'utility')\n  - audio/acme_bad.avcdriver: version: Value error, must be valid semver (e.g. 1.0.0)\n  - audio/acme_bad.avcdriver: source_url: Value error, must start with http:// or https://\n  - audio/acme_bad.avcdriver: Command 'go': must have 'send' (TCP/serial), 'path'/'method' (HTTP), 'address' (OSC), or 'udp' (a datagram beside the main transport)\n  - audio/acme_bad.avcdriver: commands.go: unknown key 'sned' (did you mean 'send'?)\n  - audio/acme_bad.avcdriver: discovery: unknown key 'nonsense'\n  - audio/acme_bad.avcdriver: discovery has unknown keys: ['nonsense']. Known keys: ['amx_ddp', 'hostname', 'manufacturer_alias', 'mdns', 'oui', 'port_open', 'python', 'requires', 'snmp_pen', 'ssdp', 'tcp_probe', 'udp_probe']\n  - audio/acme_bad.avcdriver: discovery.mdns service must be a non-empty string\n  - audio/acme_ok.avcdriver: Command 'go': must have 'send' (TCP/serial), 'path'/'method' (HTTP), 'address' (OSC), or 'udp' (a datagram beside the main transport)\n  - audio/acme_ok.avcdriver: commands.go: unknown key 'sned' (did you mean 'send'?)\n"
+        ]
+      ]
+    },
+    "per_driver_order_no_schema": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "WARNING: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt), skipping schema validation.\nwarning: audio/acme_bad.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_ok.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n\nFAILED: 11 validation error(s):\n\n  - audio/acme_bad.avcdriver: id: Value error, id must be lowercase alphanumeric with underscores\n  - audio/acme_bad.avcdriver: category: Value error, must be one of ('projector', 'display', 'switcher', 'audio', 'camera', 'video', 'streaming', 'lighting', 'power', 'utility')\n  - audio/acme_bad.avcdriver: version: Value error, must be valid semver (e.g. 1.0.0)\n  - audio/acme_bad.avcdriver: source_url: Value error, must start with http:// or https://\n  - audio/acme_bad.avcdriver: Command 'go': must have 'send' (TCP/serial), 'path'/'method' (HTTP), 'address' (OSC), or 'udp' (a datagram beside the main transport)\n  - audio/acme_bad.avcdriver: commands.go: unknown key 'sned' (did you mean 'send'?)\n  - audio/acme_bad.avcdriver: discovery: unknown key 'nonsense'\n  - audio/acme_bad.avcdriver: discovery has unknown keys: ['nonsense']. Known keys: ['amx_ddp', 'hostname', 'manufacturer_alias', 'mdns', 'oui', 'port_open', 'python', 'requires', 'snmp_pen', 'ssdp', 'tcp_probe', 'udp_probe']\n  - audio/acme_bad.avcdriver: discovery.mdns service must be a non-empty string\n  - audio/acme_ok.avcdriver: Command 'go': must have 'send' (TCP/serial), 'path'/'method' (HTTP), 'address' (OSC), or 'udp' (a datagram beside the main transport)\n  - audio/acme_ok.avcdriver: commands.go: unknown key 'sned' (did you mean 'send'?)\n"
+        ]
+      ]
+    },
+    "python_no_driver_info": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "ERROR: bad.py: no DRIVER_INFO class attribute found. Python drivers must define `DRIVER_INFO = {...}` inside a class body.\n"
+        ]
+      ]
+    },
+    "python_non_literal_index_field": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "ERROR: acme_py.py: DRIVER_INFO must contain only literal data (no calls, comprehensions, or f-strings). Offending node: Call\n"
+        ]
+      ]
+    },
+    "python_non_string_key": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "ERROR: acme_py.py: DRIVER_INFO keys must be string literals\n"
+        ]
+      ]
+    },
+    "python_reports": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "warning: projectors/acme_computed.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_floor.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_push.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_refs.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_typo.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+        ],
+        [
+          "out",
+          "Note: 3 computed value(s) in 2 Python driver(s) could not be read; keys nested under them are unchecked.\nNote: 3 cross-reference group(s) in 2 Python driver(s) were not checked; the set they resolve against is computed at runtime.\n"
+        ],
+        [
+          "err",
+          "\nFAILED: 4 validation error(s):\n\n  - projectors/acme_floor.py: min_platform_version is \"0.1.0\", but this driver uses transport: snmp, which needs platform 0.34.0. Raise it to \"0.34.0\", or drop that field if the driver has to keep installing on 0.1.0.\n  - projectors/acme_push.py: min_platform_version is not declared, but this driver uses push, which needs platform 0.23.0. Without it the driver installs on older releases that ignore that field. Add min_platform_version: \"0.23.0\".\n  - projectors/acme_refs.py: actions[0]: missing required 'id' (non-empty string)\n  - projectors/acme_typo.py: commands.go: unknown key 'untis'\n"
+        ]
+      ]
+    },
+    "python_syntax_error": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "ERROR: bad.py has a syntax error: invalid syntax (<unknown>, line 1)\n"
+        ]
+      ]
+    },
+    "requires_not_text": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "WARNING: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt), skipping schema validation.\nwarning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n\nFAILED: 4 validation error(s):\n\n  - audio/acme_widget.avcdriver: 'int' object has no attribute 'strip'\n  - audio/acme_widget.avcdriver: discovery.requires must be a version string like \"0.23.0\", got 5\n  - audio/acme_widget.avcdriver: discovery.ssdp entry has unknown keys: ['st']\n  - audio/acme_widget.avcdriver: discovery.ssdp.device_type must be a non-empty string\n"
+        ]
+      ]
+    },
+    "schema_and_build_errors": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "warning: audio/acme_bad.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n\nFAILED: 2 validation error(s):\n\n  - audio/acme_bad.avcdriver: id: Value error, id must be lowercase alphanumeric with underscores\n  - audio/acme_bad.avcdriver: category: Value error, must be one of ('projector', 'display', 'switcher', 'audio', 'camera', 'video', 'streaming', 'lighting', 'power', 'utility')\n"
+        ]
+      ]
+    },
+    "schema_and_build_errors_flag": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "\nFAILED: 2 JSON Schema validation error(s):\n\n  - <root>/audio/acme_bad.avcdriver: JSON Schema validation error: \"nope\" is not one of \"projector\", \"display\" or 8 other candidates\n  - <root>/audio/acme_widget.avcdriver: JSON Schema validation error: 5 is not of type \"string\"\n"
+        ]
+      ]
+    },
+    "schema_errors_and_extra_collision": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "warning: audio/acme_cm.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nERROR building devices catalog: devices-extra.json: (Acme, X1) is also produced from a driver's compatible_models. Move the entry into the driver.\n"
+        ]
+      ]
+    },
+    "schema_errors_and_notes": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_computed.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_floor.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_push.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_refs.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_typo.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+        ],
+        [
+          "out",
+          "Note: 3 computed value(s) in 2 Python driver(s) could not be read; keys nested under them are unchecked.\nNote: 3 cross-reference group(s) in 2 Python driver(s) were not checked; the set they resolve against is computed at runtime.\n"
+        ],
+        [
+          "err",
+          "\nFAILED: 4 validation error(s):\n\n  - projectors/acme_floor.py: min_platform_version is \"0.1.0\", but this driver uses transport: snmp, which needs platform 0.34.0. Raise it to \"0.34.0\", or drop that field if the driver has to keep installing on 0.1.0.\n  - projectors/acme_push.py: min_platform_version is not declared, but this driver uses push, which needs platform 0.23.0. Without it the driver installs on older releases that ignore that field. Add min_platform_version: \"0.23.0\".\n  - projectors/acme_refs.py: actions[0]: missing required 'id' (non-empty string)\n  - projectors/acme_typo.py: commands.go: unknown key 'untis'\n"
+        ]
+      ]
+    },
+    "schema_errors_and_python_schema_missing": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "WARNING: JSON Schema file not found at <root>/schemas/pythondriver.schema.json, skipping schema validation for Python drivers.\nwarning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n\nFAILED: 1 JSON Schema validation error(s):\n\n  - <root>/audio/acme_widget.avcdriver: JSON Schema validation error: 5 is not of type \"string\"\n"
+        ]
+      ]
+    },
+    "schema_errors_only": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n\nFAILED: 1 JSON Schema validation error(s):\n\n  - <root>/audio/acme_widget.avcdriver: JSON Schema validation error: 5 is not of type \"string\"\n"
+        ]
+      ]
+    },
+    "schema_errors_only_check": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n\nFAILED: 1 JSON Schema validation error(s):\n\n  - <root>/audio/acme_widget.avcdriver: JSON Schema validation error: 5 is not of type \"string\"\n"
+        ]
+      ]
+    },
+    "schema_errors_only_flag": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "\nFAILED: 1 JSON Schema validation error(s):\n\n  - <root>/audio/acme_widget.avcdriver: JSON Schema validation error: 5 is not of type \"string\"\n"
+        ]
+      ]
+    },
+    "schema_errors_python_only": {
+      "catalog": {
+        "devices.json": {
+          "_meta": {
+            "generator_version": "1.1.0",
+            "schema_version": "1",
+            "shards": null,
+            "total_devices": 0
+          },
+          "devices": []
+        },
+        "devices/audio.json": "037e433651ac348ac83ce7579f53a64776fdd7754787f40a62a628520b5be445",
+        "devices/camera.json": "59fdba9941655f60be3e20e759cb0811af6a5ec7db8e40c2159222fd5f3079bf",
+        "devices/display.json": "d0b02aaf31570db55e6a206bd727d4eec0ec9b245d9e9aeb570526c706fe76e9",
+        "devices/lighting.json": "3c1c49b46477d2ee10a8df91078b911d729262d0440f895eae2b549f04ea9c1d",
+        "devices/power.json": "513fe8e0134c53e8465141acb103d6a693688ee22db5d4dd2b7d6cc5ee0108aa",
+        "devices/projector.json": "dd475a2e98ea4abe3b7bc151ebe0b624e1f3c8ca1988f7039048defa39f1fd6a",
+        "devices/streaming.json": "f8facf37b8e78918a5beef88bb3058170adea021177a8405181796b6f746c11f",
+        "devices/switcher.json": "de4882beedc4997f627f4dfcfc8102f1c0a6fd32ddd4c140781c463402954fbf",
+        "devices/utility.json": "a818c08861f18e2387106e4c4d790555beb6059211f613d712cff4eed042fe11",
+        "devices/video.json": "a7d223d7da7b6d5c135f589f4ac3f1a655cd3ed97239cb8fd999939a3519b237",
+        "index.json": {
+          "_meta": {
+            "generator_version": "1.1.0",
+            "schema_version": "1",
+            "shards": null,
+            "total_drivers": 1
+          },
+          "drivers": [
+            {
+              "author": "Tester",
+              "category": "projector",
+              "description": "Fixture driver.",
+              "file": "projectors/acme_py.py",
+              "files": {
+                "projectors/acme_py.py": "1c5ffc9419da06b69513de466cc422b0c668e32c54b2c03d968143923994efcb"
+              },
+              "format": "python",
+              "id": "acme_py",
+              "manufacturer": "Acme",
+              "name": "Acme Py",
+              "source_url": "https://example.com/protocol",
+              "transport": "tcp",
+              "version": "1.0.0"
+            }
+          ]
+        },
+        "index/audio.json": "5654d7815265011abc13a9f0a473b221dfa7b2298f778cc4cebe62dd5aff4564",
+        "index/camera.json": "832bd975491f861cdb8d43d8c16d09967fa3f4d73fb16c4e5cab48c094e209c9",
+        "index/display.json": "a444289c04bd939384e388b977a843e75d202e93fbe623bd09a23a4cf3afaed6",
+        "index/lighting.json": "39a19946b0acf073818dbb55b6a03b897e77bdb2a2d214142e8479728c96e6a5",
+        "index/power.json": "63538a3d0c576ff632c84894dc6d221b26dfeef5295e3a9414bc75c5fa4ef538",
+        "index/projector.json": "b7bd48723ef3e20c57870b6a9d21947e89dc950fdd04df935c6daa539e4e2375",
+        "index/streaming.json": "af7444cb2c9669b495af87fec3c37ef7604884630b61ba9c5376428c2d02104f",
+        "index/switcher.json": "56b1b692040f8b238fcfc5d55af4a0e14d9f7b28ce65ee6ffbd743f943ea7a37",
+        "index/utility.json": "70b4c393fbd35a66251c86ebc3104e62c6515ab2c371288f817caf1e0bad0b6e",
+        "index/video.json": "5dec762b62f84f87df9d74df5329dfd8a87d3f20c6a843aa20774a644f800a89"
+      },
+      "raised": null,
+      "rc": 0,
+      "transcript": [
+        [
+          "err",
+          "warning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+        ],
+        [
+          "out",
+          "Validated 1 driver(s), 0 device(s).\nWrote index.json, devices.json, and 20 category shard files.\n"
+        ]
+      ]
+    },
+    "schema_errors_python_only_flag": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 0,
+      "transcript": [
+        [
+          "err",
+          "warning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+        ],
+        [
+          "out",
+          "Validated 1 driver(s), 0 device(s).\n"
+        ]
+      ]
+    },
+    "schema_file_missing": {
+      "catalog": {
+        "devices.json": {
+          "_meta": {
+            "generator_version": "1.1.0",
+            "schema_version": "1",
+            "shards": null,
+            "total_devices": 0
+          },
+          "devices": []
+        },
+        "devices/audio.json": "037e433651ac348ac83ce7579f53a64776fdd7754787f40a62a628520b5be445",
+        "devices/camera.json": "59fdba9941655f60be3e20e759cb0811af6a5ec7db8e40c2159222fd5f3079bf",
+        "devices/display.json": "d0b02aaf31570db55e6a206bd727d4eec0ec9b245d9e9aeb570526c706fe76e9",
+        "devices/lighting.json": "3c1c49b46477d2ee10a8df91078b911d729262d0440f895eae2b549f04ea9c1d",
+        "devices/power.json": "513fe8e0134c53e8465141acb103d6a693688ee22db5d4dd2b7d6cc5ee0108aa",
+        "devices/projector.json": "dd475a2e98ea4abe3b7bc151ebe0b624e1f3c8ca1988f7039048defa39f1fd6a",
+        "devices/streaming.json": "f8facf37b8e78918a5beef88bb3058170adea021177a8405181796b6f746c11f",
+        "devices/switcher.json": "de4882beedc4997f627f4dfcfc8102f1c0a6fd32ddd4c140781c463402954fbf",
+        "devices/utility.json": "a818c08861f18e2387106e4c4d790555beb6059211f613d712cff4eed042fe11",
+        "devices/video.json": "a7d223d7da7b6d5c135f589f4ac3f1a655cd3ed97239cb8fd999939a3519b237",
+        "index.json": {
+          "_meta": {
+            "generator_version": "1.1.0",
+            "schema_version": "1",
+            "shards": null,
+            "total_drivers": 1
+          },
+          "drivers": [
+            {
+              "author": "Tester",
+              "category": "audio",
+              "description": "Fixture driver.",
+              "file": "audio/acme_widget.avcdriver",
+              "files": {
+                "audio/acme_widget.avcdriver": "b1821513ba6efc73d4cebe1bb3502816e77e0a1cf035096e3fec880a3a254315"
+              },
+              "format": "avcdriver",
+              "id": "acme_widget",
+              "manufacturer": "Acme",
+              "name": "Acme Widget",
+              "source_url": "https://example.com/protocol",
+              "transport": "tcp",
+              "version": "1.0.0"
+            }
+          ]
+        },
+        "index/audio.json": "283c57ad3f5ad290799907d29bb74aff8ec8aae875ae38993d2611f3dddbc349",
+        "index/camera.json": "832bd975491f861cdb8d43d8c16d09967fa3f4d73fb16c4e5cab48c094e209c9",
+        "index/display.json": "a444289c04bd939384e388b977a843e75d202e93fbe623bd09a23a4cf3afaed6",
+        "index/lighting.json": "39a19946b0acf073818dbb55b6a03b897e77bdb2a2d214142e8479728c96e6a5",
+        "index/power.json": "63538a3d0c576ff632c84894dc6d221b26dfeef5295e3a9414bc75c5fa4ef538",
+        "index/projector.json": "d9eec60973d0e11a94c710552e3f8df5513f2e2bfd8920d8b8a32d5e5ef1a2b6",
+        "index/streaming.json": "af7444cb2c9669b495af87fec3c37ef7604884630b61ba9c5376428c2d02104f",
+        "index/switcher.json": "56b1b692040f8b238fcfc5d55af4a0e14d9f7b28ce65ee6ffbd743f943ea7a37",
+        "index/utility.json": "70b4c393fbd35a66251c86ebc3104e62c6515ab2c371288f817caf1e0bad0b6e",
+        "index/video.json": "5dec762b62f84f87df9d74df5329dfd8a87d3f20c6a843aa20774a644f800a89"
+      },
+      "raised": null,
+      "rc": 0,
+      "transcript": [
+        [
+          "err",
+          "WARNING: JSON Schema file not found at <root>/absent.schema.json, skipping schema validation.\nwarning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+        ],
+        [
+          "out",
+          "Validated 1 driver(s), 0 device(s).\nWrote index.json, devices.json, and 20 category shard files.\n"
+        ]
+      ]
+    },
+    "schema_file_missing_flag": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "ERROR: JSON Schema file not found at <root>/absent.schema.json\n"
+        ]
+      ]
+    },
+    "yaml_not_a_mapping": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "ERROR: list.avcdriver: top-level YAML must be a mapping\n"
+        ]
+      ]
+    },
+    "yaml_reports": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "warning: audio/acme_floor.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_low.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_serial.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_typo.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_serial.avcdriver: Nothing notices if the device stops answering over serial: it sends no poll at its default config, and there is no liveness block, so the device reads connected for as long as the connection stays open. Add a liveness block that asks something the device answers in every state.\n\nFAILED: 3 validation error(s):\n\n  - audio/acme_floor.avcdriver: min_platform_version is not declared, but this driver uses push.type: udp_listener, which needs platform 0.40.0. Without it the driver installs on older releases that ignore that field. Add min_platform_version: \"0.40.0\".\n  - audio/acme_low.avcdriver: min_platform_version is \"0.1.0\", but this driver uses liveness, which needs platform 0.22.0. Raise it to \"0.22.0\", or drop that field if the driver has to keep installing on 0.1.0.\n  - audio/acme_typo.avcdriver: unknown key 'polling_interval'\n"
+        ]
+      ]
+    }
+  }
+}

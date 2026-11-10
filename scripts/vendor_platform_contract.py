@@ -71,6 +71,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         "scripts/_vendor/avcdriver_semantic.py",
         (
             (
+                "from openavc.drivers.action_checks import (",
+                "from .action_checks import (",
+            ),
+            (
                 "from openavc.drivers.child_ids import",
                 "from .child_ids import",
             ),
@@ -82,18 +86,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from openavc.drivers.command_checks import",
                 "from .command_checks import",
             ),
-            (
-                "from openavc.drivers.param_aid_checks import",
-                "from .param_aid_checks import",
-            ),
             ("from openavc.drivers.spec import (", "from .spec import ("),
             (
                 "from openavc.utils.regex_safety import",
                 "from .regex_safety import",
-            ),
-            (
-                "from openavc.drivers.condition_checks import",
-                "from .condition_checks import",
             ),
             (
                 "from openavc.drivers.declared_names import",
@@ -115,6 +111,25 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from openavc.drivers.state_variable_checks import",
                 "from .state_variable_checks import",
             ),
+        ),
+    ),
+    (
+        "openavc/drivers/action_checks.py",
+        "scripts/_vendor/action_checks.py",
+        (
+            (
+                "from openavc.drivers.condition_checks import",
+                "from .condition_checks import",
+            ),
+            (
+                "from openavc.drivers.declared_names import",
+                "from .declared_names import",
+            ),
+            (
+                "from openavc.drivers.param_aid_checks import",
+                "from .param_aid_checks import",
+            ),
+            ("from openavc.drivers.spec import (", "from .spec import ("),
         ),
     ),
     (

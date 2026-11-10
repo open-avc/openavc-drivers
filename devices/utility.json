@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 8,
+    "total_devices": 9,
     "shards": null,
     "category": "utility"
   },
@@ -100,6 +100,18 @@
           "id": "netgear_m4250_m4350",
           "confidence": "untested",
           "notes": "Shares the CLI per the M4250/M4350 CLI Reference Manual; not yet validated on M4350 hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Somfy",
+      "model": "Sonesse 30 RS485 24V DC (1241144)",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "somfy_sdn",
+          "confidence": "untested",
+          "notes": "Wired SDN; limits and direction commissioned with Somfy tools. No native-IP Synergy or PoE control."
         }
       ]
     }

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 168,
+    "total_drivers": 169,
     "shards": null
   },
   "drivers": [
@@ -10481,6 +10481,47 @@
           ],
           "confidence": "untested",
           "notes": "SMART Board T Pro, over its RS-232 port. For control over the network instead, use the SMART Board T Pro driver."
+        }
+      ]
+    },
+    {
+      "id": "somfy_sdn",
+      "name": "Somfy SDN Shades",
+      "manufacturer": "Somfy",
+      "category": "utility",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Control Somfy Digital Network shades over RS485 or a transparent serial network bridge, with individual position and fault feedback.",
+      "source_url": "https://service.somfy.com/downloads/bui_v4/sdn-integration-guide-rev.004.pdf",
+      "file": "utility/somfy_sdn.py",
+      "format": "python",
+      "files": {
+        "utility/somfy_sdn.py": "3323c452fca2f277fac86baf764551ae1287a221cdf3546fd3e6fa60f020890b",
+        "utility/somfy_sdn_sim.py": "5675b806424d7426288184dbf175626b08569ee268ac68bb4b148d5886df462f"
+      },
+      "protocols": [
+        "somfy_sdn"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "shades",
+        "blinds",
+        "rs485"
+      ],
+      "help": {
+        "overview": "Controls wired Somfy SDN motors as individual shades. Position and motor faults are read from each motor. Motor labels, groups, saved positions, supported speeds and locks are also available. Commands vary by motor family and application; a refusal is shown as an error.",
+        "setup": "Commission limits, direction and application mode with Somfy Set pro or the RS485 Setting Tool first. Use one OpenAVC driver per bus. Connect a transparent RS485 network bridge, enter its IP and configured TCP port, and set its serial side to 4800 baud, 8 data bits, odd parity, 1 stop bit, no flow control. Alternatively select a direct serial connection with an automatic-direction RS485 adapter. USB adapter access must be verified on the chosen computer; Docker needs the serial device passed through and appliance USB adapters are not yet proven. Outbound TCP bridges work across install types without inbound ports. Enter motor Node IDs from their labels; use Find Shades to supplement the roster. Polling is required for position feedback. This driver does not configure travel limits or speak the Synergy/PoE API."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Somfy",
+          "models": [
+            "Sonesse 30 RS485 24V DC (1241144)"
+          ],
+          "confidence": "untested",
+          "notes": "Wired SDN; limits and direction commissioned with Somfy tools. No native-IP Synergy or PoE control."
         }
       ]
     },

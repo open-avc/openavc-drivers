@@ -6909,7 +6909,7 @@
       "name": "Magewell Pro Convert IP Decoder",
       "manufacturer": "Magewell",
       "category": "streaming",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls IP decoder sources, single/PiP/quad profiles, screen routing, audio, video and source-camera PTZ.",
@@ -6917,7 +6917,7 @@
       "file": "streaming/magewell_pro_convert_ip_decoder.py",
       "format": "python",
       "files": {
-        "streaming/magewell_pro_convert_ip_decoder.py": "60ec904543ce4a126ae60ad4c46cb71bd0e45b627d440967e605abf602a00652",
+        "streaming/magewell_pro_convert_ip_decoder.py": "03cde429e7199226c55cb367afd560fd95faa346df0eaba10ff452c9f2a8cec0",
         "streaming/magewell_pro_convert_ip_decoder_sim.py": "9ff08b8efc6fc3a8d210cd80a6691adbf35a67d473badefe974496464de40a7c"
       },
       "ports": [
@@ -6964,7 +6964,7 @@
       "name": "Magewell Ultra Encode",
       "manufacturer": "Magewell",
       "category": "streaming",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Ultra Encode streaming and recording, individual destinations, audio paths, video encoding, overlays and schedules.",
@@ -6972,7 +6972,7 @@
       "file": "streaming/magewell_ultra_encode.py",
       "format": "python",
       "files": {
-        "streaming/magewell_ultra_encode.py": "5c37f333d508d4d903ac7cfef63126d44cd95c2bc60108b46dadc797d4d0c8d9",
+        "streaming/magewell_ultra_encode.py": "1b2a29beb43f34762817a7d3e00e28a5bbf4a182ec12a321f3325bdb28f2007d",
         "streaming/magewell_ultra_encode_sim.py": "2778bb3cb31ac6030f873e94e28ec7c57c1acc3c3de517eac0ed3bde792defee"
       },
       "ports": [
@@ -10544,7 +10544,7 @@
       "name": "Somfy SDN Shades",
       "manufacturer": "Somfy",
       "category": "utility",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Control Somfy Digital Network shades over RS485 or a transparent serial network bridge, with individual position and fault feedback.",
@@ -10552,7 +10552,7 @@
       "file": "utility/somfy_sdn.py",
       "format": "python",
       "files": {
-        "utility/somfy_sdn.py": "5d5946f0b7163856146439a38641e0c01ea5ea1d1cebcf9ab8509343634c46c1",
+        "utility/somfy_sdn.py": "aa02d390f1cfb7354a636dd4890e2bfc6d1d5f80fdef0909f81dbdc9c94d8a40",
         "utility/somfy_sdn_sim.py": "253a459aff64c7024ce3400a29e16b1f0a612e7de46412b8cc9d8150b2715b17"
       },
       "protocols": [

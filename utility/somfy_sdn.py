@@ -302,7 +302,7 @@ class SomfySDNDriver(BaseDriver):
         "name": "Somfy SDN Shades",
         "manufacturer": "Somfy",
         "category": "utility",
-        "version": "1.0.1",
+        "version": '1.0.2',
         "author": "OpenAVC",
         "description": "Control Somfy Digital Network shades over RS485 or a transparent serial network "
         "bridge, with individual position and fault feedback.",
@@ -508,16 +508,10 @@ class SomfySDNDriver(BaseDriver):
             }
         },
         "quick_actions": ["up", "down", "stop", "set_position"],
-        "actions": [
-            {"id": "up", "kind": "command"},
-            {"id": "down", "kind": "command"},
-            {"id": "stop", "kind": "command"},
-            {"id": "set_position", "kind": "command"},
-            {"id": "discover", "kind": "command"},
-            {"id": "refresh", "kind": "command"},
-        ],
         "commands": {
-            "refresh": {"label": "Refresh Status", "params": {}},
+            "refresh": {'help': 'Reads status, position, identity and supported settings from every '
+                        'known shade.',
+                        "label": "Refresh Status", "params": {}},
             "discover": {
                 "label": "Find Shades",
                 "params": {},
@@ -526,6 +520,9 @@ class SomfySDNDriver(BaseDriver):
                 "printed Node IDs. Existing shades are retained.",
             },
             "up": {
+                'help': 'Moves the selected shade toward its commissioned upper limit. Watch Position '
+                'and Motor Status for completion.',
+                'sets': {'position': 0},
                 "label": "Move Up",
                 "params": {
                     "shade": {
@@ -537,6 +534,9 @@ class SomfySDNDriver(BaseDriver):
                 },
             },
             "down": {
+                'help': 'Moves the selected shade toward its commissioned lower limit. Watch Position '
+                'and Motor Status for completion.',
+                'sets': {'position': 100},
                 "label": "Move Down",
                 "params": {
                     "shade": {
@@ -548,6 +548,8 @@ class SomfySDNDriver(BaseDriver):
                 },
             },
             "stop": {
+                'help': 'Stops the selected shade at its current position.',
+                'sets': {'status': 'stopped'},
                 "label": "Stop",
                 "params": {
                     "shade": {
@@ -592,6 +594,8 @@ class SomfySDNDriver(BaseDriver):
                 "sets": {"position": "{position}"},
             },
             "recall_ip": {
+                'help': 'Moves the selected shade to a stored intermediate position. The position must '
+                'already be saved on that motor.',
                 "label": "Recall Intermediate Position",
                 "params": {
                     "shade": {
@@ -610,6 +614,7 @@ class SomfySDNDriver(BaseDriver):
                 },
             },
             "set_label": {
+                'help': 'Saves a label on the motor and updates its name in the shade list.',
                 "label": "Set Motor Label",
                 "params": {
                     "shade": {
@@ -628,6 +633,8 @@ class SomfySDNDriver(BaseDriver):
                 "sets": {"label": "{label}"},
             },
             "set_group": {
+                'help': 'Saves the group Node ID in the selected motor group slot, replacing the '
+                'previous assignment in that slot.',
                 "label": "Assign Group",
                 "params": {
                     "shade": {
@@ -652,6 +659,8 @@ class SomfySDNDriver(BaseDriver):
                 },
             },
             "read_group": {
+                'help': "Reads the selected group slot into the shade's Group Membership feedback.",
+                'query_for': 'groups',
                 "label": "Read Group",
                 "params": {
                     "shade": {
@@ -670,6 +679,9 @@ class SomfySDNDriver(BaseDriver):
                 },
             },
             "read_ip": {
+                'help': "Reads the selected intermediate-position slot into the shade's Saved Positions "
+                'feedback without moving the shade.',
+                'query_for': 'intermediate_positions',
                 "label": "Read Intermediate Position",
                 "params": {
                     "shade": {
@@ -688,6 +700,8 @@ class SomfySDNDriver(BaseDriver):
                 },
             },
             "save_ip": {
+                'help': 'Saves the current shade position in the selected intermediate-position slot, '
+                'replacing its previous position.',
                 "label": "Save Current Position",
                 "params": {
                     "shade": {
@@ -706,6 +720,8 @@ class SomfySDNDriver(BaseDriver):
                 },
             },
             "set_ip": {
+                'help': 'Saves the requested percentage in the selected intermediate-position slot '
+                'without moving the shade. Zero is the upper limit and 100 is the lower limit.',
                 "label": "Set Intermediate Position",
                 "params": {
                     "shade": {
@@ -731,6 +747,7 @@ class SomfySDNDriver(BaseDriver):
                 },
             },
             "delete_ip": {
+                'help': 'Erases the selected intermediate-position slot from the motor.',
                 "label": "Delete Intermediate Position",
                 "params": {
                     "shade": {
@@ -750,6 +767,8 @@ class SomfySDNDriver(BaseDriver):
                 "confirm": "Delete this saved intermediate position?",
             },
             "space_ips": {
+                'help': 'Replaces the first selected number of intermediate positions with evenly '
+                'spaced positions between the motor limits.',
                 "label": "Space Intermediate Positions",
                 "params": {
                     "shade": {
@@ -770,6 +789,9 @@ class SomfySDNDriver(BaseDriver):
                 "positions with evenly spaced positions?",
             },
             "read_speed": {
+                'help': "Reads the motor's up, down and adjustment speeds. Available on supported DC "
+                'motors.',
+                'query_for': 'up_speed',
                 "label": "Read Motor Speeds",
                 "params": {
                     "shade": {
@@ -781,6 +803,8 @@ class SomfySDNDriver(BaseDriver):
                 },
             },
             "read_lock": {
+                'help': "Reads the motor's network lock, owner, priority and saved-lock state.",
+                'query_for': 'locked',
                 "label": "Read Network Lock",
                 "params": {
                     "shade": {
@@ -792,6 +816,7 @@ class SomfySDNDriver(BaseDriver):
                 },
             },
             "set_speed": {
+                'sets': {'up_speed': '{up_speed}', 'down_speed': '{down_speed}', 'slow_speed': '{slow_speed}'},
                 "label": "Set Motor Speeds",
                 "params": {
                     "shade": {
@@ -827,6 +852,7 @@ class SomfySDNDriver(BaseDriver):
                 "Sonesse 30 RS485 24V DC 1241144 specifies 10–28 rpm.",
             },
             "set_lock": {
+                'sets': {'locked': '{locked}'},
                 "label": "Set Network Lock",
                 "params": {
                     "shade": {
@@ -848,6 +874,8 @@ class SomfySDNDriver(BaseDriver):
                 "an existing lock requires equal or higher priority.",
             },
             "save_lock": {
+                'help': 'Chooses whether the motor keeps its network lock through a power loss.',
+                'sets': {'lock_saved': '{saved}'},
                 "label": "Save Network Lock Across Power Loss",
                 "params": {
                     "shade": {
@@ -864,6 +892,9 @@ class SomfySDNDriver(BaseDriver):
                 },
             },
             "read_local_ui": {
+                'help': 'Reads whether the selected local control is enabled and its lock priority into '
+                'Local Controls feedback.',
+                'query_for': 'local_controls',
                 "label": "Read Local Control",
                 "params": {
                     "shade": {
@@ -887,6 +918,8 @@ class SomfySDNDriver(BaseDriver):
                 },
             },
             "set_local_ui": {
+                'help': 'Enables or disables the selected local control, or all local controls, at the '
+                'requested priority. Availability depends on the motor.',
                 "label": "Set Local Control",
                 "params": {
                     "shade": {
@@ -939,7 +972,7 @@ class SomfySDNDriver(BaseDriver):
                         "max": 100,
                     },
                 },
-                "help": "Venetian blinds only.",
+                "help": 'Moves a commissioned Venetian blind to the requested percentage tilt.',
                 "sets": {"tilt_percent": "{angle}"},
             },
             "set_tilt_degrees": {
@@ -959,10 +992,13 @@ class SomfySDNDriver(BaseDriver):
                         "max": 90,
                     },
                 },
-                "help": "Venetian blinds only. Target angles use -90 to +90; "
-                "the motor reports its angle on a 0 to 180 scale.",
+                "help": 'Moves a commissioned Venetian blind to the requested angle. Targets use -90 to '
+                '+90 degrees; feedback reports the corresponding angle on a 0 to 180 scale.',
             },
             "set_position_tilt": {
+                'help': 'Moves a commissioned Venetian blind to the requested percentage position and '
+                'tilt. Position zero is the upper limit and 100 is the lower limit.',
+                'sets': {'position': '{position}', 'tilt_percent': '{angle}'},
                 "label": "Set Position and Tilt",
                 "params": {
                     "shade": {
@@ -988,6 +1024,9 @@ class SomfySDNDriver(BaseDriver):
                 },
             },
             "set_position_tilt_degrees": {
+                'help': 'Moves a commissioned Venetian blind to the requested percentage position and '
+                'angle. Angle targets use -90 to +90 degrees; angle feedback uses 0 to 180.',
+                'sets': {'position': '{position}'},
                 "label": "Set Position and Tilt in Degrees",
                 "params": {
                     "shade": {
@@ -1013,6 +1052,8 @@ class SomfySDNDriver(BaseDriver):
                 },
             },
             "save_ip_tilt": {
+                'help': 'Saves the current position and tilt of a Venetian blind in the selected '
+                'intermediate-position slot, replacing its previous values.',
                 "label": "Save Current Position and Tilt",
                 "params": {
                     "shade": {
@@ -1031,6 +1072,8 @@ class SomfySDNDriver(BaseDriver):
                 },
             },
             "set_ip_tilt": {
+                'help': 'Saves a Venetian blind position and percentage tilt in the selected '
+                'intermediate-position slot without moving the blind.',
                 "label": "Set Intermediate Position and Tilt",
                 "params": {
                     "shade": {
@@ -1063,6 +1106,9 @@ class SomfySDNDriver(BaseDriver):
                 },
             },
             "set_ip_tilt_degrees": {
+                'help': 'Saves a Venetian blind position and angle in the selected '
+                'intermediate-position slot without moving the blind. Angle targets use -90 to '
+                '+90 degrees.',
                 "label": "Set Intermediate Position and Tilt in Degrees",
                 "params": {
                     "shade": {
@@ -1095,6 +1141,8 @@ class SomfySDNDriver(BaseDriver):
                 },
             },
             "reset_motor": {
+                'help': 'Erases the motor settings. The motor must be commissioned again with Somfy '
+                'tools before use.',
                 "label": "Factory Reset Motor",
                 "params": {
                     "shade": {
@@ -1108,6 +1156,7 @@ class SomfySDNDriver(BaseDriver):
                 "commissioning in Somfy tools before use.",
             },
             "clear_groups": {
+                'help': 'Removes the selected motor from every stored SDN group.',
                 "label": "Clear All Groups",
                 "params": {
                     "shade": {
@@ -1120,6 +1169,7 @@ class SomfySDNDriver(BaseDriver):
                 "confirm": "Remove this motor from all groups?",
             },
             "clear_ips": {
+                'help': 'Erases all intermediate positions stored on the selected motor.',
                 "label": "Delete All Intermediate Positions",
                 "params": {
                     "shade": {
@@ -1132,6 +1182,7 @@ class SomfySDNDriver(BaseDriver):
                 "confirm": "Delete every saved intermediate position on this motor?",
             },
             "clear_locks": {
+                'help': "Clears the selected motor's local and network locks, including saved locks.",
                 "label": "Clear All Locks",
                 "params": {
                     "shade": {
@@ -1154,9 +1205,8 @@ class SomfySDNDriver(BaseDriver):
                         "pattern": "[0-9A-Fa-f]{6}",
                     }
                 },
-                "help": "Sends to the commissioned SDN group without acknowledgments, "
-                "to avoid reply collisions. Member feedback is read "
-                "individually.",
+                "help": 'Moves the commissioned group toward its upper limits. Individual motor '
+                'feedback shows progress; the group command itself has no acknowledgment.',
             },
             "group_down": {
                 "label": "Move Group Down",
@@ -1168,9 +1218,8 @@ class SomfySDNDriver(BaseDriver):
                         "pattern": "[0-9A-Fa-f]{6}",
                     }
                 },
-                "help": "Sends to the commissioned SDN group without acknowledgments, "
-                "to avoid reply collisions. Member feedback is read "
-                "individually.",
+                "help": 'Moves the commissioned group toward its lower limits. Individual motor '
+                'feedback shows progress; the group command itself has no acknowledgment.',
             },
             "group_stop": {
                 "label": "Stop Group",
@@ -1182,9 +1231,8 @@ class SomfySDNDriver(BaseDriver):
                         "pattern": "[0-9A-Fa-f]{6}",
                     }
                 },
-                "help": "Sends to the commissioned SDN group without acknowledgments, "
-                "to avoid reply collisions. Member feedback is read "
-                "individually.",
+                "help": 'Stops the commissioned group. Individual motor feedback confirms the stops; '
+                'the group command itself has no acknowledgment.',
             },
             "group_set_position": {
                 "label": "Set Group Position",
@@ -1203,9 +1251,9 @@ class SomfySDNDriver(BaseDriver):
                         "max": 100,
                     },
                 },
-                "help": "Sends to the commissioned SDN group without "
-                "acknowledgments, to avoid reply collisions. Member "
-                "feedback is read individually.",
+                "help": 'Moves the commissioned group to the requested percentage: zero is the upper '
+                'limit and 100 is the lower limit. Individual motor feedback shows progress; '
+                'the group command itself has no acknowledgment.',
             },
         },
         "help": {

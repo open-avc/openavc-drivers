@@ -58,6 +58,10 @@ _KNOWN_FOLLOW_UP_KEYS: frozenset[str] = frozenset({
 })
 
 
+_SEND_KEYS = ("send_hex", "send_ascii")
+_MATCHER_KEYS = ("expect", "expect_regex", "expect_hex")
+
+
 def _as_list(value: Any) -> list[Any]:
     if value is None:
         return []
@@ -65,216 +69,244 @@ def _as_list(value: Any) -> list[Any]:
         return value
     return [value]
 
-def _validate_extract_block(file: str, where: str, raw: Any) -> list[str]:
-    """Return validation errors for an ``extract:`` block."""
-    errors: list[str] = []
-    if raw is None:
-        return errors
-    if not isinstance(raw, dict):
-        errors.append(
-            f"{file}: discovery.{where}.extract must be a mapping of field "
-            "name to literal string or {regex, group} mapping"
-        )
-        return errors
-    for name, spec in raw.items():
-        if not isinstance(name, str) or not name:
-            errors.append(
-                f"{file}: discovery.{where}.extract field names must be "
-                "non-empty strings"
-            )
-            continue
-        if isinstance(spec, str):
-            continue
-        if isinstance(spec, dict):
-            pat = spec.get("regex")
-            if not isinstance(pat, str) or not pat:
-                errors.append(
-                    f"{file}: discovery.{where}.extract.{name} mapping requires "
-                    "a non-empty 'regex' string"
-                )
-            else:
-                try:
-                    re.compile(pat)
-                except re.error as exc:
-                    errors.append(
-                        f"{file}: discovery.{where}.extract.{name}.regex failed "
-                        f"to compile: {exc}"
-                    )
-            grp = spec.get("group", 1)
-            if not isinstance(grp, int) or isinstance(grp, bool) or grp < 0:
-                errors.append(
-                    f"{file}: discovery.{where}.extract.{name}.group must be a "
-                    "non-negative integer"
-                )
-            continue
-        errors.append(
-            f"{file}: discovery.{where}.extract.{name} must be a literal "
-            "string or a {regex, group} mapping"
-        )
-    return errors
+
+# --- The shapes a value is checked against ----------------------------------
+#
+# ``at`` is the dotted place a message names (``discovery.tcp_probe.port``).
+# A key written with a null value counts as not declared, the way the
+# platform's parser reads it.
+
+
+def _is_int(value: Any) -> bool:
+    """An integer that is not a bool (YAML's ``true`` is an int to Python)."""
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _is_port(value: Any) -> bool:
+    return _is_int(value) and 1 <= value <= 65535
+
+
+def _declared(raw: dict[str, Any], keys: tuple[str, ...]) -> list[str]:
+    """The ``keys`` set to something other than null, in ``keys`` order."""
+    return [key for key in keys if raw.get(key) is not None]
+
+
+def _unknown_keys(file: str, at: str, raw: dict[str, Any], known: frozenset[str]) -> list[str]:
+    unknown = set(raw.keys()) - known
+    if not unknown:
+        return []
+    return [f"{file}: {at} has unknown keys: {sorted(unknown)}"]
+
+
+def _not_bool(file: str, at: str, raw: dict[str, Any], key: str) -> list[str]:
+    """A present ``key`` that is not a bool (null included)."""
+    if key in raw and not isinstance(raw[key], bool):
+        return [f"{file}: {at}.{key} must be a bool"]
+    return []
+
+
+def _text_errors(file: str, at: str, value: Any) -> list[str]:
+    if isinstance(value, str) and value:
+        return []
+    return [f"{file}: {at} must be a non-empty string"]
+
+
+def _hex_errors(file: str, at: str, value: Any) -> list[str]:
+    if not isinstance(value, str):
+        return [f"{file}: {at} must be a string"]
+    try:
+        bytes.fromhex(value.replace(" ", "").replace(":", ""))
+    except ValueError as exc:
+        return [f"{file}: {at} is not valid hex: {exc}"]
+    return []
+
+
+def _compile_errors(file: str, at: str, pattern: str, flags: int = 0) -> list[str]:
+    try:
+        re.compile(pattern, flags)
+    except re.error as exc:
+        return [f"{file}: {at} failed to compile: {exc}"]
+    return []
+
+
+def _regex_errors(file: str, at: str, value: Any) -> list[str]:
+    return _text_errors(file, at, value) or _compile_errors(file, at, value)
+
+
+def _timeout_errors(file: str, at: str, value: Any, *, too_long: str) -> list[str]:
+    """A ``timeout_ms`` is a positive integer no longer than the probe runner waits.
+
+    ``too_long`` ends the sentence for one over the limit: a probe and its
+    ``then:`` step have always worded it differently.
+    """
+    if value is None:
+        return []
+    if not _is_int(value) or value < 1:
+        return [f"{file}: {at}.timeout_ms must be a positive integer"]
+    if value > _MAX_PROBE_TIMEOUT_MS:
+        return [f"{file}: {at}.timeout_ms {too_long}"]
+    return []
+
+
+# --- A probe: tcp_probe / udp_probe ------------------------------------------
 
 
 def _validate_probe_block(file: str, kind: str, raw: Any) -> list[str]:
     """Return validation errors for a ``tcp_probe:`` / ``udp_probe:`` block."""
     where = f"{kind}_probe"
-    errors: list[str] = []
+    at = f"discovery.{where}"
     if not isinstance(raw, dict):
-        errors.append(f"{file}: discovery.{where} must be a mapping")
-        return errors
+        return [f"{file}: {at} must be a mapping"]
 
-    unknown = set(raw.keys()) - _KNOWN_PROBE_KEYS
-    if unknown:
-        errors.append(
-            f"{file}: discovery.{where} has unknown keys: {sorted(unknown)}"
-        )
+    errors = _unknown_keys(file, at, raw, _KNOWN_PROBE_KEYS)
+    if not _is_port(raw.get("port")):
+        errors.append(f"{file}: {at}.port must be an integer in [1, 65535]")
+    errors += _probe_send_errors(file, at, kind, raw)
+    errors += _probe_matcher_errors(file, at, kind, raw)
+    errors += _timeout_errors(
+        file, at, raw.get("timeout_ms"),
+        too_long=f"exceeds the max of {_MAX_PROBE_TIMEOUT_MS} ms",
+    )
+    errors += _not_bool(file, at, raw, "cross_vendor")
+    errors += _tls_errors(file, at, kind, raw)
+    errors += _reply_port_errors(file, at, kind, raw.get("reply_port"))
+    errors += _validate_extract_block(file, f"{at}.extract", raw.get("extract"))
+    errors += _extract_manufacturer_errors(file, at, raw)
+    errors += _validate_follow_up_block(file, where, kind, raw.get("then"))
+    return errors
 
-    port = raw.get("port")
-    if not isinstance(port, int) or isinstance(port, bool) or port < 1 or port > 65535:
-        errors.append(
-            f"{file}: discovery.{where}.port must be an integer in [1, 65535]"
-        )
 
-    has_send_hex = "send_hex" in raw and raw["send_hex"] is not None
-    has_send_ascii = "send_ascii" in raw and raw["send_ascii"] is not None
-    if has_send_hex and has_send_ascii:
+def _probe_send_errors(file: str, at: str, kind: str, raw: dict[str, Any]) -> list[str]:
+    """One of send_hex or send_ascii, well formed; a UDP probe has to send one."""
+    sends = _declared(raw, _SEND_KEYS)
+    errors: list[str] = []
+    if len(sends) == len(_SEND_KEYS):
+        errors.append(f"{file}: {at} declares both send_hex and send_ascii — pick one")
+    if "send_hex" in sends:
+        errors += _hex_errors(file, f"{at}.send_hex", raw["send_hex"])
+    if "send_ascii" in sends and not isinstance(raw["send_ascii"], str):
+        errors.append(f"{file}: {at}.send_ascii must be a string")
+    if kind == "udp" and not sends:
         errors.append(
-            f"{file}: discovery.{where} declares both send_hex and "
-            "send_ascii — pick one"
-        )
-    if has_send_hex:
-        if not isinstance(raw["send_hex"], str):
-            errors.append(f"{file}: discovery.{where}.send_hex must be a string")
-        else:
-            try:
-                bytes.fromhex(raw["send_hex"].replace(" ", "").replace(":", ""))
-            except ValueError as exc:
-                errors.append(
-                    f"{file}: discovery.{where}.send_hex is not valid hex: {exc}"
-                )
-    if has_send_ascii and not isinstance(raw["send_ascii"], str):
-        errors.append(f"{file}: discovery.{where}.send_ascii must be a string")
-
-    has_send = has_send_hex or has_send_ascii
-    if kind == "udp" and not has_send:
-        errors.append(
-            f"{file}: discovery.{where} must declare send_ascii or send_hex "
+            f"{file}: {at} must declare send_ascii or send_hex "
             "(UDP probes need a query payload)"
         )
+    return errors
 
-    declared_matchers = [
-        k for k in ("expect", "expect_regex", "expect_hex")
-        if k in raw and raw[k] is not None
-    ]
-    has_expect = bool(declared_matchers)
-    if len(declared_matchers) > 1:
+
+_MATCHER_CHECKS = {
+    "expect": _text_errors,
+    "expect_regex": _regex_errors,
+    "expect_hex": _hex_errors,
+}
+
+
+# What a probe that needs a matcher and has none is told, by kind.
+_NO_MATCHER = {
+    "udp": "needs exactly one of expect, expect_regex, expect_hex",
+    "tcp": (
+        "sends bytes but declares no matcher "
+        "— add exactly one of expect, expect_regex, or expect_hex"
+    ),
+}
+
+
+def _probe_matcher_errors(file: str, at: str, kind: str, raw: dict[str, Any]) -> list[str]:
+    """At most one matcher, well formed. A UDP probe needs one, and so does a TCP
+    probe that sends something; a TCP probe that only reads a banner does not."""
+    matchers = _declared(raw, _MATCHER_KEYS)
+    errors: list[str] = []
+    if len(matchers) > 1:
         errors.append(
-            f"{file}: discovery.{where} declares multiple matchers "
-            f"({', '.join(declared_matchers)}) — pick exactly one of "
+            f"{file}: {at} declares multiple matchers "
+            f"({', '.join(matchers)}) — pick exactly one of "
             "expect, expect_regex, or expect_hex"
         )
-
-    if "expect" in raw and raw["expect"] is not None:
-        c = raw["expect"]
-        if not isinstance(c, str) or not c:
-            errors.append(
-                f"{file}: discovery.{where}.expect must be a non-empty string"
-            )
-    if "expect_regex" in raw and raw["expect_regex"] is not None:
-        r = raw["expect_regex"]
-        if not isinstance(r, str) or not r:
-            errors.append(
-                f"{file}: discovery.{where}.expect_regex must be a non-empty string"
-            )
-        else:
-            try:
-                re.compile(r)
-            except re.error as exc:
-                errors.append(
-                    f"{file}: discovery.{where}.expect_regex failed to compile: {exc}"
-                )
-    if "expect_hex" in raw and raw["expect_hex"] is not None:
-        s = raw["expect_hex"]
-        if not isinstance(s, str):
-            errors.append(f"{file}: discovery.{where}.expect_hex must be a string")
-        else:
-            try:
-                bytes.fromhex(s.replace(" ", "").replace(":", ""))
-            except ValueError as exc:
-                errors.append(
-                    f"{file}: discovery.{where}.expect_hex is not valid hex: {exc}"
-                )
-
-    if kind == "udp" and not has_expect:
-        errors.append(
-            f"{file}: discovery.{where} needs exactly one of "
-            "expect, expect_regex, expect_hex"
-        )
-    if kind == "tcp" and has_send and not has_expect:
-        errors.append(
-            f"{file}: discovery.{where} sends bytes but declares no matcher "
-            "— add exactly one of expect, expect_regex, or expect_hex"
-        )
-
-    timeout_ms = raw.get("timeout_ms")
-    if timeout_ms is not None:
-        if not isinstance(timeout_ms, int) or isinstance(timeout_ms, bool) or timeout_ms < 1:
-            errors.append(
-                f"{file}: discovery.{where}.timeout_ms must be a positive integer"
-            )
-        elif timeout_ms > _MAX_PROBE_TIMEOUT_MS:
-            errors.append(
-                f"{file}: discovery.{where}.timeout_ms exceeds the max of "
-                f"{_MAX_PROBE_TIMEOUT_MS} ms"
-            )
-
-    if "cross_vendor" in raw and not isinstance(raw["cross_vendor"], bool):
-        errors.append(f"{file}: discovery.{where}.cross_vendor must be a bool")
-
-    if "tls" in raw:
-        if not isinstance(raw["tls"], bool):
-            errors.append(f"{file}: discovery.{where}.tls must be a bool")
-        elif raw["tls"] and kind != "tcp":
-            errors.append(
-                f"{file}: discovery.{where}.tls is only valid on a tcp_probe"
-            )
-
-    if raw.get("reply_port") is not None:
-        reply_port = raw["reply_port"]
-        if kind != "udp":
-            errors.append(
-                f"{file}: discovery.{where}.reply_port is only valid on a "
-                "udp_probe (a tcp_probe's answer comes back on its own connection)"
-            )
-        elif (
-            not isinstance(reply_port, int) or isinstance(reply_port, bool)
-            or reply_port < 1 or reply_port > 65535
-        ):
-            errors.append(
-                f"{file}: discovery.{where}.reply_port must be an integer in "
-                "[1, 65535]"
-            )
-
-    errors.extend(_validate_extract_block(file, where, raw.get("extract")))
-
-    if "extract_manufacturer" in raw and raw["extract_manufacturer"] is not None:
-        mfg = raw["extract_manufacturer"]
-        if not isinstance(mfg, str) or not mfg:
-            errors.append(
-                f"{file}: discovery.{where}.extract_manufacturer must be a "
-                "non-empty string"
-            )
-        elif (
-            isinstance(raw.get("extract"), dict)
-            and "manufacturer" in raw["extract"]
-        ):
-            errors.append(
-                f"{file}: discovery.{where}.extract_manufacturer collides with "
-                "extract.manufacturer — pick one"
-            )
-
-    errors.extend(_validate_follow_up_block(file, where, kind, raw.get("then")))
-
+    for key in matchers:
+        errors += _MATCHER_CHECKS[key](file, f"{at}.{key}", raw[key])
+    needs_one = kind == "udp" or bool(_declared(raw, _SEND_KEYS))
+    if needs_one and not matchers:
+        errors.append(f"{file}: {at} {_NO_MATCHER[kind]}")
     return errors
+
+
+def _tls_errors(file: str, at: str, kind: str, raw: dict[str, Any]) -> list[str]:
+    errors = _not_bool(file, at, raw, "tls")
+    if raw.get("tls") is True and kind != "tcp":
+        errors.append(f"{file}: {at}.tls is only valid on a tcp_probe")
+    return errors
+
+
+def _reply_port_errors(file: str, at: str, kind: str, reply_port: Any) -> list[str]:
+    if reply_port is None:
+        return []
+    if kind != "udp":
+        return [
+            f"{file}: {at}.reply_port is only valid on a "
+            "udp_probe (a tcp_probe's answer comes back on its own connection)"
+        ]
+    if not _is_port(reply_port):
+        return [f"{file}: {at}.reply_port must be an integer in [1, 65535]"]
+    return []
+
+
+def _validate_extract_block(file: str, at: str, raw: Any) -> list[str]:
+    """Return validation errors for an ``extract:`` block at ``at``."""
+    if raw is None:
+        return []
+    if not isinstance(raw, dict):
+        return [
+            f"{file}: {at} must be a mapping of field "
+            "name to literal string or {regex, group} mapping"
+        ]
+    errors: list[str] = []
+    for name, spec in raw.items():
+        errors += _extract_field_errors(file, at, name, spec)
+    return errors
+
+
+def _extract_field_errors(file: str, at: str, name: Any, spec: Any) -> list[str]:
+    """One ``extract:`` field: a literal value, or a ``{regex, group}`` capture."""
+    if not isinstance(name, str) or not name:
+        return [f"{file}: {at} field names must be non-empty strings"]
+    if isinstance(spec, str):
+        return []
+    if isinstance(spec, dict):
+        return _extract_capture_errors(file, f"{at}.{name}", spec)
+    return [
+        f"{file}: {at}.{name} must be a literal "
+        "string or a {regex, group} mapping"
+    ]
+
+
+def _extract_capture_errors(file: str, at: str, spec: dict[str, Any]) -> list[str]:
+    """A ``{regex, group}`` capture: a pattern that compiles, and a group number."""
+    pattern = spec.get("regex")
+    if isinstance(pattern, str) and pattern:
+        errors = _compile_errors(file, f"{at}.regex", pattern)
+    else:
+        errors = [f"{file}: {at} mapping requires a non-empty 'regex' string"]
+    group = spec.get("group", 1)
+    if not _is_int(group) or group < 0:
+        errors.append(f"{file}: {at}.group must be a non-negative integer")
+    return errors
+
+
+def _extract_manufacturer_errors(file: str, at: str, raw: dict[str, Any]) -> list[str]:
+    """``extract_manufacturer`` is shorthand for ``extract.manufacturer``, so not both."""
+    mfg = raw.get("extract_manufacturer")
+    if mfg is None:
+        return []
+    errors = _text_errors(file, f"{at}.extract_manufacturer", mfg)
+    if errors:
+        return errors
+    extract = raw.get("extract")
+    if isinstance(extract, dict) and "manufacturer" in extract:
+        return [
+            f"{file}: {at}.extract_manufacturer collides with "
+            "extract.manufacturer — pick one"
+        ]
+    return []
 
 
 def _validate_follow_up_block(
@@ -285,7 +317,8 @@ def _validate_follow_up_block(
     Mirrors openavc/discovery/hints.py ``_parse_follow_up``. The runtime is the
     authority; this copy exists so the catalog refuses a block the platform
     would reject at load rather than shipping a driver that silently never
-    matches.
+    matches. Unlike the probe's own checks, these do not look inside what the
+    step sends or matches.
     """
     if raw is None:
         return []
@@ -295,26 +328,30 @@ def _validate_follow_up_block(
     if not isinstance(raw, dict):
         return [f"{file}: {at} must be a mapping"]
 
-    errors: list[str] = []
-    unknown = set(raw.keys()) - _KNOWN_FOLLOW_UP_KEYS
-    if unknown:
-        errors.append(f"{file}: {at} has unknown keys: {sorted(unknown)}")
-
-    has_send = any(raw.get(k) is not None for k in ("send_hex", "send_ascii"))
-    if not has_send:
+    errors = _unknown_keys(file, at, raw, _KNOWN_FOLLOW_UP_KEYS)
+    sends = _declared(raw, _SEND_KEYS)
+    if not sends:
         errors.append(
             f"{file}: {at} must declare send_ascii or send_hex "
             "(a follow-up step has to ask something)"
         )
-    if raw.get("send_hex") is not None and raw.get("send_ascii") is not None:
+    if len(sends) == len(_SEND_KEYS):
         errors.append(f"{file}: {at} declares both send_hex and send_ascii — pick one")
+    errors += _follow_up_expectation_errors(file, at, raw)
+    errors += _timeout_errors(
+        file, at, raw.get("timeout_ms"),
+        too_long=f"must not exceed {_MAX_PROBE_TIMEOUT_MS} ms",
+    )
+    return errors
 
+
+def _follow_up_expectation_errors(file: str, at: str, raw: dict[str, Any]) -> list[str]:
+    """A ``then:`` step expects silence or a match, never both and never neither."""
     silence = raw.get("expect_silence")
+    errors: list[str] = []
     if silence is not None and not isinstance(silence, bool):
         errors.append(f"{file}: {at}.expect_silence must be a bool")
-    has_match = any(
-        raw.get(k) is not None for k in ("expect", "expect_regex", "expect_hex")
-    )
+    has_match = bool(_declared(raw, _MATCHER_KEYS))
     if silence and has_match:
         errors.append(
             f"{file}: {at} declares both expect_silence and a matcher — a step "
@@ -325,16 +362,6 @@ def _validate_follow_up_block(
             f"{file}: {at} declares no expectation — add expect_silence: true, "
             "or expect / expect_regex / expect_hex"
         )
-
-    timeout = raw.get("timeout_ms")
-    if timeout is not None:
-        if not isinstance(timeout, int) or isinstance(timeout, bool) or timeout < 1:
-            errors.append(f"{file}: {at}.timeout_ms must be a positive integer")
-        elif timeout > _MAX_PROBE_TIMEOUT_MS:
-            errors.append(
-                f"{file}: {at}.timeout_ms must not exceed {_MAX_PROBE_TIMEOUT_MS} ms"
-            )
-
     return errors
 
 

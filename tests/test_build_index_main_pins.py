@@ -850,7 +850,10 @@ def test_the_default_schema_sits_under_the_resolved_root(tmp_path: Path) -> None
     real.mkdir()
     one_yaml(real)
     link = tmp_path / "link"
-    link.symlink_to(real, target_is_directory=True)
+    try:
+        link.symlink_to(real, target_is_directory=True)
+    except OSError as exc:  # Windows without Developer Mode or admin rights
+        pytest.skip(f"cannot create a symbolic link here: {exc}")
     log: list[list[str]] = []
     with _recording(log):
         rc = build_index.main(["--root", str(link)])

@@ -11,7 +11,9 @@ Every cross-field rule that decides whether a driver definition is valid
 is reached through this module: ``validate_driver_definition`` walks the
 definition section by section and asks a check module about each command
 (``command_checks``), response rule (``response_rule_checks``), query entry
-(``query_entry_checks``) and the push block (``push_block_checks``). The
+(``query_entry_checks``), child type and the references into it
+(``child_type_checks``), state variable (``state_variable_checks``) and the
+push block (``push_block_checks``). The
 runtime loader wraps it (adding the discovery-block check, which needs the
 discovery engine's parser), and the community driver catalog runs a copy of
 the same rules in its CI, so a definition that passes catalog review is
@@ -32,14 +34,18 @@ import re
 from typing import Any, Callable
 
 from .child_ids import declared_child_ids, page_starts
+from .child_type_checks import (
+    RosterNames,
+    child_param_reference_errors,
+    child_type_errors,
+    undeclared_child_type_reason as undeclared_child_type_reason,
+)
 from .command_checks import CommandSection, osc_args_errors
 from .condition_checks import condition_block_errors
 from .declared_names import (
     UNEVALUATED_KEY,
     closest_name,
-    config_field_names,
     declared_enum_values,
-    declared_id_kind,
     did_you_mean,
     substitution_names,
 )
@@ -56,14 +62,11 @@ from .spec import (
     AUTH_TRANSPORTS,
     AUTH_TYPES,
     AVAILABILITIES,
-    CHILD_ID_TYPES,
-    CLOUD_PRIORITIES,
     CONNECTION_FIELDS,
     DEFAULT_LINE_GAP_S,
     DEFS,
     FIELDS,
     GENERIC_ID_PREFIXES,
-    INSTANCE_SOURCES,
     LENGTH_ENDIANS,
     LENGTH_HEADER_SIZES,
     LINE_GAP_TRANSPORTS,
@@ -79,6 +82,10 @@ from .spec import (
     is_secret_setting,
     parse_version,
     platform_requirements,
+)
+from .state_variable_checks import (
+    DEVICE_VARIABLE,
+    state_variable_errors,
 )
 from .regex_safety import regex_safety_error as _regex_redos_error
 
@@ -579,10 +586,9 @@ def validate_driver_definition(
         errors.ctx = f"commands.{cmd_name}"
         errors.extend(section.command_errors(cmd_name, cmd_def))
 
-    # References out of a command's params into child_entity_types. Shared
-    # with the Python surface (a Python driver reaches the same function
-    # through python_info), so a dangling child_type reads identically
-    # whichever kind of driver declared it.
+    # References out of a command's params into child_entity_types, checked
+    # in child_type_checks; a Python driver reaches the same function through
+    # python_info.
     errors.ctx = "commands"
     _child_ref_errors, _ = child_param_reference_errors(driver_def)
     errors.extend(_child_ref_errors)
@@ -782,8 +788,8 @@ def validate_driver_definition(
         if isinstance(entry, dict) and isinstance(entry.get("params"), dict):
             errors.extend(param_aid_errors(f"actions[{i}]", entry.get("params")))
 
-    # Validate state_variables structure
-    valid_types = set(VALUE_TYPES)
+    # The driver's own state variables: each one's fields are checked in
+    # state_variable_checks, which a child type's variables ask too.
     errors.ctx = "state_variables"
     state_variables = driver_def.get("state_variables", {})
     if not isinstance(state_variables, dict):
@@ -794,32 +800,9 @@ def validate_driver_definition(
         if not isinstance(var_def, dict):
             errors.append(f"State variable '{var_name}': must be a dict")
             continue
-        var_type = var_def.get("type", "")
-        if var_type and var_type not in valid_types:
-            errors.append(f"State variable '{var_name}': unknown type '{var_type}'")
-        if not var_def.get("label"):
-            errors.append(f"State variable '{var_name}': missing 'label'")
-        unit = var_def.get("unit")
-        if unit is not None and not isinstance(unit, str):
-            errors.append(
-                f"State variable '{var_name}': unit must be a string "
-                f"(got {unit!r})"
-            )
-        control = var_def.get("control")
-        if control is not None and not isinstance(control, bool):
-            errors.append(
-                f"State variable '{var_name}': control must be true or false "
-                f"(got {control!r})"
-            )
-        # The cloud state relay reads this tag to pick the forwarding tier;
-        # a typo would silently fall back to the default cadence.
-        cloud_priority = var_def.get("cloud_priority")
-        if cloud_priority is not None and cloud_priority not in CLOUD_PRIORITIES:
-            errors.append(
-                f"State variable '{var_name}': cloud_priority must be 'low' "
-                f"or 'high' (got {cloud_priority!r}); omit it for the "
-                f"default cadence"
-            )
+        errors.extend(
+            state_variable_errors(f"State variable '{var_name}'", var_def, DEVICE_VARIABLE)
+        )
 
     # scale / offset / unknown on state variables, child state variables and
     # command params: the shared rule (python_info runs it with python=True).
@@ -921,229 +904,18 @@ def validate_driver_definition(
                             f"send_frame: {byte_key} must be a string (got {byte_val!r})"
                         )
 
-    # Validate child_entity_types keys. The child type name becomes a key
-    # segment — device.<id>.<child_type>.<local_id>.<prop> — and feeds
-    # subscribe_children's "device.<id>.<child_type>.*" pattern. A dot would
-    # corrupt the key structure; a glob metachar (* ? [) breaks the fnmatch
-    # dispatch the platform uses to route per-child state changes.
+    # What one child type says about itself (its name, id_format, state
+    # variables and instances: roster) is checked in child_type_checks. Each
+    # type's messages are tagged with its place.
     errors.ctx = "child_entity_types"
     child_types = driver_def.get("child_entity_types", {})
     if child_types and not isinstance(child_types, dict):
         errors.append("child_entity_types: must be a mapping")
     elif isinstance(child_types, dict):
+        roster_names = RosterNames(driver_def)
         for child_type, type_def in child_types.items():
             errors.ctx = f"child_entity_types.{child_type}"
-            if not isinstance(child_type, str) or not child_type:
-                errors.append(f"child_entity_types: type name {child_type!r} must be a non-empty string")
-                continue
-            if "." in child_type:
-                errors.append(
-                    f"child_entity_types: type name '{child_type}' must not contain dots (used as state key separator)"
-                )
-            bad = [c for c in "*?[" if c in child_type]
-            if bad:
-                errors.append(
-                    f"child_entity_types: type name '{child_type}' must not contain "
-                    f"glob metacharacters ({', '.join(bad)}); they break state-change dispatch"
-                )
-            # Deep-validate the schema so a malformed declaration fails at
-            # load with a clear message — not at connect() (a bad id_format
-            # used to surface as a confusing device-offline) or silently
-            # (an invalid cloud_priority just fell to the default tier).
-            where = f"child_entity_types.{child_type}"
-            if not isinstance(type_def, dict):
-                errors.append(f"{where}: must be a mapping")
-                continue
-            id_format = type_def.get("id_format")
-            if id_format is not None:
-                if not isinstance(id_format, dict):
-                    errors.append(f"{where}.id_format: must be a mapping")
-                else:
-                    id_type = id_format.get("type", "integer")
-                    if id_type not in CHILD_ID_TYPES:
-                        errors.append(
-                            f"{where}.id_format: unknown type '{id_type}' "
-                            f"(expected 'integer' or 'string')"
-                        )
-                    mn, mx = id_format.get("min"), id_format.get("max")
-                    for label, val in (("min", mn), ("max", mx)):
-                        if val is not None and (
-                            isinstance(val, bool) or not isinstance(val, int)
-                        ):
-                            errors.append(
-                                f"{where}.id_format: {label} must be an integer "
-                                f"(got {val!r})"
-                            )
-                    if isinstance(mn, int) and isinstance(mx, int) and mn > mx:
-                        errors.append(
-                            f"{where}.id_format: min ({mn}) is greater than max ({mx})"
-                        )
-                    pad = id_format.get("pad_width")
-                    # 0 means "don't pad" — it is the runtime's own default
-                    # (base.py renders the id bare when pad_width is falsy)
-                    # and the field registry declares a minimum of 0. This
-                    # rule used to demand 1 or more, which made every child
-                    # type the Driver Builder creates unsaveable (it seeds
-                    # pad_width 0) and would have made a hand-authored
-                    # driver using the schema's own legal value disappear at
-                    # load. Only a negative width is meaningless.
-                    if pad is not None and (
-                        isinstance(pad, bool) or not isinstance(pad, int) or pad < 0
-                    ):
-                        errors.append(
-                            f"{where}.id_format: pad_width must be zero or a "
-                            f"positive integer (got {pad!r})"
-                        )
-            child_vars = type_def.get("state_variables")
-            if child_vars is not None and not isinstance(child_vars, dict):
-                errors.append(f"{where}.state_variables: must be a mapping")
-            elif isinstance(child_vars, dict):
-                for var_name, var_def in child_vars.items():
-                    if not isinstance(var_def, dict):
-                        errors.append(
-                            f"{where}.state_variables.{var_name}: must be a mapping"
-                        )
-                        continue
-                    vt = var_def.get("type", "")
-                    if vt and vt not in valid_types:
-                        errors.append(
-                            f"{where}.state_variables.{var_name}: unknown type '{vt}'"
-                        )
-                    cp = var_def.get("cloud_priority")
-                    if cp is not None and cp not in CLOUD_PRIORITIES:
-                        errors.append(
-                            f"{where}.state_variables.{var_name}: cloud_priority "
-                            f"must be 'low' or 'high' (got {cp!r}); omit it for "
-                            f"the default cadence"
-                        )
-                    cunit = var_def.get("unit")
-                    if cunit is not None and not isinstance(cunit, str):
-                        errors.append(
-                            f"{where}.state_variables.{var_name}: unit must be "
-                            f"a string (got {cunit!r})"
-                        )
-                    cctl = var_def.get("control")
-                    if cctl is not None and not isinstance(cctl, bool):
-                        errors.append(
-                            f"{where}.state_variables.{var_name}: control must "
-                            f"be true or false (got {cctl!r})"
-                        )
-
-            # Validate the optional `instances:` roster block (declarative
-            # children). A misdeclared block would silently register nothing
-            # — the exact "declared types, empty panel" failure it replaces.
-            instances = type_def.get("instances")
-            if instances is not None:
-                if not isinstance(instances, dict):
-                    errors.append(f"{where}.instances: must be a mapping")
-                else:
-                    # config_derived keys resolve into config at runtime, so
-                    # count_from / ids_from may name them too.
-                    config_fields = config_field_names(driver_def)
-                    id_fmt = type_def.get("id_format")
-                    id_fmt = id_fmt if isinstance(id_fmt, dict) else {}
-                    id_type = declared_id_kind(type_def)
-                    cfs = instances.get("count_from_state")
-                    if cfs is not None:
-                        if not isinstance(cfs, str) or not cfs:
-                            errors.append(
-                                f"{where}.instances: count_from_state must "
-                                f"name a state variable"
-                            )
-                        elif cfs not in (driver_def.get("state_variables") or {}):
-                            errors.append(
-                                f"{where}.instances: count_from_state {cfs!r} "
-                                f"is not a declared state variable"
-                            )
-                    sources = [
-                        k for k in INSTANCE_SOURCES
-                        if k in instances
-                    ]
-                    if len(sources) != 1:
-                        errors.append(
-                            f"{where}.instances: declare exactly one of "
-                            f"'count', 'count_from', 'ids_from', 'ids'"
-                        )
-                    elif sources[0] == "ids":
-                        raw_ids = instances["ids"]
-                        if not isinstance(raw_ids, list) or not raw_ids:
-                            errors.append(
-                                f"{where}.instances: ids must be a non-empty "
-                                f"list of literal child ids"
-                            )
-                        else:
-                            for item in raw_ids:
-                                if isinstance(item, bool) or not isinstance(
-                                    item, (str, int)
-                                ):
-                                    errors.append(
-                                        f"{where}.instances: ids entries must "
-                                        f"be scalars (got {item!r})"
-                                    )
-                                    break
-                                if id_type == "integer":
-                                    try:
-                                        int(str(item).strip())
-                                    except ValueError:
-                                        errors.append(
-                                            f"{where}.instances: id {item!r} "
-                                            f"is not an integer ({child_type} "
-                                            f"declares integer ids)"
-                                        )
-                                        break
-                    elif sources[0] == "count":
-                        count = instances["count"]
-                        if (
-                            isinstance(count, bool)
-                            or not isinstance(count, int)
-                            or count < 1
-                        ):
-                            errors.append(
-                                f"{where}.instances: count must be an "
-                                f"integer >= 1 (got {count!r})"
-                            )
-                        else:
-                            mx = id_fmt.get("max")
-                            if (
-                                isinstance(mx, int)
-                                and not isinstance(mx, bool)
-                                and count > mx
-                            ):
-                                errors.append(
-                                    f"{where}.instances: count ({count}) "
-                                    f"exceeds id_format.max ({mx})"
-                                )
-                        if id_type == "string":
-                            errors.append(
-                                f"{where}.instances: 'count' requires integer "
-                                f"ids (id_format.type is 'string'; use "
-                                f"'ids_from')"
-                            )
-                    else:
-                        src_key = sources[0]
-                        field = instances[src_key]
-                        if not isinstance(field, str) or not field:
-                            errors.append(
-                                f"{where}.instances: {src_key} must name a "
-                                f"config field"
-                            )
-                        elif field not in config_fields:
-                            errors.append(
-                                f"{where}.instances: {src_key} '{field}' is "
-                                f"not a declared config field (config_schema "
-                                f"/ default_config / config_derived)"
-                            )
-                        if src_key == "count_from" and id_type == "string":
-                            errors.append(
-                                f"{where}.instances: 'count_from' requires "
-                                f"integer ids (id_format.type is 'string'; "
-                                f"use 'ids_from')"
-                            )
-                    label = instances.get("label")
-                    if label is not None and not isinstance(label, str):
-                        errors.append(
-                            f"{where}.instances: label must be a string"
-                        )
+            errors.extend(child_type_errors(child_type, type_def, roster_names))
 
     # The query entries: the poll's, the start-up's and each text rule's
     # then_query, checked in query_entry_checks against what the definition
@@ -1996,161 +1768,6 @@ def device_setting_map_errors(where: str, setting_def: dict[str, Any]) -> list[s
                 f"{where}: map key '{key}' is not one of the setting's values "
                 f"({', '.join(allowed)})"
             )
-    return errors
-
-
-def undeclared_child_type_reason(
-    child_type: str, child_types: dict[str, Any],
-) -> str:
-    """Why a ``child_type`` reference does not resolve, as one reason fragment.
-
-    Shared with the runtime, which is the point. The static rule below rejects
-    this before a driver is published; a driver copied straight into
-    ``driver_repo/`` only warns at load, so the dispatch gate meets the same
-    fault again at command time and has to describe it the same way — the
-    alternative was the gate falling through to integer coercion and blaming
-    the value the user typed. A fragment rather than a sentence, so each
-    surface frames it: the static rule prefixes the dotted path, the gate
-    prefixes the command and parameter name.
-    """
-    declared = sorted(k for k in child_types if k != UNEVALUATED_KEY)
-    return (
-        f"child_type '{child_type}' is not a declared child_entity_type"
-        + (
-            f" (declared: {', '.join(declared)})"
-            if declared
-            else " (the driver declares none)"
-        )
-    )
-
-
-def child_param_reference_errors(
-    driver_def: dict[str, Any],
-) -> tuple[list[str], list[str]]:
-    """Every reference a command parameter makes into ``child_entity_types``.
-
-    Two references, both decidable from the definition alone, and both missing
-    on *every* surface until now — a YAML driver was no better covered than a
-    Python one:
-
-      * ``commands.*.params.*.child_type`` must name a declared child type.
-        A typo does not fail; it falls through to plain integer coercion at
-        the dispatch gate, so the user is told the value they typed is wrong
-        when it is the driver that is wrong.
-      * a ``child_id`` param's own ``min``/``max`` must sit inside that type's
-        ``id_format`` range, so the two declarations cannot contradict each
-        other and leave the runtime to pick a winner.
-
-    Returns ``(errors, skipped)``. ``skipped`` names each reference that could
-    not be decided because its *target set* is computed rather than declared:
-    a Python driver may build ``commands`` or ``child_entity_types`` at
-    runtime, and a check whose target set is unknown has to say so rather than
-    report a dangling reference it cannot see the target of. The skip is per
-    reference, never per driver — an unreadable ``child_entity_types`` silences
-    only the references that resolve against it, and every other rule still
-    runs. Callers print the skips; none of them change a verdict.
-    """
-    errors: list[str] = []
-    skipped: list[str] = []
-
-    commands = driver_def.get("commands")
-    if commands is None:
-        return errors, skipped
-    if not isinstance(commands, dict):
-        skipped.append("commands is computed, so no command params were checked")
-        return errors, skipped
-
-    raw_types = driver_def.get("child_entity_types")
-    if raw_types is not None and not isinstance(raw_types, dict):
-        skipped.append(
-            "child_entity_types is computed, so no child_type reference was "
-            "checked"
-        )
-        return errors, skipped
-    if UNEVALUATED_KEY in commands:
-        skipped.append(
-            f"{len(commands) - 1} of an unknown number of commands were "
-            f"readable; params of the rest were not checked"
-        )
-    child_types: dict[str, Any] = raw_types if isinstance(raw_types, dict) else {}
-    # The type NAMES themselves were built at runtime, so "not in this map"
-    # proves nothing about whether the reference resolves.
-    types_computed = UNEVALUATED_KEY in child_types
-
-    for cmd_name, cmd_def in commands.items():
-        if cmd_name == UNEVALUATED_KEY or not isinstance(cmd_def, dict):
-            continue
-        params = cmd_def.get("params")
-        if not isinstance(params, dict):
-            continue
-        for param_name, param_def in params.items():
-            if not isinstance(param_def, dict):
-                continue
-            if param_def.get("type") != "child_id":
-                continue
-            where = f"commands.{cmd_name}.params.{param_name}"
-            child_type = param_def.get("child_type")
-
-            if child_type is None:
-                errors.append(
-                    f"{where}: a child_id param must declare 'child_type' "
-                    f"(without it the id cannot be resolved to a child type "
-                    f"and is coerced as a plain integer)"
-                )
-                continue
-            if not isinstance(child_type, str):
-                skipped.append(f"{where}: child_type is computed")
-                continue
-            if child_type not in child_types:
-                if types_computed:
-                    skipped.append(
-                        f"{where}: child_type '{child_type}', because "
-                        f"child_entity_types keys are computed"
-                    )
-                    continue
-                errors.append(
-                    f"{where}: "
-                    f"{undeclared_child_type_reason(child_type, child_types)}"
-                )
-                continue
-
-            type_def = child_types.get(child_type)
-            id_format = type_def.get("id_format") if isinstance(type_def, dict) else None
-            if not isinstance(id_format, dict):
-                continue
-            errors.extend(
-                _child_id_bound_errors(where, child_type, param_def, id_format)
-            )
-
-    return errors, skipped
-
-
-def _child_id_bound_errors(
-    where: str, child_type: str, param_def: dict[str, Any], id_format: dict[str, Any],
-) -> list[str]:
-    """A child_id param's declared bounds against its type's ``id_format``."""
-    errors: list[str] = []
-
-    def _num(value: Any) -> int | float | None:
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
-            return None
-        return value
-
-    fmt_min, fmt_max = _num(id_format.get("min")), _num(id_format.get("max"))
-    param_min, param_max = _num(param_def.get("min")), _num(param_def.get("max"))
-
-    if param_min is not None and fmt_min is not None and param_min < fmt_min:
-        errors.append(
-            f"{where}: min {param_min:g} is below "
-            f"child_entity_types.{child_type}.id_format.min ({fmt_min:g}), so "
-            f"the gate would accept an id the child type cannot have"
-        )
-    if param_max is not None and fmt_max is not None and param_max > fmt_max:
-        errors.append(
-            f"{where}: max {param_max:g} is above "
-            f"child_entity_types.{child_type}.id_format.max ({fmt_max:g}), so "
-            f"the gate would accept an id the child type cannot have"
-        )
     return errors
 
 

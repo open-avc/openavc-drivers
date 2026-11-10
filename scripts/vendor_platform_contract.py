@@ -75,6 +75,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from .child_ids import",
             ),
             (
+                "from openavc.drivers.child_type_checks import",
+                "from .child_type_checks import",
+            ),
+            (
                 "from openavc.drivers.command_checks import",
                 "from .command_checks import",
             ),
@@ -107,6 +111,25 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from openavc.drivers.response_rule_checks import",
                 "from .response_rule_checks import",
             ),
+            (
+                "from openavc.drivers.state_variable_checks import",
+                "from .state_variable_checks import",
+            ),
+        ),
+    ),
+    (
+        "openavc/drivers/child_type_checks.py",
+        "scripts/_vendor/child_type_checks.py",
+        (
+            (
+                "from openavc.drivers.declared_names import",
+                "from .declared_names import",
+            ),
+            ("from openavc.drivers.spec import", "from .spec import"),
+            (
+                "from openavc.drivers.state_variable_checks import",
+                "from .state_variable_checks import",
+            ),
         ),
     ),
     (
@@ -132,6 +155,11 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
     (
         "openavc/drivers/declared_names.py",
         "scripts/_vendor/declared_names.py",
+        (("from openavc.drivers.spec import", "from .spec import"),),
+    ),
+    (
+        "openavc/drivers/state_variable_checks.py",
+        "scripts/_vendor/state_variable_checks.py",
         (("from openavc.drivers.spec import", "from .spec import"),),
     ),
     (

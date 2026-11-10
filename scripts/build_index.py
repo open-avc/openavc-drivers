@@ -28,7 +28,7 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any, Iterator, NamedTuple
 
 import yaml
 from pydantic import (
@@ -675,61 +675,82 @@ def build_entry(filepath: Path, raw: dict[str, Any], repo_root: Path) -> DriverE
 
 
 def cross_validate(entries: list[DriverEntry], manufacturers: set[str]) -> list[str]:
-    errors: list[str] = []
+    """The checks that need every entry at once, each run over the whole catalog in turn."""
+    return [
+        *_duplicate_ids(entries),
+        *_unknown_manufacturers(entries, manufacturers),
+        *_unknown_model_manufacturers(entries, manufacturers),
+        *_unresolved_replacements(entries),
+        *_overlapping_full_support(entries),
+    ]
 
-    # ID uniqueness
+
+def _duplicate_ids(entries: list[DriverEntry]) -> Iterator[str]:
+    """Each driver whose id an earlier one already has, named with the latest of them."""
     seen_ids: dict[str, str] = {}
     for e in entries:
         if e.id in seen_ids:
-            errors.append(
-                f"duplicate driver id {e.id!r}: {seen_ids[e.id]} vs {e.file}"
-            )
+            yield f"duplicate driver id {e.id!r}: {seen_ids[e.id]} vs {e.file}"
         seen_ids[e.id] = e.file
 
-    # Driver-level manufacturer in canonical list
+
+def _unknown_manufacturers(entries: list[DriverEntry], manufacturers: set[str]) -> Iterator[str]:
     for e in entries:
         if e.manufacturer not in manufacturers:
-            errors.append(
+            yield (
                 f"{e.file}: manufacturer {e.manufacturer!r} not in manufacturers.json. "
                 f"Add it there first if it's legitimately new."
             )
 
-    # compatible_models manufacturer in canonical list
+
+def _unknown_model_manufacturers(
+    entries: list[DriverEntry], manufacturers: set[str]
+) -> Iterator[str]:
     for e in entries:
         for cm in e.compatible_models:
             if cm.manufacturer not in manufacturers:
-                errors.append(
+                yield (
                     f"{e.file}: compatible_models manufacturer {cm.manufacturer!r} "
                     f"not in manufacturers.json"
                 )
 
-    # replacement_id must resolve
+
+def _unresolved_replacements(entries: list[DriverEntry]) -> Iterator[str]:
     ids = {e.id for e in entries}
     for e in entries:
         if e.replacement_id and e.replacement_id not in ids:
-            errors.append(
-                f"{e.file}: replacement_id {e.replacement_id!r} does not match any driver"
-            )
+            yield f"{e.file}: replacement_id {e.replacement_id!r} does not match any driver"
 
-    # No two drivers claim full for the same (manufacturer, model) without notes
+
+def _overlapping_full_support(entries: list[DriverEntry]) -> Iterator[str]:
+    """Each full claim on a (manufacturer, model) the latest earlier full claim
+    already made, unless both carry notes justifying the overlap."""
     seen_full: dict[tuple[str, str], tuple[str, bool]] = {}
+    full_claims = (claim for claim in _model_claims(entries) if claim[1].confidence == "full")
+    for e, cm, model in full_claims:
+        key = (cm.manufacturer, model)
+        if key in seen_full and not _both_have_notes(seen_full[key], cm):
+            yield (
+                f"{e.file}: claims full support for "
+                f"{cm.manufacturer} {model}, but {seen_full[key][0]} already does. "
+                f"Add a `notes:` field on both entries justifying the overlap."
+            )
+        seen_full[key] = (e.file, bool(cm.notes))
+
+
+def _both_have_notes(prior: tuple[str, bool], cm: CompatibleModelsEntry) -> bool:
+    _, prior_has_notes = prior
+    return bool(prior_has_notes and cm.notes)
+
+
+def _model_claims(
+    entries: list[DriverEntry],
+) -> Iterator[tuple[DriverEntry, CompatibleModelsEntry, str]]:
+    """Every (driver, compatible_models entry, model) the catalog lists, in file order."""
     for e in entries:
         for cm in e.compatible_models:
-            if cm.confidence != "full":
-                continue
             for model in cm.models:
-                key = (cm.manufacturer, model)
-                if key in seen_full:
-                    prior_file, prior_has_notes = seen_full[key]
-                    if not (prior_has_notes and cm.notes):
-                        errors.append(
-                            f"{e.file}: claims full support for "
-                            f"{cm.manufacturer} {model}, but {prior_file} already does. "
-                            f"Add a `notes:` field on both entries justifying the overlap."
-                        )
-                seen_full[key] = (e.file, bool(cm.notes))
-
-    return errors
+                yield e, cm, model
 
 
 # --- Devices catalog --------------------------------------------------------
@@ -743,31 +764,41 @@ def build_devices(
     devices_extra: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """Reverse-index `compatible_models` into a device catalog."""
+    devices = _devices_from_drivers(entries)
+    _merge_devices_extra(devices, devices_extra)
+    return sorted(devices.values(), key=lambda d: (d["manufacturer"].lower(), d["model"].lower()))
+
+
+def _devices_from_drivers(entries: list[DriverEntry]) -> dict[tuple[str, str], dict[str, Any]]:
+    """Each listed (manufacturer, model) with the drivers that list it.
+
+    The first driver to list a model gives the device its category; its
+    drivers are ordered by confidence, then id.
+    """
     devices: dict[tuple[str, str], dict[str, Any]] = {}
-
-    for e in entries:
-        for cm in e.compatible_models:
-            for model in cm.models:
-                key = (cm.manufacturer, model)
-                entry = devices.setdefault(
-                    key,
-                    {
-                        "manufacturer": cm.manufacturer,
-                        "model": model,
-                        "category": e.category,
-                        "drivers": [],
-                    },
-                )
-                drv: dict[str, Any] = {"id": e.id, "confidence": cm.confidence}
-                if cm.notes:
-                    drv["notes"] = cm.notes
-                entry["drivers"].append(drv)
-
-    # Stable per-device driver order: confidence first, then id
+    for e, cm, model in _model_claims(entries):
+        entry = devices.setdefault(
+            (cm.manufacturer, model),
+            {
+                "manufacturer": cm.manufacturer,
+                "model": model,
+                "category": e.category,
+                "drivers": [],
+            },
+        )
+        drv: dict[str, Any] = {"id": e.id, "confidence": cm.confidence}
+        if cm.notes:
+            drv["notes"] = cm.notes
+        entry["drivers"].append(drv)
     for entry in devices.values():
         entry["drivers"].sort(key=lambda d: (CONFIDENCE_ORDER.get(d["confidence"], 9), d["id"]))
+    return devices
 
-    # Merge devices-extra (catalog gaps not produced by any driver)
+
+def _merge_devices_extra(
+    devices: dict[tuple[str, str], dict[str, Any]], devices_extra: list[dict[str, Any]]
+) -> None:
+    """Add devices-extra.json's entries: catalog gaps no driver produces."""
     for extra in devices_extra:
         mfr = extra.get("manufacturer", "")
         model = extra.get("model", "")
@@ -778,8 +809,6 @@ def build_devices(
                 f"driver's compatible_models. Move the entry into the driver."
             )
         devices[key] = extra
-
-    return sorted(devices.values(), key=lambda d: (d["manufacturer"].lower(), d["model"].lower()))
 
 
 # --- Output ----------------------------------------------------------------

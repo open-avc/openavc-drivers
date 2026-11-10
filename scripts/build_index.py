@@ -155,6 +155,11 @@ class CompatibleModelsEntry(BaseModel):
         return v
 
 
+def _is_port(p: Any) -> bool:
+    """A port number: an integer (not a bool) from 1 to 65535."""
+    return isinstance(p, int) and not isinstance(p, bool) and 1 <= p <= 65535
+
+
 class DriverEntry(BaseModel):
     """Validated driver-index entry. Fields not listed here are dropped."""
 
@@ -253,7 +258,7 @@ class DriverEntry(BaseModel):
     @classmethod
     def _ports(cls, v: list[int]) -> list[int]:
         for p in v:
-            if not isinstance(p, int) or isinstance(p, bool) or p < 1 or p > 65535:
+            if not _is_port(p):
                 raise ValueError(f"port must be an integer 1–65535, got {p!r}")
         return v
 
@@ -839,16 +844,22 @@ def _merge_devices_extra(
 # --- Output ----------------------------------------------------------------
 
 
+# Left out of an entry at these values, as None fields are: the catalog
+# carries what a driver says, not the model's defaults.
+_OMITTED_WHEN_EMPTY = ("ports", "protocols", "tags", "compatible_models")
+_OMITTED_WHEN_FALSE = ("simulated", "verified", "deprecated")
+
+
 def _entry_dict(entry: DriverEntry) -> dict[str, Any]:
     """Tidy dict for JSON output: drop None and default-empty fields."""
     d = entry.model_dump(exclude_none=True)
-    for key in ("ports", "protocols", "tags", "compatible_models"):
-        if d.get(key) == []:
-            d.pop(key)
-    for key in ("simulated", "verified", "deprecated"):
-        if d.get(key) is False:
-            d.pop(key, None)
-    return d
+    return {key: value for key, value in d.items() if not _omitted(key, value)}
+
+
+def _omitted(key: str, value: Any) -> bool:
+    if key in _OMITTED_WHEN_EMPTY:
+        return value == []
+    return key in _OMITTED_WHEN_FALSE and value is False
 
 
 # No `generated_at` timestamp: the catalog is a deterministic function of the

@@ -91,6 +91,7 @@ BLOCK_CASES: list[tuple[str, dict, bool]] = [
     ("requires_only", d({"requires": "0.23.0"}), False),
     # mDNS
     ("mdns_string", d({"mdns": "_acme._tcp"}), False),
+    ("mdns_string_upper", d({"mdns": "_ACME._tcp"}), False),
     ("mdns_empty_string", d({"mdns": ""}), False),
     ("mdns_list_mixed", d({"mdns": ["_a._tcp", {"service": "_b._tcp"}, 5, ""]}), False),
     ("mdns_mapping_txt", d({"mdns": {"service": "_a._tcp", "txt": {"Model": "X1", "n": 2}}}), False),
@@ -208,6 +209,7 @@ BLOCK_CASES: list[tuple[str, dict, bool]] = [
     # Probes: extract and extract_manufacturer.
     ("extract_none", extract(None), False),
     ("extract_list", extract(["model"]), False),
+    ("extract_string", extract("model"), False),
     ("extract_literal", extract({"model": "W1"}), False),
     ("extract_regex_ok", extract({"model": {"regex": "m=(\\w+)", "group": 1}}), False),
     ("extract_regex_default_group", extract({"model": {"regex": "m=(\\w+)"}}), False),
@@ -250,6 +252,7 @@ BLOCK_CASES: list[tuple[str, dict, bool]] = [
     ("then_send_none", then(send_ascii=None, expect="y"), False),
     ("then_silence_bad", then(send_ascii="x", expect_silence="yes"), False),
     ("then_silence_number_with_match", then(send_ascii="x", expect_silence=1, expect="y"), False),
+    ("then_silence_zero_with_match", then(send_ascii="x", expect_silence=0, expect="y"), False),
     ("then_silence_and_match", then(send_ascii="x", expect_silence=True, expect_regex="y"), False),
     ("then_silence_false_no_match", then(send_ascii="x", expect_silence=False), False),
     ("then_silence_false_match", then(send_ascii="x", expect_silence=False, expect_hex="00"), False),
@@ -259,6 +262,7 @@ BLOCK_CASES: list[tuple[str, dict, bool]] = [
     ("then_timeout_over", then(send_ascii="x", expect="y", timeout_ms=10001), False),
     ("then_timeout_zero", then(send_ascii="x", expect="y", timeout_ms=0), False),
     ("then_timeout_bool", then(send_ascii="x", expect="y", timeout_ms=False), False),
+    ("then_timeout_true", then(send_ascii="x", expect="y", timeout_ms=True), False),
     ("then_timeout_string", then(send_ascii="x", expect="y", timeout_ms="5"), False),
     ("then_everything_wrong", then(bogus=1, expect_silence="x", timeout_ms=0), False),
     # A probe with every kind of problem at once (the order they are reported in).
@@ -375,6 +379,11 @@ CATALOG_CASES: list[tuple[str, list[dict]]] = [
     ("mdns_service_normalised", [mdns("_A._TCP", driver_id="acme_a"), mdns("_a._tcp.", driver_id="acme_b")]),
     ("mdns_same_driver_twice", [d({"mdns": ["_a._tcp", "_a._tcp"]}, driver_id="acme_a")]),
     ("mdns_same_id_two_files", [mdns("_a._tcp", driver_id="acme_a"), mdns("_a._tcp", driver_id="acme_a")]),
+    ("mdns_same_id_reclaims_after_another", [
+        mdns("_a._tcp", {"model": "W"}, driver_id="acme_a"),
+        mdns("_a._tcp", {"model": "X"}, driver_id="acme_b"),
+        mdns("_a._tcp", {"model": "X"}, driver_id="acme_a"),
+    ]),
     ("mdns_unfiltered_then_filtered", [
         mdns("_a._tcp", driver_id="acme_a"), mdns("_a._tcp", {"model": "W"}, driver_id="acme_b"),
     ]),
@@ -500,6 +509,8 @@ STAMP_CASES: list[tuple[str, Any]] = [
     ("empty", {}),
     ("ssdp_filter", {"ssdp": [{"device_type": "urn:a", "model": "W"}]}),
     ("ssdp_filter_none", {"ssdp": [{"device_type": "urn:a", "model": None}]}),
+    ("ssdp_filter_empty_string", {"ssdp": [{"device_type": "urn:a", "model": ""}]}),
+    ("ssdp_filter_false", {"ssdp": [{"device_type": "urn:a", "friendly_name": False}]}),
     ("ssdp_string", {"ssdp": "urn:a"}),
     ("ssdp_single_mapping", {"ssdp": {"device_type": "urn:a", "friendly_name": "W"}}),
     ("ssdp_mixed_list", {"ssdp": ["urn:a", {"device_type": "urn:b"}, {"device_type": "urn:c", "manufacturer": "A"}]}),

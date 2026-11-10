@@ -291,6 +291,13 @@
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
+    "extract_string": {
+      "errors": [
+        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract must be a mapping of field name to literal string or {regex, group} mapping"
+      ],
+      "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "stderr": ""
+    },
     "full_valid": {
       "errors": [],
       "normalized": "{'mdns': [{'service': '_acme._tcp', 'txt': {'model': 'W'}}], 'ssdp': [{'device_type': 'urn:acme', 'fields': {'model': 'W'}}], 'amx_ddp': [{'make': 'Acme', 'model_pattern': 'W*'}], 'has_tcp_probe': True, 'has_udp_probe': True, 'has_python': True, 'hostname': ['^acme']}",
@@ -453,6 +460,11 @@
     "mdns_string": {
       "errors": [],
       "normalized": "{'mdns': [{'service': '_acme._tcp', 'txt': {}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "stderr": ""
+    },
+    "mdns_string_upper": {
+      "errors": [],
+      "normalized": "{'mdns': [{'service': '_ACME._tcp', 'txt': {}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "no_block": {
@@ -1383,6 +1395,13 @@
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
+    "then_silence_zero_with_match": {
+      "errors": [
+        "audio/acme_widget.avcdriver: discovery.tcp_probe.then.expect_silence must be a bool"
+      ],
+      "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "stderr": ""
+    },
     "then_string": {
       "errors": [
         "audio/acme_widget.avcdriver: discovery.tcp_probe.then must be a mapping"
@@ -1410,6 +1429,13 @@
       "stderr": ""
     },
     "then_timeout_string": {
+      "errors": [
+        "audio/acme_widget.avcdriver: discovery.tcp_probe.then.timeout_ms must be a positive integer"
+      ],
+      "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "stderr": ""
+    },
+    "then_timeout_true": {
       "errors": [
         "audio/acme_widget.avcdriver: discovery.tcp_probe.then.timeout_ms must be a positive integer"
       ],
@@ -1719,6 +1745,12 @@
       "locator": [],
       "stderr": ""
     },
+    "mdns_same_id_reclaims_after_another": {
+      "collisions": [],
+      "errors": [],
+      "locator": [],
+      "stderr": ""
+    },
     "mdns_same_id_two_files": {
       "collisions": [],
       "errors": [],
@@ -1945,6 +1977,16 @@
     "ssdp_filter": {
       "input_unchanged": true,
       "result": "{'requires': '0.23.0', 'ssdp': [{'device_type': 'urn:a', 'model': 'W'}]}",
+      "same_object": false
+    },
+    "ssdp_filter_empty_string": {
+      "input_unchanged": true,
+      "result": "{'requires': '0.23.0', 'ssdp': [{'device_type': 'urn:a', 'model': ''}]}",
+      "same_object": false
+    },
+    "ssdp_filter_false": {
+      "input_unchanged": true,
+      "result": "{'requires': '0.23.0', 'ssdp': [{'device_type': 'urn:a', 'friendly_name': False}]}",
       "same_object": false
     },
     "ssdp_filter_none": {

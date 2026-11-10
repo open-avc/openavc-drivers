@@ -16,16 +16,17 @@ definition section by section and asks a check module about each command
 setting and learned config field (``setting_checks``), the push block
 (``push_block_checks``), the Quick Action blocks (``action_checks``), the
 framing each way (``framing_checks``), the sign-in (``sign_in_checks``), the
-watchdog (``liveness_checks``) and the ``routing:`` block
-(``routing_checks``). The runtime
+watchdog (``liveness_checks``), the ``routing:`` block
+(``routing_checks``) and the ``{name}`` placeholders in its wire templates
+(``substitution_checks``). ``validate_driver_warnings`` walks it the same
+way for the rules that only warn (``driver_warnings``). The runtime
 loader wraps it (adding the discovery-block check, which needs the
 discovery engine's parser), and the community driver catalog runs a copy of
 the same rules in its CI, so a definition that passes catalog review is
 exactly a definition the platform will load.
 
 Purity contract: standard library plus the sibling contract modules (the
-``spec`` constants table and the check modules) and the stdlib-only
-regex-safety helper. Nothing here may import
+``spec`` constants table and the check modules). Nothing here may import
 the server runtime, transports, or discovery machinery; checks that need
 them are passed in (see ``validate_driver_definition``'s
 ``discovery_validator`` hook). An import-guard test enforces this.
@@ -34,14 +35,12 @@ them are passed in (see ``validate_driver_definition``'s
 from __future__ import annotations
 
 import difflib as _difflib
-import re
 from typing import Any, Callable
 
 from .action_checks import (
     validate_actions as validate_actions,
     yaml_action_errors,
 )
-from .child_ids import declared_child_ids, page_starts
 from .child_type_checks import (
     RosterNames,
     child_param_reference_errors,
@@ -49,10 +48,13 @@ from .child_type_checks import (
     undeclared_child_type_reason as undeclared_child_type_reason,
 )
 from .command_checks import CommandSection
-from .declared_names import (
-    UNEVALUATED_KEY,
-    closest_name,
-    substitution_names,
+from .declared_names import UNEVALUATED_KEY as UNEVALUATED_KEY
+from .driver_warnings import (
+    masked_default_warnings,
+    poll_length_warnings,
+    port_open_warnings,
+    unlabeled_param_warnings,
+    unwatched_silence_warnings,
 )
 from .framing_checks import (
     COMMAND_AFFIXES,
@@ -79,18 +81,12 @@ from .setting_checks import (
 )
 from .sign_in_checks import auth_errors
 from .spec import (
-    DEFAULT_LINE_GAP_S,
     DEFS,
     FIELDS,
     GENERIC_ID_PREFIXES,
-    LINE_GAP_TRANSPORTS,
-    LIVENESS_TRANSPORTS,
-    PORT_OPEN_TRANSPORTS,
     REQUIRED_FIELDS,
-    SILENCE_CHECK_TRANSPORTS,
     YAML_TRANSPORTS,
     block_has_fixed_keys,
-    is_secret_setting,
     parse_version,
     platform_requirements,
 )
@@ -98,184 +94,9 @@ from .state_variable_checks import (
     DEVICE_VARIABLE,
     state_variable_errors,
 )
-
-# One ``{name}`` or ``{name:format_spec}`` token. Deliberately requires an
-# identifier, so a literal JSON body — ``{"vol": {level}}`` — matches only on
-# the real placeholder and never on the brace that opens the object.
-_SUBSTITUTION_TOKEN = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)(?::[^{}]*)?\}")
-
-# What each position is allowed to interpolate, phrased for the message.
-_CMD_SOURCES = "no parameter of this command and no config field"
-_CFG_SOURCES = "no config field (only config values substitute here)"
-
-
-def _unresolved_substitutions(
-    where: str, template: Any, resolvable: set[str], sources: str,
-    effect: str = "it would be sent to the device as written",
-) -> list[str]:
-    """Report ``{name}`` tokens in one template that resolve to nothing.
-
-    ``safe_substitute`` leaves an unknown placeholder verbatim rather than
-    raising — deliberately, so a JSON body full of braces cannot crash a send.
-    The cost is that a typo travels to the device as literal text and nothing
-    says so: the command appears to do nothing, or a response pattern compiles
-    to a regex that can never match. The runtime stays lenient; this is the
-    authoring gate that makes the typo visible instead.
-
-    ``sources`` names what this template is allowed to interpolate, because
-    that differs by position — a command sees its own params and the config, a
-    response pattern is matched long after any params are gone. ``effect`` is
-    what the unresolved token would do there.
-    """
-    if not isinstance(template, str):
-        return []
-    errors: list[str] = []
-    for match in _SUBSTITUTION_TOKEN.finditer(template):
-        name = match.group(1)
-        if name in resolvable:
-            continue
-        suggestion = closest_name(name, resolvable)
-        hint = f" (did you mean '{suggestion}'?)" if suggestion else ""
-        errors.append(
-            f"{where}: '{{{name}}}' resolves to nothing{hint}. It names "
-            f"{sources}, so {effect}"
-        )
-    return errors
-
-
-def validate_substitutions(driver_def: dict[str, Any]) -> list[str]:
-    """Every ``{name}`` a driver writes into a wire template must resolve.
-
-    Covers the three places a placeholder reaches the device or the matcher:
-    a command's send/path/body/address/headers, a response's ``match``
-    pattern, and the query lists (polling, on_connect and each response
-    rule's then_query).
-
-    Mirrored into the community catalog's validator by the vendored copy of
-    this module (``openavc-drivers/scripts/_vendor/``).
-    """
-    errors: list[str] = []
-    config_names = substitution_names(driver_def)
-
-    commands = driver_def.get("commands")
-    if isinstance(commands, dict) and UNEVALUATED_KEY not in commands:
-        for name, cmd in commands.items():
-            if not isinstance(cmd, dict):
-                continue
-            params = cmd.get("params")
-            # A computed params block is a SUBSET of the real one, so "not in
-            # it" proves nothing — skip this command rather than report a
-            # working driver as broken. Same rule as the actions check.
-            if isinstance(params, dict) and UNEVALUATED_KEY in params:
-                continue
-            # A command that declares no params is making no claim about its
-            # placeholders, and the runtime substitutes whatever the caller
-            # passed: `send: "IN{input}"` with no params block works, because a
-            # macro or script can supply `input` at call time. That is a loose
-            # shape — an undeclared param gets no type coercion, no range gate
-            # and no UI control — but it is not a wrong one, so this check has
-            # no standing to call it an error.
-            #
-            # Once a command DOES declare params it has named its inputs, and a
-            # token outside that set sitting beside a near-identical one inside
-            # it is the typo this rule exists to catch.
-            if not isinstance(params, dict) or not params:
-                continue
-            resolvable = config_names | {k for k in params if isinstance(k, str)}
-            for field in ("send", "path", "body", "address"):
-                errors.extend(
-                    _unresolved_substitutions(
-                        f"commands.{name}.{field}",
-                        cmd.get(field),
-                        resolvable,
-                        _CMD_SOURCES,
-                    )
-                )
-            headers = cmd.get("headers")
-            if isinstance(headers, dict):
-                for key, value in headers.items():
-                    errors.extend(
-                        _unresolved_substitutions(
-                            f"commands.{name}.headers.{key}",
-                            value,
-                            resolvable,
-                            _CMD_SOURCES,
-                        )
-                    )
-            # A read-back query is filled from this command's parameters too;
-            # one that names a command is that command's to fill.
-            read_back = cmd.get("read_back")
-            read_backs = (
-                [read_back] if isinstance(read_back, str)
-                else read_back if isinstance(read_back, list) else []
-            )
-            for i, entry in enumerate(read_backs):
-                if not isinstance(entry, str) or entry in commands:
-                    continue
-                errors.extend(
-                    _unresolved_substitutions(
-                        f"commands.{name}.read_back"
-                        + (f"[{i}]" if isinstance(read_back, list) else ""),
-                        entry,
-                        resolvable,
-                        _CMD_SOURCES,
-                    )
-                )
-            udp = cmd.get("udp")
-            if isinstance(udp, dict):
-                for field in ("payload", "host", "port"):
-                    if isinstance(udp.get(field), str):
-                        errors.extend(
-                            _unresolved_substitutions(
-                                f"commands.{name}.udp.{field}",
-                                udp[field],
-                                resolvable,
-                                _CMD_SOURCES,
-                            )
-                        )
-
-    # A response pattern is substituted against the config alone — it is
-    # matched long after any command's params are gone.
-    responses = driver_def.get("responses")
-    if isinstance(responses, list):
-        for i, response in enumerate(responses):
-            if isinstance(response, dict):
-                errors.extend(
-                    _unresolved_substitutions(
-                        f"responses[{i}].match",
-                        response.get("match"),
-                        config_names,
-                        _CFG_SOURCES,
-                        effect="the pattern would look for it as written",
-                    )
-                )
-
-    polling = driver_def.get("polling")
-    query_lists: list[tuple[str, Any]] = [
-        ("polling.queries",
-         polling.get("queries") if isinstance(polling, dict) else None),
-        ("on_connect", driver_def.get("on_connect")),
-    ]
-    if isinstance(responses, list):
-        query_lists += [
-            (f"responses[{i}].then_query", response.get("then_query"))
-            for i, response in enumerate(responses)
-            if isinstance(response, dict)
-        ]
-    for where, entries in query_lists:
-        if not isinstance(entries, list):
-            continue
-        for i, entry in enumerate(entries):
-            template = entry if isinstance(entry, str) else None
-            if isinstance(entry, dict):
-                template = entry.get("send") or entry.get("address")
-            errors.extend(
-                _unresolved_substitutions(
-                    f"{where}[{i}]", template, config_names, _CFG_SOURCES
-                )
-            )
-
-    return errors
+from .substitution_checks import (
+    validate_substitutions as validate_substitutions,
+)
 
 
 class _TaggedErrors(list):
@@ -787,297 +608,39 @@ def validate_driver_warnings(driver_def: dict[str, Any]) -> list[str]:
     """Rules an author should see but that must never block anything.
 
     Deliberately separate from ``validate_driver_definition``: everything that
-    function returns is an *error* to every one of its callers — the loader
-    drops the driver, the save routes refuse it, catalog CI fails the build.
-    A rule that only wants to say "are you sure?" has no home there.
+    function returns is an *error* to every one of its callers (the loader
+    drops the driver, the save routes refuse it, catalog CI fails the build).
+    A rule that only wants to say "are you sure?" has no home there; each one
+    is a function in ``driver_warnings``, asked here in the order they report.
 
     ``validate_driver_issues`` is what carries these onward, so an editor can
     show them beside the errors without treating them as one.
 
     Same tagging as the error walk: ``warnings.ctx`` marks where each message
-    belongs.
+    belongs. A config field's or a parameter's name is written into the tag
+    only when a rule says something about it.
     """
     warnings = _TaggedErrors()
     if not isinstance(driver_def, dict):
         return warnings
 
-    def has_value(value: Any) -> bool:
-        return value is not None and value != ""
+    for field_name, found in masked_default_warnings(driver_def):
+        warnings.ctx = f"config_schema.{field_name}"
+        warnings.extend(found)
 
-    # A masked config field with a default stores that default in plain text
-    # inside the driver file. Worth a nudge, never a refusal: the value an
-    # author puts there is nearly always the factory default the manufacturer
-    # prints in its own manual — a starting point for whoever commissions the
-    # device rather than a secret. The rule worth having is "don't ship a site
-    # password", and a driver file cannot tell the two apart, so the nudge is
-    # the honest ceiling. (The same stance is declared on the `secret` field
-    # in spec.py, which is what the published schema and every editor read.)
-    config_schema = driver_def.get("config_schema")
-    raw_defaults = driver_def.get("default_config")
-    defaults = raw_defaults if isinstance(raw_defaults, dict) else {}
-    if isinstance(config_schema, dict):
-        for field_name, field_def in config_schema.items():
-            if not isinstance(field_def, dict):
-                continue
-            if not is_secret_setting(field_name, field_def):
-                continue
-            if has_value(field_def.get("default")) or has_value(
-                defaults.get(field_name)
-            ):
-                warnings.ctx = f"config_schema.{field_name}"
-                warnings.append(
-                    f"Config field '{field_name}' is masked but has a default "
-                    f"value, which is stored in plain text inside the driver "
-                    f"file. That is fine for a published factory default, but "
-                    f"never put a real site password here."
-                )
+    warnings.ctx = "discovery"
+    warnings.extend(port_open_warnings(driver_def))
 
-    # A `port_open` hint is matched against a TCP connect sweep, so on a driver
-    # that only speaks UDP or OSC it can never fire. The existing rule on this
-    # field only rejects ports that are too *generic* — nothing notices a port
-    # on the wrong protocol, so the hint ships looking declared and does
-    # nothing. A nudge rather than a refusal because the device may genuinely
-    # also listen on TCP; it is the driver that has no way to be found that way.
-    discovery = driver_def.get("discovery")
-    if isinstance(discovery, dict) and discovery.get("port_open"):
-        declared = [driver_def.get("transport")]
-        extra = driver_def.get("transports")
-        if isinstance(extra, list):
-            declared.extend(extra)
-        transports = {t for t in declared if isinstance(t, str) and t}
-        if transports and not transports & set(PORT_OPEN_TRANSPORTS):
-            warnings.ctx = "discovery"
-            warnings.append(
-                f"discovery.port_open is matched against a TCP port scan, but "
-                f"this driver's transport is "
-                f"{', '.join(sorted(transports))}, so the hint can never fire. "
-                f"Drop it, or add a transport that listens on TCP."
-            )
-
-    # A command parameter with no label is named on every form by its key
-    # made readable (openavc/drivers/param_labels.py), which often says too
-    # little ("Value", "Src"). A nudge per field, never a refusal: the field
-    # works either way.
-    commands = driver_def.get("commands")
-    if isinstance(commands, dict):
-        for cmd_name, cmd_def in commands.items():
-            params = cmd_def.get("params") if isinstance(cmd_def, dict) else None
-            if not isinstance(params, dict):
-                continue
-            for param_name, param_def in params.items():
-                if not isinstance(param_def, dict):
-                    continue
-                label = param_def.get("label")
-                if isinstance(label, str) and label.strip():
-                    continue
-                warnings.ctx = f"commands.{cmd_name}.params.{param_name}"
-                warnings.append(
-                    f"Command '{cmd_name}' parameter '{param_name}' has no label, so "
-                    f"forms show its key made readable. Give it a label that says "
-                    f"what to enter."
-                )
-
-    _poll_length_warnings(driver_def, warnings)
-    _unwatched_silence_warnings(driver_def, warnings)
-
-    return warnings
-
-
-def _number(value: Any) -> float | None:
-    if isinstance(value, bool):
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def _seconds(value: float) -> str:
-    return f"{value:.1f}".rstrip("0").rstrip(".")
-
-
-def _poll_lines(
-    queries: list[Any], child_types: dict[str, Any], config: dict[str, Any]
-) -> int:
-    """How many lines one poll cycle sends with this config.
-
-    Counted the way ConfigurableDriver._expand_query expands them: a string
-    is one line, a ``{send}`` entry one line while its ``when:`` field is
-    truthy, an ``each_child`` entry one line per child the declaration
-    registers (none while the roster is empty), or one per page of
-    ``page_size`` children. A ``when_state:`` gate, on an entry or on the
-    whole poll, is counted as sent: the device's state is not known here, and
-    the poll is as long as it gets while the gate is open. A roster the device resizes
-    (``count_from_state``) is counted at its config field, which is what the
-    runtime builds before the first report and what a matrix of that size
-    reports anyway.
-    """
-    lines = 0
-    for entry in queries:
-        if isinstance(entry, str):
-            lines += 1
-            continue
-        if not isinstance(entry, dict):
-            continue
-        when = entry.get("when")
-        if isinstance(when, str) and when and not config.get(when):
-            continue
-        child_type = entry.get("each_child")
-        if child_type is None:
-            lines += 1 if isinstance(entry.get("send"), str) else 0
-            continue
-        ids = declared_child_ids(_config_sized(child_types.get(child_type)), config)
-        lines += len(page_starts(ids, entry.get("page_size"))) if ids else 0
-    return lines
-
-
-def _config_sized(type_def: Any) -> Any:
-    """A child type with ``count_from_state`` dropped, so its roster is the
-    one its config field declares."""
-    if not isinstance(type_def, dict):
-        return type_def
-    instances = type_def.get("instances")
-    if not isinstance(instances, dict) or not instances.get("count_from_state"):
-        return type_def
-    trimmed = {k: v for k, v in instances.items() if k != "count_from_state"}
-    return {**type_def, "instances": trimmed}
-
-
-def _poll_length_warnings(driver_def: dict[str, Any], warnings: list[str]) -> None:
-    """A poll cycle that takes longer than the poll interval.
-
-    Each line of a poll waits ``inter_command_delay`` after it, or
-    DEFAULT_LINE_GAP_S over LINE_GAP_TRANSPORTS when no delay is set, and the
-    next cycle starts one poll interval after this one ends. So a cycle longer
-    than the interval keeps the device answering polls more than half the time
-    and refreshes every reading less than half as often as the interval says.
-    Checked at the driver's default config and, when a child roster is sized
-    by a config field, with every such field at the largest value the driver
-    accepts (the field's ``max``, else the child id's ``max``). OSC lines go
-    out differently and are not counted here.
-    """
-    defaults = driver_def.get("default_config")
-    config = dict(defaults) if isinstance(defaults, dict) else {}
-    transport = config.get("transport") or driver_def.get("transport")
-    delay = _number(config.get("inter_command_delay")) or 0.0
-    if transport in LINE_GAP_TRANSPORTS:
-        gap = delay if delay > 0 else DEFAULT_LINE_GAP_S
-    elif transport in ("udp", "http"):
-        gap = delay
-    else:
-        return
-    interval = _number(config.get("poll_interval"))
-    polling = driver_def.get("polling")
-    queries = polling.get("queries") if isinstance(polling, dict) else None
-    if gap <= 0 or not interval or interval <= 0 or not isinstance(queries, list):
-        return
-    raw_types = driver_def.get("child_entity_types")
-    child_types = raw_types if isinstance(raw_types, dict) else {}
-    raw_schema = driver_def.get("config_schema")
-    schema = raw_schema if isinstance(raw_schema, dict) else {}
-    spacing = f"{round(gap * 1000)} ms apart"
-    if delay <= 0:
-        spacing += " (the spacing used when no inter_command_delay is set)"
-
-    def verdict(lines: int) -> str | None:
-        cycle = lines * gap
-        if cycle <= interval:
-            return None
-        return (
-            f"{lines} lines, {_seconds(cycle)} s at {spacing}, longer than the "
-            f"{_seconds(interval)} s poll interval: the device answers polls more "
-            f"than half the time, and each reading refreshes every "
-            f"{_seconds(cycle + interval)} s"
-        )
+    for cmd_name, param_name, found in unlabeled_param_warnings(driver_def):
+        warnings.ctx = f"commands.{cmd_name}.params.{param_name}"
+        warnings.extend(found)
 
     warnings.ctx = "polling.queries"
-    at_default = verdict(_poll_lines(queries, child_types, config))
-    if at_default:
-        warnings.append(
-            f"Each poll sends {at_default}. Poll less per cycle, or set a longer "
-            f"poll_interval in default_config."
-        )
-        return
-
-    largest = dict(config)
-    raised: list[str] = []
-    for type_def in child_types.values():
-        if not isinstance(type_def, dict):
-            continue
-        instances = type_def.get("instances")
-        field = instances.get("count_from") if isinstance(instances, dict) else None
-        if not isinstance(field, str) or not field:
-            continue
-        field_def = schema.get(field)
-        field_def = field_def if isinstance(field_def, dict) else {}
-        top = field_def.get("max")
-        id_format = type_def.get("id_format")
-        if top is None and isinstance(id_format, dict):
-            top = id_format.get("max")
-        if isinstance(top, bool) or not isinstance(top, int) or top < 1:
-            continue
-        current = _number(largest.get(field))
-        if current is not None and current >= top:
-            continue
-        largest[field] = top
-        label = field_def.get("label")
-        name = label if isinstance(label, str) and label else field
-        raised.append(f"{name} {top}")
-    if not raised:
-        return
-    at_largest = verdict(_poll_lines(queries, child_types, largest))
-    if at_largest:
-        warnings.append(
-            f"At the largest roster this driver accepts ({', '.join(raised)}), "
-            f"each poll sends {at_largest}. Poll less per child, set a longer "
-            f"poll_interval, or lower the roster's max to the largest unit the "
-            f"driver supports."
-        )
-
-
-def _unwatched_silence_warnings(
-    driver_def: dict[str, Any], warnings: list[str]
-) -> None:
-    """A device that stops answering would keep reading connected.
-
-    The poll loop drops a connection whose polls draw nothing, but only on
-    SILENCE_CHECK_TRANSPORTS and only for a driver that sends polls; a
-    ``liveness:`` block covers every LIVENESS_TRANSPORTS link. A driver with no
-    response rules reads nothing, so it has nothing to watch.
-    """
-    if driver_def.get("liveness"):
-        return
-    responses = driver_def.get("responses")
-    if not isinstance(responses, list) or not responses:
-        return
-    defaults = driver_def.get("default_config")
-    config = defaults if isinstance(defaults, dict) else {}
-    declared = [config.get("transport") or driver_def.get("transport")]
-    extra = driver_def.get("transports")
-    if isinstance(extra, list):
-        declared.extend(extra)
-    transports = [t for t in dict.fromkeys(declared) if t in LIVENESS_TRANSPORTS]
-    polling = driver_def.get("polling")
-    queries = polling.get("queries") if isinstance(polling, dict) else None
-    interval = _number(config.get("poll_interval"))
-    polls = bool(queries) and interval is not None and interval > 0
-    unwatched = [
-        t for t in transports if not polls or t not in SILENCE_CHECK_TRANSPORTS
-    ]
-    if not unwatched:
-        return
-    over = " or ".join(unwatched)
-    if polls:
-        reason = f"polls over {over} are not checked for a reply"
-    else:
-        reason = "it sends no poll at its default config"
+    warnings.extend(poll_length_warnings(driver_def))
     warnings.ctx = "liveness"
-    warnings.append(
-        f"Nothing notices if the device stops answering over {over}: {reason}, "
-        f"and there is no liveness block, so the device reads connected for as "
-        f"long as the connection stays open. Add a liveness block that asks "
-        f"something the device answers in every state."
-    )
+    warnings.extend(unwatched_silence_warnings(driver_def))
+
+    return warnings
 
 
 def _as_issues(messages: list[str], severity: str) -> list[dict[str, str]]:

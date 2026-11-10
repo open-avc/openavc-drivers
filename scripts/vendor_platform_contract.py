@@ -75,10 +75,6 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from .action_checks import (",
             ),
             (
-                "from openavc.drivers.child_ids import",
-                "from .child_ids import",
-            ),
-            (
                 "from openavc.drivers.child_type_checks import",
                 "from .child_type_checks import",
             ),
@@ -90,6 +86,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
             (
                 "from openavc.drivers.declared_names import",
                 "from .declared_names import",
+            ),
+            (
+                "from openavc.drivers.driver_warnings import (",
+                "from .driver_warnings import (",
             ),
             (
                 "from openavc.drivers.framing_checks import (",
@@ -126,6 +126,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
             (
                 "from openavc.drivers.state_variable_checks import",
                 "from .state_variable_checks import",
+            ),
+            (
+                "from openavc.drivers.substitution_checks import (",
+                "from .substitution_checks import (",
             ),
         ),
     ),
@@ -229,6 +233,25 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from .declared_names import",
             ),
             ("from openavc.drivers.spec import", "from .spec import"),
+        ),
+    ),
+    (
+        "openavc/drivers/substitution_checks.py",
+        "scripts/_vendor/substitution_checks.py",
+        (
+            (
+                "from openavc.drivers.declared_names import (",
+                "from .declared_names import (",
+            ),
+            ("from openavc.drivers.spec import", "from .spec import"),
+        ),
+    ),
+    (
+        "openavc/drivers/driver_warnings.py",
+        "scripts/_vendor/driver_warnings.py",
+        (
+            ("from openavc.drivers.child_ids import", "from .child_ids import"),
+            ("from openavc.drivers.spec import (", "from .spec import ("),
         ),
     ),
     (

@@ -57,6 +57,15 @@ _KNOWN_FOLLOW_UP_KEYS: frozenset[str] = frozenset({
     "expect", "expect_regex", "expect_hex", "timeout_ms",
 })
 
+_SSDP_FILTER_KEYS = ("model", "manufacturer", "friendly_name")
+_KNOWN_MDNS_KEYS = frozenset({"service", "txt", "cross_vendor"})
+_KNOWN_SSDP_KEYS = frozenset({"device_type", "cross_vendor", *_SSDP_FILTER_KEYS})
+_KNOWN_AMX_DDP_KEYS = frozenset({"make", "model_pattern", "cross_vendor"})
+_KNOWN_PYTHON_KEYS = frozenset({"file", "cross_vendor"})
+
+# Template drivers carry no discovery of their own.
+_EXEMPT_ID_PREFIXES = ("generic_",)
+
 
 _SEND_KEYS = ("send_hex", "send_ascii")
 _MATCHER_KEYS = ("expect", "expect_regex", "expect_hex")
@@ -365,6 +374,9 @@ def _follow_up_expectation_errors(file: str, at: str, raw: dict[str, Any]) -> li
     return errors
 
 
+# --- python: ------------------------------------------------------------------
+
+
 def _validate_python_block(
     file: str, raw: Any, *, yaml_dir: Path | None = None,
 ) -> list[str]:
@@ -377,37 +389,7 @@ def _validate_python_block(
     records under ``custom_<id>_companion_(udp|tcp)`` that never get
     any evidence to match.
     """
-    errors: list[str] = []
-    file_path: str | None = None
-    if isinstance(raw, str):
-        if not raw:
-            errors.append(
-                f"{file}: discovery.python path must be a non-empty string"
-            )
-        else:
-            file_path = raw
-    elif not isinstance(raw, dict):
-        errors.append(
-            f"{file}: discovery.python must be a string path or "
-            "{file, cross_vendor} mapping"
-        )
-        return errors
-    else:
-        unknown = set(raw.keys()) - {"file", "cross_vendor"}
-        if unknown:
-            errors.append(
-                f"{file}: discovery.python has unknown keys: {sorted(unknown)}"
-            )
-        candidate = raw.get("file")
-        if not isinstance(candidate, str) or not candidate:
-            errors.append(
-                f"{file}: discovery.python.file must be a non-empty string"
-            )
-        else:
-            file_path = candidate
-        if "cross_vendor" in raw and not isinstance(raw["cross_vendor"], bool):
-            errors.append(f"{file}: discovery.python.cross_vendor must be a bool")
-
+    errors, file_path = _python_declaration(file, raw)
     # Companion existence check — only when the parser has somewhere to
     # look (yaml_dir set). Skipped for purely-structural validation (the
     # platform's parser path runs without a yaml_dir).
@@ -423,6 +405,31 @@ def _validate_python_block(
     return errors
 
 
+def _python_declaration(file: str, raw: Any) -> tuple[list[str], str | None]:
+    """What is wrong with a ``python:`` declaration, and the companion path it names."""
+    if isinstance(raw, str):
+        if raw:
+            return [], raw
+        return [f"{file}: discovery.python path must be a non-empty string"], None
+    if not isinstance(raw, dict):
+        return [
+            f"{file}: discovery.python must be a string path or "
+            "{file, cross_vendor} mapping"
+        ], None
+    errors = _unknown_keys(file, "discovery.python", raw, _KNOWN_PYTHON_KEYS)
+    candidate = raw.get("file")
+    file_errors = _text_errors(file, "discovery.python.file", candidate)
+    errors += file_errors
+    errors += _not_bool(file, "discovery.python", raw, "cross_vendor")
+    return errors, None if file_errors else candidate
+
+
+# --- Fingerprints: mdns, ssdp, amx_ddp ------------------------------------------
+#
+# Each entry check returns (errors, normalised entry); the entry is None when
+# it is too broken to claim anything, so the cross-driver checks never see it.
+
+
 def _validate_mdns_entry(file: str, raw: Any) -> tuple[list[str], dict[str, Any] | None]:
     """Validate one mDNS fingerprint entry. Returns (errors, normalized)."""
     if isinstance(raw, str):
@@ -435,29 +442,20 @@ def _validate_mdns_entry(file: str, raw: Any) -> tuple[list[str], dict[str, Any]
              "{service, txt, cross_vendor} mappings"],
             None,
         )
-    errors: list[str] = []
-    unknown = set(raw.keys()) - {"service", "txt", "cross_vendor"}
-    if unknown:
-        errors.append(
-            f"{file}: discovery.mdns entry has unknown keys: {sorted(unknown)}"
-        )
+    errors = _unknown_keys(file, "discovery.mdns entry", raw, _KNOWN_MDNS_KEYS)
     service = raw.get("service")
-    if not isinstance(service, str) or not service:
-        errors.append(f"{file}: discovery.mdns.service must be a non-empty string")
-        return (errors, None)
+    service_errors = _text_errors(file, "discovery.mdns.service", service)
+    if service_errors:
+        return (errors + service_errors, None)
     txt_raw = raw.get("txt") or {}
     if not isinstance(txt_raw, dict):
         errors.append(f"{file}: discovery.mdns.txt must be a mapping")
         txt_raw = {}
-    if "cross_vendor" in raw and not isinstance(raw["cross_vendor"], bool):
-        errors.append(f"{file}: discovery.mdns.cross_vendor must be a bool")
+    errors += _not_bool(file, "discovery.mdns", raw, "cross_vendor")
     return (
         errors,
         {"service": service, "txt": {str(k): str(v) for k, v in txt_raw.items()}},
     )
-
-
-_SSDP_FILTER_KEYS = ("model", "manufacturer", "friendly_name")
 
 
 def _validate_ssdp_entry(file: str, raw: Any) -> tuple[list[str], dict[str, Any] | None]:
@@ -478,39 +476,34 @@ def _validate_ssdp_entry(file: str, raw: Any) -> tuple[list[str], dict[str, Any]
              "{device_type, model, manufacturer, friendly_name, cross_vendor} mappings"],
             None,
         )
-    errors: list[str] = []
-    unknown = set(raw.keys()) - {"device_type", "cross_vendor", *_SSDP_FILTER_KEYS}
-    if unknown:
-        errors.append(
-            f"{file}: discovery.ssdp entry has unknown keys: {sorted(unknown)}"
-        )
+    errors = _unknown_keys(file, "discovery.ssdp entry", raw, _KNOWN_SSDP_KEYS)
     dt = raw.get("device_type")
-    if not isinstance(dt, str) or not dt:
-        errors.append(f"{file}: discovery.ssdp.device_type must be a non-empty string")
-        return (errors, None)
-    fields: dict[str, str] = {}
-    for key in _SSDP_FILTER_KEYS:
-        if raw.get(key) is None:
-            continue
-        if not isinstance(raw[key], str) or not raw[key]:
-            errors.append(f"{file}: discovery.ssdp.{key} must be a non-empty string")
-            continue
-        fields[key] = raw[key]
-    if "cross_vendor" in raw and not isinstance(raw["cross_vendor"], bool):
-        errors.append(f"{file}: discovery.ssdp.cross_vendor must be a bool")
+    dt_errors = _text_errors(file, "discovery.ssdp.device_type", dt)
+    if dt_errors:
+        return (errors + dt_errors, None)
+    filter_errors, fields = _ssdp_filters(file, raw)
+    errors += filter_errors
+    errors += _not_bool(file, "discovery.ssdp", raw, "cross_vendor")
     return (errors, {"device_type": dt, "fields": fields})
+
+
+def _ssdp_filters(file: str, raw: dict[str, Any]) -> tuple[list[str], dict[str, str]]:
+    """The device-description filters an SSDP entry declares, and the well-formed ones."""
+    errors: list[str] = []
+    fields: dict[str, str] = {}
+    for key in _declared(raw, _SSDP_FILTER_KEYS):
+        key_errors = _text_errors(file, f"discovery.ssdp.{key}", raw[key])
+        errors += key_errors
+        if not key_errors:
+            fields[key] = raw[key]
+    return errors, fields
 
 
 def _validate_amx_ddp_entry(file: str, raw: Any) -> tuple[list[str], dict[str, str] | None]:
     """Validate one AMX-DDP fingerprint entry."""
     if not isinstance(raw, dict):
         return ([f"{file}: discovery.amx_ddp entries must be mappings"], None)
-    errors: list[str] = []
-    unknown = set(raw.keys()) - {"make", "model_pattern", "cross_vendor"}
-    if unknown:
-        errors.append(
-            f"{file}: discovery.amx_ddp entry has unknown keys: {sorted(unknown)}"
-        )
+    errors = _unknown_keys(file, "discovery.amx_ddp entry", raw, _KNOWN_AMX_DDP_KEYS)
     make = raw.get("make")
     if not isinstance(make, str) or not make:
         errors.append(f"{file}: discovery.amx_ddp.make is required")
@@ -519,9 +512,106 @@ def _validate_amx_ddp_entry(file: str, raw: Any) -> tuple[list[str], dict[str, s
     if not isinstance(model_pattern, str):
         errors.append(f"{file}: discovery.amx_ddp.model_pattern must be a string")
         model_pattern = "*"
-    if "cross_vendor" in raw and not isinstance(raw["cross_vendor"], bool):
-        errors.append(f"{file}: discovery.amx_ddp.cross_vendor must be a bool")
+    errors += _not_bool(file, "discovery.amx_ddp", raw, "cross_vendor")
     return (errors, {"make": make, "model_pattern": str(model_pattern)})
+
+
+_FINGERPRINT_ENTRIES = (
+    ("mdns", _validate_mdns_entry),
+    ("ssdp", _validate_ssdp_entry),
+    ("amx_ddp", _validate_amx_ddp_entry),
+)
+
+
+def _fingerprint_entries(
+    file: str, discovery: dict[str, Any], key: str, check: Any,
+) -> tuple[list[str], list[dict[str, Any]]]:
+    """Check every entry under one fingerprint key (one entry or a list of them)."""
+    errors: list[str] = []
+    entries: list[dict[str, Any]] = []
+    for entry in _as_list(discovery.get(key)):
+        entry_errors, normalized = check(file, entry)
+        errors += entry_errors
+        if normalized is not None:
+            entries.append(normalized)
+    return errors, entries
+
+
+# --- Hints: snmp_pen, oui, hostname, port_open, manufacturer_alias ---------------
+#
+# Each list hint checks its entries one at a time and reports the first thing
+# wrong with an entry.
+
+
+def _snmp_pen_errors(file: str, discovery: dict[str, Any]) -> list[str]:
+    if "snmp_pen" not in discovery:
+        return []
+    pen = discovery["snmp_pen"]
+    if _is_int(pen) and pen >= 1:
+        return []
+    return [f"{file}: discovery.snmp_pen must be a positive integer"]
+
+
+def _oui_entry_errors(file: str, prefix: Any) -> list[str]:
+    if isinstance(prefix, str) and prefix:
+        return []
+    return [f"{file}: discovery.oui entries must be non-empty strings, got {prefix!r}"]
+
+
+def _hostname_entry_errors(file: str, pattern: Any) -> list[str]:
+    if not isinstance(pattern, str) or not pattern:
+        return [
+            f"{file}: discovery.hostname entries must be non-empty strings, "
+            f"got {pattern!r}"
+        ]
+    return _compile_errors(file, f"discovery.hostname entry {pattern!r}", pattern, re.IGNORECASE)
+
+
+def _port_open_entry_errors(file: str, port: Any) -> list[str]:
+    if not _is_int(port):
+        return [f"{file}: discovery.port_open entries must be integers, got {port!r}"]
+    if not _is_port(port):
+        return [f"{file}: discovery.port_open entry {port} out of range [1, 65535]"]
+    if port in _DISALLOWED_OPEN_PORTS:
+        return [
+            f"{file}: discovery.port_open entry {port} is too generic — "
+            f"would match every web/SSH device. "
+            f"Disallowed: {sorted(_DISALLOWED_OPEN_PORTS)}"
+        ]
+    return []
+
+
+def _alias_entry_errors(file: str, alias: Any) -> list[str]:
+    if not isinstance(alias, str):
+        return [f"{file}: discovery.manufacturer_alias entries must be strings, got {alias!r}"]
+    if not alias.strip():
+        return [f"{file}: discovery.manufacturer_alias entries must be non-empty"]
+    return []
+
+
+_HINT_LISTS = (
+    ("oui", _oui_entry_errors),
+    ("hostname", _hostname_entry_errors),
+    ("port_open", _port_open_entry_errors),
+    ("manufacturer_alias", _alias_entry_errors),
+)
+
+
+def _hint_list(
+    file: str, discovery: dict[str, Any], key: str, check: Any,
+) -> tuple[list[str], list[Any]]:
+    """Check one list hint: errors, and the entries as declared (none when it is
+    not a list)."""
+    entries = discovery.get(key) or []
+    if not isinstance(entries, list):
+        return [f"{file}: discovery.{key} must be a list"], []
+    errors: list[str] = []
+    for entry in entries:
+        errors += check(file, entry)
+    return errors, entries
+
+
+# --- One driver's block -----------------------------------------------------------
 
 
 def validate_discovery_block(
@@ -533,26 +623,74 @@ def validate_discovery_block(
     start with ``generic_`` are exempt. ``yaml_dir`` is the directory the
     YAML lives in — when provided, used to verify a declared
     ``python:`` companion .py exists alongside the YAML.
+
+    The normalised form is what the cross-driver checks read: each
+    fingerprint's well-formed entries, whether a tcp_probe, udp_probe and
+    python companion are declared, and the hostname patterns.
     """
-    errors: list[str] = []
-    normalized: dict[str, Any] = {}
     driver_id = str(raw.get("id") or "")
-    if any(driver_id.startswith(p) for p in ("generic_",)):
-        return errors, normalized
+    if driver_id.startswith(_EXEMPT_ID_PREFIXES):
+        return [], {}
 
     discovery = raw.get("discovery") or {}
     if not isinstance(discovery, dict):
-        errors.append(f"{file}: discovery: must be a mapping")
-        return errors, normalized
+        return [f"{file}: discovery: must be a mapping"], {}
 
+    errors = _top_level_errors(file, discovery)
+    fingerprint_errors, normalized = _fingerprints(file, discovery, yaml_dir)
+    hint_errors, hints = _hints(file, discovery)
+    errors += fingerprint_errors + hint_errors
+    normalized["hostname"] = [p for p in hints["hostname"] if isinstance(p, str) and p]
+
+    if not _declares_a_signal(discovery, normalized, hints):
+        sys.stderr.write(
+            f"warning: {file}: discovery block declares no fingerprints or "
+            "hints; this driver will never participate in matching.\n"
+        )
+    return errors, normalized
+
+
+def _fingerprints(
+    file: str, discovery: dict[str, Any], yaml_dir: Path | None,
+) -> tuple[list[str], dict[str, Any]]:
+    """The fingerprints: mdns, ssdp and amx_ddp entries, the two probes and the
+    python companion. Returns their errors and the start of the normalised form."""
+    errors: list[str] = []
+    normalized: dict[str, Any] = {}
+    for key, check in _FINGERPRINT_ENTRIES:
+        entry_errors, normalized[key] = _fingerprint_entries(file, discovery, key, check)
+        errors += entry_errors
+    for kind in ("tcp", "udp"):
+        declared = f"{kind}_probe" in discovery
+        if declared:
+            errors += _validate_probe_block(file, kind, discovery[f"{kind}_probe"])
+        normalized[f"has_{kind}_probe"] = declared
+    normalized["has_python"] = "python" in discovery
+    if normalized["has_python"]:
+        errors += _validate_python_block(file, discovery["python"], yaml_dir=yaml_dir)
+    return errors, normalized
+
+
+def _hints(file: str, discovery: dict[str, Any]) -> tuple[list[str], dict[str, list[Any]]]:
+    """The hints: snmp_pen and the four list hints. Returns their errors and each
+    list hint's entries as declared."""
+    errors = _snmp_pen_errors(file, discovery)
+    hints: dict[str, list[Any]] = {}
+    for key, check in _HINT_LISTS:
+        hint_errors, hints[key] = _hint_list(file, discovery, key, check)
+        errors += hint_errors
+    return errors, hints
+
+
+def _top_level_errors(file: str, discovery: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
     unknown = set(discovery.keys()) - _KNOWN_DISCOVERY_KEYS
     if unknown:
         errors.append(
             f"{file}: discovery has unknown keys: {sorted(unknown)}. "
             f"Known keys: {sorted(_KNOWN_DISCOVERY_KEYS)}"
         )
-
-    # ``requires`` is normally stamped by this script at emission time
+    # ``requires`` is normally stamped by the catalog build at emission time
     # (see _DISCOVERY_FEATURE_GATES); a hand-authored value is accepted
     # but must be a parseable version string, or every platform would
     # skip the block conservatively.
@@ -563,150 +701,25 @@ def validate_discovery_block(
                 f"{file}: discovery.requires must be a version string "
                 f"like \"0.23.0\", got {req!r}"
             )
+    return errors
 
-    # --- Fingerprints -----------------------------------------------------
 
-    normalized_mdns: list[dict[str, Any]] = []
-    if "mdns" in discovery:
-        for entry in _as_list(discovery["mdns"]):
-            entry_errors, entry_norm = _validate_mdns_entry(file, entry)
-            errors.extend(entry_errors)
-            if entry_norm is not None:
-                normalized_mdns.append(entry_norm)
-    normalized["mdns"] = normalized_mdns
+_SIGNAL_FLAGS = ("mdns", "ssdp", "amx_ddp", "has_tcp_probe", "has_udp_probe", "has_python")
 
-    normalized_ssdp: list[dict[str, Any]] = []
-    if "ssdp" in discovery:
-        for entry in _as_list(discovery["ssdp"]):
-            entry_errors, dt = _validate_ssdp_entry(file, entry)
-            errors.extend(entry_errors)
-            if dt is not None:
-                normalized_ssdp.append(dt)
-    normalized["ssdp"] = normalized_ssdp
 
-    normalized_amx: list[dict[str, str]] = []
-    if "amx_ddp" in discovery:
-        for entry in _as_list(discovery["amx_ddp"]):
-            entry_errors, entry_norm = _validate_amx_ddp_entry(file, entry)
-            errors.extend(entry_errors)
-            if entry_norm is not None:
-                normalized_amx.append(entry_norm)
-    normalized["amx_ddp"] = normalized_amx
+def _declares_a_signal(
+    discovery: dict[str, Any], normalized: dict[str, Any], hints: dict[str, list[Any]],
+) -> bool:
+    """Whether anything in the block can take part in matching.
 
-    has_tcp_probe = False
-    has_udp_probe = False
-    if "tcp_probe" in discovery:
-        errors.extend(_validate_probe_block(file, "tcp", discovery["tcp_probe"]))
-        has_tcp_probe = True
-    if "udp_probe" in discovery:
-        errors.extend(_validate_probe_block(file, "udp", discovery["udp_probe"]))
-        has_udp_probe = True
-    normalized["has_tcp_probe"] = has_tcp_probe
-    normalized["has_udp_probe"] = has_udp_probe
-
-    has_python = False
-    if "python" in discovery:
-        errors.extend(_validate_python_block(
-            file, discovery["python"], yaml_dir=yaml_dir,
-        ))
-        has_python = True
-    normalized["has_python"] = has_python
-
-    # --- Hints ------------------------------------------------------------
-
-    if "snmp_pen" in discovery:
-        pen = discovery["snmp_pen"]
-        if not isinstance(pen, int) or isinstance(pen, bool) or pen < 1:
-            errors.append(f"{file}: discovery.snmp_pen must be a positive integer")
-
-    raw_oui = discovery.get("oui") or []
-    if not isinstance(raw_oui, list):
-        errors.append(f"{file}: discovery.oui must be a list")
-        raw_oui = []
-    for prefix in raw_oui:
-        if not isinstance(prefix, str) or not prefix:
-            errors.append(
-                f"{file}: discovery.oui entries must be non-empty strings, "
-                f"got {prefix!r}"
-            )
-
-    raw_host = discovery.get("hostname") or []
-    if not isinstance(raw_host, list):
-        errors.append(f"{file}: discovery.hostname must be a list")
-        raw_host = []
-    for pattern in raw_host:
-        if not isinstance(pattern, str) or not pattern:
-            errors.append(
-                f"{file}: discovery.hostname entries must be non-empty strings, "
-                f"got {pattern!r}"
-            )
-            continue
-        try:
-            re.compile(pattern, re.IGNORECASE)
-        except re.error as exc:
-            errors.append(
-                f"{file}: discovery.hostname entry {pattern!r} failed to "
-                f"compile: {exc}"
-            )
-    normalized["hostname"] = [p for p in raw_host if isinstance(p, str) and p]
-
-    raw_ports = discovery.get("port_open") or []
-    if not isinstance(raw_ports, list):
-        errors.append(f"{file}: discovery.port_open must be a list")
-        raw_ports = []
-    for port in raw_ports:
-        if not isinstance(port, int) or isinstance(port, bool):
-            errors.append(
-                f"{file}: discovery.port_open entries must be integers, got {port!r}"
-            )
-            continue
-        if port < 1 or port > 65535:
-            errors.append(
-                f"{file}: discovery.port_open entry {port} out of range [1, 65535]"
-            )
-            continue
-        if port in _DISALLOWED_OPEN_PORTS:
-            errors.append(
-                f"{file}: discovery.port_open entry {port} is too generic — "
-                f"would match every web/SSH device. "
-                f"Disallowed: {sorted(_DISALLOWED_OPEN_PORTS)}"
-            )
-
-    raw_aliases = discovery.get("manufacturer_alias") or []
-    if not isinstance(raw_aliases, list):
-        errors.append(f"{file}: discovery.manufacturer_alias must be a list")
-        raw_aliases = []
-    for alias in raw_aliases:
-        if not isinstance(alias, str):
-            errors.append(
-                f"{file}: discovery.manufacturer_alias entries must be strings, "
-                f"got {alias!r}"
-            )
-            continue
-        if not alias.strip():
-            errors.append(
-                f"{file}: discovery.manufacturer_alias entries must be non-empty"
-            )
-
-    has_any_signal = (
-        bool(normalized_mdns)
-        or bool(normalized_ssdp)
-        or bool(normalized_amx)
-        or has_tcp_probe
-        or has_udp_probe
-        or has_python
+    A fingerprint counts only with a well-formed entry; a probe, a companion,
+    ``snmp_pen`` or a list hint counts as soon as it is declared.
+    """
+    return (
+        any(normalized[key] for key in _SIGNAL_FLAGS)
         or "snmp_pen" in discovery
-        or bool(raw_oui)
-        or bool(raw_host)
-        or bool(raw_ports)
-        or bool(raw_aliases)
+        or any(hints.values())
     )
-    if not has_any_signal:
-        sys.stderr.write(
-            f"warning: {file}: discovery block declares no fingerprints or "
-            "hints; this driver will never participate in matching.\n"
-        )
-    return errors, normalized
 
 
 def validate_no_signal_collisions(

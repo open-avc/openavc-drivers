@@ -522,6 +522,120 @@
       "raised": "AttributeError: 'str' object has no attribute 'get'"
     }
   },
+  "fields": {
+    "cm_extra_key": {
+      "errors": [
+        "f: compatible_models.0.x: Extra inputs are not permitted"
+      ]
+    },
+    "confidence_unknown": {
+      "errors": [
+        "f: compatible_models.0.confidence: Value error, must be one of ('full', 'partial', 'untested')"
+      ]
+    },
+    "deprecated_alone": {
+      "errors": [
+        "f: <root>: Value error, deprecated drivers must set replacement_id"
+      ]
+    },
+    "help_connection_blank": {
+      "errors": [
+        "f: help.connection: String should have at least 1 character"
+      ]
+    },
+    "help_missing_setup": {
+      "errors": [
+        "f: help.setup: Field required"
+      ]
+    },
+    "min_platform_bad": {
+      "errors": [
+        "f: min_platform_version: Value error, must be valid semver if present"
+      ]
+    },
+    "min_platform_ok": {
+      "entry": "{'id': 'acme_widget', 'name': 'Acme Widget', 'manufacturer': 'Acme', 'category': 'audio', 'version': '1.0.0', 'author': 'T', 'transport': 'tcp', 'description': 'D', 'source_url': 'https://example.com', 'file': 'audio/x.avcdriver', 'format': 'avcdriver', 'files': {}, 'min_platform_version': '0.1.0'}"
+    },
+    "models_blank": {
+      "errors": [
+        "f: compatible_models.0.models: Value error, each model must be a non-empty string, got '  '"
+      ]
+    },
+    "models_empty": {
+      "errors": [
+        "f: compatible_models.0.models: Value error, models list cannot be empty"
+      ]
+    },
+    "ports_bool": {
+      "errors": [
+        "f: ports: Value error, port must be an integer 1\u201365535, got 0"
+      ]
+    },
+    "ports_coerced": {
+      "entry": "{'id': 'acme_widget', 'name': 'Acme Widget', 'manufacturer': 'Acme', 'category': 'audio', 'version': '1.0.0', 'author': 'T', 'transport': 'tcp', 'description': 'D', 'source_url': 'https://example.com', 'file': 'audio/x.avcdriver', 'format': 'avcdriver', 'files': {}, 'ports': [80, 81]}"
+    },
+    "ports_edges": {
+      "entry": "{'id': 'acme_widget', 'name': 'Acme Widget', 'manufacturer': 'Acme', 'category': 'audio', 'version': '1.0.0', 'author': 'T', 'transport': 'tcp', 'description': 'D', 'source_url': 'https://example.com', 'file': 'audio/x.avcdriver', 'format': 'avcdriver', 'files': {}, 'ports': [1, 65535]}"
+    },
+    "ports_fraction": {
+      "errors": [
+        "f: ports.0: Input should be a valid integer, got a number with a fractional part"
+      ]
+    },
+    "ports_negative": {
+      "errors": [
+        "f: ports: Value error, port must be an integer 1\u201365535, got -1"
+      ]
+    },
+    "ports_none": {
+      "errors": [
+        "f: ports.0: Input should be a valid integer"
+      ]
+    },
+    "ports_too_high": {
+      "errors": [
+        "f: ports: Value error, port must be an integer 1\u201365535, got 65536"
+      ]
+    },
+    "ports_zero": {
+      "errors": [
+        "f: ports: Value error, port must be an integer 1\u201365535, got 0"
+      ]
+    },
+    "protocols_blank": {
+      "errors": [
+        "f: protocols: Value error, each protocol must be a non-empty string, got ' '"
+      ]
+    },
+    "protocols_non_string": {
+      "errors": [
+        "f: protocols.0: Input should be a valid string"
+      ]
+    },
+    "replacement_alone": {
+      "errors": [
+        "f: <root>: Value error, replacement_id only valid when deprecated=true"
+      ]
+    },
+    "several_at_once": {
+      "errors": [
+        "f: id: Value error, id must be lowercase alphanumeric with underscores",
+        "f: category: Value error, must be one of ('projector', 'display', 'switcher', 'audio', 'camera', 'video', 'streaming', 'lighting', 'power', 'utility')",
+        "f: version: Value error, must be valid semver (e.g. 1.0.0)",
+        "f: transport: Value error, must be one of ('tcp', 'serial', 'udp', 'http', 'osc', 'bridge', 'ssh', 'mqtt', 'snmp')",
+        "f: source_url: Value error, must start with http:// or https://",
+        "f: ports: Value error, port must be an integer 1\u201365535, got 0"
+      ]
+    },
+    "tags_bad": {
+      "errors": [
+        "f: tags: Value error, tag 'Not-OK' must be lowercase, hyphen-separated, alphanumeric (e.g. 'ndi', 'ceiling-mic')"
+      ]
+    },
+    "unknown_fields_dropped": {
+      "entry": "{'id': 'acme_widget', 'name': 'Acme Widget', 'manufacturer': 'Acme', 'category': 'audio', 'version': '1.0.0', 'author': 'T', 'transport': 'tcp', 'description': 'D', 'source_url': 'https://example.com', 'file': 'audio/x.avcdriver', 'format': 'avcdriver', 'files': {}}"
+    }
+  },
   "files": {
     "discovery_not_a_mapping.avcdriver": {
       "files": [
@@ -1641,7 +1755,7 @@
       "transcript": [
         [
           "err",
-          "WARNING: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt), skipping schema validation.\n\nFAILED: 8 validation error(s):\n\n  - duplicate driver id 'dup': audio/a.avcdriver vs audio/b.avcdriver\n  - audio/a.avcdriver: manufacturer 'Nobody' not in manufacturers.json. Add it there first if it's legitimately new.\n  - audio/a.avcdriver: compatible_models manufacturer 'Ghost' not in manufacturers.json\n  - audio/b.avcdriver: replacement_id 'gone' does not match any driver\n  - audio/c.avcdriver: claims full support for Acme M1, but audio/b.avcdriver already does. Add a `notes:` field on both entries justifying the overlap.\n  - audio/c.avcdriver: claims full support for Acme M1, but audio/c.avcdriver already does. Add a `notes:` field on both entries justifying the overlap.\n  - Locator ambiguity: 'c_drv' (audio/c.avcdriver) shares the hostname pattern '^acme-' with ['d_drv'] but declares no pre-install fingerprint (tcp_probe / udp_probe / mdns / ssdp / amx_ddp). An uninstalled device matching that hostname can't be told apart from its siblings; a python: companion only runs once the driver is installed, so it can't disambiguate first. Add a declarative fingerprint (e.g. a tcp_probe matching this driver's banner token).\n  - Locator ambiguity: 'd_drv' (audio/d.avcdriver) shares the hostname pattern '^acme-' with ['c_drv'] but declares no pre-install fingerprint (tcp_probe / udp_probe / mdns / ssdp / amx_ddp). An uninstalled device matching that hostname can't be told apart from its siblings; a python: companion only runs once the driver is installed, so it can't disambiguate first. Add a declarative fingerprint (e.g. a tcp_probe matching this driver's banner token).\n"
+          "WARNING: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt), skipping schema validation.\n\nFAILED: 13 validation error(s):\n\n  - audio/e.avcdriver: id: Field required\n  - audio/e.avcdriver: Missing required field: id\n  - audio/f.avcdriver: id: Value error, id must be lowercase alphanumeric with underscores\n  - audio/g.avcdriver: id: Input should be a valid string\n  - duplicate driver id 'dup': audio/a.avcdriver vs audio/b.avcdriver\n  - audio/a.avcdriver: manufacturer 'Nobody' not in manufacturers.json. Add it there first if it's legitimately new.\n  - audio/a.avcdriver: compatible_models manufacturer 'Ghost' not in manufacturers.json\n  - audio/b.avcdriver: replacement_id 'gone' does not match any driver\n  - audio/c.avcdriver: claims full support for Acme M1, but audio/b.avcdriver already does. Add a `notes:` field on both entries justifying the overlap.\n  - audio/c.avcdriver: claims full support for Acme M1, but audio/c.avcdriver already does. Add a `notes:` field on both entries justifying the overlap.\n  - Signal collision: mdns:_acme._tcp. claimed by both 'dup' (audio/a.avcdriver) and 'c_drv' (audio/c.avcdriver)\n  - Signal collision: mdns:_other._tcp. claimed by both 'dup' (audio/b.avcdriver) and '' (audio/e.avcdriver)\n  - Locator ambiguity: 'd_drv' (audio/d.avcdriver) shares the hostname pattern '^acme-' with ['c_drv'] but declares no pre-install fingerprint (tcp_probe / udp_probe / mdns / ssdp / amx_ddp). An uninstalled device matching that hostname can't be told apart from its siblings; a python: companion only runs once the driver is installed, so it can't disambiguate first. Add a declarative fingerprint (e.g. a tcp_probe matching this driver's banner token).\n"
         ]
       ]
     },
@@ -2040,6 +2154,88 @@
         [
           "out",
           "Validated 1 driver(s), 0 device(s).\nWrote index.json, devices.json, and 20 category shard files.\n"
+        ]
+      ]
+    },
+    "no_package_and_no_file": {
+      "catalog": {
+        "devices.json": {
+          "_meta": {
+            "generator_version": "1.1.0",
+            "schema_version": "1",
+            "shards": null,
+            "total_devices": 0
+          },
+          "devices": []
+        },
+        "devices/audio.json": "037e433651ac348ac83ce7579f53a64776fdd7754787f40a62a628520b5be445",
+        "devices/camera.json": "59fdba9941655f60be3e20e759cb0811af6a5ec7db8e40c2159222fd5f3079bf",
+        "devices/display.json": "d0b02aaf31570db55e6a206bd727d4eec0ec9b245d9e9aeb570526c706fe76e9",
+        "devices/lighting.json": "3c1c49b46477d2ee10a8df91078b911d729262d0440f895eae2b549f04ea9c1d",
+        "devices/power.json": "513fe8e0134c53e8465141acb103d6a693688ee22db5d4dd2b7d6cc5ee0108aa",
+        "devices/projector.json": "dd475a2e98ea4abe3b7bc151ebe0b624e1f3c8ca1988f7039048defa39f1fd6a",
+        "devices/streaming.json": "f8facf37b8e78918a5beef88bb3058170adea021177a8405181796b6f746c11f",
+        "devices/switcher.json": "de4882beedc4997f627f4dfcfc8102f1c0a6fd32ddd4c140781c463402954fbf",
+        "devices/utility.json": "a818c08861f18e2387106e4c4d790555beb6059211f613d712cff4eed042fe11",
+        "devices/video.json": "a7d223d7da7b6d5c135f589f4ac3f1a655cd3ed97239cb8fd999939a3519b237",
+        "index.json": {
+          "_meta": {
+            "generator_version": "1.1.0",
+            "schema_version": "1",
+            "shards": null,
+            "total_drivers": 1
+          },
+          "drivers": [
+            {
+              "author": "Tester",
+              "category": "projector",
+              "description": "Fixture driver.",
+              "file": "projectors/acme_py.py",
+              "files": {
+                "projectors/acme_py.py": "cc7dcd6c28006504c4bd220caad571fcafa738249efa247a820aaeb05e5f91e8"
+              },
+              "format": "python",
+              "id": "acme_py",
+              "manufacturer": "Acme",
+              "name": "Acme Py",
+              "source_url": "https://example.com/protocol",
+              "transport": "tcp",
+              "version": "1.0.0"
+            }
+          ]
+        },
+        "index/audio.json": "5654d7815265011abc13a9f0a473b221dfa7b2298f778cc4cebe62dd5aff4564",
+        "index/camera.json": "832bd975491f861cdb8d43d8c16d09967fa3f4d73fb16c4e5cab48c094e209c9",
+        "index/display.json": "a444289c04bd939384e388b977a843e75d202e93fbe623bd09a23a4cf3afaed6",
+        "index/lighting.json": "39a19946b0acf073818dbb55b6a03b897e77bdb2a2d214142e8479728c96e6a5",
+        "index/power.json": "63538a3d0c576ff632c84894dc6d221b26dfeef5295e3a9414bc75c5fa4ef538",
+        "index/projector.json": "e14014de83b1c28e978f79981cdd00e96ba20b016ece4b1e3afd9e8209a47d2e",
+        "index/streaming.json": "af7444cb2c9669b495af87fec3c37ef7604884630b61ba9c5376428c2d02104f",
+        "index/switcher.json": "56b1b692040f8b238fcfc5d55af4a0e14d9f7b28ce65ee6ffbd743f943ea7a37",
+        "index/utility.json": "70b4c393fbd35a66251c86ebc3104e62c6515ab2c371288f817caf1e0bad0b6e",
+        "index/video.json": "5dec762b62f84f87df9d74df5329dfd8a87d3f20c6a843aa20774a644f800a89"
+      },
+      "raised": null,
+      "rc": 0,
+      "transcript": [
+        [
+          "err",
+          "WARNING: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt), skipping schema validation.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+        ],
+        [
+          "out",
+          "Validated 1 driver(s), 0 device(s).\nWrote index.json, devices.json, and 20 category shard files.\n"
+        ]
+      ]
+    },
+    "no_package_and_no_file_flag": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "ERROR: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt)\n"
         ]
       ]
     },

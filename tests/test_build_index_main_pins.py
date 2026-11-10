@@ -310,12 +310,15 @@ def cross_driver(root: Path) -> None:
           discovery={"mdns": ["_acme._tcp"]})
     _yaml(root, "audio/b.avcdriver", id="dup", deprecated=True, replacement_id="gone",
           compatible_models=[{"manufacturer": "Acme", "models": ["M1"], "confidence": "full"}],
-          discovery={"mdns": ["_acme._tcp"]})
+          discovery={"mdns": ["_other._tcp"]})
     _yaml(root, "audio/c.avcdriver", id="c_drv",
           compatible_models=[{"manufacturer": "Acme", "models": ["M1", "M1"], "confidence": "full"}],
-          discovery={"hostname": ["^acme-"]})
+          discovery={"hostname": ["^acme-"], "mdns": ["_acme._tcp"]})
     _yaml(root, "audio/d.avcdriver", id="d_drv",
           discovery={"hostname": ["^acme-"]})
+    _yaml(root, "audio/e.avcdriver", id=..., discovery={"mdns": ["_other._tcp"]})
+    _yaml(root, "audio/f.avcdriver", id="", discovery={"amx_ddp": [{"make": "Acme"}]})
+    _yaml(root, "audio/g.avcdriver", id=None, discovery={"amx_ddp": [{"make": "Acme"}]})
 
 
 def two_bad(first: Callable[[Path], None], second: Callable[[Path], None]) -> Callable[[Path], None]:
@@ -356,6 +359,8 @@ MAIN_CASES: list[tuple[str, Callable[[Path], None], list[str], str]] = [
     ("schema_file_missing_flag", one_yaml, ["--check-json-schema"], "missing"),
     ("no_package", one_py, [], "no_package"),
     ("no_package_flag", one_py, ["--check-json-schema"], "no_package"),
+    ("no_package_and_no_file", one_py, [], "no_package_missing"),
+    ("no_package_and_no_file_flag", one_py, ["--check-json-schema"], "no_package_missing"),
     ("no_python_schema", _then(one_yaml, lambda r: _py(r, "projectors/acme_py.py", polling={"interval": "x"})), [], "no_python"),
     ("no_python_schema_flag", one_py, ["--check-json-schema"], "no_python"),
     ("manufacturers_missing", lambda r: _yaml(r, "audio/acme_widget.avcdriver"), [], "repo"),
@@ -446,7 +451,7 @@ class _recording:
 def _schema_argv(root: Path, schema: str) -> list[str]:
     if schema in ("repo", "no_package"):
         return ["--json-schema-file", str(SCHEMA)]
-    if schema == "missing":
+    if schema in ("missing", "no_package_missing"):
         return ["--json-schema-file", str(root / "absent.schema.json")]
     if schema == "no_python":
         alone = root / "schemas" / "avcdriver.schema.json"
@@ -493,7 +498,7 @@ def _run_main(stage: Callable[[Path], None], argv: list[str], schema: str) -> di
         args = ["--root", str(root), *_schema_argv(root, schema), *argv]
         log: list[list[str]] = []
         saved = build_index.jsonschema_validator_for
-        if schema == "no_package":
+        if schema.startswith("no_package"):
             build_index.jsonschema_validator_for = None
         raised = None
         rc = None
@@ -665,6 +670,43 @@ def _run_info(source: str, annotated: bool) -> dict[str, Any]:
         shutil.rmtree(root, ignore_errors=True)
 
 
+# --- One entry's fields ---------------------------------------------------------
+
+FIELD_CASES: list[tuple[str, dict[str, Any]]] = [
+    ("ports_edges", {"ports": [1, 65535]}),
+    ("ports_zero", {"ports": [0]}),
+    ("ports_too_high", {"ports": [65536]}),
+    ("ports_negative", {"ports": [-1]}),
+    ("ports_bool", {"ports": [True, False]}),
+    ("ports_coerced", {"ports": ["80", 81.0]}),
+    ("ports_fraction", {"ports": [1.5]}),
+    ("ports_none", {"ports": [None]}),
+    ("protocols_blank", {"protocols": ["telnet", " "]}),
+    ("protocols_non_string", {"protocols": [5]}),
+    ("models_empty", {"compatible_models": [{"manufacturer": "Acme", "models": [], "confidence": "full"}]}),
+    ("models_blank", {"compatible_models": [{"manufacturer": "Acme", "models": ["A", "  "], "confidence": "full"}]}),
+    ("confidence_unknown", {"compatible_models": [{"manufacturer": "Acme", "models": ["A"], "confidence": "most"}]}),
+    ("cm_extra_key", {"compatible_models": [{"manufacturer": "Acme", "models": ["A"], "confidence": "full", "x": 1}]}),
+    ("min_platform_bad", {"min_platform_version": "one"}),
+    ("min_platform_ok", {"min_platform_version": "0.1.0"}),
+    ("tags_bad", {"tags": ["ok", "Not-OK"]}),
+    ("help_missing_setup", {"help": {"overview": "o"}}),
+    ("help_connection_blank", {"help": {"overview": "o", "setup": "s", "connection": ""}}),
+    ("deprecated_alone", {"deprecated": True}),
+    ("replacement_alone", {"replacement_id": "b"}),
+    ("several_at_once", {"id": "Bad", "category": "nope", "transport": "x", "version": "1", "source_url": "x", "ports": [0]}),
+    ("unknown_fields_dropped", {"commands": {"x": 1}, "flavour": "sweet"}),
+]
+
+
+def _run_fields(fields: dict[str, Any]) -> dict[str, Any]:
+    try:
+        entry = _entry(**fields)
+    except build_index.ValidationError as exc:
+        return {"errors": build_index._format_validation_errors("f", exc)}
+    return {"entry": repr(build_index._entry_dict(entry))}
+
+
 # --- The files an install fetches --------------------------------------------
 
 COMPANION_SHAPES: list[tuple[str, Any]] = [
@@ -730,6 +772,7 @@ def _observe() -> dict[str, Any]:
             f"{name}{suffix}": _run_files(dict(COMPANION_SHAPES)[name], suffix)
             for name, suffix in FILE_CASES
         },
+        "fields": {name: _run_fields(fields) for name, fields in FIELD_CASES},
     }
 
 
@@ -741,7 +784,7 @@ def test_case_names_are_unique() -> None:
     for names in (
         [c[0] for c in MAIN_CASES], [c[0] for c in ENTRY_SETS],
         [c[0] for c in EXTRA_SETS], [c[0] for c in INFO_CASES],
-        [c[0] for c in COMPANION_SHAPES],
+        [c[0] for c in COMPANION_SHAPES], [c[0] for c in FIELD_CASES],
     ):
         assert len(names) == len(set(names))
 
@@ -753,6 +796,7 @@ def test_fixture_covers_exactly_the_cases() -> None:
     assert sorted(expected["devices"]) == sorted(f"{e}+{x}" for e, x in DEVICE_CASES)
     assert len(expected["info"]) == 2 * len(INFO_CASES)
     assert sorted(expected["files"]) == sorted(f"{n}{s}" for n, s in FILE_CASES)
+    assert sorted(expected["fields"]) == sorted(n for n, _ in FIELD_CASES)
 
 
 @pytest.mark.parametrize(
@@ -777,6 +821,11 @@ def test_devices_catalog(entry_set: str, extra_set: str) -> None:
 def test_index_fields_of_a_python_driver(name: str, source: str, annotated: bool) -> None:
     key = f"{name}{'_annotated' if annotated else ''}"
     assert _run_info(source, annotated) == _expected()["info"][key]
+
+
+@pytest.mark.parametrize(("name", "fields"), FIELD_CASES, ids=[c[0] for c in FIELD_CASES])
+def test_entry_fields(name: str, fields: dict[str, Any]) -> None:
+    assert _run_fields(fields) == _expected()["fields"][name]
 
 
 @pytest.mark.parametrize(("name", "suffix"), FILE_CASES, ids=[f"{n}{s}" for n, s in FILE_CASES])

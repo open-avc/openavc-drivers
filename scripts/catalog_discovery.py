@@ -389,7 +389,8 @@ def _validate_python_block(
     records under ``custom_<id>_companion_(udp|tcp)`` that never get
     any evidence to match.
     """
-    errors, file_path = _python_declaration(file, raw)
+    errors = _python_declaration_errors(file, raw)
+    file_path = declared_companion(raw)
     # Companion existence check — only when the parser has somewhere to
     # look (yaml_dir set). Skipped for purely-structural validation (the
     # platform's parser path runs without a yaml_dir).
@@ -405,11 +406,6 @@ def _validate_python_block(
     return errors
 
 
-def _python_declaration(file: str, raw: Any) -> tuple[list[str], str | None]:
-    """What is wrong with a ``python:`` declaration, and the companion path it names."""
-    return _python_declaration_errors(file, raw), declared_companion(raw)
-
-
 def declared_companion(raw: Any) -> str | None:
     """The companion file a ``python:`` declaration names, or None if it names none.
 
@@ -422,6 +418,7 @@ def declared_companion(raw: Any) -> str | None:
 
 
 def _python_declaration_errors(file: str, raw: Any) -> list[str]:
+    """What is wrong with a ``python:`` declaration."""
     if isinstance(raw, str):
         return [] if raw else [f"{file}: discovery.python path must be a non-empty string"]
     if not isinstance(raw, dict):

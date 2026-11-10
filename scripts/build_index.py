@@ -26,7 +26,6 @@ import json
 import re
 import sys
 import tempfile
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterator, NamedTuple
 
@@ -459,36 +458,33 @@ def _validate_json_schema(
     return errors
 
 
-def _validate_all_json_schemas(
-    raw: list[tuple[Path, dict[str, Any]]],
-    yaml_validator: "JsonSchemaValidator | None",
-    python_validator: "JsonSchemaValidator | None",
-) -> list[str]:
-    """Validate each driver_info against the JSON Schema for its format.
+class _SchemaValidators(NamedTuple):
+    """A validator per driver format; None where that format goes unchecked.
 
-    .avcdriver (YAML) drivers use avcdriver.schema.json as published;
-    .py (Python) drivers use pythondriver.schema.json, the platform-generated
+    .avcdriver (YAML) drivers use avcdriver.schema.json as published; .py
+    (Python) drivers use pythondriver.schema.json, the platform-generated
     variant that also allows the Python-only features (ssh/mqtt transports,
-    kind "setup" actions). Python drivers are skipped when that variant is
-    unavailable.
-
-    Returns a list of errors.
+    kind "setup" actions).
     """
-    errors: list[str] = []
-    for filepath, driver_info in raw:
-        validator = python_validator if filepath.suffix == ".py" else yaml_validator
-        if validator is None:
-            continue
-        errors.extend(_validate_json_schema(filepath.as_posix(), driver_info, validator))
-    return errors
-
-
-@dataclass(frozen=True)
-class _SchemaValidators:
-    """A validator per driver format; None where that format goes unchecked."""
 
     yaml: "JsonSchemaValidator | None" = None
     python: "JsonSchemaValidator | None" = None
+
+    def for_file(self, filepath: Path) -> "JsonSchemaValidator | None":
+        return self.python if filepath.suffix == ".py" else self.yaml
+
+
+def _validate_all_json_schemas(
+    raw: list[tuple[Path, dict[str, Any]]], validators: _SchemaValidators
+) -> list[str]:
+    """Validate each driver_info against the JSON Schema for its format,
+    skipping a format that has none. Returns a list of errors."""
+    errors: list[str] = []
+    for filepath, driver_info in raw:
+        validator = validators.for_file(filepath)
+        if validator is not None:
+            errors.extend(_validate_json_schema(filepath.as_posix(), driver_info, validator))
+    return errors
 
 
 def _schema_unavailable(json_schema_path: Path) -> str | None:
@@ -755,22 +751,30 @@ def _unresolved_replacements(entries: list[DriverEntry]) -> Iterator[str]:
 def _overlapping_full_support(entries: list[DriverEntry]) -> Iterator[str]:
     """Each full claim on a (manufacturer, model) the latest earlier full claim
     already made, unless both carry notes justifying the overlap."""
-    seen_full: dict[tuple[str, str], tuple[str, bool]] = {}
-    full_claims = (claim for claim in _model_claims(entries) if claim[1].confidence == "full")
+    seen_full: dict[tuple[str, str], _FullClaim] = {}
+    full_claims = (
+        (e, cm, model) for e, cm, model in _model_claims(entries) if cm.confidence == "full"
+    )
     for e, cm, model in full_claims:
         key = (cm.manufacturer, model)
-        if key in seen_full and not _both_have_notes(seen_full[key], cm):
+        prior = seen_full.get(key)
+        if prior is not None and not _justified(prior, cm):
             yield (
                 f"{e.file}: claims full support for "
-                f"{cm.manufacturer} {model}, but {seen_full[key][0]} already does. "
+                f"{cm.manufacturer} {model}, but {prior.file} already does. "
                 f"Add a `notes:` field on both entries justifying the overlap."
             )
-        seen_full[key] = (e.file, bool(cm.notes))
+        seen_full[key] = _FullClaim(e.file, bool(cm.notes))
 
 
-def _both_have_notes(prior: tuple[str, bool], cm: CompatibleModelsEntry) -> bool:
-    _, prior_has_notes = prior
-    return bool(prior_has_notes and cm.notes)
+class _FullClaim(NamedTuple):
+    file: str
+    has_notes: bool
+
+
+def _justified(prior: _FullClaim, cm: CompatibleModelsEntry) -> bool:
+    """Both claims on the model carry notes explaining why they overlap."""
+    return bool(prior.has_notes and cm.notes)
 
 
 def _model_claims(
@@ -1190,9 +1194,7 @@ def main(argv: list[str] | None = None) -> int:
     if inputs is None:
         return 1
 
-    schema_errors = _validate_all_json_schemas(
-        inputs.raw, validators.yaml, validators.python
-    )
+    schema_errors = _validate_all_json_schemas(inputs.raw, validators)
     if args.check_json_schema and _report_schema_errors(schema_errors):
         return 1
 

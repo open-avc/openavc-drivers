@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 169,
+    "total_drivers": 170,
     "shards": null
   },
   "drivers": [
@@ -6901,6 +6901,61 @@
         "manufacturer_alias": [
           "lutron",
           "lutron electronics"
+        ]
+      }
+    },
+    {
+      "id": "magewell_pro_convert_ip_decoder",
+      "name": "Magewell Pro Convert IP Decoder",
+      "manufacturer": "Magewell",
+      "category": "streaming",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls IP decoder sources, single/PiP/quad profiles, screen routing, audio, video and source-camera PTZ.",
+      "source_url": "https://www.magewell.com/api-docs/pro-convert-ip-decoder-api/latest/",
+      "file": "streaming/magewell_pro_convert_ip_decoder.py",
+      "format": "python",
+      "files": {
+        "streaming/magewell_pro_convert_ip_decoder.py": "60ec904543ce4a126ae60ad4c46cb71bd0e45b627d440967e605abf602a00652",
+        "streaming/magewell_pro_convert_ip_decoder_sim.py": "9ff08b8efc6fc3a8d210cd80a6691adbf35a67d473badefe974496464de40a7c"
+      },
+      "ports": [
+        80,
+        443
+      ],
+      "protocols": [
+        "http"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.1",
+      "tags": [
+        "decoder",
+        "ndi",
+        "srt",
+        "streaming",
+        "multiview"
+      ],
+      "help": {
+        "overview": "Select a discovered or saved source, recall a saved profile, and route sources to the active windows. Window feedback reflects the decoder\u2019s actual stream status. Sources and profiles are discovered automatically. No hardware qualification has been performed.",
+        "setup": "Use firmware 1.3 or newer. Enter a local account with control permission; username is case-sensitive. Match HTTP/HTTPS and the port to the decoder\u2019s web interface. Simple mode uses Select Source; Profile mode uses Select Profile. Changing modes is explicit. Set up network access, certificates and firmware in the device web interface. NDI alpha controls require a 4K model. PTZ requires a supporting active source. On loss of signal, Receiving becomes false; the decoder may still display its configured fallback image."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Magewell",
+          "models": [
+            "Pro Convert IP to HDMI",
+            "Pro Convert IP to HDMI 4K",
+            "Pro Convert IP to AIO 4K"
+          ],
+          "confidence": "untested",
+          "notes": "SKUs 644300000, 644100000 and 644000000. Firmware 1.3 or newer; API v1.3. Older Pro Convert NDI decoders and encoders use different APIs."
+        }
+      ],
+      "discovery": {
+        "oui": [
+          "d0:c8:57:8",
+          "70:b3:d5:75:d"
         ]
       }
     },

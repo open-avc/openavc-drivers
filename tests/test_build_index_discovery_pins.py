@@ -340,6 +340,12 @@ BLOCK_CASES: list[tuple[str, dict, bool]] = [
     ("signal_bad_amx_entry_only", d({"amx_ddp": ["x"]}), False),
     ("signal_bad_lists_only", d({"oui": "x", "hostname": "y", "port_open": 1,
                                   "manufacturer_alias": "z"}), False),
+    # Problems in every section at once: the order the sections are reported in.
+    ("every_section_wrong", d({
+        "zeta": 1, "requires": "x", "mdns": "", "ssdp": "", "amx_ddp": "x",
+        "tcp_probe": 1, "udp_probe": 2, "python": 3, "snmp_pen": 0,
+        "oui": [""], "hostname": [""], "port_open": [80], "manufacturer_alias": [" "],
+    }), False),
     # A full, valid block in the order the corpus writes it.
     ("full_valid", d({
         "requires": "0.37.2",
@@ -415,6 +421,12 @@ CATALOG_CASES: list[tuple[str, list[dict]]] = [
         mdns("_a._tcp", {"model": "X"}, driver_id="acme_b"),
         mdns("_a._tcp", driver_id="acme_c"),
         mdns("_a._tcp", {"model": "X"}, driver_id="acme_d"),
+    ]),
+    # A refused claim is not recorded: acme_c is judged against acme_a only.
+    ("mdns_refused_claim_not_recorded", [
+        mdns("_a._tcp", {"model": "W"}, driver_id="acme_a"),
+        mdns("_a._tcp", driver_id="acme_b"),
+        mdns("_a._tcp", {"model": "X"}, driver_id="acme_c"),
     ]),
     ("ssdp_same_type", [ssdp("urn:a", driver_id="acme_a"), ssdp("urn:a", driver_id="acme_b")]),
     ("ssdp_type_case_matters", [ssdp("urn:A", driver_id="acme_a"), ssdp("urn:a", driver_id="acme_b")]),

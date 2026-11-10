@@ -116,6 +116,25 @@
       "normalized": "{}",
       "stderr": ""
     },
+    "every_section_wrong": {
+      "errors": [
+        "audio/acme_widget.avcdriver: discovery has unknown keys: ['zeta']. Known keys: ['amx_ddp', 'hostname', 'manufacturer_alias', 'mdns', 'oui', 'port_open', 'python', 'requires', 'snmp_pen', 'ssdp', 'tcp_probe', 'udp_probe']",
+        "audio/acme_widget.avcdriver: discovery.requires must be a version string like \"0.23.0\", got 'x'",
+        "audio/acme_widget.avcdriver: discovery.mdns service must be a non-empty string",
+        "audio/acme_widget.avcdriver: discovery.ssdp device_type must be a non-empty string",
+        "audio/acme_widget.avcdriver: discovery.amx_ddp entries must be mappings",
+        "audio/acme_widget.avcdriver: discovery.tcp_probe must be a mapping",
+        "audio/acme_widget.avcdriver: discovery.udp_probe must be a mapping",
+        "audio/acme_widget.avcdriver: discovery.python must be a string path or {file, cross_vendor} mapping",
+        "audio/acme_widget.avcdriver: discovery.snmp_pen must be a positive integer",
+        "audio/acme_widget.avcdriver: discovery.oui entries must be non-empty strings, got ''",
+        "audio/acme_widget.avcdriver: discovery.hostname entries must be non-empty strings, got ''",
+        "audio/acme_widget.avcdriver: discovery.port_open entry 80 is too generic \u2014 would match every web/SSH device. Disallowed: [22, 80, 443, 8000, 8080, 8443, 8888]",
+        "audio/acme_widget.avcdriver: discovery.manufacturer_alias entries must be non-empty"
+      ],
+      "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': True, 'has_python': True, 'hostname': []}",
+      "stderr": ""
+    },
     "extract_group_bool": {
       "errors": [
         "audio/acme_widget.avcdriver: discovery.tcp_probe.extract.model.group must be a non-negative integer"
@@ -1718,6 +1737,14 @@
       "stderr": ""
     },
     "mdns_filtered_then_unfiltered": {
+      "collisions": [
+        "Signal collision: mdns:_a._tcp. \u2014 'acme_b' (audio/driver_1.avcdriver) claims it without a TXT filter, which would shadow 'acme_a''s filtered claim (audio/driver_0.avcdriver)"
+      ],
+      "errors": [],
+      "locator": [],
+      "stderr": ""
+    },
+    "mdns_refused_claim_not_recorded": {
       "collisions": [
         "Signal collision: mdns:_a._tcp. \u2014 'acme_b' (audio/driver_1.avcdriver) claims it without a TXT filter, which would shadow 'acme_a''s filtered claim (audio/driver_0.avcdriver)"
       ],

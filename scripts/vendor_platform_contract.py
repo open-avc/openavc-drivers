@@ -88,12 +88,16 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
             ),
             ("from openavc.drivers.spec import (", "from .spec import ("),
             (
-                "from openavc.utils.regex_safety import",
-                "from .regex_safety import",
-            ),
-            (
                 "from openavc.drivers.declared_names import",
                 "from .declared_names import",
+            ),
+            (
+                "from openavc.drivers.framing_checks import (",
+                "from .framing_checks import (",
+            ),
+            (
+                "from openavc.drivers.liveness_checks import",
+                "from .liveness_checks import",
             ),
             (
                 "from openavc.drivers.push_block_checks import",
@@ -106,6 +110,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
             (
                 "from openavc.drivers.response_rule_checks import",
                 "from .response_rule_checks import",
+            ),
+            (
+                "from openavc.drivers.sign_in_checks import",
+                "from .sign_in_checks import",
             ),
             (
                 "from openavc.drivers.state_variable_checks import",
@@ -189,12 +197,43 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         ),
     ),
     (
+        "openavc/drivers/framing_checks.py",
+        "scripts/_vendor/framing_checks.py",
+        (("from openavc.drivers.spec import (", "from .spec import ("),),
+    ),
+    (
+        "openavc/drivers/liveness_checks.py",
+        "scripts/_vendor/liveness_checks.py",
+        (
+            ("from openavc.drivers.spec import", "from .spec import"),
+            (
+                "from openavc.utils.regex_safety import",
+                "from .regex_safety import",
+            ),
+        ),
+    ),
+    (
+        "openavc/drivers/sign_in_checks.py",
+        "scripts/_vendor/sign_in_checks.py",
+        (
+            ("from openavc.drivers.spec import", "from .spec import"),
+            (
+                "from openavc.utils.regex_safety import",
+                "from .regex_safety import",
+            ),
+        ),
+    ),
+    (
         "openavc/drivers/push_block_checks.py",
         "scripts/_vendor/push_block_checks.py",
         (
             (
                 "from openavc.drivers.declared_names import",
                 "from .declared_names import",
+            ),
+            (
+                "from openavc.drivers.framing_checks import",
+                "from .framing_checks import",
             ),
             ("from openavc.drivers.spec import (", "from .spec import ("),
             (

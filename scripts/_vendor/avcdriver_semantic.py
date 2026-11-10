@@ -13,9 +13,10 @@ definition section by section and asks a check module about each command
 (``command_checks``), response rule (``response_rule_checks``), query entry
 (``query_entry_checks``), child type and the references into it
 (``child_type_checks``), state variable (``state_variable_checks``), the
-push block (``push_block_checks``) and the Quick Action blocks
-(``action_checks``). The
-runtime loader wraps it (adding the discovery-block check, which needs the
+push block (``push_block_checks``), the Quick Action blocks
+(``action_checks``), the framing each way (``framing_checks``), the sign-in
+(``sign_in_checks``) and the watchdog (``liveness_checks``). The runtime
+loader wraps it (adding the discovery-block check, which needs the
 discovery engine's parser), and the community driver catalog runs a copy of
 the same rules in its CI, so a definition that passes catalog review is
 exactly a definition the platform will load.
@@ -53,6 +54,13 @@ from .declared_names import (
     did_you_mean,
     substitution_names,
 )
+from .framing_checks import (
+    COMMAND_AFFIXES,
+    command_affix_errors,
+    frame_parser_errors,
+    send_frame_errors,
+)
+from .liveness_checks import liveness_errors
 from .push_block_checks import push_block_errors
 from .query_entry_checks import (
     FollowUp,
@@ -60,21 +68,17 @@ from .query_entry_checks import (
     then_query_errors,
 )
 from .response_rule_checks import response_rule_errors
+from .sign_in_checks import auth_errors
 from .spec import (
-    AUTH_TRANSPORTS,
-    AUTH_TYPES,
     CONNECTION_FIELDS,
     DEFAULT_LINE_GAP_S,
     DEFS,
     FIELDS,
     GENERIC_ID_PREFIXES,
-    LENGTH_ENDIANS,
-    LENGTH_HEADER_SIZES,
     LINE_GAP_TRANSPORTS,
     LIVENESS_TRANSPORTS,
     PORT_OPEN_TRANSPORTS,
     REQUIRED_FIELDS,
-    SEND_FRAME_TYPES,
     SILENCE_CHECK_TRANSPORTS,
     VALUE_TYPES,
     YAML_TRANSPORTS,
@@ -87,7 +91,6 @@ from .state_variable_checks import (
     DEVICE_VARIABLE,
     state_variable_errors,
 )
-from .regex_safety import regex_safety_error as _regex_redos_error
 
 # One ``{name}`` or ``{name:format_spec}`` token. Deliberately requires an
 # identifier, so a literal JSON body — ``{"vol": {level}}`` — matches only on
@@ -593,14 +596,11 @@ def validate_driver_definition(
     _child_ref_errors, _ = child_param_reference_errors(driver_def)
     errors.extend(_child_ref_errors)
 
-    # Opt-in send-side command framing: a constant prefix/suffix wraps every
-    # byte-stream command. Both must be strings when present.
-    errors.ctx = ""
-    for frame_key in ("command_prefix", "command_suffix"):
+    # The constant text wrapped around every byte-stream command, checked in
+    # framing_checks with the rest of the send side.
+    for frame_key in COMMAND_AFFIXES:
         errors.ctx = frame_key
-        frame_val = driver_def.get(frame_key)
-        if frame_val is not None and not isinstance(frame_val, str):
-            errors.append(f"{frame_key}: must be a string")
+        errors.extend(command_affix_errors(driver_def, frame_key))
 
     # Device settings: each entry must be writable (a `write:` block — the
     # runtime raises NotImplementedError without one) and its state_key must
@@ -671,103 +671,14 @@ def validate_driver_definition(
     errors.ctx = "push"
     errors.extend(push_block_errors(driver_def))
 
-    # Validate the optional `auth:` login handshake block. The runtime swaps to
-    # raw byte buffering and types credentials before any other traffic — so a
-    # misdeclared block silently connects unauthenticated or mangles the
-    # transport's data path instead of erroring. Enforce the requirements at
-    # load time where the author can see them.
+    # The sign-in the platform types before any other traffic, checked in
+    # sign_in_checks.
     errors.ctx = "auth"
-    auth_def = driver_def.get("auth")
-    if auth_def is not None:
-        if not isinstance(auth_def, dict):
-            errors.append("auth: must be a mapping")
-        else:
-            auth_type = auth_def.get("type", "telnet_login")
-            if auth_type not in AUTH_TYPES:
-                errors.append(
-                    f"auth: unsupported type '{auth_type}' (only 'telnet_login')"
-                )
-            # The handshake assumes a TCP/serial byte stream; on udp/http/osc the
-            # frame-parser swap and raw buffering break the normal data path.
-            if transport and transport not in AUTH_TRANSPORTS:
-                errors.append(
-                    f"auth: login handshake is only supported on tcp/serial "
-                    f"transports, not '{transport}'"
-                )
-            # Both prompts are required — without them the handshake silently
-            # no-ops and the device connects unauthenticated.
-            for required in ("username_prompt", "password_prompt"):
-                if not auth_def.get(required):
-                    errors.append(f"auth: missing required '{required}'")
-            # The prompt/success/failure regexes run synchronously on raw
-            # pre-auth device bytes, so they get the same ReDoS check as
-            # response patterns.
-            for key in (
-                "username_prompt",
-                "password_prompt",
-                "success_pattern",
-                "failure_pattern",
-            ):
-                pat = auth_def.get(key)
-                if pat:
-                    err = _regex_redos_error(f"auth.{key}", pat)
-                    if err:
-                        errors.append(err)
+    errors.extend(auth_errors(driver_def))
 
-    # Validate the optional `liveness:` watchdog block ("send X every N, await
-    # a reply within T, reconnect after K misses"). A misdeclared block would
-    # silently never arm (no watchdog — the exact never-goes-offline failure it
-    # exists to fix) or tear healthy devices down; enforce at load time.
+    # The watchdog's probe while the link is up, checked in liveness_checks.
     errors.ctx = "liveness"
-    liveness_def = driver_def.get("liveness")
-    if liveness_def is not None:
-        if not isinstance(liveness_def, dict):
-            errors.append("liveness: must be a mapping")
-        else:
-            # HTTP polling already awaits every response and raises on
-            # failure, so the missed-poll watchdog covers it; `bridge` devices
-            # own no transport. The probe only makes sense on the socket
-            # transports that can die silently.
-            if transport and transport not in LIVENESS_TRANSPORTS:
-                errors.append(
-                    f"liveness: not supported on transport '{transport}' "
-                    f"(only tcp/serial/udp/osc)"
-                )
-            send = liveness_def.get("send")
-            if not isinstance(send, str) or not send:
-                errors.append(
-                    "liveness: missing required 'send' (the probe payload: "
-                    "a raw protocol string, or an OSC address on osc)"
-                )
-            expect = liveness_def.get("expect")
-            if expect is not None:
-                if not isinstance(expect, str) or not expect:
-                    errors.append("liveness: 'expect' must be a regex string")
-                else:
-                    err = _regex_redos_error("liveness.expect", expect)
-                    if err:
-                        errors.append(err)
-            for key, minimum in (("interval", 1.0), ("timeout", 0.1)):
-                value = liveness_def.get(key)
-                if value is not None:
-                    if not isinstance(value, (int, float)) or isinstance(
-                        value, bool
-                    ) or value < minimum:
-                        errors.append(
-                            f"liveness: '{key}' must be a number >= {minimum}"
-                        )
-            max_failures = liveness_def.get("max_failures")
-            if max_failures is not None and (
-                not isinstance(max_failures, int)
-                or isinstance(max_failures, bool)
-                or max_failures < 1
-            ):
-                errors.append("liveness: 'max_failures' must be an integer >= 1")
-            if liveness_def.get("args") is not None:
-                if transport != "osc":
-                    errors.append("liveness: 'args' is only valid on osc")
-                elif not isinstance(liveness_def["args"], list):
-                    errors.append("liveness: 'args' must be a list")
+    errors.extend(liveness_errors(driver_def))
 
     # The Quick Action blocks, checked in action_checks: the rule a Python
     # driver's DRIVER_INFO shares, every message tagged actions, then a YAML
@@ -799,100 +710,12 @@ def validate_driver_definition(
     errors.ctx = "state_variables"
     errors.extend(value_conversion_errors(driver_def))
 
-    # Validate the optional frame_parser block (binary protocols). The runtime
-    # LengthPrefixFrameParser only accepts header_size in {1, 2, 4} and
-    # FixedLengthFrameParser needs a positive length; an out-of-range value
-    # (authored by hand or by an older Driver Builder) would otherwise raise
-    # in connect() and wedge the device in a permanent reconnect loop. Surface
-    # it at load instead, with a clear message.
+    # The framing each way, checked in framing_checks: how frames are cut
+    # from the stream, and the header each one sent is wrapped in.
     errors.ctx = "frame_parser"
-    frame_parser = driver_def.get("frame_parser")
-    if frame_parser is not None:
-        if not isinstance(frame_parser, dict):
-            errors.append("frame_parser: must be a mapping")
-        else:
-            fp_type = frame_parser.get("type", "")
-            if fp_type == "length_prefix":
-                header_size = frame_parser.get("header_size", 2)
-                if header_size not in LENGTH_HEADER_SIZES:
-                    errors.append(
-                        f"frame_parser: header_size must be 1, 2, or 4 (got {header_size!r})"
-                    )
-                offset = frame_parser.get("header_offset", 0)
-                if isinstance(offset, bool) or not isinstance(offset, int):
-                    errors.append(
-                        f"frame_parser: header_offset must be an integer (got {offset!r})"
-                    )
-                # Length field not at byte 0 (e.g. eISCP: length at offset 8,
-                # behind magic + header-size, followed by version/reserved).
-                for extra_key in ("length_offset", "header_extra"):
-                    extra_val = frame_parser.get(extra_key, 0)
-                    if (
-                        isinstance(extra_val, bool)
-                        or not isinstance(extra_val, int)
-                        or extra_val < 0
-                    ):
-                        errors.append(
-                            f"frame_parser: {extra_key} must be a non-negative "
-                            f"integer (got {extra_val!r})"
-                        )
-                endian = frame_parser.get("length_endian", "big")
-                if endian not in LENGTH_ENDIANS:
-                    errors.append(
-                        f"frame_parser: length_endian must be 'big' or 'little' "
-                        f"(got {endian!r})"
-                    )
-            elif fp_type == "fixed_length":
-                length = frame_parser.get("length", 1)
-                if isinstance(length, bool) or not isinstance(length, int) or length <= 0:
-                    errors.append(
-                        f"frame_parser: length must be a positive integer (got {length!r})"
-                    )
-            elif fp_type:
-                errors.append(
-                    f"frame_parser: unknown type '{fp_type}' "
-                    f"(expected 'length_prefix' or 'fixed_length')"
-                )
-            else:
-                errors.append("frame_parser: missing 'type'")
-
-    # Validate the optional send_frame block (send-side packet framing — the
-    # send twin of frame_parser). Only length_prefix is supported; the header
-    # bytes are literal-escape strings and length_size must be a positive int.
+    errors.extend(frame_parser_errors(driver_def))
     errors.ctx = "send_frame"
-    send_frame = driver_def.get("send_frame")
-    if send_frame is not None:
-        if not isinstance(send_frame, dict):
-            errors.append("send_frame: must be a mapping")
-        else:
-            sf_type = send_frame.get("type", "length_prefix")
-            if sf_type not in SEND_FRAME_TYPES:
-                errors.append(
-                    f"send_frame: unknown type '{sf_type}' (expected 'length_prefix')"
-                )
-            else:
-                length_size = send_frame.get("length_size", 4)
-                if (
-                    isinstance(length_size, bool)
-                    or not isinstance(length_size, int)
-                    or length_size < 1
-                ):
-                    errors.append(
-                        f"send_frame: length_size must be a positive integer "
-                        f"(got {length_size!r})"
-                    )
-                sf_endian = send_frame.get("length_endian", "big")
-                if sf_endian not in LENGTH_ENDIANS:
-                    errors.append(
-                        f"send_frame: length_endian must be 'big' or 'little' "
-                        f"(got {sf_endian!r})"
-                    )
-                for byte_key in ("header", "after_length"):
-                    byte_val = send_frame.get(byte_key)
-                    if byte_val is not None and not isinstance(byte_val, str):
-                        errors.append(
-                            f"send_frame: {byte_key} must be a string (got {byte_val!r})"
-                        )
+    errors.extend(send_frame_errors(driver_def))
 
     # What one child type says about itself (its name, id_format, state
     # variables and instances: roster) is checked in child_type_checks. Each

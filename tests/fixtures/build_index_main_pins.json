@@ -46,6 +46,12 @@
         "f3: claims full support for Acme M, but f2 already does. Add a `notes:` field on both entries justifying the overlap."
       ]
     },
+    "full_two_models_each": {
+      "errors": [
+        "f2: claims full support for Acme O, but f1 already does. Add a `notes:` field on both entries justifying the overlap.",
+        "f2: claims full support for Acme M, but f1 already does. Add a `notes:` field on both entries justifying the overlap."
+      ]
+    },
     "manufacturers": {
       "errors": [
         "f1: manufacturer 'Nobody' not in manufacturers.json. Add it there first if it's legitimately new.",

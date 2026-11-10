@@ -570,6 +570,10 @@ ENTRY_SETS: list[tuple[str, list[dict[str, Any]]]] = [
         dict(id="a", file="f1", compatible_models=[_cm("Acme", ["M"], notes="")]),
         dict(id="b", file="f2", compatible_models=[_cm("Acme", ["M"], notes="x")]),
     ]),
+    ("full_two_models_each", [
+        dict(id="a", file="f1", compatible_models=[_cm("Acme", ["M", "N", "O"])]),
+        dict(id="b", file="f2", compatible_models=[_cm("Acme", ["O", "M"]), _cm("Acme", ["N"], "partial")]),
+    ]),
     ("full_self_overlap", [
         dict(id="a", file="f1", compatible_models=[_cm("Acme", ["M", "M"]), _cm("Acme", ["M"], notes="n")]),
     ]),

@@ -26,8 +26,9 @@ import json
 import re
 import sys
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import yaml
 from pydantic import (
@@ -398,6 +399,15 @@ def collect_drivers(repo_root: Path) -> list[tuple[Path, dict[str, Any]]]:
     return raw
 
 
+# --- JSON Schema ------------------------------------------------------------
+#
+# The published schemas check each driver file's shape on top of the build's
+# own checks. Validation is optional unless --check-json-schema asks for it:
+# then a schema that cannot run, or a driver it refuses, fails the run at
+# once. Otherwise the reason is a warning, and a refused driver fails the run
+# last, once every other check has passed, so nothing is reported twice.
+
+
 def _validate_json_schema(
     filepath: str,
     driver_info: dict[str, Any],
@@ -425,7 +435,7 @@ def _validate_json_schema(
 
 def _validate_all_json_schemas(
     raw: list[tuple[Path, dict[str, Any]]],
-    yaml_validator: JsonSchemaValidator,
+    yaml_validator: "JsonSchemaValidator | None",
     python_validator: "JsonSchemaValidator | None",
 ) -> list[str]:
     """Validate each driver_info against the JSON Schema for its format.
@@ -445,6 +455,87 @@ def _validate_all_json_schemas(
             continue
         errors.extend(_validate_json_schema(filepath.as_posix(), driver_info, validator))
     return errors
+
+
+@dataclass(frozen=True)
+class _SchemaValidators:
+    """A validator per driver format; None where that format goes unchecked."""
+
+    yaml: "JsonSchemaValidator | None" = None
+    python: "JsonSchemaValidator | None" = None
+
+
+def _schema_unavailable(json_schema_path: Path) -> str | None:
+    """Why schema validation cannot run at all, or None when it can.
+
+    The two reasons need different messages: a missing schema file is a repo
+    problem, a missing jsonschema-rs is an environment one. Reporting the
+    first when the cause is the second sends you to inspect a path where the
+    file is sitting right there, which is exactly what happened, for 18 test
+    failures.
+    """
+    # Read at call time: the tests stand in for an environment without the
+    # package by setting this module's name to None.
+    if jsonschema_validator_for is None:
+        return (
+            "jsonschema-rs is not installed, so JSON Schema validation cannot "
+            "run (pip install -r requirements-dev.txt)"
+        )
+    if not json_schema_path.is_file():
+        return f"JSON Schema file not found at {json_schema_path}"
+    return None
+
+
+def _cannot_validate(reason: str, *, required: bool, skipping: str) -> bool:
+    """Say why some schema validation cannot run; True when that fails the run."""
+    if required:
+        # Asked for and cannot run: a failure rather than a downgrade.
+        print(f"ERROR: {reason}", file=sys.stderr)
+        return True
+    print(f"WARNING: {reason}, skipping {skipping}.", file=sys.stderr)
+    return False
+
+
+def _schema_validators(json_schema_path: Path, *, required: bool) -> _SchemaValidators | None:
+    """The schema validators this run has; None when it must stop (said why).
+
+    .avcdriver files validate against ``json_schema_path``; .py drivers
+    against ``pythondriver.schema.json`` beside it, the platform-generated
+    variant that also allows the Python-only features (ssh/mqtt transports,
+    kind "setup" actions). Both are vendored from the platform repo side by
+    side.
+    """
+    reason = _schema_unavailable(json_schema_path)
+    if reason is not None:
+        failed = _cannot_validate(reason, required=required, skipping="schema validation")
+        return None if failed else _SchemaValidators()
+    yaml_validator = jsonschema_validator_for(
+        json.loads(json_schema_path.read_text(encoding="utf-8"))
+    )
+    python_schema_path = json_schema_path.with_name("pythondriver.schema.json")
+    if python_schema_path.is_file():
+        return _SchemaValidators(yaml_validator, jsonschema_validator_for(
+            json.loads(python_schema_path.read_text(encoding="utf-8"))
+        ))
+    if _cannot_validate(
+        f"JSON Schema file not found at {python_schema_path}",
+        required=required, skipping="schema validation for Python drivers",
+    ):
+        return None
+    return _SchemaValidators(yaml_validator)
+
+
+def _report_schema_errors(errors: list[str]) -> bool:
+    """Print the schema's refusals, if any; True when there were some."""
+    if not errors:
+        return False
+    print(
+        f"\nFAILED: {len(errors)} JSON Schema validation error(s):\n",
+        file=sys.stderr,
+    )
+    for err in errors:
+        print(f"  - {err}", file=sys.stderr)
+    return True
 
 
 # --- Index field selection --------------------------------------------------
@@ -825,6 +916,29 @@ def stale_catalog_files(
     return sorted(name for name in fresh if committed.get(name) != fresh[name])
 
 
+def _report_stale(stale: list[str]) -> None:
+    """Name the catalog files a fresh build would change, and the one fix."""
+    # stderr is unbuffered and stdout is not, so without this the failure
+    # prints above the validation line that precedes it.
+    sys.stdout.flush()
+    print(
+        f"\nFAILED: the catalog is out of date — {len(stale)} generated "
+        f"file(s) no longer match the drivers they come from:\n",
+        file=sys.stderr,
+    )
+    for name in stale:
+        print(f"  - {name}", file=sys.stderr)
+    print(
+        "\nThe catalog is what the platform installs from, and it carries "
+        "a checksum\nfor every driver file. A checksum that no longer "
+        "matches is refused, not\nwarned about, so a driver whose entry is "
+        "stale cannot be installed at all.\n\nRegenerate and commit the "
+        "result alongside your driver change:\n\n    python "
+        "scripts/build_index.py\n",
+        file=sys.stderr,
+    )
+
+
 # --- Main ------------------------------------------------------------------
 
 
@@ -854,7 +968,7 @@ def _format_validation_errors(file: str, exc: ValidationError) -> list[str]:
     return out
 
 
-def main(argv: list[str] | None = None) -> int:
+def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else "")
     parser.add_argument(
         "--check",
@@ -879,123 +993,68 @@ def main(argv: list[str] | None = None) -> int:
         help="Repository root (default: parent of scripts/)",
     )
     args = parser.parse_args(argv)
+    if args.json_schema_file is None:
+        args.json_schema_file = args.root.resolve() / "avcdriver.schema.json"
+    return args
 
-    repo_root: Path = args.root.resolve()
-    json_schema_path = args.json_schema_file or (repo_root / "avcdriver.schema.json")
-    # Schema validation can be unavailable for two unrelated reasons, and they
-    # need different messages: a missing schema file is a repo problem, a
-    # missing jsonschema-rs is an environment one. Reporting the first when the
-    # cause is the second sends you to inspect a path where the file is sitting
-    # right there — which is exactly what happened, for 18 test failures.
-    if jsonschema_validator_for is None:
-        schema_unavailable: str | None = (
-            "jsonschema-rs is not installed, so JSON Schema validation cannot "
-            "run (pip install -r requirements-dev.txt)"
-        )
-    elif not json_schema_path.is_file():
-        schema_unavailable = f"JSON Schema file not found at {json_schema_path}"
-    else:
-        schema_unavailable = None
 
-    if schema_unavailable is None:
-        json_schema = json.loads(json_schema_path.read_text(encoding="utf-8"))
-        json_validator = jsonschema_validator_for(json_schema)
-        # Python drivers validate against the platform-generated variant
-        # that also allows the Python-only features (ssh/mqtt transports,
-        # kind "setup" actions). Both schema files are vendored from the
-        # platform repo side by side.
-        python_schema_path = json_schema_path.with_name("pythondriver.schema.json")
-        if python_schema_path.is_file():
-            python_json_validator = jsonschema_validator_for(
-                json.loads(python_schema_path.read_text(encoding="utf-8"))
-            )
-        else:
-            if args.check_json_schema:
-                print(
-                    f"ERROR: JSON Schema file not found at {python_schema_path}",
-                    file=sys.stderr,
-                )
-                return 1
-            print(
-                f"WARNING: JSON Schema file not found at {python_schema_path}, "
-                f"skipping schema validation for Python drivers.",
-                file=sys.stderr,
-            )
-            python_json_validator = None
-    else:
-        if args.check_json_schema:
-            # Validation was explicitly asked for and cannot run, so this is a
-            # failure rather than a downgrade.
-            print(f"ERROR: {schema_unavailable}", file=sys.stderr)
-            return 1
-        print(
-            f"WARNING: {schema_unavailable}, skipping schema validation.",
-            file=sys.stderr,
-        )
-        json_schema = None
-        json_validator = None
-        python_json_validator = None
+class _BuildInputs(NamedTuple):
+    manufacturers: set[str]
+    devices_extra: list[dict[str, Any]]
+    raw: list[tuple[Path, dict[str, Any]]]
 
+
+def _load_inputs(repo_root: Path) -> _BuildInputs | None:
+    """Everything the build reads besides the schema, in this order; None once
+    one of them cannot be read (said why)."""
     try:
         manufacturers = _load_manufacturers(repo_root)
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
-        return 1
-
+        return None
     devices_extra = _load_devices_extra(repo_root)
-
     try:
         raw = collect_drivers(repo_root)
     except ExtractError as e:
         print(f"ERROR: {e}", file=sys.stderr)
-        return 1
-
+        return None
     if not raw:
         print(f"ERROR: no driver files found under {repo_root}", file=sys.stderr)
-        return 1
+        return None
+    return _BuildInputs(manufacturers, devices_extra, raw)
 
-    def _print_schema_errors(errors: list[str]) -> None:
-        """Print JSON Schema validation errors, if any."""
-        if not errors:
-            return
-        print(
-            f"\nFAILED: {len(errors)} JSON Schema validation error(s):\n",
-            file=sys.stderr,
-        )
-        for err in errors:
-            print(f"  - {err}", file=sys.stderr)
 
-    if json_schema is not None:
-        assert json_validator is not None
-        schema_errors = _validate_all_json_schemas(
-            raw, json_validator, python_json_validator
-        )
-        if args.check_json_schema and schema_errors:
-            # If the user requested JSON Schema validation,
-            # report any schema errors and exit with failure.
-            _print_schema_errors(schema_errors)
-            return 1
-    else:
-        schema_errors = []
+def _entry_or_errors(
+    filepath: Path, data: dict[str, Any], repo_root: Path, rel: str
+) -> tuple[DriverEntry | None, list[str]]:
+    """One driver's catalog entry, or the lines saying why it has none."""
+    try:
+        return build_entry(filepath, data, repo_root), []
+    except ValidationError as e:
+        return None, _format_validation_errors(rel, e)
+    except Exception as e:
+        return None, [f"{rel}: {e}"]
 
+
+def _check_drivers(
+    inputs: _BuildInputs, repo_root: Path, contract: ContractReport
+) -> tuple[list[DriverEntry], list[str]]:
+    """Every driver's entry and every check's errors, in the order reported.
+
+    Per driver: its entry, the platform's rules for its format, its discovery
+    block. Then the checks that need the whole catalog: the entries against
+    each other, then the discovery claims.
+    """
     entries: list[DriverEntry] = []
     errors: list[str] = []
-    # The platform's own rules for each file (the vendored copy under
-    # scripts/_vendor/), so the catalog's verdict on a driver is exactly the
-    # platform loader's verdict, plus what those rules could not decide.
-    contract = ContractReport()
     discovery_per_driver: list[tuple[str, str, dict[str, Any]]] = []
-    for filepath, data in raw:
+    for filepath, data in inputs.raw:
         rel = filepath.relative_to(repo_root).as_posix()
-        try:
-            entries.append(build_entry(filepath, data, repo_root))
-        except ValidationError as e:
-            errors.extend(_format_validation_errors(rel, e))
-        except Exception as e:
-            errors.append(f"{rel}: {e}")
-
+        entry, entry_errors = _entry_or_errors(filepath, data, repo_root, rel)
+        if entry is not None:
+            entries.append(entry)
+        errors.extend(entry_errors)
         errors.extend(contract.check(filepath, rel, data))
-
         disc_errors, normalized = validate_discovery_block(
             rel, data, yaml_dir=filepath.parent,
         )
@@ -1004,74 +1063,94 @@ def main(argv: list[str] | None = None) -> int:
             discovery_per_driver.append((str(data.get("id") or ""), rel, normalized))
 
     if entries:
-        errors.extend(cross_validate(entries, manufacturers))
+        errors.extend(cross_validate(entries, inputs.manufacturers))
     errors.extend(validate_no_signal_collisions(discovery_per_driver))
     errors.extend(validate_locator_disambiguation(discovery_per_driver))
+    return entries, errors
 
-    # Before any error exit, so what the checks could not decide is visible
-    # whether or not the run fails.
-    contract.print_notes()
 
-    if errors:
-        print(f"\nFAILED: {len(errors)} validation error(s):\n", file=sys.stderr)
-        for err in errors:
-            print(f"  - {err}", file=sys.stderr)
-        return 1
+def _report_errors(errors: list[str]) -> None:
+    print(f"\nFAILED: {len(errors)} validation error(s):\n", file=sys.stderr)
+    for err in errors:
+        print(f"  - {err}", file=sys.stderr)
 
+
+def _devices_or_none(
+    entries: list[DriverEntry], devices_extra: list[dict[str, Any]]
+) -> list[dict[str, Any]] | None:
+    """The devices catalog, or None when it cannot be built (said why)."""
     try:
-        devices = build_devices(entries, devices_extra)
+        return build_devices(entries, devices_extra)
     except ValueError as e:
         print(f"ERROR building devices catalog: {e}", file=sys.stderr)
-        return 1
+        return None
 
-    if len(schema_errors) > 0:
-        # If we got here, the schema validation ran with errors not caught by
-        # the above checks (and the `--check-json-schema` flag was not set).
-        # Report those errors and exit with failure. This is done as the
-        # final step to avoid duplicated error reports.
-        _print_schema_errors(schema_errors)
-        return 1
 
-    print(f"Validated {len(entries)} driver(s), {len(devices)} device(s).")
+def _finish(
+    args: argparse.Namespace,
+    repo_root: Path,
+    entries: list[DriverEntry],
+    devices: list[dict[str, Any]],
+) -> int:
+    """Write the catalog, or under --check say whether the committed one is current.
 
-    # --check-json-schema is the narrower flag: validate the driver files
-    # against the schema and stop. Only --check speaks for the whole repo, so
-    # only it asks whether the committed catalog still matches the drivers.
+    --check-json-schema alone is the narrower flag: validate the driver files
+    against the schema and stop. Only --check speaks for the whole repo, so
+    only it asks whether the committed catalog still matches the drivers.
+    """
     if args.check_json_schema and not args.check:
         return 0
-
     if args.check:
         stale = stale_catalog_files(repo_root, entries, devices)
         if stale:
-            # stderr is unbuffered and stdout is not, so without this the
-            # failure prints above the validation line that precedes it.
-            sys.stdout.flush()
-            print(
-                f"\nFAILED: the catalog is out of date — {len(stale)} generated "
-                f"file(s) no longer match the drivers they come from:\n",
-                file=sys.stderr,
-            )
-            for name in stale:
-                print(f"  - {name}", file=sys.stderr)
-            print(
-                "\nThe catalog is what the platform installs from, and it carries "
-                "a checksum\nfor every driver file. A checksum that no longer "
-                "matches is refused, not\nwarned about, so a driver whose entry is "
-                "stale cannot be installed at all.\n\nRegenerate and commit the "
-                "result alongside your driver change:\n\n    python "
-                "scripts/build_index.py\n",
-                file=sys.stderr,
-            )
+            _report_stale(stale)
             return 1
         print("Catalog is up to date with the driver files.")
         return 0
-
     write_outputs(repo_root, entries, devices)
     print(
         f"Wrote index.json, devices.json, and "
         f"{len(DRIVER_CATEGORIES) * 2} category shard files."
     )
     return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
+    repo_root: Path = args.root.resolve()
+    validators = _schema_validators(args.json_schema_file, required=args.check_json_schema)
+    if validators is None:
+        return 1
+    inputs = _load_inputs(repo_root)
+    if inputs is None:
+        return 1
+
+    schema_errors = _validate_all_json_schemas(
+        inputs.raw, validators.yaml, validators.python
+    )
+    if args.check_json_schema and _report_schema_errors(schema_errors):
+        return 1
+
+    contract = ContractReport()
+    entries, errors = _check_drivers(inputs, repo_root, contract)
+    # Before any error exit, so what the checks could not decide is visible
+    # whether or not the run fails.
+    contract.print_notes()
+    if errors:
+        _report_errors(errors)
+        return 1
+
+    devices = _devices_or_none(entries, inputs.devices_extra)
+    if devices is None:
+        return 1
+
+    # Without --check-json-schema, a driver only the schema refuses fails the
+    # run here, last, so it is not reported beside the errors above.
+    if _report_schema_errors(schema_errors):
+        return 1
+
+    print(f"Validated {len(entries)} driver(s), {len(devices)} device(s).")
+    return _finish(args, repo_root, entries, devices)
 
 
 if __name__ == "__main__":

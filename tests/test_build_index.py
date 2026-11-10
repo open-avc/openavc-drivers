@@ -20,6 +20,7 @@ SCRIPT_DIR = HERE.parent / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import build_index  # noqa: E402
+from _vendor.avcdriver_semantic import validate_driver_definition  # noqa: E402
 
 JSON_SCHEMA_PATH = HERE.parent / "avcdriver.schema.json"
 
@@ -849,7 +850,7 @@ def test_devices_extra_collision_with_driver_rejected(tmp_path: Path) -> None:
 def _platform_errors(overrides: dict) -> list[str]:
     base = {"id": "acme_widget", "name": "Acme Widget", "transport": "tcp"}
     base.update(overrides)
-    return build_index.validate_driver_definition(base)
+    return validate_driver_definition(base)
 
 
 def test_frame_parser_valid_header_sizes() -> None:

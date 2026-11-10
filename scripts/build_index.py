@@ -47,6 +47,7 @@ _SCRIPTS_DIR = str(Path(__file__).resolve().parent)
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
+from catalog_contract import ContractReport  # noqa: E402
 from catalog_discovery import (  # noqa: E402
     validate_discovery_block,
     with_discovery_requires,
@@ -55,18 +56,9 @@ from discovery_claims import (  # noqa: E402
     validate_locator_disambiguation,
     validate_no_signal_collisions,
 )
-from _vendor.avcdriver_semantic import (  # noqa: E402
-    platform_version_errors,
-    unknown_key_errors,
-    validate_driver_definition,
-    validate_driver_warnings,
-)
 from _vendor.python_info import (  # noqa: E402
     ExtractError,
     driver_info_ast,
-    extract_python_driver_info_full,
-    python_driver_info_issues,
-    python_driver_reference_skips,
 )
 from _vendor.spec import (  # noqa: E402
     CATEGORIES,
@@ -862,37 +854,6 @@ def _format_validation_errors(file: str, exc: ValidationError) -> list[str]:
     return out
 
 
-def _with_catalog_platform_floor(
-    info: dict[str, Any], errors: list[str], tier: str = "yaml"
-) -> list[str]:
-    """Add the one min_platform_version rule that is publishing-only.
-
-    The platform's own rules (which this repo runs verbatim) already reject a
-    ``min_platform_version`` lower than the fields the driver uses. They stop
-    short of requiring the field at all, because a driver written for one job
-    on one server has no install gate to satisfy — it is running on the
-    platform it was written against.
-
-    A published driver does have one. Omitting the field there means every
-    OpenAVC instance is offered the driver, including the releases that will
-    read the file, ignore the fields they do not recognise, and run it wrong.
-    So the catalog asks the same rule the stricter way, and drops the message
-    the platform already produced rather than saying it twice.
-
-    ``tier`` is the driver's format ("yaml" or "python"): a few floors bind a
-    YAML driver only, because an older release's YAML loader refuses the
-    value while its Python loader runs the driver without it.
-    """
-    extra = [
-        err
-        for err in platform_version_errors(
-            info, require_declaration=True, tier=tier
-        )
-        if err not in errors
-    ]
-    return list(errors) + extra
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else "")
     parser.add_argument(
@@ -1019,14 +980,10 @@ def main(argv: list[str] | None = None) -> int:
 
     entries: list[DriverEntry] = []
     errors: list[str] = []
-    # Places a Python driver's DRIVER_INFO could not be read (a value built
-    # from a constant, a call or a comprehension). Reported, never silent:
-    # these are exactly the spots the unknown-key check could not cover.
-    unevaluated: list[str] = []
-    reference_skips: list[str] = []
-    # The platform's warnings for a YAML driver: the list the Driver Builder
-    # and `python -m openavc.drivers.check` show. Printed, never a failure.
-    warnings: list[str] = []
+    # The platform's own rules for each file (the vendored copy under
+    # scripts/_vendor/), so the catalog's verdict on a driver is exactly the
+    # platform loader's verdict, plus what those rules could not decide.
+    contract = ContractReport()
     discovery_per_driver: list[tuple[str, str, dict[str, Any]]] = []
     for filepath, data in raw:
         rel = filepath.relative_to(repo_root).as_posix()
@@ -1037,69 +994,7 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as e:
             errors.append(f"{rel}: {e}")
 
-        # YAML definitions run the platform's own validation rules (the
-        # vendored copy under scripts/_vendor/), so the catalog's verdict on
-        # a driver file is exactly the platform loader's verdict. The
-        # discovery block is checked separately below.
-        if filepath.suffix == ".avcdriver":
-            # strict: publishing is an authoring gate. A key the contract
-            # doesn't declare is a typo, and a typo'd section silently does
-            # nothing once the driver is installed — catch it here, before it
-            # ships to anyone.
-            errors.extend(
-                f"{rel}: {err}"
-                for err in _with_catalog_platform_floor(
-                    data, validate_driver_definition(data, strict=True)
-                )
-            )
-            warnings.extend(f"{rel}: {w}" for w in validate_driver_warnings(data))
-        else:
-            # A Python driver only ever had its 20 index fields checked: the
-            # rest of DRIVER_INFO is dropped before validation, and the
-            # platform's load path warns rather than rejects. So a misspelled
-            # or invented key in commands/config_schema/child_entity_types
-            # shipped inert — the setting simply never did anything. Check
-            # the WHOLE dict for keys the contract doesn't declare.
-            #
-            # Unknown keys and STRUCTURE. The cross-reference rules that
-            # validate_driver_definition also runs false-positive here, because
-            # a Python driver may populate commands and state at runtime (the
-            # Q-SYS pattern) — but whether the contract declares a key, and
-            # whether an entry is shaped the way the runtime will read it, are
-            # both decidable without knowing what exists at runtime.
-            #
-            # Both rule sets are the platform's, and so is the reader that
-            # feeds them: python_driver_info_issues is what driver_loader logs
-            # at load, and what `python -m openavc.drivers.check` prints in a
-            # terminal. A contributor therefore sees the same sentence here,
-            # locally, and in the server log.
-            try:
-                full_info, opaque_spots = extract_python_driver_info_full(filepath)
-            except ExtractError as e:
-                errors.append(str(e))
-            else:
-                errors.extend(
-                    f"{rel}: {err}" for err in unknown_key_errors(full_info)
-                )
-                # The two checks that need the loaded driver class are left
-                # unanswered (None) — nothing here imports a driver.
-                errors.extend(
-                    f"{rel}: {err}"
-                    for err in _with_catalog_platform_floor(
-                        full_info, python_driver_info_issues(full_info), "python"
-                    )
-                )
-                for spot in opaque_spots:
-                    unevaluated.append(f"{rel}: {spot}")
-                # A cross-reference whose TARGET SET is computed cannot be
-                # decided: a driver merging its commands in from a module
-                # constant has a real target the reader cannot see, so "not in
-                # the visible set" would report a working driver as broken.
-                # Those references are skipped, and named here for the same
-                # reason the computed-value note exists — an unexplained skip
-                # and a clean pass look identical from the outside.
-                for skip in python_driver_reference_skips(full_info):
-                    reference_skips.append(f"{rel}: {skip}")
+        errors.extend(contract.check(filepath, rel, data))
 
         disc_errors, normalized = validate_discovery_block(
             rel, data, yaml_dir=filepath.parent,
@@ -1113,31 +1008,9 @@ def main(argv: list[str] | None = None) -> int:
     errors.extend(validate_no_signal_collisions(discovery_per_driver))
     errors.extend(validate_locator_disambiguation(discovery_per_driver))
 
-    if unevaluated:
-        # Not a failure — a driver is allowed to compute a value. Printed
-        # (before any error exit) so the unknown-key check's coverage is
-        # visible instead of implied: keys nested under one of these spots
-        # were not read, and so were never checked against the contract.
-        by_file = len({spot.split(":", 1)[0] for spot in unevaluated})
-        print(
-            f"Note: {len(unevaluated)} computed value(s) in {by_file} Python "
-            f"driver(s) could not be read; keys nested under them are "
-            f"unchecked."
-        )
-
-    if reference_skips:
-        # The same posture, for the other half of the coverage story: these
-        # references were not decided because the thing they point AT is built
-        # at runtime, not because they looked fine.
-        by_file = len({skip.split(":", 1)[0] for skip in reference_skips})
-        print(
-            f"Note: {len(reference_skips)} cross-reference group(s) in "
-            f"{by_file} Python driver(s) were not checked; the set they "
-            f"resolve against is computed at runtime."
-        )
-
-    for warning in warnings:
-        print(f"warning: {warning}", file=sys.stderr)
+    # Before any error exit, so what the checks could not decide is visible
+    # whether or not the run fails.
+    contract.print_notes()
 
     if errors:
         print(f"\nFAILED: {len(errors)} validation error(s):\n", file=sys.stderr)

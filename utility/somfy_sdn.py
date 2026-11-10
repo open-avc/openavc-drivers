@@ -302,7 +302,7 @@ class SomfySDNDriver(BaseDriver):
         "name": "Somfy SDN Shades",
         "manufacturer": "Somfy",
         "category": "utility",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         "description": "Control Somfy Digital Network shades over RS485 or a transparent serial network "
         "bridge, with individual position and fault feedback.",

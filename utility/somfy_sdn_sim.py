@@ -89,7 +89,7 @@ class SomfySDNSimulator(TCPSimulator):
         "transport": "tcp",
         "default_port": 0,
         "delimiter": None,
-        "initial_state": {},
+        "initial_state": {"shade_count": 0},
         "delays": {"command_response": 0.01},
         "error_modes": {
             "communication_timeout": {
@@ -117,6 +117,7 @@ class SomfySDNSimulator(TCPSimulator):
             )
             for row in rows
         }
+        self.set_state("shade_count", len(self._motors))
         for address, motor in self._motors.items():
             self.set_state(f"shade.{address:06X}.position", motor["position"])
             self.set_state(f"shade.{address:06X}.status", "stopped")
@@ -291,12 +292,22 @@ class SomfySDNSimulator(TCPSimulator):
     def _position(request, motor):
         position = motor["position"]
         percent_angle = round(motor["angle"] * 100 / 180)
+        # The guide reports the first matching IP. Exact position matching
+        # is the simulator convention; hardware tolerance varies by firmware.
+        current_ip = next(
+            (
+                index
+                for index, saved in sorted(motor["ips"].items())
+                if saved[0] == position
+            ),
+            255,
+        )
         return 0x0D, struct.pack(
             "<HBBBHHH",
             position * 100,
             position,
             percent_angle,
-            motor["ip"],
+            current_ip,
             0,
             motor["angle"],
             0,
@@ -317,14 +328,18 @@ class SomfySDNSimulator(TCPSimulator):
             )  # Synthetic: guide names NODE_IS_LOCKED without a value.
 
     @staticmethod
-    def _target(function, position, motor):
+    def _saved_target(position, motor):
+        preset = motor["ips"].get(position + 1)
+        if preset is None:
+            raise Refused(0x7E)  # Synthetic IP_NOT_SET.
+        angle = motor["angle"] if preset[1] == 0x8000 else preset[1]
+        return preset[0], angle
+
+    def _target(self, function, position, motor):
         if function == 2:
-            preset = motor["ips"].get(position + 1)
-            if preset is None:
-                raise Refused(0x7E)  # Synthetic IP_NOT_SET.
-            return preset[0]
+            return self._saved_target(position, motor)
         targets = {0: 100, 1: 0, 0x0F: motor["position"], 0x10: motor["position"]}
-        return targets.get(function, position)
+        return targets.get(function, position), motor["angle"]
 
     @staticmethod
     def _angle(data, degrees, fallback):
@@ -343,11 +358,11 @@ class SomfySDNSimulator(TCPSimulator):
         function, position, _ = struct.unpack("<BHB", request.data[:4])
         if function not in (0, 1, 2, 4, 0x0C, 0x0D, 0x0F, 0x10):
             raise Refused(1)
-        target = self._target(function, position, motor)
+        target, target_angle = self._target(function, position, motor)
         if not 0 <= target <= 100:
             raise Refused(1)
         motor["angle"] = self._angle(
-            request.data, function in (0x0D, 0x10), motor["angle"]
+            request.data, function in (0x0D, 0x10), target_angle
         )
         if "obstacle" in self.active_errors:
             motor.update(status=2, cause=0x20, source=1, motion=None)

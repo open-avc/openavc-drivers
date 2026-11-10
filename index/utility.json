@@ -503,7 +503,7 @@
       "name": "Somfy SDN Shades",
       "manufacturer": "Somfy",
       "category": "utility",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Control Somfy Digital Network shades over RS485 or a transparent serial network bridge, with individual position and fault feedback.",
@@ -511,8 +511,8 @@
       "file": "utility/somfy_sdn.py",
       "format": "python",
       "files": {
-        "utility/somfy_sdn.py": "3323c452fca2f277fac86baf764551ae1287a221cdf3546fd3e6fa60f020890b",
-        "utility/somfy_sdn_sim.py": "5675b806424d7426288184dbf175626b08569ee268ac68bb4b148d5886df462f"
+        "utility/somfy_sdn.py": "5d5946f0b7163856146439a38641e0c01ea5ea1d1cebcf9ab8509343634c46c1",
+        "utility/somfy_sdn_sim.py": "253a459aff64c7024ce3400a29e16b1f0a612e7de46412b8cc9d8150b2715b17"
       },
       "protocols": [
         "somfy_sdn"

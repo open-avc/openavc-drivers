@@ -112,6 +112,14 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from .response_rule_checks import",
             ),
             (
+                "from openavc.drivers.routing_checks import",
+                "from .routing_checks import",
+            ),
+            (
+                "from openavc.drivers.setting_checks import",
+                "from .setting_checks import",
+            ),
+            (
                 "from openavc.drivers.sign_in_checks import",
                 "from .sign_in_checks import",
             ),
@@ -210,6 +218,32 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from openavc.utils.regex_safety import",
                 "from .regex_safety import",
             ),
+        ),
+    ),
+    (
+        "openavc/drivers/routing_checks.py",
+        "scripts/_vendor/routing_checks.py",
+        (
+            (
+                "from openavc.drivers.declared_names import",
+                "from .declared_names import",
+            ),
+            ("from openavc.drivers.spec import", "from .spec import"),
+        ),
+    ),
+    (
+        "openavc/drivers/setting_checks.py",
+        "scripts/_vendor/setting_checks.py",
+        (
+            (
+                "from openavc.drivers.command_checks import",
+                "from .command_checks import",
+            ),
+            (
+                "from openavc.drivers.declared_names import",
+                "from .declared_names import",
+            ),
+            ("from openavc.drivers.spec import", "from .spec import"),
         ),
     ),
     (

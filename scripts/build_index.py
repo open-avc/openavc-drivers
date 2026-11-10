@@ -28,7 +28,7 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator, NamedTuple
+from typing import Any, Callable, Iterator, NamedTuple
 
 import yaml
 from pydantic import (
@@ -50,6 +50,7 @@ if _SCRIPTS_DIR not in sys.path:
 
 from catalog_contract import ContractReport  # noqa: E402
 from catalog_discovery import (  # noqa: E402
+    declared_companion,
     validate_discovery_block,
     with_discovery_requires,
 )
@@ -294,28 +295,42 @@ def ast_to_python(node: Any, *, file: Path) -> Any:
     if isinstance(node, ast.Constant):
         return node.value
     if isinstance(node, ast.Dict):
-        result: dict[str, Any] = {}
-        for k, v in zip(node.keys, node.values):
-            if not isinstance(k, ast.Constant) or not isinstance(k.value, str):
-                raise ExtractError(
-                    f"{file.name}: dict keys must be string literals "
-                    f"(found non-string key in DRIVER_INFO)"
-                )
-            result[k.value] = ast_to_python(v, file=file)
-        return result
+        return _literal_dict(node, file=file)
     if isinstance(node, (ast.List, ast.Tuple)):
         return [ast_to_python(item, file=file) for item in node.elts]
-    if (
-        isinstance(node, ast.UnaryOp)
-        and isinstance(node.op, ast.USub)
-        and isinstance(node.operand, ast.Constant)
-        and isinstance(node.operand.value, (int, float))
-    ):
+    if _is_negated_number(node):
         return -node.operand.value
     raise ExtractError(
         f"{file.name}: DRIVER_INFO must contain only literal data "
         f"(no calls, comprehensions, or f-strings). "
         f"Offending node: {type(node).__name__}"
+    )
+
+
+def _literal_dict(node: ast.Dict, *, file: Path) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for k, v in zip(node.keys, node.values):
+        if not _is_string_key(k):
+            raise ExtractError(
+                f"{file.name}: dict keys must be string literals "
+                f"(found non-string key in DRIVER_INFO)"
+            )
+        result[k.value] = ast_to_python(v, file=file)
+    return result
+
+
+def _is_string_key(key: ast.expr | None) -> bool:
+    """A dict key written as a string literal (a ``**spread`` has no key node)."""
+    return isinstance(key, ast.Constant) and isinstance(key.value, str)
+
+
+def _is_negated_number(node: Any) -> bool:
+    """A minus sign on a numeric constant: how a negative number is written."""
+    return (
+        isinstance(node, ast.UnaryOp)
+        and isinstance(node.op, ast.USub)
+        and isinstance(node.operand, ast.Constant)
+        and isinstance(node.operand.value, (int, float))
     )
 
 
@@ -328,34 +343,30 @@ def extract_python_driver_info(filepath: Path) -> dict[str, Any]:
     literal data; non-literal values there raise ExtractError.
     """
     # FINDING the dict is the platform's rule, so it comes from the vendored
-    # reader rather than a second walk here. This function used to carry its
-    # own copy, and the copy went stale: it matched only a plain `DRIVER_INFO
-    # = {...}` while the platform had already been taught to accept the
-    # annotated `DRIVER_INFO: dict[str, Any] = {...}` as the identical class
-    # attribute it is. A driver written the annotated way passed
-    # `python -m openavc.drivers.check` and was then refused by the catalog
-    # build for having no DRIVER_INFO at all. What stays here is the
-    # catalog's own stricter pass over the fields it publishes.
+    # reader rather than a second walk here: a second copy goes stale, and a
+    # driver `python -m openavc.drivers.check` accepts (the annotated
+    # `DRIVER_INFO: dict[str, Any] = {...}`, for one) would be refused here
+    # for having no DRIVER_INFO at all. What stays here is the catalog's own
+    # stricter pass over the fields it publishes.
     return _extract_index_fields(driver_info_ast(filepath), file=filepath)
 
 
 def _extract_index_fields(node: ast.Dict, *, file: Path) -> dict[str, Any]:
-    """Pull INDEX_FIELDS plus the ``discovery`` block out of a DRIVER_INFO dict literal.
+    """Pull INDEX_FIELDS out of a DRIVER_INFO dict literal.
 
-    ``discovery`` is not part of INDEX_FIELDS (it does not ship in
-    index.json) but the discovery validator needs it; AST extraction
-    keeps it as a literal so cross-driver collision checks can run.
+    ``discovery`` is one of them: it ships in index.json, so on-device
+    discovery can match a driver before it is installed, and the discovery
+    checks read a Python driver's block from here. Any other key is a
+    runtime field, left for the runtime to parse.
     """
     result: dict[str, Any] = {}
-    extras = {"discovery"}
     for k, v in zip(node.keys, node.values):
-        if not isinstance(k, ast.Constant) or not isinstance(k.value, str):
+        if not _is_string_key(k):
             raise ExtractError(
                 f"{file.name}: DRIVER_INFO keys must be string literals"
             )
-        if k.value not in INDEX_FIELDS and k.value not in extras:
-            continue  # Runtime field — leave alone, runtime parses it
-        result[k.value] = ast_to_python(v, file=file)
+        if k.value in INDEX_FIELDS:
+            result[k.value] = ast_to_python(v, file=file)
     return result
 
 
@@ -376,27 +387,37 @@ def extract_yaml_driver_info(filepath: Path) -> dict[str, Any]:
 # --- Collection -------------------------------------------------------------
 
 
-def collect_drivers(repo_root: Path) -> list[tuple[Path, dict[str, Any]]]:
-    """Walk driver dirs and extract raw metadata. Does not validate.
+# A Python driver's companions sit beside it, named for it: its discovery
+# probe and its simulator. They are not drivers, so the walk skips them, and an
+# install of the driver fetches them (``_installed_file_set``), in this order.
+PYTHON_COMPANION_SUFFIXES = ("_discovery.py", "_sim.py")
 
-    ``*_sim.py`` (Python simulator companions) and ``*_discovery.py``
-    (Python discovery companions) are sibling helper files, not
-    drivers — skipped here.
-    """
+
+def collect_drivers(repo_root: Path) -> list[tuple[Path, dict[str, Any]]]:
+    """Walk driver dirs and extract raw metadata. Does not validate."""
     raw: list[tuple[Path, dict[str, Any]]] = []
+    for filepath in _category_files(repo_root):
+        reader = _driver_reader(filepath)
+        if reader is not None:
+            raw.append((filepath, reader(filepath)))
+    return raw
+
+
+def _category_files(repo_root: Path) -> Iterator[Path]:
+    """Every entry in the category directories, a directory at a time, sorted."""
     for dir_name in DRIVER_DIRS:
         dir_path = repo_root / dir_name
-        if not dir_path.exists():
-            continue
-        for filepath in sorted(dir_path.iterdir()):
-            if filepath.suffix == ".avcdriver":
-                raw.append((filepath, extract_yaml_driver_info(filepath)))
-            elif filepath.suffix == ".py" and not (
-                filepath.name.endswith("_sim.py")
-                or filepath.name.endswith("_discovery.py")
-            ):
-                raw.append((filepath, extract_python_driver_info(filepath)))
-    return raw
+        if dir_path.exists():
+            yield from sorted(dir_path.iterdir())
+
+
+def _driver_reader(filepath: Path) -> Callable[[Path], dict[str, Any]] | None:
+    """How to read a file in a category directory, or None when it is not a driver."""
+    if filepath.suffix == ".avcdriver":
+        return extract_yaml_driver_info
+    if filepath.suffix == ".py" and not filepath.name.endswith(PYTHON_COMPANION_SUFFIXES):
+        return extract_python_driver_info
+    return None
 
 
 # --- JSON Schema ------------------------------------------------------------
@@ -621,23 +642,27 @@ def _installed_file_set(filepath: Path, raw: dict[str, Any]) -> list[Path]:
     installs one (YAML drivers simulate from their inline ``simulator:``
     block), so it has no bytes to check it against.
     """
-    files = [filepath]
     if filepath.suffix == ".avcdriver":
-        discovery = raw.get("discovery")
-        block = discovery.get("python") if isinstance(discovery, dict) else None
-        relpath = block if isinstance(block, str) else (
-            block.get("file") if isinstance(block, dict) else None
-        )
-        if isinstance(relpath, str) and relpath:
-            companion = (filepath.parent / relpath).resolve()
-            if companion.is_file():
-                files.append(companion)
-    else:
-        for suffix in ("_discovery.py", "_sim.py"):
-            companion = filepath.parent / f"{filepath.stem}{suffix}"
-            if companion.is_file():
-                files.append(companion)
-    return files
+        return [filepath, *_declared_companion_file(filepath, raw)]
+    return [filepath, *_convention_companions(filepath)]
+
+
+def _declared_companion_file(filepath: Path, raw: dict[str, Any]) -> list[Path]:
+    """A YAML driver's declared discovery companion, when that file exists."""
+    discovery = raw.get("discovery")
+    relpath = declared_companion(discovery.get("python")) if isinstance(discovery, dict) else None
+    if relpath is None:
+        return []
+    companion = (filepath.parent / relpath).resolve()
+    return [companion] if companion.is_file() else []
+
+
+def _convention_companions(filepath: Path) -> list[Path]:
+    """A Python driver's companions, by their names, when those files exist."""
+    candidates = (
+        filepath.parent / f"{filepath.stem}{suffix}" for suffix in PYTHON_COMPANION_SUFFIXES
+    )
+    return [companion for companion in candidates if companion.is_file()]
 
 
 def _artifact_hashes(

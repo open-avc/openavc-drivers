@@ -407,21 +407,33 @@ def _validate_python_block(
 
 def _python_declaration(file: str, raw: Any) -> tuple[list[str], str | None]:
     """What is wrong with a ``python:`` declaration, and the companion path it names."""
+    return _python_declaration_errors(file, raw), declared_companion(raw)
+
+
+def declared_companion(raw: Any) -> str | None:
+    """The companion file a ``python:`` declaration names, or None if it names none.
+
+    A non-empty string is the path; a mapping names it under ``file``. The
+    catalog build fetches the same file when it lists what an install of a
+    YAML driver downloads (``build_index._installed_file_set``).
+    """
+    candidate = raw.get("file") if isinstance(raw, dict) else raw
+    return candidate if isinstance(candidate, str) and candidate else None
+
+
+def _python_declaration_errors(file: str, raw: Any) -> list[str]:
     if isinstance(raw, str):
-        if raw:
-            return [], raw
-        return [f"{file}: discovery.python path must be a non-empty string"], None
+        return [] if raw else [f"{file}: discovery.python path must be a non-empty string"]
     if not isinstance(raw, dict):
         return [
             f"{file}: discovery.python must be a string path or "
             "{file, cross_vendor} mapping"
-        ], None
-    errors = _unknown_keys(file, "discovery.python", raw, _KNOWN_PYTHON_KEYS)
-    candidate = raw.get("file")
-    file_errors = _text_errors(file, "discovery.python.file", candidate)
-    errors += file_errors
-    errors += _not_bool(file, "discovery.python", raw, "cross_vendor")
-    return errors, None if file_errors else candidate
+        ]
+    return [
+        *_unknown_keys(file, "discovery.python", raw, _KNOWN_PYTHON_KEYS),
+        *_text_errors(file, "discovery.python.file", raw.get("file")),
+        *_not_bool(file, "discovery.python", raw, "cross_vendor"),
+    ]
 
 
 # --- Fingerprints: mdns, ssdp, amx_ddp ------------------------------------------

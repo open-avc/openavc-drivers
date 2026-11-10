@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1268,
+    "total_devices": 1275,
     "shards": null
   },
   "devices": [
@@ -8163,6 +8163,90 @@
           "id": "sacn_e131",
           "confidence": "untested",
           "notes": "Madrix is primarily an sACN / Art-Net source for LED pixel-mapping, but its Aura and Plexus hardware bridges accept sACN input and convert to DMX or play back shows."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Ultra Encode AIO",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_ultra_encode",
+          "confidence": "untested",
+          "notes": "HTTP API with JSON POST login on firmware V2.5.62. Input switching and composition are AIO-only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Ultra Encode HDMI",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_ultra_encode",
+          "confidence": "untested",
+          "notes": "Current Rev B hardware only: SKUs 531100000 and 531200000, firmware V2.5.62. Discontinued Rev A models are not supported."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Ultra Encode HDMI Plus",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_ultra_encode",
+          "confidence": "untested",
+          "notes": "HTTP API with JSON POST login on firmware V2.5.62. Input switching and composition are AIO-only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Ultra Encode HDMI Plus Module",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_ultra_encode",
+          "confidence": "untested",
+          "notes": "HTTP API with JSON POST login on firmware V2.5.62. Input switching and composition are AIO-only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Ultra Encode SDI",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_ultra_encode",
+          "confidence": "untested",
+          "notes": "Current Rev B hardware only: SKUs 531100000 and 531200000, firmware V2.5.62. Discontinued Rev A models are not supported."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Ultra Encode SDI Plus",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_ultra_encode",
+          "confidence": "untested",
+          "notes": "HTTP API with JSON POST login on firmware V2.5.62. Input switching and composition are AIO-only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Ultra Encode SDI Plus Module",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_ultra_encode",
+          "confidence": "untested",
+          "notes": "HTTP API with JSON POST login on firmware V2.5.62. Input switching and composition are AIO-only."
         }
       ]
     },

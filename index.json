@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 167,
+    "total_drivers": 168,
     "shards": null
   },
   "drivers": [
@@ -6901,6 +6901,74 @@
         "manufacturer_alias": [
           "lutron",
           "lutron electronics"
+        ]
+      }
+    },
+    {
+      "id": "magewell_ultra_encode",
+      "name": "Magewell Ultra Encode",
+      "manufacturer": "Magewell",
+      "category": "streaming",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Ultra Encode streaming and recording, individual destinations, audio paths, video encoding, overlays and schedules.",
+      "source_url": "https://www.magewell.com/api-docs/ultra-encode-plus-api/",
+      "file": "streaming/magewell_ultra_encode.py",
+      "format": "python",
+      "files": {
+        "streaming/magewell_ultra_encode.py": "5c37f333d508d4d903ac7cfef63126d44cd95c2bc60108b46dadc797d4d0c8d9",
+        "streaming/magewell_ultra_encode_sim.py": "2778bb3cb31ac6030f873e94e28ec7c57c1acc3c3de517eac0ed3bde792defee"
+      },
+      "ports": [
+        80,
+        443
+      ],
+      "protocols": [
+        "http"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.1",
+      "tags": [
+        "encoder",
+        "streaming",
+        "recording",
+        "ndi",
+        "srt",
+        "rtsp",
+        "rtmp"
+      ],
+      "help": {
+        "overview": "Controls configured streaming and recording sessions, reports their actual progress and errors, and exposes audio and video controls. Configure destination addresses, storage and schedules in the encoder\u2019s web interface; they appear here after Refresh Status.",
+        "setup": "Use firmware V2.5.62 and enter an encoder account with control permission. Username is case-sensitive. HTTP uses port 80; if HTTPS is enabled, select HTTPS and its configured port. Configure stream destinations and recording channels in the web interface. Start Streaming/Recording controls the global function; each desired destination/channel must also be enabled. An optional RTSP or SRT preview URL can be copied from the encoder\u2019s Live page. No hardware qualification has been performed."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Magewell",
+          "models": [
+            "Ultra Encode AIO",
+            "Ultra Encode HDMI Plus",
+            "Ultra Encode SDI Plus",
+            "Ultra Encode HDMI Plus Module",
+            "Ultra Encode SDI Plus Module"
+          ],
+          "confidence": "untested",
+          "notes": "HTTP API with JSON POST login on firmware V2.5.62. Input switching and composition are AIO-only."
+        },
+        {
+          "manufacturer": "Magewell",
+          "models": [
+            "Ultra Encode HDMI",
+            "Ultra Encode SDI"
+          ],
+          "confidence": "untested",
+          "notes": "Current Rev B hardware only: SKUs 531100000 and 531200000, firmware V2.5.62. Discontinued Rev A models are not supported."
+        }
+      ],
+      "discovery": {
+        "oui": [
+          "d0:c8:57:8",
+          "70:b3:d5:75:d"
         ]
       }
     },

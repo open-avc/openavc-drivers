@@ -48,6 +48,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # with a self-signed cert instead (``"tls": True`` in SIMULATOR_INFO), so the
 # driver only needs verification turned off, exactly as against real hardware.
 _CONFIG: dict[str, dict] = {
+    "magewell_ultra_encode": {"username": "Admin", "password": "smokepw"},
     "philips_hue": {"app_key": "smoke", "ssl": False},
     # The first param-free command is the Wake-on-LAN power_on, which refuses
     # to run with no MAC set (4.2.1), the way it does for an integrator.

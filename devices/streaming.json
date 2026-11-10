@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 84,
+    "total_devices": 91,
     "shards": null,
     "category": "streaming"
   },
@@ -820,6 +820,90 @@
           "id": "epiphan_pearl",
           "confidence": "untested",
           "notes": "Built from the Pearl device REST API v2.0. The Pearl Nano has one channel and one layout; multi-channel commands act on that one."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Ultra Encode AIO",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_ultra_encode",
+          "confidence": "untested",
+          "notes": "HTTP API with JSON POST login on firmware V2.5.62. Input switching and composition are AIO-only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Ultra Encode HDMI",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_ultra_encode",
+          "confidence": "untested",
+          "notes": "Current Rev B hardware only: SKUs 531100000 and 531200000, firmware V2.5.62. Discontinued Rev A models are not supported."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Ultra Encode HDMI Plus",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_ultra_encode",
+          "confidence": "untested",
+          "notes": "HTTP API with JSON POST login on firmware V2.5.62. Input switching and composition are AIO-only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Ultra Encode HDMI Plus Module",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_ultra_encode",
+          "confidence": "untested",
+          "notes": "HTTP API with JSON POST login on firmware V2.5.62. Input switching and composition are AIO-only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Ultra Encode SDI",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_ultra_encode",
+          "confidence": "untested",
+          "notes": "Current Rev B hardware only: SKUs 531100000 and 531200000, firmware V2.5.62. Discontinued Rev A models are not supported."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Ultra Encode SDI Plus",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_ultra_encode",
+          "confidence": "untested",
+          "notes": "HTTP API with JSON POST login on firmware V2.5.62. Input switching and composition are AIO-only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Ultra Encode SDI Plus Module",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_ultra_encode",
+          "confidence": "untested",
+          "notes": "HTTP API with JSON POST login on firmware V2.5.62. Input switching and composition are AIO-only."
         }
       ]
     },

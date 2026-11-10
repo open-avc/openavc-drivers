@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 304,
+    "total_devices": 307,
     "shards": null,
     "category": "audio"
   },
@@ -3498,6 +3498,42 @@
           "id": "turtle_bt_wallplate",
           "confidence": "untested",
           "notes": "US variant. Same control protocol per the manufacturer manual; \"get type\" is documented to answer WPD20BUS. Not yet tested on US hardware.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Yamaha",
+      "model": "DME3",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "yamaha_dme",
+          "confidence": "untested",
+          "notes": "Protocol V3.1.0, device firmware V3.10 or later. Configure the Remote Control Setup List in ProVisionaire Design. No hardware validation yet."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Yamaha",
+      "model": "DME5",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "yamaha_dme",
+          "confidence": "untested",
+          "notes": "Protocol V3.1.0, device firmware V3.10 or later. Configure the Remote Control Setup List in ProVisionaire Design. No hardware validation yet."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Yamaha",
+      "model": "DME7",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "yamaha_dme",
+          "confidence": "untested",
+          "notes": "Protocol V3.1.0, device firmware V3.10 or later. Configure the Remote Control Setup List in ProVisionaire Design. No hardware validation yet."
         }
       ]
     },

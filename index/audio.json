@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 51,
+    "total_drivers": 52,
     "shards": null,
     "category": "audio"
   },
@@ -3731,11 +3731,71 @@
       }
     },
     {
+      "id": "yamaha_dme",
+      "name": "Yamaha DME7/DME5/DME3",
+      "manufacturer": "Yamaha",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Yamaha DME installation processors, importing their Remote Control Setup List with live feedback, snapshots, optional metering, audio playback, and public scheduler events.",
+      "source_url": "https://usa.yamaha.com/files/download/other_assets/0/2935190/DME7_5_3_remote_control_specs_v310_en.pdf",
+      "file": "audio/yamaha_dme.py",
+      "format": "python",
+      "files": {
+        "audio/yamaha_dme.py": "e31022e23b794476ef404494600588bc0a521e5d61ca24b4d46caa99fb6f01c6",
+        "audio/yamaha_dme_sim.py": "97c8d83d6257ff92a35e64b994c08a6f035c5cf846c5dc48805284719858c3a1"
+      },
+      "ports": [
+        49280
+      ],
+      "protocols": [
+        "yamaha_rcp"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.1",
+      "tags": [
+        "dsp",
+        "dante",
+        "audio-processor",
+        "snapshots"
+      ],
+      "help": {
+        "overview": "Imports the parameters assigned in the processor Remote Control Setup List. Controls use the ranges and units reported by the processor. Changes from other controllers update OpenAVC automatically.",
+        "setup": "Create and synchronize a Remote Control Setup List in ProVisionaire Design, then enter the processor NETWORK address. Control uses TCP 49280. Initial control import checks the available list slots and can take several minutes. Add parameter set IDs for snapshots beyond the current set. Live Meters are optional. Use a unique list index for each parameter: Yamaha reports duplicate assignments only at the lowest index."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Yamaha",
+          "models": [
+            "DME7",
+            "DME5",
+            "DME3"
+          ],
+          "confidence": "untested",
+          "notes": "Protocol V3.1.0, device firmware V3.10 or later. Configure the Remote Control Setup List in ProVisionaire Design. No hardware validation yet."
+        }
+      ],
+      "discovery": {
+        "requires": "0.32.0",
+        "tcp_probe": {
+          "port": 49280,
+          "send_ascii": "devstatus runmode\n",
+          "expect_regex": "OK devstatus runmode \"normal\"",
+          "extract_manufacturer": "Yamaha",
+          "then": {
+            "send_ascii": "devinfo productname\n",
+            "expect_regex": "OK devinfo productname \"DME(?:7|5|3)\""
+          }
+        }
+      }
+    },
+    {
       "id": "yamaha_mtx_mrx",
       "name": "Yamaha MTX/MRX/XMV",
       "manufacturer": "Yamaha",
       "category": "audio",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Yamaha install-audio processors (MTX3, MTX5-D, MRX7-D) and the XMV power amps + EXi8 / EXo8 audio expanders over the Remote Control Protocol (RCP) on TCP port 49280. Push-capable: NOTIFY messages from the device drive state immediately; polling backstops refresh and a liveness watchdog detects a silently dead link. MRX7-D parameters are addressed via Remote Control Setup List Index numbers (1..32); MTX/XMV use full parameter paths via generic set_param / get_param.\n",
@@ -3743,7 +3803,7 @@
       "file": "audio/yamaha_mtx_mrx.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/yamaha_mtx_mrx.avcdriver": "9ce55d201b0c11dffd9ea06636ca86832005f8da0481ce6500109639644f5ad7"
+        "audio/yamaha_mtx_mrx.avcdriver": "efd448283093efdec26103559d6792fa22f95cc19030fb8350b66e49190e53d5"
       },
       "ports": [
         49280
@@ -3805,10 +3865,15 @@
         }
       ],
       "discovery": {
+        "requires": "0.32.0",
         "tcp_probe": {
           "port": 49280,
           "send_ascii": "devstatus runmode\r\n",
           "expect_regex": "OK\\s+devstatus\\s+runmode",
+          "then": {
+            "send_ascii": "devinfo productname\r\n",
+            "expect_regex": "OK\\s+devinfo\\s+productname\\s+\"?(?:MTX3|MTX5-D|MRX7-D|XMV(?:4140|4280|8140|8280)(?:-D)?|XMV16140|EXi8|EXo8)\"?(?:\\s|$)"
+          },
           "extract_manufacturer": "Yamaha",
           "extract": {
             "runmode": {

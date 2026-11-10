@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1265,
+    "total_devices": 1268,
     "shards": null
   },
   "devices": [
@@ -15077,6 +15077,42 @@
           "id": "wyrestorm_networkhd",
           "confidence": "untested",
           "notes": "Add the CONTROLLER as the device \u2014 endpoints appear as children. Controls NetworkHD 100/110/140, 200/210/220/250, 400, 500, and 600 series endpoints per the v6.5 API; series-specific commands answer 'unknown command' or are ignored on endpoints that lack the feature. Factory CONTROL port IP is 192.168.11.243."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Yamaha",
+      "model": "DME3",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "yamaha_dme",
+          "confidence": "untested",
+          "notes": "Protocol V3.1.0, device firmware V3.10 or later. Configure the Remote Control Setup List in ProVisionaire Design. No hardware validation yet."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Yamaha",
+      "model": "DME5",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "yamaha_dme",
+          "confidence": "untested",
+          "notes": "Protocol V3.1.0, device firmware V3.10 or later. Configure the Remote Control Setup List in ProVisionaire Design. No hardware validation yet."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Yamaha",
+      "model": "DME7",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "yamaha_dme",
+          "confidence": "untested",
+          "notes": "Protocol V3.1.0, device firmware V3.10 or later. Configure the Remote Control Setup List in ProVisionaire Design. No hardware validation yet."
         }
       ]
     },

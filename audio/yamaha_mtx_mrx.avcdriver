@@ -59,7 +59,7 @@ id: yamaha_mtx_mrx
 name: Yamaha MTX/MRX/XMV
 manufacturer: Yamaha
 category: audio
-version: 1.2.0
+version: 1.2.1
 author: OpenAVC
 # 0.22.0 ships the liveness watchdog runtime; on older platforms the
 # liveness block is silently inert.
@@ -152,12 +152,15 @@ help:
 discovery:
   # `devstatus runmode` is a documented read-only RCP query. Yamaha
   # consoles (CL/QL/TF/Rivage/DM3/MTX/MRX) reply with `OK devstatus
-  # runmode "<mode>"` on success, which uniquely identifies an RCP
-  # speaker on TCP/49280.
+  # runmode "<mode>"` on success. Confirm the model because the newer
+  # DME family uses the same port and initial answer.
   tcp_probe:
     port: 49280
     send_ascii: "devstatus runmode\r\n"
     expect_regex: 'OK\s+devstatus\s+runmode'
+    then:
+      send_ascii: "devinfo productname\r\n"
+      expect_regex: 'OK\s+devinfo\s+productname\s+"?(?:MTX3|MTX5-D|MRX7-D|XMV(?:4140|4280|8140|8280)(?:-D)?|XMV16140|EXi8|EXo8)"?(?:\s|$)'
     extract_manufacturer: "Yamaha"
     extract:
       runmode:
@@ -1432,4 +1435,3 @@ simulator:
     runmode_emergency:
       behavior: custom
       description: "Device in emergency mode — only emergency-related commands accepted."
-

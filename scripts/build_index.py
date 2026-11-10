@@ -49,9 +49,11 @@ if _SCRIPTS_DIR not in sys.path:
 
 from catalog_discovery import (  # noqa: E402
     validate_discovery_block,
+    with_discovery_requires,
+)
+from discovery_claims import (  # noqa: E402
     validate_locator_disambiguation,
     validate_no_signal_collisions,
-    with_discovery_requires,
 )
 from _vendor.avcdriver_semantic import (  # noqa: E402
     platform_version_errors,

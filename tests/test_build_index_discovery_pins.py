@@ -31,9 +31,11 @@ sys.path.insert(0, str(HERE.parent / "scripts"))
 
 from catalog_discovery import (  # noqa: E402
     validate_discovery_block as discovery_block_errors,
+    with_discovery_requires,
+)
+from discovery_claims import (  # noqa: E402
     validate_locator_disambiguation as locator_errors,
     validate_no_signal_collisions as collision_errors,
-    with_discovery_requires,
 )
 
 FIXTURE = HERE / "fixtures" / "build_index_discovery_pins.json"

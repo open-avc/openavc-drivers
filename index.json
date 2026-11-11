@@ -6245,7 +6245,7 @@
       "name": "Just Add Power Decoder (justOS)",
       "manufacturer": "Just Add Power",
       "category": "switcher",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls a Just Add Power Omega, Ultra or MaxColor decoder over justAPI: source switching by channel in Unified or Flexible Mode, video mute and freeze, the display through CEC or PlugPlayPresent, the on-screen display, video wall layout, rotation, bezel and zoom, stereo volume and delay, RS-232 and IR pass-through, and JPSW switching. Reads back the channel, status, resolution, HDCP, audio format and firmware.",
@@ -6253,8 +6253,8 @@
       "file": "switchers/justaddpower_decoder.py",
       "format": "python",
       "files": {
-        "switchers/justaddpower_decoder.py": "4af6c3bac26af3afcd6907ae9af359f60f4cca547b4a9befc2ca7cce14798494",
-        "switchers/justaddpower_decoder_sim.py": "748adbcf95a587a02b2276d1c9761818149fe196f32c60d33a9bba735c6e6879"
+        "switchers/justaddpower_decoder.py": "b9635c6ec1f6c3404055007ba21d6241440b7495076cf70e24f7dd090dfd7274",
+        "switchers/justaddpower_decoder_sim.py": "a1c5c9334fe6dbf705260cc307a374c61ae3a2cb7f540e7b6aa6bf1f65f07b21"
       },
       "ports": [
         80
@@ -6276,11 +6276,13 @@
         "multicast",
         "omega",
         "ultra",
-        "maxcolor"
+        "maxcolor",
+        "serial-bridge",
+        "rs232"
       ],
       "help": {
         "overview": "Controls one Just Add Power decoder: which encoder it shows (by channel), video mute and freeze, the display it drives (CEC or PlugPlayPresent), the on-screen display, its place in a video wall, stereo audio, and RS-232 and IR pass-through. Add each decoder as its own device, and each encoder with the Just Add Power Encoder (justOS) driver. To switch several decoders from one panel, set up a Matrix with each decoder's Channel as a destination and the encoders' channel numbers as sources.",
-        "setup": "1. Update the decoder to justOS B2.1.0 or later (MaxColor: MAX v3.5.2 or later).\n2. Enter the decoder's IP address. justAPI needs no password.\n3. Set Channel Mode to match the system: Flexible for a Multicast Switching system set up with AMP 1.6.0 or later (its default), Unified for an older one or one converted to Unified Mode. If Switch Source is refused, the mode is the first thing to check.\n4. RS-232 pass-through needs the decoder's serial mode set to api (AMP or the decoder's web page)."
+        "setup": "1. Update the decoder to justOS B2.1.0 or later (MaxColor: MAX v3.5.2 or later).\n2. Enter the decoder's IP address. justAPI needs no password.\n3. Set Channel Mode to match the system: Flexible for a Multicast Switching system set up with AMP 1.6.0 or later (its default), Unified for an older one or one converted to Unified Mode. If Switch Source is refused, the mode is the first thing to check.\n4. To control equipment through RS-232, open the decoder's web page, Comms > Serial Settings. Select Direct (TCP:6752), match the equipment's baud rate, data bits, parity and stop bits, then apply, save and reboot if prompted. Check the serial cable pinout and null modem jumper. MaxColor needs an encoder and decoder linked before Direct mode is available.\n5. Add the connected equipment with its own serial driver. Choose Through a bridge, this decoder, and RS-232 (Direct mode). Allow TCP 6752 from OpenAVC to the decoder. The equipment's driver handles commands and feedback. Serial Bridge Setup shows setting mismatches; it does not test the cable or confirm settings have taken effect.\n6. For one-way Send RS-232 commands instead, select API serial mode. API mode cannot be used at the same time as the Direct serial bridge."
       },
       "compatible_models": [
         {
@@ -6325,7 +6327,7 @@
       "name": "Just Add Power Encoder (justOS)",
       "manufacturer": "Just Add Power",
       "category": "switcher",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls a Just Add Power Omega, Ultra or MaxColor encoder over justAPI: its channel in Unified or Flexible Mode, the HDMI input and stream, the EDID it offers the source, audio DSP mutes, stereo volume and delay, RS-232 and IR pass-through, and JPSW switching. Reads back the channel, status, input resolution, HDCP, HDMI audio format and firmware.",
@@ -6333,8 +6335,8 @@
       "file": "switchers/justaddpower_encoder.py",
       "format": "python",
       "files": {
-        "switchers/justaddpower_encoder.py": "301678cd5ed44393e16dfcc820359db061d53b30265b5e76d63c36bf52bf60cf",
-        "switchers/justaddpower_encoder_sim.py": "51d80b6ebae5fe979cf47565889ed8d7822c77bf2af506a236b81e6d60e47c6a"
+        "switchers/justaddpower_encoder.py": "4474c9dde3c6973e382f58d7e8bd9951c12d71ad51e9ae2e42f67dec5e4a609b",
+        "switchers/justaddpower_encoder_sim.py": "e4fe450b68d8b9ad05d0a5cf4c20c2e6644890bbc9121a249b130fef7c9bff48"
       },
       "ports": [
         80
@@ -6356,11 +6358,13 @@
         "edid",
         "omega",
         "ultra",
-        "maxcolor"
+        "maxcolor",
+        "serial-bridge",
+        "rs232"
       ],
       "help": {
         "overview": "Controls one Just Add Power encoder: the channel it sends on, its HDMI input and network stream, the EDID it offers the source, the audio DSP mutes on a 3G+AVP or 3G+WP4 encoder, stereo audio, and RS-232 and IR pass-through. Add each encoder as its own device, and each decoder with the Just Add Power Decoder (justOS) driver; a decoder set to an encoder's channel shows that encoder.",
-        "setup": "1. Update the encoder to justOS B2.1.0 or later (MaxColor: MAX v3.5.2 or later).\n2. Enter the encoder's IP address. justAPI needs no password.\n3. Set Channel Mode to match the system: Flexible for a Multicast Switching system set up with AMP 1.6.0 or later (its default), Unified for an older one or one converted to Unified Mode.\n4. RS-232 pass-through needs the encoder's serial mode set to api (AMP or the encoder's web page)."
+        "setup": "1. Update the encoder to justOS B2.1.0 or later (MaxColor: MAX v3.5.2 or later).\n2. Enter the encoder's IP address. justAPI needs no password.\n3. Set Channel Mode to match the system: Flexible for a Multicast Switching system set up with AMP 1.6.0 or later (its default), Unified for an older one or one converted to Unified Mode.\n4. To control equipment through RS-232, open the encoder's web page, Comms > Serial Settings. Select Direct (TCP:6752), match the equipment's baud rate, data bits, parity and stop bits, then apply, save and reboot if prompted. Check the serial cable pinout and null modem jumper. MaxColor needs an encoder and decoder linked before Direct mode is available.\n5. Add the connected equipment with its own serial driver. Choose Through a bridge, this encoder, and RS-232 (Direct mode). Allow TCP 6752 from OpenAVC to the encoder. The equipment's driver handles commands and feedback. Serial Bridge Setup shows setting mismatches; it does not test the cable or confirm settings have taken effect.\n6. For one-way Send RS-232 commands instead, select API serial mode. API mode cannot be used at the same time as the Direct serial bridge."
       },
       "compatible_models": [
         {
@@ -6680,15 +6684,15 @@
       "name": "LG SICP Display",
       "manufacturer": "LG",
       "category": "display",
-      "version": "2.0.9",
+      "version": "2.0.10",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls LG commercial displays via SICP over TCP (port 9761). Each Set ID on an RS-232 daisy chain is a display child entity with power, input, volume, mute, screen-off, signal status, picture settings, and panel health. Covers webOS Signage, LED, and OLED commercial series.",
+      "description": "Controls LG commercial displays via SICP over TCP (port 9761) or RS-232. Each Set ID on an RS-232 daisy chain is a display child entity with power, input, volume, mute, screen-off, signal status, picture settings, and panel health. Covers webOS Signage, LED, and OLED commercial series.",
       "source_url": "https://aca.im/driver_docs/LG/SM_models.pdf",
       "file": "displays/lg_sicp.py",
       "format": "python",
       "files": {
-        "displays/lg_sicp.py": "b24ac6bba527bded5fba76ea3dfc2f57019e53c90a07060bc984b4a49fe0ae2d",
+        "displays/lg_sicp.py": "ade574a3370062989ed1c1ee3e3ae957c23adc209aeaaecb8f2f8c94c33ea39e",
         "displays/lg_sicp_sim.py": "3aaa58d5085438f99d893cefd59b4bf3c92a8324aa7531adf5551651c806808c"
       },
       "ports": [
@@ -6707,7 +6711,7 @@
       ],
       "help": {
         "overview": "Controls LG commercial displays using the SICP protocol. One connection can address several displays daisy-chained over RS-232 by Set ID \u2014 each appears as a display child entity with power, input, volume, mute, screen blank, signal status, picture settings, and panel health.",
-        "setup": "1. Connect the display (or the chain's first display) to the network.\n2. Default control port is 9761.\n3. In each display's OSD (Settings > General), give it a unique Set ID. List those IDs in 'Display Set IDs' \u2014 e.g. 1 for a single display, or 1,2,3,4 for a daisy-chained video wall. Enter the IDs exactly as the OSD shows them (decimal); the driver handles the protocol's hex encoding.\n4. Route commands to a display by picking it from the Display dropdown; use All Displays On / Off to drive the whole chain at once."
+        "setup": "1. For network control, connect the display (or the chain's first display) to the network. Default TCP control port is 9761.\n2. For RS-232, use 9600 baud, 8 data bits, no parity and 1 stop bit. Choose Through a bridge and select its serial port, or choose a local serial connection. Configure the bridge's serial settings to match.\n3. In each display's OSD (Settings > General), give it a unique Set ID. List those IDs in 'Display Set IDs' \u2014 e.g. 1 for a single display, or 1,2,3,4 for a daisy-chained video wall. Enter the IDs exactly as the OSD shows them (decimal); the driver handles the protocol's hex encoding.\n4. Route commands to a display by picking it from the Display dropdown; use All Displays On / Off to drive the whole chain at once."
       },
       "compatible_models": [
         {

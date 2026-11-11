@@ -68,6 +68,8 @@ Sources:
     Multicast Switching Protocol, KB 346 (Unified and Flexible Mode):
     https://support.justaddpower.com/kb/article/346-multicast-switching-protocol/
     JPSW switching, KB 434; CLI commands, KB 379 (USB connect and stop).
+    Serial over IP, KB 473 (Direct mode, TCP 6752, MaxColor link requirement):
+    https://support.justaddpower.com/kb/article/473-how-to-use-serial-over-ip-omega-ultra-and-maxcolor-series/
 """
 
 from __future__ import annotations
@@ -140,12 +142,19 @@ READS: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("leds", "leds", "leds"),
     ),
     "/settings/videowall/rotate": (("clockwise", "wall_rotation", "int"),),
+    "/settings/serial": (
+        ("mode", "serial_mode", "str"),
+        ("speed.baud", "serial_baud", "int"),
+        ("speed.databits", "serial_databits", "int"),
+        ("speed.parity", "serial_parity", "str"),
+        ("speed.stopbits", "serial_stopbits", "int"),
+    ),
 }
 FAST = ("/details/channel", "/details/device/status")
 SLOW = (
     CORE, "/details/video", "/details/audio", "/details/audio/stereo/volume",
     "/details/videowall/layout", "/details/imagepull", "/settings/device",
-    "/settings/videowall/rotate",
+    "/settings/videowall/rotate", "/settings/serial",
 )
 LABELS = {
     "/details/channel": "the channel",
@@ -157,6 +166,7 @@ LABELS = {
     "/details/imagepull": "image pull",
     "/settings/device": "the device settings",
     "/settings/videowall/rotate": "the video wall rotation",
+    "/settings/serial": "the serial settings",
 }
 
 # command -> (uri, body) for commands that send one fixed body.
@@ -289,6 +299,32 @@ class DeviceRefused(Exception):
         self.http_status = http_status
 
 
+def _serial_setup_problem(data: Any, params: dict[str, Any] | None) -> str:
+    """Check reported settings, not whether saved settings have taken effect."""
+    if not isinstance(data, dict):
+        return "Serial settings unavailable. Check Comms > Serial Settings in the device web page."
+    if data.get("mode") != "direct":
+        return "Select Direct (TCP:6752) in Comms > Serial Settings, then apply, save and reboot if prompted."
+    if params is None:
+        return ""
+    if params.get("flow_control") not in (None, "none"):
+        return "Use Flow control None. The documented Direct serial bridge does not specify hardware flow control."
+    parity = str(params.get("parity", "N")).upper()
+    expected = {
+        "baud": int(params.get("baudrate", 9600)),
+        "databits": int(params.get("bytesize", 8)),
+        "parity": {"N": "none", "E": "even", "O": "odd"}.get(parity, parity),
+        "stopbits": float(params.get("stopbits", 1)),
+    }
+    speed = data.get("speed")
+    if not isinstance(speed, dict):
+        return "Serial speed unavailable. Match Comms > Serial Settings to the connected equipment."
+    mismatches = [f"{key}: needs {value}, reports {speed.get(key)}" for key, value in expected.items() if speed.get(key) != value]
+    if mismatches:
+        return "Match Comms > Serial Settings: " + "; ".join(mismatches) + ". Apply, save and reboot if prompted."
+    return ""
+
+
 class JustAddPowerDecoderDriver(BaseDriver):
     """One Just Add Power justOS decoder over justAPI (HTTP)."""
 
@@ -297,7 +333,7 @@ class JustAddPowerDecoderDriver(BaseDriver):
         "name": "Just Add Power Decoder (justOS)",
         "manufacturer": "Just Add Power",
         "category": "switcher",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
         "description": (
@@ -311,13 +347,14 @@ class JustAddPowerDecoderDriver(BaseDriver):
         "source_url": "https://app.swaggerhub.com/apis-docs/JustAddPower/justOS-HTTP-API/1.1.2",
         "tags": [
             "just-add-power", "jap", "justos", "av-over-ip", "hdmi-over-ip", "decoder",
-            "receiver", "video-wall", "multicast", "omega", "ultra", "maxcolor",
+            "receiver", "video-wall", "multicast", "omega", "ultra", "maxcolor", "serial-bridge", "rs232",
         ],
         "verified": False,
         "simulated": True,
         "protocols": ["justaddpower_justapi"],
         "ports": [80],
         "transport": "http",
+        "bridge": {"ports": [{"id": "serial:1", "kind": "serial", "passthrough_port": 6752, "label": "RS-232 (Direct mode)"}]},
         "discovery": {
             # justAPI answers without a sign-in. A decoder's model ends in RX
             # ("3G+AVP RX"), an encoder's in TX. MaxColor's model words are
@@ -378,8 +415,17 @@ class JustAddPowerDecoderDriver(BaseDriver):
                 "Switching system set up with AMP 1.6.0 or later (its default), "
                 "Unified for an older one or one converted to Unified Mode. If "
                 "Switch Source is refused, the mode is the first thing to check.\n"
-                "4. RS-232 pass-through needs the decoder's serial mode set to api "
-                "(AMP or the decoder's web page)."
+                "4. To control equipment through RS-232, open the decoder's web page, "
+                "Comms > Serial Settings. Select Direct (TCP:6752), match the equipment's "
+                "baud rate, data bits, parity and stop bits, then apply, save and reboot if prompted. "
+                "Check the serial cable pinout and null modem jumper. MaxColor needs an encoder "
+                "and decoder linked before Direct mode is available.\n"
+                "5. Add the connected equipment with its own serial driver. Choose Through a bridge, "
+                "this decoder, and RS-232 (Direct mode). Allow TCP 6752 from OpenAVC to the decoder. "
+                "The equipment's driver handles commands and feedback. Serial Bridge Setup shows "
+                "setting mismatches; it does not test the cable or confirm settings have taken effect.\n"
+                "6. For one-way Send RS-232 commands instead, select API serial mode. "
+                "API mode cannot be used at the same time as the Direct serial bridge."
             ),
         },
         "default_config": {
@@ -480,7 +526,13 @@ class JustAddPowerDecoderDriver(BaseDriver):
             "mac_address": {"type": "string", "label": "MAC Address"},
             "link_speed": {"type": "string", "label": "Link Speed", "help": "The Ethernet port's speed: 10M, 100M or 1G."},
             "uptime": {"type": "string", "label": "Uptime", "cloud_priority": "low"},
-            "serial_response": {"type": "string", "label": "Serial Response", "help": "What the display answered to the last RS-232 command."},
+            "serial_response": {"type": "string", "label": "Serial API Result", "help": "The HTTP API result for Send RS-232. This is not confirmed feedback from the connected equipment; use the Direct serial bridge for feedback."},
+            "serial_mode": {"type": "string", "label": "Serial Mode (settings)", "help": "direct for the two-way bridge, api for one-way Send RS-232, passive for encoder-to-decoder serial extension. Settings may need a save and reboot."},
+            "serial_baud": {"type": "integer", "label": "Serial Baud Rate (settings)"},
+            "serial_databits": {"type": "integer", "label": "Serial Data Bits (settings)"},
+            "serial_parity": {"type": "string", "label": "Serial Parity (settings)"},
+            "serial_stopbits": {"type": "integer", "label": "Serial Stop Bits (settings)"},
+            "serial_bridge_setup": {"type": "string", "label": "Serial Bridge Setup", "help": "Commissioning advice from the reported serial settings and the most recently prepared downstream driver. This check does not block its connection or prove serial communication. MaxColor also needs an encoder and decoder linked."},
             "flux_response": {"type": "string", "label": "IR Dongle Response", "help": "What the Flux Capacitor IR dongle answered to the last command."},
             "cli_response": {"type": "string", "label": "CLI Response", "help": "What the decoder printed for the last Send CLI Command."},
             "last_error": {
@@ -647,13 +699,14 @@ class JustAddPowerDecoderDriver(BaseDriver):
                 "label": "Send RS-232",
                 "help": (
                     "Sends this text out of the decoder's RS-232 port, with a carriage return "
-                    "before and after; the reply goes to Serial Response. Needs serial mode api."
+                    "before and after. Needs serial mode api. For equipment feedback, use its "
+                    "own driver Through a bridge with the decoder in Direct mode."
                 ),
                 "params": {"text": {"type": "string", "required": True, "label": "Text", "trim": False}},
             },
             "serial_send_hex": {
                 "label": "Send RS-232 (Hex)",
-                "help": "Sends these bytes out of the RS-232 port exactly. Needs serial mode api.",
+                "help": "Sends these bytes out of the RS-232 port exactly. Needs serial mode api. For equipment feedback, use the Direct serial bridge.",
                 "params": {
                     "bytes": {
                         "type": "string", "required": True, "label": "Bytes",
@@ -742,6 +795,7 @@ class JustAddPowerDecoderDriver(BaseDriver):
         # Reads the device refused, by URI: named in Last Error by every poll
         # until the URI answers again.
         self._refused: dict[str, str] = {}
+        self._serial_params: dict[str, Any] | None = None
 
     # ── Config accessors ──
 
@@ -877,6 +931,33 @@ class JustAddPowerDecoderDriver(BaseDriver):
                 updates[key] = value
         if updates:
             self.set_states(updates)
+        if uri == "/settings/serial":
+            self._report_serial_setup(data)
+
+    def _report_serial_setup(self, data: Any) -> str:
+        problem = _serial_setup_problem(data, self._serial_params)
+        self.set_state("serial_bridge_setup", problem or (
+            "Direct mode reported. Match the connected equipment's serial settings; "
+            "apply, save and reboot if prompted. MaxColor also needs an encoder and decoder linked."
+        ))
+        return problem
+
+    async def prepare_bridge_port(self, port_id: str, params: dict[str, Any]) -> None:
+        # justOS settings can require a reboot. Commission explicitly, never
+        # interrupt the AV stream while a downstream driver connects/reconnects.
+        if port_id != "serial:1":
+            raise CommandRefusedError("Choose the RS-232 (Direct mode) bridge port.")
+        self._serial_params = {key: params[key] for key in ("baudrate", "bytesize", "parity", "stopbits", "flow_control") if key in params}
+        try:
+            data = await self._request("GET", "/settings/serial")
+        except (DeviceRefused, ConnectionError) as exc:
+            self.set_state("serial_bridge_setup", f"Cannot read serial settings: {exc}. Check the device web page.")
+            raise
+        self._apply("/settings/serial", data)
+        problem = _serial_setup_problem(data, self._serial_params)
+        if problem:
+            raise CommandRefusedError(problem)
+
 
     async def poll(self) -> None:
         """The channel and status every poll; the rest every 30 s. A dead link

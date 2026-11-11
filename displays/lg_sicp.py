@@ -287,12 +287,12 @@ class LGSICPDriver(BaseDriver):
         "name": "LG SICP Display",
         "manufacturer": "LG",
         "category": "display",
-        "version": "2.0.9",
+        "version": "2.0.10",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "description": (
-            "Controls LG commercial displays via SICP over TCP (port 9761). "
+            "Controls LG commercial displays via SICP over TCP (port 9761) or RS-232. "
             "Each Set ID on an RS-232 daisy chain is a display child entity "
             "with power, input, volume, mute, screen-off, signal status, "
             "picture settings, and panel health. Covers webOS Signage, LED, "
@@ -316,6 +316,7 @@ class LGSICPDriver(BaseDriver):
             },
         ],
         "transport": "tcp",
+        "transports": ["tcp", "serial"],
         "help": {
             "overview": (
                 "Controls LG commercial displays using the SICP protocol. "
@@ -325,9 +326,11 @@ class LGSICPDriver(BaseDriver):
                 "signal status, picture settings, and panel health."
             ),
             "setup": (
-                "1. Connect the display (or the chain's first display) to "
-                "the network.\n"
-                "2. Default control port is 9761.\n"
+                "1. For network control, connect the display (or the chain's first display) "
+                "to the network. Default TCP control port is 9761.\n"
+                "2. For RS-232, use 9600 baud, 8 data bits, no parity and 1 stop bit. "
+                "Choose Through a bridge and select its serial port, or choose a local "
+                "serial connection. Configure the bridge's serial settings to match.\n"
                 "3. In each display's OSD (Settings > General), give it a "
                 "unique Set ID. List those IDs in 'Display Set IDs' — e.g. "
                 "1 for a single display, or 1,2,3,4 for a daisy-chained "

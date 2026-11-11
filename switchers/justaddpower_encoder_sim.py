@@ -21,12 +21,15 @@ refuses the command with the models that support it. ``channel_mode``
 What the documents do not say and this simulator chooses: in Flexible Mode
 ``/details/channel`` answers the video channel; the refusal texts for Flexible
 Mode and for RS-232 outside api serial mode; that ``/command/cli`` prints
-nothing for a command that worked; the RS-232 reply (``serial_reply``, by
-default the document's example ``POWR1   ``); and that a reboot answers 503
+nothing for a command that worked; the HTTP serial acknowledgement (``OK``), which is not endpoint feedback; and that a reboot answers 503
 for ``reboot_downtime`` seconds (default 5).
 
 Error modes: ``communication_timeout`` (answers nothing) and
 ``video_details_refused`` (``/details/video`` answers 500).
+
+The HTTP simulator exposes serial commissioning settings only. It does not
+open a second listener on TCP 6752 or emulate equipment connected by RS-232.
+Direct bridge byte transport must be checked with a separate serial peer.
 
 Driver: justaddpower_encoder
 Transport: http
@@ -81,7 +84,7 @@ class JustAddPowerEncoderSimulator(HTTPSimulator):
             "dsp_hdmi": "on", "dsp_line": "on", "dsp_mic": "on", "max_bandwidth": "auto", "hdr_setting": "passthru",
             "image_pull": False,
             "device_name": "Encoder 1", "device_id": "TX1", "leds": "default", "serial_mode": "api",
-            "serial_reply": "POWR1   ",
+            "serial_baud": 9600, "serial_databits": 8, "serial_parity": "none", "serial_stopbits": 1,
             # simulator bookkeeping
             "video_input": "on", "edid_choice": "hdmi", "last_cec": "", "last_serial": "", "last_cli": "",
             "last_switch": "", "dsp_restarts": 0,
@@ -177,7 +180,7 @@ class JustAddPowerEncoderSimulator(HTTPSimulator):
                                 "netmask": "255.255.255.0", "timeserver": ""},
                     "powersave": {"enabled": False, "timeout": 0},
                 },
-                "serial": {"mode": s["serial_mode"], "speed": {"baud": 9600, "databits": 8, "parity": "none", "stopbits": 1}},
+                "serial": {"mode": s["serial_mode"], "speed": {"baud": s["serial_baud"], "databits": s["serial_databits"], "parity": s["serial_parity"], "stopbits": s["serial_stopbits"]}},
                 "audio": {"dsp": ({"hdmi": True, "line": True, "mic": True} if self._has_dsp() else None)},
                 "video": {
                     "stream": {"enabled": True, "maxbandwidth": s["max_bandwidth"]},
@@ -294,10 +297,7 @@ class JustAddPowerEncoderSimulator(HTTPSimulator):
             if uri.endswith("hex") and (not isinstance(value, str) or not HEX.match(value.strip())):
                 return _refuse(uri, "Invalid hex bytes")
             self.set_state("last_serial", str(value))
-            reply = self.state["serial_reply"]
-            if uri.endswith("hex"):
-                reply = " ".join(f"{b:02X}" for b in str(reply).encode())
-            return _ok(reply)
+            return _ok()  # KB 473: API mode does not return endpoint feedback.
         if uri == "/command/flux":
             return _ok("completeir,1:1")
         if uri == "/command/imagepull":

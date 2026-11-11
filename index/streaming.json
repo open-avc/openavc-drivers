@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 10,
+    "total_drivers": 11,
     "shards": null,
     "category": "streaming"
   },
@@ -392,6 +392,69 @@
           "Epiphan Systems",
           "Epiphan Systems Inc",
           "Epiphan Video"
+        ]
+      }
+    },
+    {
+      "id": "magewell_pro_convert_encoder",
+      "name": "Magewell Pro Convert Encoder",
+      "manufacturer": "Magewell",
+      "category": "streaming",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Pro Convert HDMI and SDI NDI encoders, with signal diagnostics, discovered backup sources, video settings, EDID and camera-link setup.",
+      "source_url": "https://www.magewell.com/api-docs/pro-convert-encoder-api/",
+      "file": "streaming/magewell_pro_convert_encoder.py",
+      "format": "python",
+      "files": {
+        "streaming/magewell_pro_convert_encoder.py": "e776d1140d0be7a83fb17eddf8f9336d3d350795bf30e8b7e469bc840ba50241",
+        "streaming/magewell_pro_convert_encoder_sim.py": "1be4695358f8ad5937e59944def9559e035ea9676b6da12397bf51216d3acc5d"
+      },
+      "ports": [
+        80,
+        443
+      ],
+      "protocols": [
+        "http"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.2",
+      "tags": [
+        "ndi",
+        "encoder",
+        "hdmi",
+        "sdi",
+        "failover"
+      ],
+      "help": {
+        "overview": "Enable the NDI output, choose a backup source by name, and monitor input signal, receiver count, tally and dropped frames. Video and NDI settings are read back from the encoder. Controls follow the capabilities it reports.",
+        "setup": "Enter the encoder\u2019s IP address and local username and password. The username is case-sensitive. Use an administrator account for all settings. Match HTTP/HTTPS and the web port to the device. Select a model to prepare a simulation; a connected encoder reports its actual model and capabilities. Use the device web interface for firmware, accounts and network addressing. PTZ settings configure the camera link used by NDI receivers; they do not move a camera.",
+        "connection": "Polling updates live status every 3 seconds and configuration every 30 seconds by default. Refresh Status also refreshes backup sources. Discovery offers Magewell devices as possible matches; select the encoder driver for encoder models."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Magewell",
+          "models": [
+            "Pro Convert HDMI 4K Plus",
+            "Pro Convert HDMI Plus",
+            "Pro Convert HDMI TX",
+            "Pro Convert 12G SDI 4K Plus",
+            "Pro Convert SDI 4K Plus",
+            "Pro Convert SDI Plus",
+            "Pro Convert SDI TX",
+            "Pro Convert HDMI 4K Plus Module",
+            "Pro Convert HDMI Plus Module",
+            "Pro Convert 12G SDI 4K Plus Module",
+            "Pro Convert SDI Plus Module"
+          ],
+          "confidence": "untested",
+          "notes": "Document-derived; not tested on hardware. Encoder API only. Pro Convert decoders and Ultra Encode use separate drivers."
+        }
+      ],
+      "discovery": {
+        "oui": [
+          "70:B3:D5:75:D"
         ]
       }
     },

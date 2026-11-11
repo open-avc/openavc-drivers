@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1279,
+    "total_devices": 1290,
     "shards": null
   },
   "devices": [
@@ -8168,6 +8168,90 @@
     },
     {
       "manufacturer": "Magewell",
+      "model": "Pro Convert 12G SDI 4K Plus",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_pro_convert_encoder",
+          "confidence": "untested",
+          "notes": "Document-derived; not tested on hardware. Encoder API only. Pro Convert decoders and Ultra Encode use separate drivers."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Pro Convert 12G SDI 4K Plus Module",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_pro_convert_encoder",
+          "confidence": "untested",
+          "notes": "Document-derived; not tested on hardware. Encoder API only. Pro Convert decoders and Ultra Encode use separate drivers."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Pro Convert HDMI 4K Plus",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_pro_convert_encoder",
+          "confidence": "untested",
+          "notes": "Document-derived; not tested on hardware. Encoder API only. Pro Convert decoders and Ultra Encode use separate drivers."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Pro Convert HDMI 4K Plus Module",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_pro_convert_encoder",
+          "confidence": "untested",
+          "notes": "Document-derived; not tested on hardware. Encoder API only. Pro Convert decoders and Ultra Encode use separate drivers."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Pro Convert HDMI Plus",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_pro_convert_encoder",
+          "confidence": "untested",
+          "notes": "Document-derived; not tested on hardware. Encoder API only. Pro Convert decoders and Ultra Encode use separate drivers."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Pro Convert HDMI Plus Module",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_pro_convert_encoder",
+          "confidence": "untested",
+          "notes": "Document-derived; not tested on hardware. Encoder API only. Pro Convert decoders and Ultra Encode use separate drivers."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Pro Convert HDMI TX",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_pro_convert_encoder",
+          "confidence": "untested",
+          "notes": "Document-derived; not tested on hardware. Encoder API only. Pro Convert decoders and Ultra Encode use separate drivers."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
       "model": "Pro Convert IP to AIO 4K",
       "category": "streaming",
       "drivers": [
@@ -8199,6 +8283,54 @@
           "id": "magewell_pro_convert_ip_decoder",
           "confidence": "untested",
           "notes": "SKUs 644300000, 644100000 and 644000000. Firmware 1.3 or newer; API v1.3. Older Pro Convert NDI decoders and encoders use different APIs."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Pro Convert SDI 4K Plus",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_pro_convert_encoder",
+          "confidence": "untested",
+          "notes": "Document-derived; not tested on hardware. Encoder API only. Pro Convert decoders and Ultra Encode use separate drivers."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Pro Convert SDI Plus",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_pro_convert_encoder",
+          "confidence": "untested",
+          "notes": "Document-derived; not tested on hardware. Encoder API only. Pro Convert decoders and Ultra Encode use separate drivers."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Pro Convert SDI Plus Module",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_pro_convert_encoder",
+          "confidence": "untested",
+          "notes": "Document-derived; not tested on hardware. Encoder API only. Pro Convert decoders and Ultra Encode use separate drivers."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Pro Convert SDI TX",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_pro_convert_encoder",
+          "confidence": "untested",
+          "notes": "Document-derived; not tested on hardware. Encoder API only. Pro Convert decoders and Ultra Encode use separate drivers."
         }
       ]
     },

@@ -48,6 +48,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # with a self-signed cert instead (``"tls": True`` in SIMULATOR_INFO), so the
 # driver only needs verification turned off, exactly as against real hardware.
 _CONFIG: dict[str, dict] = {
+    "magewell_pro_convert_encoder": {"username": "Admin", "password": "smokepw"},
     "magewell_pro_convert_ip_decoder": {"username": "Admin", "password": "smokepw"},
     "magewell_ultra_encode": {"username": "Admin", "password": "smokepw"},
     "philips_hue": {"app_key": "smoke", "ssl": False},

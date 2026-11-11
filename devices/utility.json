@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 9,
+    "total_devices": 20,
     "shards": null,
     "category": "utility"
   },
@@ -76,6 +76,138 @@
           "id": "avproedge_mxnet_switch",
           "confidence": "full",
           "notes": "Validated against an AC-MXNET-SW8P (software V705R002C013): identity, all 12 ports, PoE draw and enable/disable/power-cycle against a live encoder, IGMP membership, MAC table, counters, and system health exercised on hardware. SW12 is the same switch under its former SKU."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Luminex",
+      "model": "GigaCore 10i",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "luminex_gigacore_gen2",
+          "confidence": "untested",
+          "notes": "Generation 2 REST/WebSocket API 1.5.x. PoE ports are discovered from the switch. Not hardware verified. Generation 1 models are not supported."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Luminex",
+      "model": "GigaCore 10t",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "luminex_gigacore_gen2",
+          "confidence": "untested",
+          "notes": "Generation 2 REST/WebSocket API 1.5.x. PoE ports are discovered from the switch. Not hardware verified. Generation 1 models are not supported."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Luminex",
+      "model": "GigaCore 10t-IP",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "luminex_gigacore_gen2",
+          "confidence": "untested",
+          "notes": "Generation 2 REST/WebSocket API 1.5.x. PoE ports are discovered from the switch. Not hardware verified. Generation 1 models are not supported."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Luminex",
+      "model": "GigaCore 16i",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "luminex_gigacore_gen2",
+          "confidence": "untested",
+          "notes": "Generation 2 REST/WebSocket API 1.5.x. PoE ports are discovered from the switch. Not hardware verified. Generation 1 models are not supported."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Luminex",
+      "model": "GigaCore 16t",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "luminex_gigacore_gen2",
+          "confidence": "untested",
+          "notes": "Generation 2 REST/WebSocket API 1.5.x. PoE ports are discovered from the switch. Not hardware verified. Generation 1 models are not supported."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Luminex",
+      "model": "GigaCore 16tf",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "luminex_gigacore_gen2",
+          "confidence": "untested",
+          "notes": "Generation 2 REST/WebSocket API 1.5.x. PoE ports are discovered from the switch. Not hardware verified. Generation 1 models are not supported."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Luminex",
+      "model": "GigaCore 18t",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "luminex_gigacore_gen2",
+          "confidence": "untested",
+          "notes": "Generation 2 REST/WebSocket API 1.5.x. PoE ports are discovered from the switch. Not hardware verified. Generation 1 models are not supported."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Luminex",
+      "model": "GigaCore 20t",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "luminex_gigacore_gen2",
+          "confidence": "untested",
+          "notes": "Generation 2 REST/WebSocket API 1.5.x. PoE ports are discovered from the switch. Not hardware verified. Generation 1 models are not supported."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Luminex",
+      "model": "GigaCore 30i",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "luminex_gigacore_gen2",
+          "confidence": "untested",
+          "notes": "Generation 2 REST/WebSocket API 1.5.x. PoE ports are discovered from the switch. Not hardware verified. Generation 1 models are not supported."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Luminex",
+      "model": "GigaCore O26-I",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "luminex_gigacore_gen2",
+          "confidence": "untested",
+          "notes": "Generation 2 REST/WebSocket API 1.5.x. PoE ports are discovered from the switch. Not hardware verified. Generation 1 models are not supported."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Luminex",
+      "model": "GigaCore S30-I",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "luminex_gigacore_gen2",
+          "confidence": "untested",
+          "notes": "Generation 2 REST/WebSocket API 1.5.x. PoE ports are discovered from the switch. Not hardware verified. Generation 1 models are not supported."
         }
       ]
     },

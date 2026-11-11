@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 181,
+    "total_drivers": 182,
     "shards": null
   },
   "drivers": [
@@ -7146,6 +7146,70 @@
         "manufacturer_alias": [
           "lightware",
           "lightware visual engineering"
+        ]
+      }
+    },
+    {
+      "id": "luminex_gigacore_gen2",
+      "name": "Luminex GigaCore Gen 2",
+      "manufacturer": "Luminex",
+      "category": "utility",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Monitor GigaCore Gen 2 AV switches, manage named ports and group membership, and control PoE endpoints with live status, power readings and fault feedback.",
+      "source_url": "https://support.luminex.be/portal/en/kb/articles/gigacore-api-documentation",
+      "file": "utility/luminex_gigacore_gen2.py",
+      "format": "python",
+      "files": {
+        "utility/luminex_gigacore_gen2.py": "c42ddfb66fed4020dc69c6d505f508e2a4f6837f2a05841b7351b6d26aeede03",
+        "utility/luminex_gigacore_gen2_sim.py": "2c82d4f35f497feac07dd28f9eef620f65cc0b38ed68bddd3ce7a55c9bb10c32"
+      },
+      "ports": [
+        80
+      ],
+      "protocols": [
+        "luminex_gigacore_rest"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.1",
+      "tags": [
+        "network",
+        "switch",
+        "poe",
+        "av-over-ip",
+        "dante",
+        "milan"
+      ],
+      "help": {
+        "overview": "Add one device for the switch. Its named ports, PoE ports and groups appear under Child Entities and are available in command pickers and panel bindings. Ports shows physical link and group membership. PoE Ports lists only ports currently offered by the switch\u2019s PoE subsystem. Groups reports multicast and timing settings. Enable Traffic Counters to publish per-port rates and discard counters. Advanced configuration mode can contain CLI settings that the API does not represent. Use the switch web UI for those settings.",
+        "setup": "Enter the management IP address. Leave credentials blank only when authentication is disabled on the switch; otherwise enter its username and password. Use firmware exposing API 1.5.x. Mark management and uplink ports Protected in the switch web UI before operating port controls.",
+        "connection": "Check the switch address, HTTP port and credentials. REST and WebSocket access must both be allowed. A rejected sign-in requires corrected credentials. This driver supports Generation 2 only."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Luminex",
+          "models": [
+            "GigaCore 10i",
+            "GigaCore 16i",
+            "GigaCore 30i",
+            "GigaCore 16t",
+            "GigaCore 18t",
+            "GigaCore 20t",
+            "GigaCore 10t",
+            "GigaCore 10t-IP",
+            "GigaCore 16tf",
+            "GigaCore O26-I",
+            "GigaCore S30-I"
+          ],
+          "confidence": "untested",
+          "notes": "Generation 2 REST/WebSocket API 1.5.x. PoE ports are discovered from the switch. Not hardware verified. Generation 1 models are not supported."
+        }
+      ],
+      "discovery": {
+        "manufacturer_alias": [
+          "Luminex",
+          "Luminex Network Intelligence"
         ]
       }
     },

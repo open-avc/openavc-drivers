@@ -1060,11 +1060,23 @@ class TvoneCalicoProDriver(BaseDriver):
         updates = self._field_updates(kind, local_id, properties)
         if not updates:
             return
+        if kind == "module" and "status" in updates:
+            fault = updates["status"].upper() in {
+                "BOOTFAILED",
+                "UPDATEFAILED",
+                "CARDFAILED",
+            }
+            health = (
+                self.child_fault(
+                    "service_fault", "The CALICO media module reports a failure."
+                )
+                if fault
+                else self.child_fault()
+            )
+            updates.update(health)
         self.set_child_state_batch(kind, local_id, updates)
         if kind == "canvas" and "current_preset" in updates:
             self._current_preset(local_id, updates["current_preset"])
-        if kind == "module" and "status" in updates:
-            self._module_health(local_id, updates["status"])
 
     def _field_updates(self, kind, local_id, properties):
         updates = {}
@@ -1082,17 +1094,6 @@ class TvoneCalicoProDriver(BaseDriver):
         if updates.get("name") == "":
             updates["name"] = self._paths[kind][local_id]
         return updates
-
-    def _module_health(self, local_id, status):
-        fault = status.upper() in {"BOOTFAILED", "UPDATEFAILED", "CARDFAILED"}
-        health = (
-            self.child_fault(
-                "service_fault", "The CALICO media module reports a failure."
-            )
-            if fault
-            else self.child_fault()
-        )
-        self.set_child_state_batch("module", local_id, health)
 
     def _current_preset(self, canvas, preset):
         name = ""
@@ -1250,21 +1251,18 @@ class TvoneCalicoProDriver(BaseDriver):
         self._prune("window", windows)
 
     def _publish_source_choices(self):
-        def choices(ids):
-            return json.dumps(
-                [
-                    {
-                        "value": item,
-                        "label": self.get_child_state("input", item).get("name")
-                        or item,
-                    }
-                    for item in sorted(ids)
-                ],
-                ensure_ascii=False,
-            )
-
-        self.set_state("input_options", choices(self._paths["input"]))
-        self.set_state("media_input_options", choices(self._media_inputs))
+        for state_key, ids in (
+            ("input_options", self._paths["input"]),
+            ("media_input_options", self._media_inputs),
+        ):
+            choices = [
+                {
+                    "value": item,
+                    "label": self.get_child_state("input", item).get("name") or item,
+                }
+                for item in sorted(ids)
+            ]
+            self.set_state(state_key, json.dumps(choices, ensure_ascii=False))
 
     async def _refresh_all(self):
         async with self._sync_lock:
@@ -1338,9 +1336,16 @@ class TvoneCalicoProDriver(BaseDriver):
         if len(parts) < 2:
             return
         category, event = parts[:2]
-        handler = _EVENT_HANDLERS.get((category.upper(), event.upper()))
+        key = category.upper(), event.upper()
+        if key in _VALUE_EVENTS:
+            self._event_value(_VALUE_EVENTS[key], parts[2:])
+        handler = _EVENT_HANDLERS.get(key)
         if handler:
             getattr(self, handler)(parts[2:])
+        if key in _LIVE_EVENTS:
+            self._dirty_live = True
+        if key in _ROSTER_EVENTS:
+            self._dirty_roster = True
         self._schedule_event_refresh()
 
     def _event_property(self, args):
@@ -1351,47 +1356,22 @@ class TvoneCalicoProDriver(BaseDriver):
         if len(args) >= 2:
             self._property("Routing.Layouts.OutputsSync." + args[0], args[1])
 
-    def _event_window(self, args):
+    def _event_value(self, prop, args):
         if len(args) >= 2:
-            self._property(args[0] + ".Input", args[1])
-
-    def _event_canvas_preset(self, args):
-        if len(args) >= 2:
-            self._property(args[0] + ".StbdCurrent", args[1])
-            self._dirty_live = True
-
-    def _event_current(self, args):
-        if len(args) >= 2:
-            self._property(args[0] + ".IsCurrent", args[1])
-            self._dirty_live = True
-
-    def _event_preset(self, args):
-        self._dirty_live = True
-
-    def _event_roster(self, args):
-        self._dirty_roster = True
-
-    def _event_sink(self, args):
-        self._dirty_live = True
+            self._property(args[0] + "." + prop, args[1])
 
     def _event_media(self, args):
         if len(args) >= 3:
             self._property(args[0] + ".ActiveQueue.Status", args[1])
             self._property(args[0] + ".ActiveQueue.CurrentIndex", args[2])
 
-    def _event_module(self, args):
-        if len(args) >= 2:
-            self._property(args[0] + ".Status", args[1])
-            self._dirty_roster = True
-
     def _event_temperature(self, args):
-        if len(args) >= 2:
-            self._property(args[0] + ".CoreTemperature", args[1])
-
-    def _event_temperature_alert(self, args):
-        if len(args) >= 3:
+        # Temperature changes carry slot,value; alerts carry slot,status,value.
+        if len(args) not in (2, 3):
+            return
+        self._property(args[0] + ".CoreTemperature", args[-1])
+        if len(args) == 3:
             self._property(args[0] + ".TemperatureAlert", args[1])
-            self._property(args[0] + ".CoreTemperature", args[2])
 
     def _schedule_event_refresh(self):
         if self._syncing or not self.connected:
@@ -1641,6 +1621,10 @@ def _fade_write(value):
     return round(float(value) * 256 / 100)
 
 
+def _rotation_write(value):
+    return f"{value:.2f}"
+
+
 def _checked_value(value, declaration):
     if declaration["type"] == "boolean":
         return _bool(value)
@@ -1679,27 +1663,32 @@ _EVENT_CATEGORIES = (
     "MODULE_CORE_TEMPERATURE",
 )
 _EVENT_HANDLERS = {
-    ("WINDOW", "INPUT"): "_event_window",
     ("CANVAS", "PROPERTY_CHANGED"): "_event_property",
-    ("CANVAS", "STBDCURRENT_CHANGED"): "_event_canvas_preset",
     ("LAYOUT", "PROPERTY_CHANGED"): "_event_property",
     ("OUTPUTS_SYNC", "PROPERTY_CHANGED"): "_event_sync",
     ("OUTPUT", "PROPERTY_CHANGED"): "_event_property",
     ("OUTPUT", "STATUS_GROUP"): "_event_property",
     ("INPUT", "STATUS_GROUP"): "_event_property",
-    ("STBD", "ISCURRENT_CHANGED"): "_event_current",
-    ("PRESET", "TAKE"): "_event_preset",
-    ("PRESET", "COMPLETE"): "_event_preset",
-    ("PRESET", "SAVE"): "_event_roster",
-    ("PRESET", "REMOVE"): "_event_roster",
-    ("HDMI", "SINK_ATTACHED"): "_event_sink",
-    ("HDMI", "SINK_UNPLUGGED"): "_event_sink",
     ("MEDIA_PLAYER", "STATUS_UPDATE"): "_event_media",
-    ("MEDIA_PLAYER", "ITEM_STATUS_CHANGED"): "_event_preset",
-    ("MODULE", "STATUS"): "_event_module",
-    ("MODULE", "CORE_TEMPERATURE_ALERT"): "_event_temperature_alert",
+    ("MODULE", "CORE_TEMPERATURE_ALERT"): "_event_temperature",
     ("MODULE_CORE_TEMPERATURE", "CHANGED"): "_event_temperature",
 }
+_VALUE_EVENTS = {
+    ("WINDOW", "INPUT"): "Input",
+    ("CANVAS", "STBDCURRENT_CHANGED"): "StbdCurrent",
+    ("STBD", "ISCURRENT_CHANGED"): "IsCurrent",
+    ("MODULE", "STATUS"): "Status",
+}
+_LIVE_EVENTS = {
+    ("CANVAS", "STBDCURRENT_CHANGED"),
+    ("STBD", "ISCURRENT_CHANGED"),
+    ("PRESET", "TAKE"),
+    ("PRESET", "COMPLETE"),
+    ("HDMI", "SINK_ATTACHED"),
+    ("HDMI", "SINK_UNPLUGGED"),
+    ("MEDIA_PLAYER", "ITEM_STATUS_CHANGED"),
+}
+_ROSTER_EVENTS = {("PRESET", "SAVE"), ("PRESET", "REMOVE"), ("MODULE", "STATUS")}
 _PARENT_FIELDS = {
     "device.modelnumber": ("model", _text),
     "device.serialnumber": ("serial_number", _text),
@@ -1814,7 +1803,7 @@ _CONTROLS = {
         "center_x": ("CenterX", int),
         "center_y": ("CenterY", int),
         "z_order": ("Zorder", int),
-        "rotation": ("Rotation", float),
+        "rotation": ("Rotation", _rotation_write),
         "fade_to_black": ("FTB", _fade_write),
         "horizontal_flip": ("HFlip", _on_off),
         "vertical_flip": ("VFlip", _on_off),

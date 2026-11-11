@@ -499,8 +499,8 @@ def _canonical(path):
     return value
 
 
-def _example_wall(model):
-    objects = {
+def _system_objects(model):
+    return {
         "device": {
             "ModelNumber": model,
             "SerialNumber": "SIM-CALICO-001",
@@ -529,25 +529,35 @@ def _example_wall(model):
             "LockStatus": "Locked",
             "LockAccuracy": "1024",
         },
-        "slots": {f"Slot{n}": "<...>" if n <= 3 else "NO CARD" for n in range(1, 13)},
-        "slot1": {"Cardtype": "HDMI_4K 4-in", "In1": "<...>", "In2": "<...>"},
-        "slot2": {"Cardtype": "MEDIA_4KIN", "Status": "READY", "In1": "<...>"},
-        "slot3": {"Cardtype": "HDMI_4K 2-out", "Out1": "<...>", "Out2": "<...>"},
-        "canvases": {"Canvas1": "<...>", "Canvas2": "<...>"},
-        "layouts": {"Layout1": "<...>", "Layout2": "<...>", "OutputsSync": "<...>"},
-        "stbd1": {
-            "Name": "Presentation",
-            "Canvas": "Canvas1",
-            "Duration": "0",
-            "IsCurrent": "Yes",
-        },
-        "stbd57": {
-            "Name": "Two sources",
-            "Canvas": "Canvas1",
-            "Duration": "1000",
-            "IsCurrent": "No",
-        },
     }
+
+
+def _example_wall(model):
+    objects = _system_objects(model)
+    objects.update(
+        {
+            "slots": {
+                f"Slot{n}": "<...>" if n <= 3 else "NO CARD" for n in range(1, 13)
+            },
+            "slot1": {"Cardtype": "HDMI_4K 4-in", "In1": "<...>", "In2": "<...>"},
+            "slot2": {"Cardtype": "MEDIA_4KIN", "Status": "READY", "In1": "<...>"},
+            "slot3": {"Cardtype": "HDMI_4K 2-out", "Out1": "<...>", "Out2": "<...>"},
+            "canvases": {"Canvas1": "<...>", "Canvas2": "<...>"},
+            "layouts": {"Layout1": "<...>", "Layout2": "<...>", "OutputsSync": "<...>"},
+            "stbd1": {
+                "Name": "Presentation",
+                "Canvas": "Canvas1",
+                "Duration": "0",
+                "IsCurrent": "Yes",
+            },
+            "stbd57": {
+                "Name": "Two sources",
+                "Canvas": "Canvas1",
+                "Duration": "1000",
+                "IsCurrent": "No",
+            },
+        }
+    )
     for number in (1, 2):
         objects[f"slot1.in{number}"] = _input("Presenter" if number == 1 else "Guest")
         objects[f"slot3.out{number}"] = _output(number)
@@ -585,7 +595,7 @@ def _input(name):
         "HDCPStatus": "None",
         "HDCPRequired": "Off",
         "Audio": "Found",
-        "ColourRangeActive": "Limited",
+        "ColourRangeActive": "SDR_YCCL_709",
         "CutToBlack": "Off",
         "Brightness": "0",
         "Contrast": "100",

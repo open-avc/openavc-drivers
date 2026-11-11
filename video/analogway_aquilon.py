@@ -987,26 +987,32 @@ class AnalogwayAquilonDriver(BaseDriver):
     async def refresh_children(self):
         async with self._refresh_lock:
             for path in list(IDENTITY) + [ROOT + item for item in ROSTERS]:
-                async with self._exchange:
-                    value = await self._get(path)
-                    if path not in IDENTITY and not isinstance(value, dict):
-                        raise AquilonRefused(
-                            "Aquilon returned an invalid object list. Check its firmware and AWJ configuration."
-                        )
+                await self._read_object(path)
                 await asyncio.sleep(0.02)
             self._reconcile()
-            async with self._exchange:
-                await self._write([("Subscriptions", sorted(self._watched))])
-                subscribed = await self._get("Subscriptions")
-                if not isinstance(subscribed, list) or not all(
-                    any(p.startswith(prefix) for prefix in subscribed)
-                    for p in self._watched
-                ):
-                    raise AquilonRefused(
-                        "Aquilon did not enable the requested feedback subscriptions."
-                    )
+            await self._subscribe()
             self._refresh_due = time.monotonic() + 60
             self.set_state("last_error", "")
+
+    async def _read_object(self, path):
+        async with self._exchange:
+            value = await self._get(path)
+            if path not in IDENTITY and not isinstance(value, dict):
+                raise AquilonRefused(
+                    "Aquilon returned an invalid object list. Check its firmware and AWJ configuration."
+                )
+
+    async def _subscribe(self):
+        async with self._exchange:
+            await self._write([("Subscriptions", sorted(self._watched))])
+            subscribed = await self._get("Subscriptions")
+            if not isinstance(subscribed, list) or not all(
+                any(p.startswith(prefix) for prefix in subscribed)
+                for p in self._watched
+            ):
+                raise AquilonRefused(
+                    "Aquilon did not enable the requested feedback subscriptions."
+                )
 
     async def poll(self):
         if time.monotonic() >= self._refresh_due:

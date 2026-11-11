@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1293,
+    "total_devices": 1300,
     "shards": null
   },
   "devices": [
@@ -8187,6 +8187,90 @@
           "id": "magewell_pro_convert_encoder",
           "confidence": "untested",
           "notes": "Document-derived; not tested on hardware. Encoder API only. Pro Convert decoders and Ultra Encode use separate drivers."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Pro Convert for NDI to AIO",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_pro_convert_ndi_decoder",
+          "confidence": "untested",
+          "notes": "Document-derived from decoder APIs v1.1 and v1.3; not hardware qualified. Newer Pro Convert IP decoders use a separate driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Pro Convert for NDI to AIO Module",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_pro_convert_ndi_decoder",
+          "confidence": "untested",
+          "notes": "Document-derived from decoder APIs v1.1 and v1.3; not hardware qualified. Newer Pro Convert IP decoders use a separate driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Pro Convert for NDI to HDMI",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_pro_convert_ndi_decoder",
+          "confidence": "untested",
+          "notes": "Document-derived from decoder APIs v1.1 and v1.3; not hardware qualified. Newer Pro Convert IP decoders use a separate driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Pro Convert for NDI to HDMI 4K",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_pro_convert_ndi_decoder",
+          "confidence": "untested",
+          "notes": "Document-derived from decoder APIs v1.1 and v1.3; not hardware qualified. Newer Pro Convert IP decoders use a separate driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Pro Convert for NDI to HDMI 4K Module",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_pro_convert_ndi_decoder",
+          "confidence": "untested",
+          "notes": "Document-derived from decoder APIs v1.1 and v1.3; not hardware qualified. Newer Pro Convert IP decoders use a separate driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Pro Convert for NDI to HDMI Module",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_pro_convert_ndi_decoder",
+          "confidence": "untested",
+          "notes": "Document-derived from decoder APIs v1.1 and v1.3; not hardware qualified. Newer Pro Convert IP decoders use a separate driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Magewell",
+      "model": "Pro Convert for NDI to SDI",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "magewell_pro_convert_ndi_decoder",
+          "confidence": "untested",
+          "notes": "Document-derived from decoder APIs v1.1 and v1.3; not hardware qualified. Newer Pro Convert IP decoders use a separate driver."
         }
       ]
     },

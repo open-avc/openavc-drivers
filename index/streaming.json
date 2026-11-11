@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 11,
+    "total_drivers": 12,
     "shards": null,
     "category": "streaming"
   },
@@ -510,6 +510,65 @@
         "oui": [
           "d0:c8:57:8",
           "70:b3:d5:75:d"
+        ]
+      }
+    },
+    {
+      "id": "magewell_pro_convert_ndi_decoder",
+      "name": "Magewell Pro Convert NDI Decoder",
+      "manufacturer": "Magewell",
+      "category": "streaming",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Pro Convert for NDI decoders with named source routing, display-supported output modes, audio mapping, presets and signal diagnostics.",
+      "source_url": "https://www.magewell.com/api-docs/pro-convert-decoder-api/",
+      "file": "streaming/magewell_pro_convert_ndi_decoder.py",
+      "format": "python",
+      "files": {
+        "streaming/magewell_pro_convert_ndi_decoder.py": "666dd12ef432d6c73483ae7340bcf169b2c531f93e5f03e9a764dc4c8474b338",
+        "streaming/magewell_pro_convert_ndi_decoder_sim.py": "9cd200a5713045904f3b35cd70572bfe151160882bf19fb58f41549134d0bb3b"
+      },
+      "ports": [
+        80,
+        443
+      ],
+      "protocols": [
+        "http"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.2",
+      "tags": [
+        "ndi",
+        "decoder",
+        "hdmi",
+        "sdi",
+        "srt"
+      ],
+      "help": {
+        "overview": "Select named NDI sources and saved stream presets, choose a display-supported resolution, map audio channels and monitor decoded signal. Settings and commands read back what the decoder actually reports.",
+        "setup": "Enter the decoder\u2019s IP address and a local administrator account. The username is case-sensitive. Select its model: HDMI 4K uses the older login; other models use the current firmware login. For older 1.1 firmware on other models, enable Legacy Login in Advanced. A connected unit reports its actual model. Match HTTP/HTTPS and the web port to the unit. Use its web interface for firmware, network addressing and user accounts.",
+        "connection": "Live signal and selection refresh every 3 seconds; settings and source lists every 30 seconds by default. Refresh Status updates all lists. Sources distinguish discovered NDI from saved presets; a preset\u2019s presence does not prove that its stream is online. Discovery offers Magewell devices as possible matches. Use this driver only for the original Pro Convert for NDI decoder family."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Magewell",
+          "models": [
+            "Pro Convert for NDI to HDMI",
+            "Pro Convert for NDI to HDMI 4K",
+            "Pro Convert for NDI to AIO",
+            "Pro Convert for NDI to SDI",
+            "Pro Convert for NDI to HDMI Module",
+            "Pro Convert for NDI to HDMI 4K Module",
+            "Pro Convert for NDI to AIO Module"
+          ],
+          "confidence": "untested",
+          "notes": "Document-derived from decoder APIs v1.1 and v1.3; not hardware qualified. Newer Pro Convert IP decoders use a separate driver."
+        }
+      ],
+      "discovery": {
+        "oui": [
+          "70:B3:D5:75:D"
         ]
       }
     },

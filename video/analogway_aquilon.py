@@ -64,7 +64,7 @@ class AnalogwayAquilonDriver(BaseDriver):
         "name": "Analog Way Aquilon",
         "manufacturer": "Analog Way",
         "category": "video",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "min_platform_version": "0.27.0",
         "author": "OpenAVC",
         "description": "Controls Aquilon Cmini, C, C+ and Cmax presentation systems on firmware 6.2. "
@@ -389,6 +389,9 @@ class AnalogwayAquilonDriver(BaseDriver):
             },
             "set_widget_source": {
                 "label": "Select Multiviewer Widget Source",
+                "help": "Show the selected source in this multiviewer widget. "
+                "The widget's Source status reports the selected source; "
+                "Program and Preview routing stay unchanged.",
                 "params": {
                     "widget": {
                         "type": "child_id",

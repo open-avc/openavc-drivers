@@ -589,7 +589,7 @@
       "name": "Analog Way Aquilon",
       "manufacturer": "Analog Way",
       "category": "video",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Aquilon Cmini, C, C+ and Cmax presentation systems on firmware 6.2. Named screens, layers and sources, separate Preview and Program routing, preset recall, multiviewer control and subscribed status feedback.",
@@ -597,7 +597,7 @@
       "file": "video/analogway_aquilon.py",
       "format": "python",
       "files": {
-        "video/analogway_aquilon.py": "602709cf6385fa679203029864d362a6da1525f07a88072fc028a472a1fa6f05",
+        "video/analogway_aquilon.py": "cd26ef17d9b99295426bf1da73bced88ff3807659379fef07be6b94fef61e3a5",
         "video/analogway_aquilon_sim.py": "bb2f4d611c0b7d5afee6d93807b8f6430ef28707fc68ecf4faa3b7b296f0c1f9"
       },
       "ports": [

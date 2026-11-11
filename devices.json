@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1311,
+    "total_devices": 1313,
     "shards": null
   },
   "devices": [
@@ -4482,6 +4482,30 @@
           "id": "brightsign_player",
           "confidence": "untested",
           "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Brompton Technology",
+      "model": "Tessera S8",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "brompton_tessera",
+          "confidence": "untested",
+          "notes": "Published Tessera 3.5.2 API; not verified on hardware. SQ200 and legacy models are not included."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Brompton Technology",
+      "model": "Tessera SX40",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "brompton_tessera",
+          "confidence": "untested",
+          "notes": "Published Tessera 3.5.2 API; not verified on hardware. SQ200 and legacy models are not included."
         }
       ]
     },

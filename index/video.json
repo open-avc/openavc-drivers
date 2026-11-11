@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 16,
+    "total_drivers": 17,
     "shards": null,
     "category": "video"
   },
@@ -291,6 +291,69 @@
           "bose professional",
           "bose corporation",
           "videobar"
+        ]
+      }
+    },
+    {
+      "id": "brompton_tessera",
+      "name": "Brompton Tessera SX40 / S8",
+      "manufacturer": "Brompton Technology",
+      "category": "video",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Control Tessera LED walls with named presets and inputs, brightness and group controls, blackout, freeze and stored frames. Monitor processor temperatures, fans and redundancy.",
+      "source_url": "https://dl.bromptontech.com/tessera/docs/TesseraIPControlAPI3_5_2_r2.pdf",
+      "file": "video/brompton_tessera.py",
+      "format": "python",
+      "files": {
+        "video/brompton_tessera.py": "4277d2a9ce6380bd5322c9a9d4ea30fec72b27914b20de0e2226dfc5192dd853",
+        "video/brompton_tessera_sim.py": "2c1059258d6f8c44a3a2b812545c5cec7706be696e82ab7461acbc139e8852d4"
+      },
+      "ports": [
+        80
+      ],
+      "protocols": [
+        "brompton-tessera-ip"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "led-wall",
+        "video-wall",
+        "presets",
+        "redundancy"
+      ],
+      "help": {
+        "overview": "Run day-to-day LED wall controls and monitor the processor. Presets, inputs, groups and stored frames are read from the loaded Tessera project. Brightness is luminance in nits; intensity is a separate percentage gain.",
+        "setup": "Create the wall and its presets in Tessera first. Enable IP Control in the Live Control tile, connect the management Ethernet port, and enter its IP address. Use firmware 3.5.2 or later with this API. No API login is documented. Project and calibration authoring remain in Tessera Remote.",
+        "connection": "The public API uses HTTP on port 80. Project-dependent controls need a loaded project. Status is polled every 10 seconds and project rosters and health every 60 seconds; Refresh Status reads both immediately. Syslog is a separate device log, not a documented control-state subscription. Blackout and freeze may trigger processor failover when that mode is enabled."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Brompton Technology",
+          "models": [
+            "Tessera SX40",
+            "Tessera S8"
+          ],
+          "confidence": "untested",
+          "notes": "Published Tessera 3.5.2 API; not verified on hardware. SQ200 and legacy models are not included."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 80,
+          "send_ascii": "GET /api/system/processor-type HTTP/1.0\r\n\r\n",
+          "expect_regex": "\"processor-type\"\\s*:\\s*\"(?:sx40|s8)\"",
+          "extract": {
+            "model": {
+              "regex": "\"processor-type\"\\s*:\\s*\"(sx40|s8)\""
+            }
+          }
+        },
+        "manufacturer_alias": [
+          "Brompton Technology",
+          "Brompton"
         ]
       }
     },

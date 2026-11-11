@@ -134,7 +134,7 @@ class Visionary5SeriesEncoderDriver(BaseDriver):
      'name': 'Visionary 5 Series Encoder',
      'manufacturer': 'Visionary Solutions',
      'category': 'switcher',
-     'version': '1.0.0',
+     'version': '1.0.1',
      'author': 'OpenAVC',
      'transport': 'http',
      'ports': [80, 8000],
@@ -156,10 +156,10 @@ class Visionary5SeriesEncoderDriver(BaseDriver):
                           'including routes.',
               'setup': 'Use the endpoint IP address and its web login. Factory login is admin / admin; enter the '
                        'password. Configure the AV network in the Visionary web interface. Choose Model for '
-                       'offline design; it updates when the unit reports its model. E5200 EDID controls are '
-                       'under Inputs. Save Settings keeps all current values. Reboot is separate; save before '
-                       'rebooting. For serial pass-through on E5200/D5200, configure matching serial settings, '
-                       'save and reboot first, then select Through a Bridge on the downstream device.'},
+                       'offline design; it updates when the unit reports its model. Use Set Input EDID to change '
+                       'an E5200 input’s EDID. Save Settings keeps all current values. Reboot is separate; save '
+                       'before rebooting. For serial pass-through on E5200/D5200, configure matching serial '
+                       'settings, save and reboot first, then select Through a Bridge on the downstream device.'},
      'default_config': {'host': '',
                         'port': 80,
                         'username': 'admin',

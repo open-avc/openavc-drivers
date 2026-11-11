@@ -1724,7 +1724,7 @@
       "name": "Visionary 5 Series Encoder",
       "manufacturer": "Visionary Solutions",
       "category": "switcher",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls one Visionary 5 Series encoder: input and loop output, audio, bandwidth, USB and device configuration.",
@@ -1732,7 +1732,7 @@
       "file": "switchers/visionary_5_series_encoder.py",
       "format": "python",
       "files": {
-        "switchers/visionary_5_series_encoder.py": "75f4ef76817fdf24c2d5248053cf2b2bd43599df2cbc8ea65626a20037e06f2e",
+        "switchers/visionary_5_series_encoder.py": "7bd1617ac19636e92b7b77aaa00ea7ab823e5a42de185caa33003dce15a0d4a5",
         "switchers/visionary_5_series_encoder_sim.py": "92f5c7cc3e20d38876549aaff7b5fe71adbd7eb54d3e3c69901156f3fb716371"
       },
       "ports": [
@@ -1754,7 +1754,7 @@
       ],
       "help": {
         "overview": "Add each encoder and decoder as its own device. Values shown are read from the equipment. Changes are temporary until Save Settings stores all current parameters, including routes.",
-        "setup": "Use the endpoint IP address and its web login. Factory login is admin / admin; enter the password. Configure the AV network in the Visionary web interface. Choose Model for offline design; it updates when the unit reports its model. E5200 EDID controls are under Inputs. Save Settings keeps all current values. Reboot is separate; save before rebooting. For serial pass-through on E5200/D5200, configure matching serial settings, save and reboot first, then select Through a Bridge on the downstream device."
+        "setup": "Use the endpoint IP address and its web login. Factory login is admin / admin; enter the password. Configure the AV network in the Visionary web interface. Choose Model for offline design; it updates when the unit reports its model. Use Set Input EDID to change an E5200 input\u2019s EDID. Save Settings keeps all current values. Reboot is separate; save before rebooting. For serial pass-through on E5200/D5200, configure matching serial settings, save and reboot first, then select Through a Bridge on the downstream device."
       },
       "compatible_models": [
         {

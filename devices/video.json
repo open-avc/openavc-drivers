@@ -2,11 +2,59 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 81,
+    "total_devices": 85,
     "shards": null,
     "category": "video"
   },
   "devices": [
+    {
+      "manufacturer": "Analog Way",
+      "model": "Aquilon C",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "analogway_aquilon",
+          "confidence": "untested",
+          "notes": "Documented AWJ 6.2 API. Physical hardware qualification remains outstanding. Configure screens and outputs in WebRCS first."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Analog Way",
+      "model": "Aquilon C+",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "analogway_aquilon",
+          "confidence": "untested",
+          "notes": "Documented AWJ 6.2 API. Physical hardware qualification remains outstanding. Configure screens and outputs in WebRCS first."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Analog Way",
+      "model": "Aquilon Cmax",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "analogway_aquilon",
+          "confidence": "untested",
+          "notes": "Documented AWJ 6.2 API. Physical hardware qualification remains outstanding. Configure screens and outputs in WebRCS first."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Analog Way",
+      "model": "Aquilon Cmini",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "analogway_aquilon",
+          "confidence": "untested",
+          "notes": "Documented AWJ 6.2 API. Physical hardware qualification remains outstanding. Configure screens and outputs in WebRCS first."
+        }
+      ]
+    },
     {
       "manufacturer": "Biamp",
       "model": "Parl\u00e9 VBC 2800",

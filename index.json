@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 178,
+    "total_drivers": 179,
     "shards": null
   },
   "drivers": [
@@ -581,6 +581,70 @@
           "a&h",
           "allen-heath",
           "audiotonix"
+        ]
+      }
+    },
+    {
+      "id": "analogway_aquilon",
+      "name": "Analog Way Aquilon",
+      "manufacturer": "Analog Way",
+      "category": "video",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Aquilon Cmini, C, C+ and Cmax presentation systems on firmware 6.2. Named screens, layers and sources, separate Preview and Program routing, preset recall, multiviewer control and subscribed status feedback.",
+      "source_url": "https://dwn01.analogway.com/Site+Internet/Series/Aquilon/Common/AWJ+Protocol/AW_Aquilon_AWJ_ProgrammersGuide_V6.2.pdf",
+      "file": "video/analogway_aquilon.py",
+      "format": "python",
+      "files": {
+        "video/analogway_aquilon.py": "9ac820d0f85d226e7d57505f9a4b8583c02cfc01a3dc8d7a775fdcac7517dedf",
+        "video/analogway_aquilon_sim.py": "bb2f4d611c0b7d5afee6d93807b8f6430ef28707fc68ecf4faa3b7b296f0c1f9"
+      },
+      "ports": [
+        10606
+      ],
+      "protocols": [
+        "awj"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.27.0",
+      "tags": [
+        "presentation-switcher",
+        "video-wall",
+        "multiviewer",
+        "livepremier"
+      ],
+      "help": {
+        "overview": "Control a commissioned Aquilon system: recall named memories, prepare layers on Preview, TAKE a screen to Program, and select multiviewer widget sources. State follows changes from WebRCS and other controllers. Wall design, calibration, audio setup and power control remain in WebRCS.",
+        "setup": "1. Commission the screens, layers and inputs in WebRCS on firmware 6.2.\n2. Enable the AWJ API under Remote Control in WebRCS security settings.\n3. Enter the processor IP address and AWJ port (normally 10606). No WebRCS password is sent to this API.\n4. Use Refresh from Device after changing the screen configuration. Preview and Program are separate routing planes; TAKE changes what is live.",
+        "connection": "Check the processor address, AWJ enable setting and TCP port 10606. Aquilon supports up to five AWJ connections."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Analog Way",
+          "models": [
+            "Aquilon Cmini",
+            "Aquilon C",
+            "Aquilon C+",
+            "Aquilon Cmax"
+          ],
+          "confidence": "untested",
+          "notes": "Documented AWJ 6.2 API. Physical hardware qualification remains outstanding. Configure screens and outputs in WebRCS first."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 10606,
+          "send_ascii": "{\"op\":\"get\",\"path\":\"DeviceObject/system/$device/@items/1/@props/dev\"}\u0004",
+          "expect_regex": "\"value\"\\s*:\\s*\"NLC_(?:CMINI|C|CPLUS|CMAX)\"",
+          "extract": {
+            "model": {
+              "regex": "\"value\"\\s*:\\s*\"(NLC_(?:CMINI|C|CPLUS|CMAX))\""
+            }
+          }
+        },
+        "manufacturer_alias": [
+          "Analog Way"
         ]
       }
     },

@@ -31,7 +31,7 @@ class LuminexGigaCoreGen2Driver(BaseDriver):
      'name': 'Luminex GigaCore Gen 2',
      'manufacturer': 'Luminex',
      'category': 'utility',
-     'version': '1.0.0',
+     'version': '1.0.1',
      'author': 'OpenAVC',
      'transport': 'http',
      'min_platform_version': '0.37.1',

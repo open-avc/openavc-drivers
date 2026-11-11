@@ -7154,7 +7154,7 @@
       "name": "Luminex GigaCore Gen 2",
       "manufacturer": "Luminex",
       "category": "utility",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Monitor GigaCore Gen 2 AV switches, manage named ports and group membership, and control PoE endpoints with live status, power readings and fault feedback.",
@@ -7162,8 +7162,8 @@
       "file": "utility/luminex_gigacore_gen2.py",
       "format": "python",
       "files": {
-        "utility/luminex_gigacore_gen2.py": "c42ddfb66fed4020dc69c6d505f508e2a4f6837f2a05841b7351b6d26aeede03",
-        "utility/luminex_gigacore_gen2_sim.py": "2c82d4f35f497feac07dd28f9eef620f65cc0b38ed68bddd3ce7a55c9bb10c32"
+        "utility/luminex_gigacore_gen2.py": "16b553ec47d837673946e67484c891d90e6919fc5920fd12246f5daac6ae6890",
+        "utility/luminex_gigacore_gen2_sim.py": "7921f8608c1dd79042cc277ca31fe9d494cb243d0166d1d514a5bd65978aef07"
       },
       "ports": [
         80

@@ -213,8 +213,8 @@ class LuminexGigaCoreGen2Simulator(HTTPSimulator):
             # The HTTP base handles objects or text. Serialize scalar/array
             # JSON explicitly so booleans remain true/false, never Python words.
             return 200, json.dumps(result)
-        except PermissionError as exc:
-            return 403, self._error('Forbidden', str(exc))
+        except PermissionError:
+            return 403, self._error('Forbidden', 'This account cannot change switch settings.')
         except (KeyError, StopIteration):
             return 404, self._error('ResourceNotFound', 'The requested port or field does not exist.')
         except (ValueError, TypeError):

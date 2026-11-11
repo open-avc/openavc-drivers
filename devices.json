@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1290,
+    "total_devices": 1293,
     "shards": null
   },
   "devices": [
@@ -10766,6 +10766,42 @@
           "id": "sacn_e131",
           "confidence": "untested",
           "notes": "Pathway Pathport gateways translate sACN and Art-Net to DMX. Common in pro AV and theatrical installs; sACN is Pathway's preferred network protocol."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Pharos",
+      "model": "LPC",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "pharos_designer",
+          "confidence": "untested",
+          "notes": "Designer 2 with project API version 8 or later. Built from Designer API v12 documentation; not tested on hardware. Express and ETC Mosaic are not included."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Pharos",
+      "model": "LPC X",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "pharos_designer",
+          "confidence": "untested",
+          "notes": "Designer 2 with project API version 8 or later. Built from Designer API v12 documentation; not tested on hardware. Express and ETC Mosaic are not included."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Pharos",
+      "model": "LPC X Series 3",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "pharos_designer",
+          "confidence": "untested",
+          "notes": "Designer 2 with project API version 8 or later. Built from Designer API v12 documentation; not tested on hardware. Express and ETC Mosaic are not included."
         }
       ]
     },

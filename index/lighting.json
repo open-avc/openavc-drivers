@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 6,
+    "total_drivers": 7,
     "shards": null,
     "category": "lighting"
   },
@@ -506,6 +506,63 @@
         "manufacturer_alias": [
           "lutron",
           "lutron electronics"
+        ]
+      }
+    },
+    {
+      "id": "pharos_designer",
+      "name": "Pharos Designer LPC",
+      "manufacturer": "Pharos",
+      "category": "lighting",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Control Pharos Designer 2 lighting projects on LPC and LPC X controllers. Start named scenes and timelines, dim fixture groups, run project triggers, and follow live playback and controller status.",
+      "source_url": "https://pharos-controller-api.readthedocs.io/en/latest/",
+      "file": "lighting/pharos_designer.py",
+      "format": "python",
+      "files": {
+        "lighting/pharos_designer.py": "532d87b1dc38138bc953b75c9bfd1ad14b48adde0e8bcdf2400a624308c618e8",
+        "lighting/pharos_designer_sim.py": "d25575495990aa840b4e9eb1b86cf05f1d15dc2863288596b88639c9a7da2807"
+      },
+      "ports": [
+        80,
+        443
+      ],
+      "protocols": [
+        "pharos_designer_http"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "architectural-lighting",
+        "show-control",
+        "scenes",
+        "dmx"
+      ],
+      "help": {
+        "overview": "Use the scenes, timelines, fixture groups and triggers programmed in Designer. Commands propagate across the Pharos project. Playback state and Affecting Output are separate: a running timeline may be hidden by higher-priority playback. Group master intensity multiplies programmed output; it does not replace the lighting look.",
+        "setup": "1. Upload a Designer 2 project to the LPC or LPC X. Select API version 8 or later in its project properties (version 12 recommended).\n2. Enter the controller management address and web port. For HTTPS, enable Use HTTPS and enter the HTTPS port. Enable Verify Certificate only with a certificate trusted by this computer.\n3. If controller security is enabled, enter an account permitted to read status and control playback. Leave both credentials blank only when security is disabled.\n4. Named controls load automatically. Use Refresh from Device after editing the project; the periodic refresh also detects changes. Keep Poll Interval above zero to refresh project names and membership.\n5. Use Start Scene or Start Timeline to layer playback. Start in Playback Group replaces only that group\u2019s playback. Use Release to fade it out.\n6. Designer owns fixture programming, networking and user accounts. Open Web UI opens the controller\u2019s own pages."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Pharos",
+          "models": [
+            "LPC",
+            "LPC X",
+            "LPC X Series 3"
+          ],
+          "confidence": "untested",
+          "notes": "Designer 2 with project API version 8 or later. Built from Designer API v12 documentation; not tested on hardware. Express and ETC Mosaic are not included."
+        }
+      ],
+      "discovery": {
+        "hostname": [
+          "^lpc-"
+        ],
+        "manufacturer_alias": [
+          "Pharos",
+          "Pharos Architectural Controls"
         ]
       }
     },

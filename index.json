@@ -806,15 +806,15 @@
       "name": "Atlona AT-OME-PS62 Matrix Switcher",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.5.2",
+      "version": "1.6.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls the Atlona AT-OME-PS62 6x2 4K/UHD matrix presentation switcher over Telnet on port 23. Routes any of six inputs (HDMI / USB-C / HDBaseT) to two outputs (HDBaseT and HDMI). Independent four-zone audio with per-zone volume and mute, analog audio source routing, USB host switching, front-panel lock, and identify (POWER LED blink).\n",
-      "source_url": "https://atlona.com/pdf/AT-OME-PS62_API.pdf",
+      "description": "Controls the Atlona AT-OME-PS62 6x2 4K/UHD matrix presentation switcher over Telnet on port 23. Routes any of six inputs (HDMI / USB-C / HDBaseT) to two outputs (HDBaseT and HDMI). Independent four-zone audio with per-zone volume and mute, analog audio source routing, USB host switching, front-panel lock, and identify (POWER LED blink). Provides two-way RS-232 bridges through the HDBaseT input/output ports and the local serial port.\n",
+      "source_url": "https://ts.atlona.com/pdf/AT-OME-PS62_API.pdf",
       "file": "switchers/atlona_ome_ps62.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/atlona_ome_ps62.avcdriver": "1c524cf7ec5c3ea65d3492f02c69c5f18ac14041c357194b94fb27ae05c7f656"
+        "switchers/atlona_ome_ps62.avcdriver": "972c3e49a8ae3e6b71ff999445bd817d02487f82feea0785e3f3c9472d5fefd7"
       },
       "ports": [
         23
@@ -831,11 +831,14 @@
         "usb-c",
         "atlona",
         "ome",
-        "telnet"
+        "telnet",
+        "serial-bridge",
+        "rs232"
       ],
       "help": {
-        "overview": "The PS62 routes six HDMI / USB-C / HDBaseT sources to a HDBaseT and a HDMI output. Audio is independent: each of the two video outputs and two analog audio outputs has its own volume and mute. Analog audio can follow the HDBaseT or HDMI feed, or pull from one of three auxiliary inputs.\n",
-        "setup": "1. Set a static IP on the matrix via its web UI (or DHCP reservation). 2. If Telnet Login Mode is ON in the matrix's web UI, enter the same\n   Username / Password used for the web GUI in this driver's config.\n   Leave both blank if Telnet Login Mode is OFF.\n3. Atlona requires a 500 ms minimum delay between commands; the driver\n   is pre-configured for this.\n"
+        "overview": "The PS62 routes six HDMI / USB-C / HDBaseT sources to a HDBaseT and a HDMI output. Audio is independent: each of the two video outputs and two analog audio outputs has its own volume and mute. Analog audio can follow the HDBaseT or HDMI feed, or pull from one of three auxiliary inputs. Add serial equipment connected to the PS62 or a compatible HDBaseT transmitter/receiver with its own driver, using Through a bridge.\n",
+        "setup": "1. Set a static IP on the matrix via its web UI (or DHCP reservation).\n2. If Telnet Login Mode is ON in the matrix's web UI, enter the same\n   Username / Password used for the web GUI in this driver's config.\n   Leave both blank if Telnet Login Mode is OFF.\n3. Atlona requires a 500 ms minimum delay between commands; the driver\n   is pre-configured for this.\n\nSerial equipment through this PS62:\n1. For equipment connected to a transmitter, choose HDBaseT IN 1 or\n   HDBaseT IN 2 to match the PS62 socket. For equipment connected to a\n   receiver, choose HDBaseT OUT. The HDBaseT unit must support RS-232.\n   These names refer to the labeled sockets, not the selected video route.\n2. For equipment connected directly to the PS62's RS-232 connector,\n   choose Local RS-232. This needs PS62 firmware 1.2.1 or newer and\n   the local port configured for display control instead of unit control.\n3. In the PS62 web UI, open RS-232 and match the selected port's baud\n   rate, data bits, parity and stop bits to the connected equipment.\n   The defaults are 115200, 8, None, 1. Selecting serial settings in\n   OpenAVC does not change these settings on the PS62.\n4. Add the connected equipment with its own serial driver. Choose\n   Through a bridge, select this PS62, then choose the physical port.\n   OpenAVC uses the PS62 address and the correct TCP proxy port.\n   Allow TCP 9001-9004 from the OpenAVC server to the PS62 as needed.\n5. Connect TX to the equipment's RX, RX to TX, and ground to ground.\n   Keep the downstream driver connected to receive replies and\n   unsolicited feedback. The PS62 discards serial data while that\n   connection is closed. After reconnect, the downstream driver's\n   queries must refresh any state missed during the interruption.\nIf OpenAVC is managing display power, disable Display Auto Power in\nthe PS62 web UI to avoid conflicting automatic commands. Use one\ncontrolling driver per serial port. Test a command and its actual\nfeedback; a connected TCP socket alone does not prove the serial link.\n\nSimulation covers the PS62's switching and audio controls. Its serial\nproxy ports require physical equipment or separate serial test peers;\nthe PS62 simulator does not create those connections.\n",
+        "connection": "Check the PS62 address and Telnet login mode. For bridged equipment, check the selected physical port, HDBaseT link and serial settings in the PS62 web UI. The local serial proxy needs PS62 firmware 1.2.1 or newer.\n"
       },
       "compatible_models": [
         {

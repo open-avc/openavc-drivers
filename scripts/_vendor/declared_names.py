@@ -11,7 +11,9 @@ Many of the contract's checks are cross-references: a ``{config_field}``
 template in a push block, a ``when:`` gate on a query or a registration, an
 ``instances:`` roster sized from a setting, a child property a response rule
 writes. Each asks the same question of the definition (is this name declared?),
-so the answer is read here once and every check gets the same one. A name that
+so the answer is read here once and every check gets the same one, and the
+sections those names point into are read once too (``DeclaredSections``,
+which the walk hands to the command and query-entry checks). A name that
 is not declared gets the nearest one that is (``did_you_mean``), and a mapping
 whose keys a Python driver builds at runtime is marked (``UNEVALUATED_KEY``),
 so a check does not report a name it could not see.
@@ -44,6 +46,38 @@ UNEVALUATED_KEY = "<unevaluated>"
 PLATFORM_SUBSTITUTIONS = frozenset(
     {"child_id", "push_callback_url", "listener_port", "push_session"}
 )
+
+
+class DeclaredSections:
+    """The sections other parts of a definition name into, read once: the
+    response rules, the commands, the device's own state variables and the
+    child types. A YAML definition and a Python driver's ``DRIVER_INFO`` as
+    ``python_info`` reads it are read alike.
+
+    Each is the definition's own value when it is the shape it should be (a
+    list of rules, a mapping for the rest) and empty when it is anything
+    else, so every check that follows a name into one of them reads the same
+    thing. A section that is there in another shape is named in
+    ``misshapen``; whether that is refused, and how, is the walk's decision
+    where it checks the section (``avcdriver_semantic._DefinitionWalk``), not
+    this read's. ``RosterNames`` (``child_type_checks``) reads the state
+    variables as written instead, on purpose.
+    """
+
+    def __init__(self, driver_def: dict[str, Any]) -> None:
+        self.misshapen: set[str] = set()
+        self.responses: list[Any] = self._read(driver_def, "responses", list)
+        self.commands: dict[Any, Any] = self._read(driver_def, "commands", dict)
+        self.state_variables: dict[Any, Any] = self._read(driver_def, "state_variables", dict)
+        self.child_types: dict[Any, Any] = self._read(driver_def, "child_entity_types", dict)
+
+    def _read(self, driver_def: dict[str, Any], key: str, shape: type) -> Any:
+        value = driver_def.get(key)
+        if isinstance(value, shape):
+            return value
+        if key in driver_def:
+            self.misshapen.add(key)
+        return shape()
 
 
 def config_field_names(driver_def: dict[str, Any]) -> set[str]:

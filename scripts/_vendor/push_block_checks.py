@@ -44,7 +44,7 @@ from __future__ import annotations
 import re
 from typing import Any, Callable
 
-from .declared_names import config_field_names
+from .declared_names import DeclaredSections, config_field_names
 from .framing_checks import FRAME_FIELDS, field_problems, spoken_choices
 from .spec import (
     PUSH_FRAME_PARSER_TYPES,
@@ -325,10 +325,9 @@ class _Registration:
 
     def __init__(self, check: _PushCheck) -> None:
         self.check = check
-        commands = check.driver_def.get("commands")
-        self.commands = commands if isinstance(commands, dict) else {}
-        child_types = check.driver_def.get("child_entity_types")
-        self.child_types = set(child_types) if isinstance(child_types, dict) else set()
+        declared = DeclaredSections(check.driver_def)
+        self.commands = declared.commands
+        self.child_types = set(declared.child_types)
 
     def command(self, where: str, name: Any) -> None:
         # A typo here would silently never arm the device.

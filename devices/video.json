@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 74,
+    "total_devices": 76,
     "shards": null,
     "category": "video"
   },
@@ -819,6 +819,30 @@
           "id": "vmix",
           "confidence": "full",
           "notes": "Verified against vMix 29 (29.0.0.49). Any vMix edition; the TCP API is enabled by default. Bus and Mix features beyond the master bus need a 4K or Pro edition."
+        }
+      ]
+    },
+    {
+      "manufacturer": "tvONE",
+      "model": "C7-PRO-1200",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "tvone_calico_pro",
+          "confidence": "untested",
+          "notes": "Documented for System API 1.6.0 and firmware 1.6.0.5 or later. No hardware qualification."
+        }
+      ]
+    },
+    {
+      "manufacturer": "tvONE",
+      "model": "C7-PRO-2200",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "tvone_calico_pro",
+          "confidence": "untested",
+          "notes": "Documented for System API 1.6.0 and firmware 1.6.0.5 or later. No hardware qualification."
         }
       ]
     },

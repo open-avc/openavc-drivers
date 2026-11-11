@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1300,
+    "total_devices": 1302,
     "shards": null
   },
   "devices": [
@@ -14357,6 +14357,30 @@
           "id": "turtle_bt_wallplate",
           "confidence": "untested",
           "notes": "US variant. Same control protocol per the manufacturer manual; \"get type\" is documented to answer WPD20BUS. Not yet tested on US hardware.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "tvONE",
+      "model": "C7-PRO-1200",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "tvone_calico_pro",
+          "confidence": "untested",
+          "notes": "Documented for System API 1.6.0 and firmware 1.6.0.5 or later. No hardware qualification."
+        }
+      ]
+    },
+    {
+      "manufacturer": "tvONE",
+      "model": "C7-PRO-2200",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "tvone_calico_pro",
+          "confidence": "untested",
+          "notes": "Documented for System API 1.6.0 and firmware 1.6.0.5 or later. No hardware qualification."
         }
       ]
     },

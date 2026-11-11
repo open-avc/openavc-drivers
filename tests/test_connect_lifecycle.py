@@ -58,6 +58,7 @@ _CONFIG: dict[str, dict] = {
     "lg_webos": {"ssl": False, "mac_address": "02:00:5e:00:53:01"},
     "tvone_coriomatrix": {"password": "adminpw"},
     "tvone_coriomaster": {"password": "adminpw"},
+    "tvone_calico_pro": {"username": "admin", "password": "smokepw"},
     "crestron_nvx": {"password": "smokepw"},
     # Same sign-in as the NVX: a blank password is refused before it is sent;
     # the sim accepts any password but "invalid" when its config sets none.

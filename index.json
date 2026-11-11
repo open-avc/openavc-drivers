@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 173,
+    "total_drivers": 174,
     "shards": null
   },
   "drivers": [
@@ -11844,6 +11844,60 @@
           "turtleav",
           "darwin"
         ]
+      }
+    },
+    {
+      "id": "tvone_calico_pro",
+      "name": "tvONE CALICO PRO",
+      "manufacturer": "tvONE",
+      "category": "video",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Control CALICO PRO video walls with named presets, window sources, canvas audio, blanking and media playback, with live feedback and signal and system diagnostics.",
+      "source_url": "https://api.tvone.com/products/c7-series/c7-pro-2200/tvONE%20CALICO%20PRO%20C7-PRO-2200%20Commands_current.pdf",
+      "file": "video/tvone_calico_pro.py",
+      "format": "python",
+      "files": {
+        "video/tvone_calico_pro.py": "b86a1d3e115c1885da6757853f5587d8ae46584d0fd9c1c8b0f16d56ebeeefc3",
+        "video/tvone_calico_pro_sim.py": "56e7d24b44395320361fee5bd3f2ec3e81ce58d30000d54779e3e6e7a58d7830"
+      },
+      "ports": [
+        10001
+      ],
+      "protocols": [
+        "calico-cli"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "video-wall",
+        "presets",
+        "multiviewer",
+        "hdr"
+      ],
+      "help": {
+        "overview": "Control a CALICO Studio design through its named canvases, windows, inputs, outputs and saved presets. Live feedback follows source, preset, audio and signal changes.",
+        "setup": "Use Ethernet port 10001 and a CALICO account. Only one CLI connection is supported. Create the wall design and media queues in CALICO Studio, then connect or choose Refresh from Device to load their names. RS-232 is diagnostic-only. Configure output mapping, edge blending, animations and firmware in CALICO Studio. Blacking an output also mutes its audio. Firmware 1.6.2.5 fixes brightness control for 8-bit and 10-bit video; use that version or later when adjusting brightness.",
+        "connection": "The command-line interface is unencrypted. Use the processor on the control network. Credentials containing CLI delimiters (commas, parentheses, quotes or line breaks) cannot be represented by the documented login form."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "tvONE",
+          "models": [
+            "C7-PRO-1200",
+            "C7-PRO-2200"
+          ],
+          "confidence": "untested",
+          "notes": "Documented for System API 1.6.0 and firmware 1.6.0.5 or later. No hardware qualification."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 10001,
+          "expect_regex": "(?m)^//\\s*CALICO PRO\\s*-",
+          "timeout_ms": 1800
+        }
       }
     },
     {

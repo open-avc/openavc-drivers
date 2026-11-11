@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 124,
+    "total_devices": 130,
     "shards": null,
     "category": "switcher"
   },
@@ -1305,6 +1305,78 @@
           "id": "tvone_coriomatrix",
           "confidence": "untested",
           "notes": "Both frames speak the same CORIOmax command-line API (document v2.0.8, System API 4.5+). The unit accepts ONE controlling connection at a time (serial or Ethernet) \u2014 close CORIOdiscover / CORIOgrapher sessions before connecting OpenAVC. Factory login is admin / adminpw."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Visionary Solutions",
+      "model": "D5100",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "visionary_5_series_decoder",
+          "confidence": "untested",
+          "notes": "API 3.x. Model-specific controls follow the reported model. Hardware qualification is pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Visionary Solutions",
+      "model": "D5200",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "visionary_5_series_decoder",
+          "confidence": "untested",
+          "notes": "API 3.x. Model-specific controls follow the reported model. Hardware qualification is pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Visionary Solutions",
+      "model": "DuetD-5",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "visionary_5_series_decoder",
+          "confidence": "untested",
+          "notes": "API 3.x. Model-specific controls follow the reported model. Hardware qualification is pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Visionary Solutions",
+      "model": "DuetE-5",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "visionary_5_series_encoder",
+          "confidence": "untested",
+          "notes": "API 3.x. Model-specific controls follow the reported model. Hardware qualification is pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Visionary Solutions",
+      "model": "E5100",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "visionary_5_series_encoder",
+          "confidence": "untested",
+          "notes": "API 3.x. Model-specific controls follow the reported model. Hardware qualification is pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Visionary Solutions",
+      "model": "E5200",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "visionary_5_series_encoder",
+          "confidence": "untested",
+          "notes": "API 3.x. Model-specific controls follow the reported model. Hardware qualification is pending."
         }
       ]
     },

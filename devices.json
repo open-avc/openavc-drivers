@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1302,
+    "total_devices": 1308,
     "shards": null
   },
   "devices": [
@@ -15077,6 +15077,78 @@
           "id": "viewsonic_cde",
           "confidence": "untested",
           "notes": "ViewBoard IFP62 series. Network control on TCP port 5000, or RS-232 at 9600 8N1 with a null-modem cable. Inputs: HDMI 1-3, VGA, the slot-in PC (OPS), DisplayPort, USB-C and the embedded Android player. Its own protocol page lists the set commands only; the status reads this driver polls come from ViewSonic's brand-wide protocol and are not yet checked on an IFP62."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Visionary Solutions",
+      "model": "D5100",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "visionary_5_series_decoder",
+          "confidence": "untested",
+          "notes": "API 3.x. Model-specific controls follow the reported model. Hardware qualification is pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Visionary Solutions",
+      "model": "D5200",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "visionary_5_series_decoder",
+          "confidence": "untested",
+          "notes": "API 3.x. Model-specific controls follow the reported model. Hardware qualification is pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Visionary Solutions",
+      "model": "DuetD-5",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "visionary_5_series_decoder",
+          "confidence": "untested",
+          "notes": "API 3.x. Model-specific controls follow the reported model. Hardware qualification is pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Visionary Solutions",
+      "model": "DuetE-5",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "visionary_5_series_encoder",
+          "confidence": "untested",
+          "notes": "API 3.x. Model-specific controls follow the reported model. Hardware qualification is pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Visionary Solutions",
+      "model": "E5100",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "visionary_5_series_encoder",
+          "confidence": "untested",
+          "notes": "API 3.x. Model-specific controls follow the reported model. Hardware qualification is pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Visionary Solutions",
+      "model": "E5200",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "visionary_5_series_encoder",
+          "confidence": "untested",
+          "notes": "API 3.x. Model-specific controls follow the reported model. Hardware qualification is pending."
         }
       ]
     },

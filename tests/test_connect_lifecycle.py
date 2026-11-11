@@ -48,6 +48,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # with a self-signed cert instead (``"tls": True`` in SIMULATOR_INFO), so the
 # driver only needs verification turned off, exactly as against real hardware.
 _CONFIG: dict[str, dict] = {
+    "visionary_5_series_encoder": {"username": "admin", "password": "smokepw"},
+    "visionary_5_series_decoder": {"username": "admin", "password": "smokepw"},
     "magewell_pro_convert_encoder": {"username": "Admin", "password": "smokepw"},
     "magewell_pro_convert_ndi_decoder": {"username": "Admin", "password": "smokepw"},
     "magewell_pro_convert_ip_decoder": {"username": "Admin", "password": "smokepw"},

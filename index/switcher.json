@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 26,
+    "total_drivers": 28,
     "shards": null,
     "category": "switcher"
   },
@@ -1656,6 +1656,128 @@
           "tvone",
           "tv one"
         ]
+      }
+    },
+    {
+      "id": "visionary_5_series_decoder",
+      "name": "Visionary 5 Series Decoder",
+      "manufacturer": "Visionary Solutions",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls one Visionary 5 Series decoder: named sources, independent video/audio/USB routing, scaling, audio, CEC and video walls.",
+      "source_url": "https://visionary-av.com/wp-content/uploads/2024/10/VISIONARY-ED5200-UserManual-241023.pdf",
+      "file": "switchers/visionary_5_series_decoder.py",
+      "format": "python",
+      "files": {
+        "switchers/visionary_5_series_decoder.py": "9f9a4d6692c80e6d8e381eb7e9734ec4a546ea73886b18151e7ae927eb72a1d7",
+        "switchers/visionary_5_series_decoder_sim.py": "982e75e52871a8779258bbb6224f094bf60ed425e056ed8d3e84cf545a2a5686"
+      },
+      "ports": [
+        80,
+        8000
+      ],
+      "protocols": [
+        "visionary-5-series"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.2",
+      "tags": [
+        "av-over-ip",
+        "visionary",
+        "5-series",
+        "decoder",
+        "usb",
+        "video-wall"
+      ],
+      "help": {
+        "overview": "Add each encoder and decoder as its own device. Values shown are read from the equipment. Changes are temporary until Save Settings stores all current parameters, including routes.",
+        "setup": "Use the endpoint IP address and its web login. Factory login is admin / admin; enter the password. Configure the AV network in the Visionary web interface. Add encoder names and IPv4 addresses to Sources. Source choices and Matrix setup use that list. Video, audio and USB can route together or independently. Routing preserves video-wall cropping. The route readings name selections, not proof of a picture or a USB connection. Save Settings keeps all current values. Reboot is separate; save before rebooting. For serial pass-through on E5200/D5200, configure matching serial settings, save and reboot first, then select Through a Bridge on the downstream device."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Visionary Solutions",
+          "models": [
+            "D5100",
+            "D5200",
+            "DuetD-5"
+          ],
+          "confidence": "untested",
+          "notes": "API 3.x. Model-specific controls follow the reported model. Hardware qualification is pending."
+        }
+      ],
+      "discovery": {
+        "udp_probe": {
+          "port": 8000,
+          "send_ascii": "CMD=START&UNIT.ID=ALL&QUERY.KEY=UNIT.MODEL&CMD=END",
+          "expect_regex": "(?:^|&)UNIT\\.MODEL=(D5100|D5200|DuetD-5)(?:&|\\r|\\n|$)",
+          "extract": {
+            "model": "UNIT\\.MODEL=([^&\\r\\n]+)"
+          },
+          "timeout_ms": 1500
+        }
+      }
+    },
+    {
+      "id": "visionary_5_series_encoder",
+      "name": "Visionary 5 Series Encoder",
+      "manufacturer": "Visionary Solutions",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls one Visionary 5 Series encoder: input and loop output, audio, bandwidth, USB and device configuration.",
+      "source_url": "https://visionary-av.com/wp-content/uploads/2024/10/VISIONARY-ED5200-UserManual-241023.pdf",
+      "file": "switchers/visionary_5_series_encoder.py",
+      "format": "python",
+      "files": {
+        "switchers/visionary_5_series_encoder.py": "75f4ef76817fdf24c2d5248053cf2b2bd43599df2cbc8ea65626a20037e06f2e",
+        "switchers/visionary_5_series_encoder_sim.py": "92f5c7cc3e20d38876549aaff7b5fe71adbd7eb54d3e3c69901156f3fb716371"
+      },
+      "ports": [
+        80,
+        8000
+      ],
+      "protocols": [
+        "visionary-5-series"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.2",
+      "tags": [
+        "av-over-ip",
+        "visionary",
+        "5-series",
+        "encoder",
+        "usb",
+        "edid"
+      ],
+      "help": {
+        "overview": "Add each encoder and decoder as its own device. Values shown are read from the equipment. Changes are temporary until Save Settings stores all current parameters, including routes.",
+        "setup": "Use the endpoint IP address and its web login. Factory login is admin / admin; enter the password. Configure the AV network in the Visionary web interface. Choose Model for offline design; it updates when the unit reports its model. E5200 EDID controls are under Inputs. Save Settings keeps all current values. Reboot is separate; save before rebooting. For serial pass-through on E5200/D5200, configure matching serial settings, save and reboot first, then select Through a Bridge on the downstream device."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Visionary Solutions",
+          "models": [
+            "E5100",
+            "E5200",
+            "DuetE-5"
+          ],
+          "confidence": "untested",
+          "notes": "API 3.x. Model-specific controls follow the reported model. Hardware qualification is pending."
+        }
+      ],
+      "discovery": {
+        "udp_probe": {
+          "port": 8000,
+          "send_ascii": "CMD=START&UNIT.ID=ALL&QUERY.KEY=UNIT.MODEL&CMD=END",
+          "expect_regex": "(?:^|&)UNIT\\.MODEL=(E5100|E5200|DuetE-5)(?:&|\\r|\\n|$)",
+          "extract": {
+            "model": "UNIT\\.MODEL=([^&\\r\\n]+)"
+          },
+          "timeout_ms": 1500
+        }
       }
     },
     {

@@ -518,7 +518,7 @@
       "name": "Magewell Pro Convert NDI Decoder",
       "manufacturer": "Magewell",
       "category": "streaming",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Pro Convert for NDI decoders with named source routing, display-supported output modes, audio mapping, presets and signal diagnostics.",
@@ -526,7 +526,7 @@
       "file": "streaming/magewell_pro_convert_ndi_decoder.py",
       "format": "python",
       "files": {
-        "streaming/magewell_pro_convert_ndi_decoder.py": "666dd12ef432d6c73483ae7340bcf169b2c531f93e5f03e9a764dc4c8474b338",
+        "streaming/magewell_pro_convert_ndi_decoder.py": "cdbd3aac84d4e69d2f98bdb7acfe6af530d84ec872dc979b7c11bb63f7aad72f",
         "streaming/magewell_pro_convert_ndi_decoder_sim.py": "9cd200a5713045904f3b35cd70572bfe151160882bf19fb58f41549134d0bb3b"
       },
       "ports": [

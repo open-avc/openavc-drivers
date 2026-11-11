@@ -106,7 +106,7 @@ class MagewellProConvertNDIDecoderDriver(BaseDriver):
      'name': 'Magewell Pro Convert NDI Decoder',
      'manufacturer': 'Magewell',
      'category': 'streaming',
-     'version': '1.0.0',
+     'version': '1.0.1',
      'author': 'OpenAVC',
      'transport': 'http',
      'ports': [80, 443],
@@ -1159,7 +1159,8 @@ class MagewellProConvertNDIDecoderDriver(BaseDriver):
                                                                'unit': 'ms'}},
                                           'sets': {'playback_buffer': '{value}'}},
                   'refresh': {'label': 'Refresh Status',
-                              'help': 'Refresh signal, settings, sources and supported display modes.'},
+                              'help': 'Refresh signal, settings, sources and supported display modes.',
+                              'query_for': 'model'},
                   'select_source': {'label': 'Select Source',
                                     'help': 'Choose a discovered NDI source or saved preset. The '
                                             'Selected Source feedback changes only after the decoder '

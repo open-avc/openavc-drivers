@@ -60,7 +60,7 @@ id: lightware_lw3
 name: Lightware LW3
 manufacturer: Lightware
 category: switcher
-version: 1.6.3
+version: 1.6.4
 author: OpenAVC
 min_platform_version: "0.36.0"
 description: >
@@ -71,6 +71,8 @@ description: >
   via change-notification subscriptions with a keep-alive watchdog guarding
   the link. Provides video and audio crosspoint switching, EDID switching,
   analog audio level/mute/balance, and CEC command sending.
+  For a new MMX2 project, choose the exact MMX2 model driver for its fixed
+  port layout and two-way serial bridge connections.
 
 source_url: https://assets.prod.pim.lightware.com/assets/File-Downloads/Guides-and-Manuals/User-Manual/MMX2_series_UserManual.pdf
 tags: [matrix-switcher, hdbaset, av-over-ip, lw3, hdmi, edid, cec]
@@ -86,8 +88,6 @@ compatible_models:
       - UCX-4x3-HC30
       - UCX-4x3-HC40
       - Taurus UCX
-      - MMX2-4x1-H20
-      - MMX2-4x3-H20
       - MMX series
       - MX2M-FR8
       - MX2M-FR48
@@ -106,6 +106,9 @@ delimiter: "\r\n"
 
 help:
   overview: >
+    For MMX2-4x1-H20 and MMX2-4x3-H20, choose the matching model driver
+    when adding a new device. Those drivers include the physical RS-232
+    connectors as two-way bridges with automatic serial line setup.
     Lightware LW3 is the unified ASCII control protocol used across Lightware's
     matrix switchers, extenders, and modular routers. Commands target a tree
     of nodes (e.g. /V1/MEDIA/VIDEO/XP) using GET, SET, and CALL operations.

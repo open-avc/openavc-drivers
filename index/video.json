@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 15,
+    "total_drivers": 16,
     "shards": null,
     "category": "video"
   },
@@ -441,6 +441,61 @@
         "port_open": [
           4443
         ]
+      }
+    },
+    {
+      "id": "datapath_fx4",
+      "name": "Datapath Fx4",
+      "manufacturer": "Datapath",
+      "category": "video",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Control Fx4 video walls with named source selection, per-output video, audio, image and orientation controls, and source and system diagnostics.",
+      "source_url": "https://www.datapathsoftware.com/supportdownloads/windows/datapathfx4-sdk/FX4.zip",
+      "file": "video/datapath_fx4.py",
+      "format": "python",
+      "files": {
+        "video/datapath_fx4.py": "1da11a9ee378ecfc238638e1a729e4653057900c4aec90db67d091ba56452e5b",
+        "video/datapath_fx4_sim.py": "710ce51c17185b9d0d5a4114b29d3770683c83640e8954e492c04d18547cfbc8"
+      },
+      "ports": [
+        80
+      ],
+      "protocols": [
+        "datapath-fx4-rest"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "video-wall",
+        "scaler",
+        "hdr"
+      ],
+      "help": {
+        "overview": "Control the selected source for a Datapath wall and individual output settings. Preferred Source and Active Source are separate because the controller can fall back to another input.",
+        "setup": "Configure the wall layout in Datapath Wall Designer. Enter the controller\u2019s IP address, select its model and name the three inputs. Output and input numbers match the physical 1-based numbering. Enter the control password if one is set. All changes are live until Save Configuration to Storage is used; that saves every current setting, including changes made in Wall Designer.",
+        "connection": "The REST API uses unencrypted HTTP. Status reads need no password; a wrong control password prevents changes but does not prevent monitoring. No event subscription is documented; status is refreshed periodically and after commands."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Datapath",
+          "models": [
+            "Fx4-HDR",
+            "Fx4",
+            "Fx4-SDI"
+          ],
+          "confidence": "untested",
+          "notes": "Based on Datapath\u2019s published Fx4 REST API. Model-specific feedback fields appear when the controller reports them. Not tested on hardware."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 80,
+          "send_ascii": "GET /SystemInfo.cgx HTTP/1.0\r\n\r\n",
+          "expect_regex": "(?s)\"FirmwareVersion\"\\s*:\\s*\\d+.*\"ConfigVersion\"\\s*:\\s*\\d+.*\"HardwareVersion\"\\s*:\\s*\\d+.*\"FPGAVersion\"\\s*:\\s*\\d+",
+          "timeout_ms": 2000
+        }
       }
     },
     {

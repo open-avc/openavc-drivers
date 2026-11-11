@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 76,
+    "total_devices": 79,
     "shards": null,
     "category": "video"
   },
@@ -548,6 +548,42 @@
           "id": "crestron_automate_vx",
           "confidence": "untested",
           "notes": "The first-generation Automate VX systems the API reference names, on the same API. Firmware before 6.4.2, on any Automate VX, serves the API over HTTP: turn Use HTTPS off and enter the port its web page opens on (3579 in the product manual). Not yet tested on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Datapath",
+      "model": "Fx4",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "datapath_fx4",
+          "confidence": "untested",
+          "notes": "Based on Datapath\u2019s published Fx4 REST API. Model-specific feedback fields appear when the controller reports them. Not tested on hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Datapath",
+      "model": "Fx4-HDR",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "datapath_fx4",
+          "confidence": "untested",
+          "notes": "Based on Datapath\u2019s published Fx4 REST API. Model-specific feedback fields appear when the controller reports them. Not tested on hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Datapath",
+      "model": "Fx4-SDI",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "datapath_fx4",
+          "confidence": "untested",
+          "notes": "Based on Datapath\u2019s published Fx4 REST API. Model-specific feedback fields appear when the controller reports them. Not tested on hardware."
         }
       ]
     },

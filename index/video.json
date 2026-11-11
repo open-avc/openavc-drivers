@@ -456,7 +456,7 @@
       "file": "video/datapath_fx4.py",
       "format": "python",
       "files": {
-        "video/datapath_fx4.py": "1da11a9ee378ecfc238638e1a729e4653057900c4aec90db67d091ba56452e5b",
+        "video/datapath_fx4.py": "f1e47d3eb36dacdb1f788dd05e32186ee10bf0d7ae7c603bab79f0616d1fd91a",
         "video/datapath_fx4_sim.py": "710ce51c17185b9d0d5a4114b29d3770683c83640e8954e492c04d18547cfbc8"
       },
       "ports": [
@@ -474,7 +474,7 @@
       ],
       "help": {
         "overview": "Control the selected source for a Datapath wall and individual output settings. Preferred Source and Active Source are separate because the controller can fall back to another input.",
-        "setup": "Configure the wall layout in Datapath Wall Designer. Enter the controller\u2019s IP address, select its model and name the three inputs. Output and input numbers match the physical 1-based numbering. Enter the control password if one is set. All changes are live until Save Configuration to Storage is used; that saves every current setting, including changes made in Wall Designer.",
+        "setup": "Configure the wall layout in Datapath Wall Designer. Enter the controller\u2019s IP address and name the three inputs. Inputs 1/2/3 represent API inputs 0/1/2; outputs 1/2/3/4 represent API outputs 0/1/2/3. Enter the control password if one is set. All changes are live until Save Configuration to Storage is used; that saves every current setting, including changes made in Wall Designer.",
         "connection": "The REST API uses unencrypted HTTP. Status reads need no password; a wrong control password prevents changes but does not prevent monitoring. No event subscription is documented; status is refreshed periodically and after commands."
       },
       "compatible_models": [
@@ -493,7 +493,7 @@
         "tcp_probe": {
           "port": 80,
           "send_ascii": "GET /SystemInfo.cgx HTTP/1.0\r\n\r\n",
-          "expect_regex": "(?s)\"FirmwareVersion\"\\s*:\\s*\\d+.*\"ConfigVersion\"\\s*:\\s*\\d+.*\"HardwareVersion\"\\s*:\\s*\\d+.*\"FPGAVersion\"\\s*:\\s*\\d+",
+          "expect_regex": "(?s)(?=.*\"FirmwareVersion\"\\s*:\\s*\\d+)(?=.*\"ConfigVersion\"\\s*:\\s*\\d+)(?=.*\"HardwareVersion\"\\s*:\\s*\\d+)(?=.*\"FPGAVersion\"\\s*:\\s*\\d+).+",
           "timeout_ms": 2000
         }
       }

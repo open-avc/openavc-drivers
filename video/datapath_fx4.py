@@ -56,8 +56,8 @@ class DatapathFx4Driver(BaseDriver):
             "settings. Preferred Source and Active Source are separate because the "
             "controller can fall back to another input.",
             "setup": "Configure the wall layout in Datapath Wall Designer. Enter the controller’s IP "
-            "address, select its model and name the three inputs. Output and input numbers "
-            "match the physical 1-based numbering. Enter the control password if one is "
+            "address and name the three inputs. Inputs 1/2/3 represent API inputs 0/1/2; "
+            "outputs 1/2/3/4 represent API outputs 0/1/2/3. Enter the control password if one is "
             "set. All changes are live until Save Configuration to Storage is used; that "
             "saves every current setting, including changes made in Wall Designer.",
             "connection": "The REST API uses unencrypted HTTP. Status reads need no password; a "
@@ -71,7 +71,6 @@ class DatapathFx4Driver(BaseDriver):
             "password": "",
             "poll_interval": 10,
             "inter_command_delay": 0.02,
-            "model": "Fx4-HDR",
             "input_1_name": "Input 1",
             "input_2_name": "Input 2",
             "input_3_name": "Input 3",
@@ -86,13 +85,6 @@ class DatapathFx4Driver(BaseDriver):
                 "secret": True,
                 "help": "Leave blank only if the controller has no password. "
                 "Status reads do not require it.",
-            },
-            "model": {
-                "type": "enum",
-                "label": "Model",
-                "default": "Fx4-HDR",
-                "values": ["Fx4-HDR", "Fx4", "Fx4-SDI"],
-                "help": "Choose the installed model. The REST API does not report its " "model name.",
             },
             "poll_interval": {
                 "type": "integer",
@@ -488,7 +480,7 @@ class DatapathFx4Driver(BaseDriver):
             "tcp_probe": {
                 "port": 80,
                 "send_ascii": "GET /SystemInfo.cgx HTTP/1.0\r\n\r\n",
-                "expect_regex": '(?s)"FirmwareVersion"\\s*:\\s*\\d+.*"ConfigVersion"\\s*:\\s*\\d+.*"HardwareVersion"\\s*:\\s*\\d+.*"FPGAVersion"\\s*:\\s*\\d+',
+                "expect_regex": '(?s)(?=.*"FirmwareVersion"\\s*:\\s*\\d+)(?=.*"ConfigVersion"\\s*:\\s*\\d+)(?=.*"HardwareVersion"\\s*:\\s*\\d+)(?=.*"FPGAVersion"\\s*:\\s*\\d+).+',
                 "timeout_ms": 2000,
             }
         },
@@ -675,32 +667,34 @@ class DatapathFx4Driver(BaseDriver):
         self.set_states(values)
 
     async def poll(self):
+        # Release the operation lock between reads: a command or liveness probe
+        # waits for one exchange, not a full seven-port status sweep.
+        await self._poll_read("SerialNumber", required=True)
+        slow = time.monotonic() >= self._slow_due
+        for endpoint in ("ActiveInput", "PreferredInput", "SystemHealth"):
+            await self._poll_read(endpoint)
+        if slow:
+            for endpoint in ("SystemInfo", "FriendlyName", "NetworkSettings", "Smoothness", "OutputNoSignal"):
+                await self._poll_read(endpoint)
+        await self._poll_ports(slow)
+        if slow:
+            self._slow_due = time.monotonic() + 60
+        if self._read_errors:
+            self.set_state("last_error", "Status not updated: " + "; ".join(self._read_errors.values()))
+
+    async def _poll_read(self, endpoint, kind=None, port=None, required=False):
         async with self._lock:
-            await self._read("SerialNumber")
-            slow = time.monotonic() >= self._slow_due
-            for endpoint in ("ActiveInput", "PreferredInput", "SystemHealth"):
-                await self._optional_read(endpoint)
-            if slow:
-                for endpoint in (
-                    "SystemInfo",
-                    "FriendlyName",
-                    "NetworkSettings",
-                    "Smoothness",
-                    "OutputNoSignal",
-                ):
-                    await self._optional_read(endpoint)
-            await self._poll_ports(slow)
-            if slow:
-                self._slow_due = time.monotonic() + 60
-            if self._read_errors:
-                self.set_state("last_error", "Status not updated: " + "; ".join(self._read_errors.values()))
+            if required:
+                await self._read(endpoint, kind, port)
+            else:
+                await self._optional_read(endpoint, kind, port)
 
     async def _poll_ports(self, slow):
         for kind, count in (("input", 3), ("output", 4)):
             endpoints = _port_queries(kind, slow)
             for port in range(1, count + 1):
                 for endpoint in endpoints:
-                    await self._optional_read(endpoint, kind, port)
+                    await self._poll_read(endpoint, kind, port)
 
     async def refresh_children(self):
         self._unsupported.clear()

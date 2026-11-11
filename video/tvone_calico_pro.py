@@ -530,6 +530,7 @@ class TvoneCalicoProDriver(BaseDriver):
         "commands": {
             "refresh": {
                 "label": "Refresh Status",
+                "query_for": "status",
                 "params": {},
                 "help": "Read the current configuration, names, signals and health from CALICO.",
             },

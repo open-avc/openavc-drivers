@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 191,
+    "total_drivers": 192,
     "shards": null
   },
   "drivers": [
@@ -801,6 +801,74 @@
           "port": 50002,
           "send_ascii": "getStatus\r",
           "expect_regex": "(?i)SVSI_RXGEN2\\s*:?\\s*(?:NMX-DEC-)?(?:N2622S|N3322D)(?!-C)(?=[\\d\\s:-]|$)",
+          "timeout_ms": 1500
+        }
+      }
+    },
+    {
+      "id": "amx_svsi_n2625_wp",
+      "name": "AMX SVSI N2625 Wallplate Decoders",
+      "manufacturer": "AMX",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Route MWC video, audio and USB/KVM to a wallplate. Read the selected streams, HDMI connection, incoming signal and display timing.",
+      "source_url": "https://www.amx.com/en-US/products/nmx-dec-n2625d-wp",
+      "file": "switchers/amx_svsi_n2625_wp.py",
+      "format": "python",
+      "files": {
+        "switchers/amx_svsi_n2625_wp.py": "9154ec5f4d59c5124dbb77dc674044ba491bf1e02b89ad189287ee35133a3ce4",
+        "switchers/amx_svsi_n2625_wp_sim.py": "45b42f30c3c34b4afc76dfdcdea486a6042fa1a2efc7cdb00d143abf7a9484f9"
+      },
+      "ports": [
+        50002,
+        50102
+      ],
+      "protocols": [
+        "amx-svsi-direct-control",
+        "hcontrol"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.2",
+      "tags": [
+        "av-over-ip",
+        "wallplate",
+        "decoder",
+        "svsi",
+        "dante-av-a"
+      ],
+      "help": {
+        "overview": "One wallplate is one destination. Route video, break audio away or follow video, and select the USB/KVM encoder independently. Incoming resolution, HDMI cable detection, and actual HDMI output timing help trace a missing picture.",
+        "setup": "1. Connect to the wallplate address on TCP 50002, or use TLS on 50102 with its command password and a trusted certificate. Each Direct Control port accepts one controller at a time.\n2. Match the routing owner to the commissioned mode. Name the video/audio streams under SVSI sources, and the encoder addresses under USB/KVM encoder hosts. The D model identifies a license, not the currently active routing mode.\n3. A Video Matrix recall returns from local playback to live. Audio shows the selected independent stream or Follow video. Effective network audio shows which stream supplies audio when stream audio is in use. USB/KVM shows a selected host when both returned host addresses agree. Enable USB or KVM to carry its traffic.\n4. With ordinary control, allow outbound TCP 4197 for live display timing and HDCP. Readings also refresh after writes and on the status timer. In secure mode, video mute and preview writes are acknowledged without independent readback.\n5. To control a serial display on a site with ordinary TCP 50004 enabled, choose Through a bridge on the display driver and select this decoder\u2019s RS-232 connector. Match its baud, data bits, parity and stop bits. Secure serial passthrough on 50104 requires support beyond this driver. Use the site\u2019s commissioned security settings.",
+        "connection": "Confirm the address, port, TLS and password. Check the selected stream, playback mode, incoming timing, HDMI detection, mutes and display timing separately."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "AMX",
+          "models": [
+            "NMX-DEC-N2625D-WP-NA",
+            "NMX-DEC-N2625D-WP-EK",
+            "NMX-DEC-N2625-WP-NA",
+            "NMX-DEC-N2625-WP-EK"
+          ],
+          "confidence": "untested",
+          "notes": "D and non-D wallplates share hardware and firmware. Simulation checked on all four models. Physical qualification pending."
+        }
+      ],
+      "discovery": {
+        "port_open": [
+          50002,
+          50102
+        ],
+        "manufacturer_alias": [
+          "amx",
+          "svsi"
+        ],
+        "tcp_probe": {
+          "port": 50002,
+          "send_ascii": "getStatus\r",
+          "expect_regex": "(?i)SVSI_RXGEN2\\s*:?\\s*(?:NMX-DEC-)?N2625D?-?WP(?:-(?:NA|EK))?(?=\\d|[\\s:]|-\\d|$)",
           "timeout_ms": 1500
         }
       }

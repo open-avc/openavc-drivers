@@ -1,4 +1,4 @@
-"""AMX NMX-DEC-N2622S / N3322D. Direct Control reports a CR-separated status
+"""AMX NMX-DEC-N2422A / N2622S / N3322D. Direct Control reports a CR-separated status
 packet even for writes. Python correlates fresh fields across those packets,
 prefixes secure commands with the receiver's command password, and subscribes
 to N2622S HDMI events. N3322D Matrix selections combine several independently
@@ -28,7 +28,40 @@ ROUTES = {
     "set_audio_stream",
     "follow_video",
 }
-MODEL_PATTERN = r"(?:NMX-DEC-)?(N2622S|N3322D)(?!-C)(?=\d|[ :\t-]|$)"
+MODEL_PATTERN = r"(?:NMX-DEC-)?(N2422A|N2622S|N3322D)(?!-C)(?=\d|[ :\t-]|$)"
+N24_MODES = [
+    "auto",
+    "480p",
+    "480p59.94",
+    "720p59.94",
+    "720p60",
+    "1080p59.94",
+    "1080p60",
+    "2160p60",
+]
+N24_BAUD = {
+    300,
+    1200,
+    2400,
+    4800,
+    9600,
+    14400,
+    19200,
+    28800,
+    38400,
+    57600,
+    115200,
+    230400,
+}
+N24_FEEDBACK = {
+    "video_source",
+    "audio_selection",
+    "video_stream",
+    "audio_stream",
+    "play_mode",
+    "usb_enabled",
+    "kvm_enabled",
+}
 N33_MODES = [
     "auto",
     "720p50",
@@ -170,14 +203,14 @@ def flag(value):
         raise CommandRefusedError("Choose on or off.") from None
 
 
-def serial_format(params):
-    baud = number(params.get("baudrate", 9600), 1200, 115200)
+def serial_format(params, rates=BAUD):
+    baud = number(params.get("baudrate", 9600), min(rates), max(rates))
     bits = number(params.get("bytesize", 8), 7, 8)
     parity = {"N": "none", "O": "odd", "E": "even"}.get(
         str(params.get("parity", "N")).upper()
     )
     stops = {"1": 1, "1.0": 1, "2": 2, "2.0": 2}.get(str(params.get("stopbits", 1)))
-    if not all((baud in BAUD, parity, stops)):
+    if not all((baud in rates, parity, stops)):
         raise CommandRefusedError(
             "Choose a supported baud rate, N/O/E parity and one or two stop bits."
         )
@@ -226,7 +259,10 @@ def report_url(value):
 
 
 def encoder_address(value):
-    addr = IPv4Address(value)
+    try:
+        addr = IPv4Address(value)
+    except ValueError:
+        raise CommandRefusedError("Enter the encoder's unicast IPv4 address.") from None
     if any((addr.is_multicast, addr.is_unspecified, int(addr) == 0xFFFFFFFF)):
         raise CommandRefusedError("Enter the encoder's unicast IPv4 address.")
     return str(addr)
@@ -308,6 +344,11 @@ def numbered_source(row, name):
     return stream, f"{name} ({stream})"
 
 
+def usb_source(row, name):
+    addr = encoder_address(row.get("address"))
+    return addr, f"{name} ({addr})"
+
+
 def url_source(row, name):
     return stream_url(row.get("url", ""), schemes=N33_SCHEMES), name
 
@@ -333,17 +374,28 @@ N33_FIELDS = {
     "AUDIOSTREAM": ("audio_source", n33_audio),
     "RCVMODE": ("receive_mode", {"1": "SVSI", "2": "H26X"}),
 }
+N24_FIELDS = {
+    **FIELDS,
+    "AES67": ("aes67_enabled", {"0": False, "1": True}),
+    "AESRX": ("aes67_address", str),
+    "DVIOFF": FIELDS["HDMIOFF"],
+    "DVISTATUS": FIELDS["HDMISTATUS"],
+    "USB": FIELDS["USB20ENABLESTATUS"],
+    "KVM": FIELDS["KVMENABLESTATUS"],
+}
+for alias in ("HDMIOFF", "HDMISTATUS", "USB20ENABLESTATUS", "KVMENABLESTATUS"):
+    del N24_FIELDS[alias]
 LEGACY_SELECTIONS = {"video_stream": "video_source", "audio_stream": "audio_selection"}
 
 
 class AMXN2622SDriver(BaseDriver):
     DRIVER_INFO = {
         "id": "amx_svsi_n2622s",
-        "name": "AMX SVSI N2622S / N3322D Decoders",
+        "name": "AMX SVSI N2422A / N2622S / N3322D Decoders",
         "manufacturer": "AMX",
         "category": "switcher",
         "author": "OpenAVC",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "transport": "tcp",
         "delimiter": "\r",
         "ports": [50002, 50102],
@@ -352,10 +404,16 @@ class AMXN2622SDriver(BaseDriver):
         "verified": False,
         "min_platform_version": "0.37.2",
         "source_url": "https://www.amx.com/da/site_elements/amx-direct-control-api-n26xxs",
-        "description": "Routes named video and independent audio to an N2622S or N3322D. Controls local playback, scaling, "
+        "description": "Routes named video and independent audio to an N2422A, N2622S or N3322D. Controls local playback, scaling, "
         "line levels and HDMI output. The N3322D supports named H.26x sources and Dante AV-H ownership feedback.",
         "tags": ["av-over-ip", "decoder", "svsi", "4k", "serial-bridge", "cec"],
         "compatible_models": [
+            {
+                "manufacturer": "AMX",
+                "models": ["NMX-DEC-N2422A"],
+                "confidence": "untested",
+                "notes": "Standalone N2400 JPEG 2000 decoder with independent audio and keyboard/mouse routing. Hardware verification pending.",
+            },
             {
                 "manufacturer": "AMX",
                 "models": ["NMX-DEC-N2622S"],
@@ -400,6 +458,7 @@ class AMXN2622SDriver(BaseDriver):
         },
         "default_config": {
             "decoder_model": "Auto",
+            "usb_sources": [],
             "url_sources": [],
             "host": "",
             "port": 50002,
@@ -415,9 +474,27 @@ class AMXN2622SDriver(BaseDriver):
             "decoder_model": {
                 "type": "enum",
                 "label": "Decoder model",
-                "values": ["Auto", "N2622S", "N3322D"],
+                "values": ["Auto", "N2622S", "N3322D", "N2422A"],
                 "default": "Auto",
-                "help": "Auto identifies the connected decoder. Choose N3322D for offline design or simulation. Auto simulates the N2622S.",
+                "help": "Auto identifies the connected decoder. Choose a model for offline design or simulation. Auto simulates the N2622S.",
+            },
+            "usb_sources": {
+                "type": "table",
+                "label": "N2422A keyboard and mouse encoders",
+                "default": [],
+                "row_label": "Encoder",
+                "columns": {
+                    "name": {
+                        "type": "string",
+                        "label": "Source name",
+                        "required": True,
+                    },
+                    "address": {
+                        "type": "string",
+                        "label": "Encoder IPv4 address",
+                        "required": True,
+                    },
+                },
             },
             "url_sources": {
                 "type": "table",
@@ -511,7 +588,7 @@ class AMXN2622SDriver(BaseDriver):
             "tcp_probe": {
                 "port": 50002,
                 "send_ascii": "getStatus\r",
-                "expect_regex": "(?i)SVSI_RXGEN2\\s*:?\\s*(?:NMX-DEC-)?(?:N2622S|N3322D)(?!-C)(?=[\\d\\s:-]|$)",
+                "expect_regex": "(?i)SVSI_RXGEN2\\s*:?\\s*(?:NMX-DEC-)?(?:N2422A|N2622S|N3322D)(?!-C)(?=[\\d\\s:-]|$)",
                 "timeout_ms": 1500,
             },
         },
@@ -1304,18 +1381,28 @@ class AMXN2622SDriver(BaseDriver):
     def _n33(self):
         return self._model == "N3322D"
 
+    @property
+    def _n24(self):
+        return self._model == "N2422A"
+
     def _configure_surface(self):
         info = deepcopy(type(self).DRIVER_INFO)
         self.DRIVER_INFO = info
         self._source_ids = set()
         self._urls = set()
-        if self._n33:
+        fields = FIELDS
+        if self._model in ("N2622S", "N3322D"):
+            info["config_schema"].pop("usb_sources")
+        if self._n24:
+            self._n24_surface(info)
+            fields = N24_FIELDS
+        elif self._n33:
             self._n33_surface(info)
+            fields = N33_FIELDS
         else:
             self._omit(N33_ONLY, {"select_audio_source", "read_audio_source"})
             if self._model == "N2622S":
                 info["config_schema"].pop("url_sources")
-        fields = N33_FIELDS if self._n33 else FIELDS
         self._fields = {
             k: spec for k, spec in fields.items() if spec[0] in info["state_variables"]
         }
@@ -1332,6 +1419,124 @@ class AMXN2622SDriver(BaseDriver):
             | {"set_" + key for key in states}
         ):
             info["commands"].pop(cmd, None)
+
+    def _n24_surface(self, info):
+        self._omit(
+            {
+                "audio_source",
+                "audio_sample_rate",
+                "dante_av_h_enabled",
+                "receive_mode",
+                "stream_url",
+                "identified",
+                "output_resolution",
+                "hdcp_status",
+                "kvm_host",
+                "usb_host",
+                "wall_enabled",
+                "wall_rows",
+                "wall_columns",
+                "wall_row",
+                "wall_column",
+            },
+            {"select_audio_source", "set_wall_layout", "identify", "display_cec"},
+        )
+        for key in ("hdmi_events", "routing_owner", "url_sources"):
+            info["config_schema"].pop(key)
+        info["source_url"] = (
+            "https://www.amx.com/en-US/site_elements/n-series-n2400-direct-control-api"
+        )
+        info["protocols"] = ["amx-svsi-direct-control"]
+        info["help"]["setup"] = (
+            "Select N2422A for offline design or simulation. Auto identifies a connected decoder. "
+            "Use TCP 50002, or TLS on 50102 with the receiver command password. Only one controller can hold the connection.\n"
+            "Name the N2400 video and audio streams under Sources. Audio can follow video or stay on another encoder. "
+            "AES67 audio clears the SVSI audio selection. Local playback clears the live video selection. Check incoming resolution and display detection separately.\n"
+            "To use the RS-232 connector, bind a serial device on ordinary port 50004 and match its line settings."
+        )
+        info["help"]["connection"] = (
+            "Check the address, control port, TLS setting and command password. For a missing picture, check live playback, incoming resolution, mute and display detection."
+        )
+        commands = info["commands"]
+        hosts, choices = source_choices(self.config.get("usb_sources"), usb_source)
+        self._usb_hosts = hosts
+        usb_help = (
+            "Moves only keyboard and mouse control. Verify the connected encoder under KVM IP on the decoder’s Settings page. "
+            "Direct Control reports USB and KVM enablement only."
+        )
+        commands["route_usb"] = {
+            "label": "Route keyboard and mouse by source",
+            "help": usb_help,
+            "params": {
+                "source": {
+                    "type": "enum",
+                    "label": "USB encoder",
+                    "required": True,
+                    "values": choices,
+                }
+            },
+        }
+        commands["set_usb_host"] = {
+            "label": "Route keyboard and mouse by encoder address",
+            "help": usb_help,
+            "params": {
+                "address": {
+                    "type": "string",
+                    "label": "Encoder IPv4 address",
+                    "required": True,
+                }
+            },
+        }
+        info["help"]["setup"] += (
+            "\nName keyboard and mouse encoders by their IP addresses. " + usb_help
+        )
+        info["state_variables"]["aes67_enabled"] = {
+            "type": "boolean",
+            "label": "AES67 audio selected",
+            "cloud_priority": "high",
+        }
+        info["state_variables"]["aes67_address"] = {
+            "type": "string",
+            "label": "Configured AES67 audio source",
+        }
+        for key in ("aes67_enabled", "aes67_address"):
+            commands["read_" + key] = {
+                "label": "Read " + info["state_variables"][key]["label"],
+                "query_for": key,
+            }
+        info["routing"]["planes"][1]["label"] = "SVSI audio assignment"
+        info["state_variables"]["audio_selection"]["label"] = (
+            "SVSI audio assignment (0 follows video)"
+        )
+        for key in (
+            "usb_enabled",
+            "kvm_enabled",
+            "hdmi_audio_mode",
+            "hold_last_frame",
+            "disable_hdmi_on_loss",
+        ):
+            info["device_settings"].pop(key)
+            commands.pop("set_" + key)
+            info["state_variables"][key]["control"] = False
+        info["state_variables"]["usb_enabled"]["label"] = (
+            "Keyboard and mouse USB enabled"
+        )
+        commands["route_audio"]["help"] = (
+            "Select an independent N2400 audio stream or choose Follow video."
+        )
+        commands["route_video"]["help"] = (
+            "Select the named N2400 stream and return to live playback."
+        )
+        commands["set_scaler_mode"]["params"]["mode"]["values"] = N24_MODES
+        info["device_settings"]["scaler_mode"]["values"] = N24_MODES
+        info["actions"] = [a for a in info["actions"] if a["id"] in commands]
+        info["quick_actions"] = [
+            "route_video",
+            "route_audio",
+            "route_usb",
+            "play_local",
+            "refresh_status",
+        ]
 
     def _n33_surface(self, info):
         self._omit(N26_ONLY, {"set_wall_layout", "set_usb_host"})
@@ -1382,7 +1587,7 @@ class AMXN2622SDriver(BaseDriver):
         ]
 
     def _configure_routing(self):
-        if self._routes_reserved():
+        if not self._n24 and self._routes_reserved():
             self._use_dante_routing()
             return
         self._source_ids, streams = source_choices(
@@ -1456,7 +1661,13 @@ class AMXN2622SDriver(BaseDriver):
 
     async def _initial_sync(self):
         await self._request("getNetStatus", {"mac"}, header=NETWORK)
-        if all((not self._n33, self.config.get("hdmi_events", True), not self._secure)):
+        if all(
+            (
+                self._model == "N2622S",
+                self.config.get("hdmi_events", True),
+                not self._secure,
+            )
+        ):
             self._clear_hdmi("Direct Control; connecting to HControl")
             self._watch = asyncio.create_task(self._watch_hdmi())
         else:
@@ -1470,6 +1681,11 @@ class AMXN2622SDriver(BaseDriver):
             await asyncio.gather(self._watch, return_exceptions=True)
             self._watch = None
         self._clear_hdmi("Disconnected")
+        if self._n24:
+            self._packet.clear()
+            self._missing_routes.clear()
+            for key in set(self.DRIVER_INFO["state_variables"]) - {"hdmi_feedback"}:
+                self.set_state(key, None)
         if self._n33:
             for key in ("video_source", "audio_selection", "dante_av_h_enabled"):
                 self.set_state(key, None)
@@ -1547,10 +1763,21 @@ class AMXN2622SDriver(BaseDriver):
         # prior report, so an omitted reading cannot leave a stale crosspoint.
         self._clear_missing_routes()
         self._packet = {}
+        # The N2400 manual gives the same RX header for status and network
+        # reports. A network reply must not expire the previous routing report.
+        if (
+            self._n24
+            and header == STATUS
+            and self._header == NETWORK
+            and self._waiting_for_reply()
+        ):
+            header = NETWORK
         self._in_packet = header == self._header
         self._fresh = {}
         if all((header == STATUS, self._n33, not self._identifying)):
             self._missing_routes = MATRIX_READINGS.copy()
+        if header == STATUS and self._n24 and not self._identifying:
+            self._missing_routes = N24_FEEDBACK.copy()
 
     def _clear_missing_routes(self):
         if "dante_av_h_enabled" in self._missing_routes:
@@ -1570,6 +1797,24 @@ class AMXN2622SDriver(BaseDriver):
         if wire not in self._fields:
             return {}
         update = read_field(self._fields[wire], value)
+        if self._n24:
+            self._packet.update(update)
+            if update.keys() & {"audio_stream", "aes67_enabled"}:
+                if self._packet.get("aes67_enabled"):
+                    update["audio_selection"] = ""
+                elif (
+                    self._packet.get("aes67_enabled") is False
+                    and "audio_stream" in self._packet
+                ):
+                    update["audio_selection"] = str(self._packet["audio_stream"])
+            if update.keys() & {"video_stream", "play_mode"}:
+                mode = self._packet.get("play_mode")
+                if mode == "local":
+                    update["video_source"] = ""
+                elif mode == "live" and "video_stream" in self._packet:
+                    stream = self._packet["video_stream"]
+                    update["video_source"] = str(stream) if stream else ""
+            return update
         if self._n33:
             return self._with_routes(update)
         for key in LEGACY_SELECTIONS.keys() & update.keys():
@@ -1601,13 +1846,17 @@ class AMXN2622SDriver(BaseDriver):
 
     async def poll(self):
         await self._request("getStatus", {"identity", "firmware"})
+        if self._n24 and self._missing_routes:
+            # A network packet closes a fragmented status report. Missing
+            # readings expire independently, even with polling turned off later.
+            await self._request("getNetStatus", {"mac"}, header=NETWORK)
 
     async def _liveness_probe(self):
         await self._request("getStatus", {"identity"})
 
     def _clear_hdmi(self, mode):
         self.set_state("hdmi_feedback", mode)
-        if not self._n33:
+        if self._model in ("Auto", "N2622S"):
             self.set_state("output_resolution", None)
             self.set_state("hdcp_status", None)
 
@@ -1694,6 +1943,43 @@ class AMXN2622SDriver(BaseDriver):
             )
 
     async def send_command(self, command, params=None):
+        if self._n24 and command in ("route_usb", "set_usb_host"):
+            wire, _ = self._other_operation(command, params or {})
+            report = await self._request("getStatus", {"usb_enabled"})
+            if not report["usb_enabled"]:
+                raise CommandRefusedError(
+                    "Enable USB on the receiver’s KVM page before switching keyboard and mouse."
+                )
+            return await self._confirm(wire, {"usb_enabled": True})
+        if self._n24 and command in ("route_audio", "set_audio_stream", "follow_video"):
+            current = await self._request("getStatus", {"aes67_enabled"})
+            if current["aes67_enabled"]:
+                raise CommandRefusedError(
+                    "The decoder is receiving AES67 audio. Select SVSI audio on the decoder before routing a numbered audio stream."
+                )
+            wire, expected = self._route(command, params or {})
+            return await self._confirm(wire, {**expected, "aes67_enabled": False})
+        if self._n24 and command in {
+            "route_video",
+            "set_video_stream",
+            "play_live",
+            "play_local",
+        }:
+            async with self._route_lock:
+                if command == "route_video":
+                    source = str((params or {}).get("source", ""))
+                    if source not in self._source_ids:
+                        raise CommandRefusedError("Choose a configured video source.")
+                    reply = await self._request(
+                        "set:" + source, {"video_stream", "play_mode"}
+                    )
+                    if reply["video_stream"] != int(source):
+                        raise CommandRefusedError(
+                            "The decoder reported a different video stream."
+                        )
+                    wire = "getStatus" if reply["play_mode"] == "live" else "live"
+                    return await self._confirm(wire, {"video_source": source})
+                return await self._dispatch(command, params or {})
         if self._n33 and command in OWNED_COMMANDS | {"play_live", "play_local"}:
             async with self._route_lock:
                 return await self._n33_command(command, params or {})
@@ -1802,6 +2088,14 @@ class AMXN2622SDriver(BaseDriver):
         }
 
     def _other_operation(self, command, params):
+        if self._n24 and command in ("route_usb", "set_usb_host"):
+            addr = encoder_address(params.get("source", params.get("address")))
+            if command == "route_usb" and addr not in self._usb_hosts:
+                raise CommandRefusedError(
+                    "Choose a configured keyboard and mouse encoder."
+                )
+            # Omitting the zero would switch video and any following audio, too.
+            return "KVMMasterIP:" + addr + ",0", {}
         if command == "set_usb_host":
             addr = encoder_address(params["address"])
             return "KVMUSB20MainIP:" + addr, dict.fromkeys(
@@ -1858,7 +2152,7 @@ class AMXN2622SDriver(BaseDriver):
             raise CommandRefusedError("Choose the decoder RS-232 connector.")
         async with self._serial_lock:
             try:
-                desired = serial_format(params)
+                desired = serial_format(params, N24_BAUD if self._n24 else BAUD)
                 current = await self._request("getStatus", SERIAL)
                 if any(current[k] != v for k, v in desired.items()):
                     await self._confirm(

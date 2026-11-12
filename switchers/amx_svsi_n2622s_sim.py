@@ -1,4 +1,4 @@
-"""AMX N2622S / N3322D Direct Control simulator with N2622S HControl. The two protocol
+"""AMX N2422A / N2622S / N3322D Direct Control simulator with N2622S HControl. The two protocol
 connections share an allocated loopback port in simulation. A second Direct
 Control client cannot take ownership on that port. The ordinary serial
 connector is represented by its line settings, without opening a fixed port.
@@ -54,6 +54,38 @@ STATUS = {
     "wallVerMons": "1",
     "wallMonPosH": "1",
     "wallMonPosV": "1",
+    "BAUD": "9600",
+    "SNUMB": "8",
+    "SPAR": "none",
+    "SP2S": "1",
+}
+N24_STATUS = {
+    "SVSI_RXGEN2": "N2422A-SIM0001",
+    "AES67": "0",
+    "AESRX": "239.255.10.11:5004",
+    "NAME": "Training room N2400 decoder",
+    "MAC": "02:00:00:00:24:22",
+    "IP": "192.0.2.22",
+    "SWVER": "simulated",
+    "STREAM": "12",
+    "STREAMAUDIO": "0",
+    "PLAYMODE": "live",
+    "PLAYLIST": "1",
+    "USB": "1",
+    "KVM": "1",
+    "DVIOFF": "off",
+    "DVISTATUS": "connected",
+    "SCALERBYPASS": "no",
+    "MODE": "auto.mode",
+    "INPUTRES": "1920x1080p60",
+    "HDMIAUDIO": "auto",
+    "FRAMEHOLD": "off",
+    "VIDOFFNOSTRM": "off",
+    "LIVEAUDIOLP": "off",
+    "MUTE": "0",
+    "VMUTE": "0",
+    "LINEOUTVOL_L": "65",
+    "LINEOUTVOL_R": "65",
     "BAUD": "9600",
     "SNUMB": "8",
     "SPAR": "none",
@@ -142,7 +174,7 @@ def hc_line(verb, path, **data):
 class AMXN2622SSimulator(TCPSimulator):
     SIMULATOR_INFO = {
         "driver_id": "amx_svsi_n2622s",
-        "name": "AMX SVSI N2622S / N3322D Decoder Simulator",
+        "name": "AMX SVSI N2422A / N2622S / N3322D Decoder Simulator",
         "category": "switcher",
         "transport": "tcp",
         "default_port": 50002,
@@ -214,10 +246,14 @@ class AMXN2622SSimulator(TCPSimulator):
     }
 
     def __init__(self, device_id, config=None):
-        self._n33 = (config or {}).get("decoder_model") == "N3322D"
+        model = (config or {}).get("decoder_model")
+        self._n33 = model == "N3322D"
+        self._n24 = model == "N2422A"
         self._fields = dict(STATUS)
         self.SIMULATOR_INFO = deepcopy(type(self).SIMULATOR_INFO)
-        if self._n33:
+        if self._n24:
+            self._n24_profile()
+        elif self._n33:
             self._n33_profile(config)
         super().__init__(device_id, config)
         self.SIMULATOR_INFO = {
@@ -230,6 +266,22 @@ class AMXN2622SSimulator(TCPSimulator):
         self._notices = set()
         for key, value in self._fields.items():
             self.state.setdefault(key, value)
+
+    def _n24_profile(self):
+        self._fields = dict(N24_STATUS)
+        info = self.SIMULATOR_INFO
+        info["controls"] = [c for c in info["controls"] if c["key"] in self._fields]
+        for key, label, options in (
+            ("DVISTATUS", "Display cable", ["connected", "disconnected"]),
+            ("PLAYMODE", "Playback", ["live", "local"]),
+            ("AES67", "AES67 audio selected", ["0", "1"]),
+            ("USB", "Keyboard and mouse USB enabled", ["0", "1"]),
+            ("KVM", "KVM enabled", ["0", "1"]),
+        ):
+            info["controls"].append(
+                {"type": "select", "key": key, "label": label, "options": options}
+            )
+        info["initial_state"] = dict(self._fields)
 
     def _n33_profile(self, config):
         self._fields = {k: v for k, v in STATUS.items() if k not in N26_FIELDS}
@@ -310,20 +362,58 @@ class AMXN2622SSimulator(TCPSimulator):
         if not self.SIMULATOR_INFO["tls"] and wire.startswith(
             ("get {", "subscribeevent {")
         ):
-            return None if self._n33 else self._hcontrol(wire)
+            return None if self._n33 or self._n24 else self._hcontrol(wire)
         client = CLIENT.get()
         if self._direct in self._clients and client != self._direct:
             self._clients[client].close()
             return None
         self._direct = client
         if wire == "getNetStatus":
+            if self._n24:
+                fields = {
+                    key: value
+                    for key, value in NETWORK.items()
+                    if key != "SVSI_NETSTATS"
+                }
+                return self._packet(
+                    {"SVSI_RXGEN2": self._fields["SVSI_RXGEN2"], **fields}
+                )
             return self._packet(
                 {**NETWORK, "SVSI_NETSTATS": self._fields["SVSI_RXGEN2"]}
             )
+        if self._n24 and wire.startswith("KVMMasterIP:"):
+            self._switch_keyboard(wire.partition(":")[2])
         for key, value in self._changes(wire).items():
             if key in self._fields:
                 self.set_state(key, value)
         return self._packet(self._fields)
+
+    def _switch_keyboard(self, target):
+        address, _, video = target.partition(",")
+        if self.get_state("USB") == "0" or self._route_locked():
+            return
+        self.set_state("connected_keyboard_encoder", address)
+        if video != "0":
+            # The optional video flag defaults to 1. Resolve the encoder via
+            # the simulator's configured source names when it has a matching stream.
+            name = next(
+                (
+                    row.get("name")
+                    for row in self.config.get("usb_sources", [])
+                    if row.get("address") == address
+                ),
+                None,
+            )
+            stream = next(
+                (
+                    row.get("stream")
+                    for row in self.config.get("sources", [])
+                    if row.get("name") == name
+                ),
+                None,
+            )
+            if stream is not None:
+                self.set_state("STREAM", str(stream))
 
     def _packet(self, fields):
         return "".join(
@@ -331,6 +421,8 @@ class AMXN2622SSimulator(TCPSimulator):
         ).encode()
 
     def _changes(self, wire):
+        if self._n24 and wire in ("hdmiOn", "hdmiOff"):
+            return {"DVIOFF": "off" if wire == "hdmiOn" else "on"}
         if wire in FIXED:
             return FIXED[wire]
         cmd, _, value = wire.partition(":")
@@ -359,11 +451,13 @@ class AMXN2622SSimulator(TCPSimulator):
         return (
             "locked_routes" in self.active_errors
             or self.get_state("AVHENABLE") == "1"
-            or self.config.get("routing_owner") == "Dante AV"
+            or (not self._n24 and self.config.get("routing_owner") == "Dante AV")
         )
 
     def _setting(self, wire):
         name, _, value = wire.partition(":")
+        if self._n24:
+            return {}
         if self._n33:
             return self._n33_setting(name, value)
         if name == "streamURL":

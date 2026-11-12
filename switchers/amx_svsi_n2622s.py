@@ -399,7 +399,13 @@ N24_FIELDS = {
     "USB": FIELDS["USB20ENABLESTATUS"],
     "KVM": FIELDS["KVMENABLESTATUS"],
 }
-for alias in ("HDMIOFF", "HDMISTATUS", "USB20ENABLESTATUS", "KVMENABLESTATUS"):
+for alias in (
+    "HDMIOFF",
+    "HDMISTATUS",
+    "USB20ENABLESTATUS",
+    "KVMENABLESTATUS",
+    "USB20MAINIP",
+):
     del N24_FIELDS[alias]
 LEGACY_SELECTIONS = {"video_stream": "video_source", "audio_stream": "audio_selection"}
 
@@ -1505,11 +1511,16 @@ class AMXN2622SDriver(BaseDriver):
 
     def _n24_usb_choices(self, info):
         commands = info["commands"]
+        info["state_variables"]["usb_host"] = {
+            "type": "string",
+            "label": "Active USB source",
+        }
+        self.set_state("usb_host", "Unknown")
         hosts, choices = source_choices(self.config.get("usb_sources"), usb_source)
         self._usb_hosts = hosts
         usb_help = (
-            "Moves only keyboard and mouse control. Verify the connected encoder under KVM IP on the decoder’s Settings page. "
-            "Direct Control reports USB and KVM enablement only."
+            "Moves only keyboard and mouse control. The active USB source shows Unknown in OpenAVC. "
+            "Check KVM IP on the decoder’s Settings page to see the connected encoder."
         )
         commands["route_usb"] = {
             "label": "Route keyboard and mouse by source",
@@ -1706,7 +1717,10 @@ class AMXN2622SDriver(BaseDriver):
         self._missing_routes.clear()
         keys = self._route_keys
         if self._n24:
-            keys = set(self.DRIVER_INFO["state_variables"]) - {"hdmi_feedback"}
+            keys = set(self.DRIVER_INFO["state_variables"]) - {
+                "hdmi_feedback",
+                "usb_host",
+            }
         for key in keys:
             self.set_state(key, None)
 

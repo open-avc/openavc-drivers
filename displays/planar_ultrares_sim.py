@@ -46,6 +46,7 @@ class PlanarUltraResSimulator(TCPSimulator):
             "layout": "Single",
             "preset_count": 3,
             "preset_options": "[]",
+            "source_options": "[]",
             "source_1": "HDMI.1",
             "source_2": "HDMI.2",
             "source_3": "HDMI.3",

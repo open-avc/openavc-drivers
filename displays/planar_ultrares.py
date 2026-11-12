@@ -132,12 +132,29 @@ class PlanarUltraResDriver(BaseDriver):
                 "max": 65535,
             },
             "model": {
-                "type": "string",
-                "label": "Model for simulation",
+                "type": "enum",
                 "default": "URL136-MFT",
+                "label": "Display model",
+                "values": [
+                    "URL109-MFT",
+                    "URL122-MFT",
+                    "URL136-MFT",
+                    "URL136-T",
+                    "URX75",
+                    "URX75-ERO",
+                    "URX75-ERO-T",
+                    "URX85",
+                    "URX85-ERO",
+                    "URX85-ERO-T",
+                    "URX100",
+                    "URX100-ERO",
+                    "URX100-ERO-T",
+                    "URL109",
+                    "URL122",
+                    "URL136",
+                ],
                 "learned_from": "model",
-                "description": "For offline design, enter the model printed on the "
-                "display. Live control reads the model from the display.",
+                "description": "Choose a model for offline design or simulation. The connected display supplies its own model.",
             },
             "poll_interval": {
                 "type": "integer",
@@ -223,6 +240,7 @@ class PlanarUltraResDriver(BaseDriver):
                 "control": True,
             },
             "preset_count": {"type": "integer", "label": "Saved presets"},
+            "source_options": {"type": "string", "label": "Available sources"},
             "preset_options": {"type": "string", "label": "Saved preset choices"},
         },
         "child_entity_types": {
@@ -305,9 +323,9 @@ class PlanarUltraResDriver(BaseDriver):
                 "that zone to see its picture.",
                 "params": {
                     "input": {
-                        "type": "child_id",
+                        "type": "string",
                         "label": "Source",
-                        "child_type": "input",
+                        "options_state": "source_options",
                         "required": True,
                     },
                     "zone": {
@@ -453,6 +471,15 @@ class PlanarUltraResDriver(BaseDriver):
             if not self.get_child_state("input", port).get("label"):
                 self.set_child_state("input", port, "label", INPUT_LABELS[port])
 
+        self._publish_sources()
+
+    def _publish_sources(self):
+        choices = [
+            {"value": str(port), "label": self.get_child_state("input", port)["label"]}
+            for port in self.list_children("input")
+        ]
+        self.set_state("source_options", json.dumps(choices, ensure_ascii=False))
+
     async def _ask(self, key, operation="?"):
         async with self._wire:
             if self.transport is None:
@@ -513,7 +540,6 @@ class PlanarUltraResDriver(BaseDriver):
 
     async def _identify(self):
         model = (await self._ask("MODEL.ID")).upper()
-        self.set_state("model", model)
         if not MODEL.fullmatch(model):
             self._model = None
             raise ConnectionFaultError(
@@ -521,6 +547,7 @@ class PlanarUltraResDriver(BaseDriver):
                 code="invalid_config",
             )
         self._model = model
+        self.set_state("model", model)
         self._sync_inputs(model)
         self.set_state("serial_number", await self._ask("SERIAL.NUMBER"))
 
@@ -557,6 +584,7 @@ class PlanarUltraResDriver(BaseDriver):
         if not self._model:
             await self._identify()
         await self._read_room()
+        self._publish_sources()
         self.set_state(
             "standby_mode",
             (await self._ask("POWER.DOWN.MODE")).replace(".", " ").title(),

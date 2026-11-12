@@ -91,7 +91,7 @@ id: kramer_p3000
 name: Kramer Protocol 3000
 manufacturer: Kramer
 category: switcher
-version: 1.8.1
+version: 1.8.2
 author: OpenAVC
 # learned_from on the input and output counts.
 min_platform_version: "0.37.0"
@@ -127,15 +127,6 @@ compatible_models:
       a benign error. Device security (#SECUR), where present, must be
       left disabled. RS-232 control follows Kramer's protocol documentation
       and has not been tested on a unit.
-  - manufacturer: Kramer
-    models:
-      - SWT3-41-H
-    confidence: partial
-    notes: >
-      Tested over the network on firmware 1.0.65739 with Input Count and
-      Output Count left at 0. Routing, video mute, volume, input signal, model and firmware work.
-      Audio mute does not (the unit has no #MUTE), and Route Input to All
-      Outputs and input 0 (untie) are refused.
 
 transport: tcp
 transports: [tcp, serial]
@@ -143,6 +134,8 @@ delimiter: "\r\n"
 
 help:
   overview: >
+    For a new SWT3-41-H installation, select Kramer SWT3-41-H to use its
+    four HDMI inputs and rear RS-232 gateway.
     Controls Kramer matrix switchers, scalers, presentation switchers, and
     distribution amplifiers via Protocol 3000. Common in corporate AV,
     education, and houses of worship. On matrix switchers, configure the
@@ -175,7 +168,7 @@ discovery:
   tcp_probe:
     port: 5000
     send_ascii: "#MODEL?\r\n"
-    expect_regex: '~\d+@MODEL|Welcome to Kramer|Kramer\s+(?:P3K|Protocol)'
+    expect_regex: '(?is)\A(?!.*~\d+@MODEL\s+SWT3-41-H(?:\s|$)).*(?:~\d+@MODEL|Welcome to Kramer|Kramer\s+(?:P3K|Protocol))'
     extract_manufacturer: "Kramer"
     extract:
       model:

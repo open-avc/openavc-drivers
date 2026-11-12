@@ -7653,9 +7653,9 @@
       "category": "switcher",
       "drivers": [
         {
-          "id": "kramer_p3000",
-          "confidence": "partial",
-          "notes": "Tested over the network on firmware 1.0.65739 with Input Count and Output Count left at 0. Routing, video mute, volume, input signal, model and firmware work. Audio mute does not (the unit has no #MUTE), and Route Input to All Outputs and input 0 (untie) are refused.\n"
+          "id": "kramer_swt3_41_h",
+          "confidence": "untested",
+          "notes": "Switcher feedback is based on the manual and earlier captures from firmware 1.0.65739. The new driver and serial gateway have not been qualified on physical equipment."
         }
       ]
     },

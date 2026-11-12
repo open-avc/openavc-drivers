@@ -1,4 +1,4 @@
-"""AMX NMX-ENC-N2612S. Python correlates the multi-field Direct Control reply
+"""AMX SVSI N2612S and N3312D encoders. Python correlates the multi-field Direct Control reply
 (including the password-prefixed TLS form) and the separate HControl event
 stream. Both physical HDMI inputs have feedback. Policy, selected input and
 live/HostPlay are independent. A command never manufactures signal state.
@@ -9,10 +9,14 @@ import asyncio
 import json
 import re
 from copy import deepcopy
+from decimal import Decimal
 from urllib.parse import urlsplit
 from openavc.core.device_traffic import get_traffic_recorder
 from openavc.drivers.base import BaseDriver, CommandRefusedError, ConnectionFaultError
 
+ENCODER_MODEL = re.compile(
+    r"(?:NMX-ENC-)?(N2612S(?!-C)|N3312D(?:-C)?)(?=\d|[ :\t-]|$)", re.I
+)
 STATUS = "SVSI_TXGEN2"
 NETWORK = "SVSI_NETSTATS"
 SERIAL = ("serial_baud", "serial_bits", "serial_parity", "serial_stops")
@@ -38,6 +42,10 @@ FIELDS = {
     "VSRC": ("selection_mode", {k: k for k in POLICY}),
     "VSTS": ("active_input", {"1": 1, "2": 2}),
     "STREAM": ("stream_number", int),
+    "USBRECPORTSTATUS": ("record_port_enabled", BIT),
+    "USBSTATUS": ("record_drive_connected", BIT),
+    "USBFREE": ("record_free_space", str),
+    "AVHENABLE": ("dante_av_h_enabled", BIT),
     "MUTE": ("audio_muted", BIT),
     "VMUTE": ("video_muted", BIT),
     "PLAYMODE": ("play_mode", str.lower),
@@ -106,6 +114,86 @@ PREFIX = {
 }
 
 
+RECORDER_FIELDS = {
+    "record_port_enabled",
+    "record_drive_connected",
+    "record_free_space",
+    "dante_av_h_enabled",
+}
+RECORDER_STATES = RECORDER_FIELDS | {
+    "record_media_status",
+    "last_record_request",
+    "record_free_bytes",
+}
+RECORDER_COMMANDS = {
+    "set_record_port_enabled",
+    "start_record",
+    "stop_record",
+    "set_record_basename",
+    "read_record_port_enabled",
+    "read_record_drive_connected",
+    "read_record_free_space",
+    "read_dante_av_h_enabled",
+    "set_primary_tx",
+}
+N2612_COMMANDS = {
+    "set_mwc_tx",
+    "set_usb_enabled",
+    "read_usb_enabled",
+    "set_kvm_enabled",
+    "read_kvm_enabled",
+}
+N2612_STATES = {
+    "mwc_tx",
+    "usb_enabled",
+    "kvm_enabled",
+    "h26x_shutdown",
+    "h26x_tx",
+    "image_enabled",
+}
+
+
+def valid_basename(name):
+    return (
+        bool(re.fullmatch(r"[!-~]+", name))
+        and not re.search(r"[/\\:]", name)
+        and name not in (".", "..")
+    )
+
+
+def space_is_zero(value):
+    # The API gives no unit for USBFree. Keep its text for display.
+    return bool(
+        re.fullmatch(r"0+(?:[.,]0+)?\s*(?:[kmgt]?i?b(?:ytes?)?)?", str(value), re.I)
+    )
+
+
+def free_bytes(value):
+    """Normalize explicit decimal or binary units for threshold bindings."""
+    match = re.fullmatch(
+        r"(\d{1,16}(?:[.,]\d{1,6})?)\s*(bytes?|b|[kmgt]i?b)", str(value), re.I
+    )
+    if not match:
+        return None
+    amount, unit = match.groups()
+    unit = unit.lower()
+    power = {"k": 1, "m": 2, "g": 3, "t": 4}.get(unit[0], 0)
+    base = 1024 if "i" in unit else 1000
+    return int(Decimal(amount.replace(",", ".")) * base**power)
+
+
+def media_status(enabled, connected, free):
+    if connected is False:
+        return "No USB drive"
+    if enabled is False:
+        return "USB recording port disabled"
+    if connected is not True or enabled is not True:
+        return "Waiting for USB status"
+    if space_is_zero(free):
+        return "No free space"
+    return "USB drive connected"
+
+
 def convert(reader, value):
     return reader[value.lower()] if isinstance(reader, dict) else reader(value)
 
@@ -172,7 +260,7 @@ class AMXN2612SDriver(BaseDriver):
         "manufacturer": "AMX",
         "category": "switcher",
         "author": "OpenAVC",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "transport": "tcp",
         "delimiter": "\r",
         "ports": [50002, 50102],
@@ -192,10 +280,19 @@ class AMXN2612SDriver(BaseDriver):
             ]
         },
         "id": "amx_svsi_n2612s",
-        "name": "AMX SVSI NMX-ENC-N2612S",
+        "name": "AMX SVSI N2612S and N3312D Encoders",
         "description": "Select either HDMI input or Auto, monitor both inputs, and control the SVSI and "
-        "H.26x streams on one standalone N2612S encoder.",
-        "tags": ["av-over-ip", "encoder", "svsi", "hdmi", "h26x", "serial-bridge"],
+        "H.26x streams. N3312D standalone and card encoders also offer USB recording.",
+        "tags": [
+            "av-over-ip",
+            "encoder",
+            "svsi",
+            "hdmi",
+            "h26x",
+            "serial-bridge",
+            "usb-recording",
+            "dante-av-h",
+        ],
         "compatible_models": [
             {
                 "manufacturer": "AMX",
@@ -203,9 +300,17 @@ class AMXN2612SDriver(BaseDriver):
                 "confidence": "untested",
                 "notes": "Standalone AMX-N26E001. Manufacturer protocol and simulator tested. "
                 "Physical qualification pending.",
-            }
+            },
+            {
+                "manufacturer": "AMX",
+                "models": ["NMX-ENC-N3312D", "NMX-ENC-N3312D-C"],
+                "confidence": "untested",
+                "notes": "AMX-N33E001 and AMX-N33E001C. AMX specifies the same Direct Control API "
+                "and recording functions for both. Simulator tested; physical qualification pending.",
+            },
         ],
         "default_config": {
+            "encoder_model": "Auto",
             "host": "",
             "port": 50002,
             "ssl": False,
@@ -217,6 +322,13 @@ class AMXN2612SDriver(BaseDriver):
             "web_scheme": "https",
         },
         "config_schema": {
+            "encoder_model": {
+                "type": "enum",
+                "label": "Encoder model",
+                "values": ["Auto", "N2612S", "N3312D", "N3312D-C"],
+                "default": "Auto",
+                "help": "Auto reads the hardware identity. Choose a model to build offline or simulate that encoder. Auto simulates an N2612S.",
+            },
             "host": {"type": "string", "label": "Encoder address", "required": True},
             "port": {
                 "type": "integer",
@@ -249,7 +361,7 @@ class AMXN2612SDriver(BaseDriver):
                 "type": "boolean",
                 "label": "Use HControl feedback on ordinary connections",
                 "default": True,
-                "help": "Adds cable events, HDCP and transmit-enable readback over "
+                "help": "On the N2612S, adds cable events, HDCP and transmit-enable readback over "
                 "TCP 4197. Secure Direct Control never opens this "
                 "connection.",
             },
@@ -284,7 +396,7 @@ class AMXN2612SDriver(BaseDriver):
             "cable and resolution readings. Auto selects the last connected input. The "
             "active input, source selection policy and local playlist are separate "
             "readings.",
-            "setup": "1. Add the standalone NMX-ENC-N2612S by IP address or DNS name. Use TCP 50002 for "
+            "setup": "1. Add the encoder by IP address or DNS name. Select its model for offline design or simulation. Use TCP 50002 for "
             "ordinary Direct Control. For secure control enable TLS, use port 50102 and enter "
             "the unit command password. Verify the encoder certificate with a trusted issuer. "
             "One controller can occupy each Direct Control port.\n"
@@ -293,21 +405,25 @@ class AMXN2612SDriver(BaseDriver):
             "Switching an HDMI input changes the source at this encoder. Selecting a stream "
             "for a room display is performed at its decoder. Dante Controller owns Dante AV "
             "routing.\n"
-            "3. Inspect each HDMI input for connection, resolution and selection. Ordinary "
+            "3. Inspect each HDMI input for connection, resolution and selection. On the N2612S, ordinary "
             "control can receive HDMI events over TCP 4197. Direct Control refreshes both "
             "inputs even with HControl disabled. Stream transmit switches have HControl "
             "readback. In secure mode those switches acknowledge delivery only.\n"
-            "4. Use Multi Stream for the H.26x output. When HControl confirms transmission and "
+            "4. Use Multi Stream for the H.26x output. On N2612S, when HControl confirms transmission and "
             "the encoder reports a local RTSP URL, the Video Panel can offer that stream. A "
             "confirmed web preview exposes the encoder’s /snapshot.jpg address. Access "
-            "requires the site’s network and web permissions. Simulation supplies status "
-            "without serving video.\n"
+            "requires the site’s network and web permissions. On N3312D, Video Panel offers the reported local RTSP address in Multi Stream. Enable H.26x transmission for playback. Simulation supplies status without serving video.\n"
             "5. Connect serial equipment with its own driver using Through a bridge, this "
             "encoder and its RS-232 connector. Use TCP 50004 only where site policy enables "
             "ordinary serial. The encoder applies the downstream baud, data bits, parity and "
             "stop bits. Check Serial line setup, then obtain a reply from the attached device. "
             "AMX documents unsolicited replies from firmware 1.8.8 and binary NUL transmission "
-            "from 2.0.8. Secure serial bridging on 50104 remains unavailable.",
+            "from 2.0.8. Secure serial bridging on 50104 remains unavailable. The serial firmware versions above apply to N2600S.\n"
+            "6. N3312D and N3312D-C: open the Record page on the encoder to commission storage and transfer. "
+            "OpenAVC reads the USB recording port, drive presence and free space via Direct Control. "
+            "Start and Stop report the last acknowledged request. The API supplies no active-recording tally. "
+            "HDCP-protected sources cannot be recorded. Stopping can trigger the configured file transfer. "
+            "Use Dante Controller for routing while Dante AV-H is enabled.",
             "connection": "Check that the selected port is free, TLS and the command password match the "
             "encoder, and the certificate is trusted. For an absent picture, check the "
             "selected connector, its detected resolution, playback mode, mute, transmit "
@@ -319,11 +435,48 @@ class AMXN2612SDriver(BaseDriver):
             "tcp_probe": {
                 "port": 50002,
                 "send_ascii": "getStatus\r",
-                "expect_regex": "(?i)SVSI_TXGEN2\\s*:?\\s*(?:NMX-ENC-)?N2612S(?!-C\\b)(?=[\\d\\s:\\-]|$)",
+                "expect_regex": "(?i)SVSI_TXGEN2\\s*:?\\s*(?:NMX-ENC-)?(?:N2612S(?!-C)|N3312D(?:-C)?)(?=[\\d\\s:\\-]|$)",
                 "timeout_ms": 1500,
             },
         },
         "state_variables": {
+            "record_port_enabled": {
+                "type": "boolean",
+                "label": "USB recording port enabled",
+                "control": True,
+                "cloud_priority": "high",
+            },
+            "record_drive_connected": {
+                "type": "boolean",
+                "label": "Recording drive connected",
+                "cloud_priority": "high",
+            },
+            "record_free_space": {
+                "type": "string",
+                "label": "Recording drive free space",
+                "help": "As reported by the encoder, including any unit. Empty when no drive is connected.",
+            },
+            "record_free_bytes": {
+                "type": "integer",
+                "label": "Recording drive free bytes",
+                "help": "For low-space monitors. Available when the encoder reports free space with a recognized unit.",
+            },
+            "record_media_status": {
+                "type": "string",
+                "label": "Recording media",
+                "cloud_priority": "high",
+                "help": "Summarizes port, drive and free-space readings. HDCP and an active recording are not reported here.",
+            },
+            "last_record_request": {
+                "type": "string",
+                "label": "Last recording request acknowledged",
+                "help": "OpenAVC's last acknowledged Start or Stop in this connection. Actual recording and file transfer must be checked on the encoder.",
+            },
+            "dante_av_h_enabled": {
+                "type": "boolean",
+                "label": "Dante AV-H enabled",
+                "cloud_priority": "high",
+            },
             "identity": {
                 "type": "string",
                 "label": "Encoder identifier",
@@ -809,8 +962,62 @@ class AMXN2612SDriver(BaseDriver):
                 "help": "Read the current value from the encoder.",
                 "query_for": "identified",
             },
+            "set_record_port_enabled": {
+                "label": "Enable USB recording port",
+                "help": "Allow the encoder to record to an attached USB drive.",
+                "params": {
+                    "value": {"type": "boolean", "label": "Enabled", "required": True}
+                },
+                "sets": {"record_port_enabled": "{value}"},
+            },
+            "start_record": {
+                "label": "Start recording",
+                "help": "Start recording the encoded source to the USB drive. HDCP-protected video cannot be recorded. The reply acknowledges the request.",
+            },
+            "stop_record": {
+                "label": "Stop recording",
+                "help": "Stop the current recording. The encoder may transfer the file according to its settings.",
+                "confirm": "Stop the recording and allow the configured file transfer?",
+            },
+            "set_record_basename": {
+                "label": "Set recording file base name",
+                "help": "Set the base name for subsequent recordings. The encoder acknowledges the request.",
+                "params": {
+                    "name": {"type": "string", "label": "Base name", "required": True}
+                },
+            },
+            "read_record_drive_connected": {
+                "label": "Check recording drive",
+                "query_for": "record_drive_connected",
+            },
+            "read_record_port_enabled": {
+                "label": "Read USB recording port",
+                "query_for": "record_port_enabled",
+            },
+            "read_record_free_space": {
+                "label": "Read recording drive free space",
+                "query_for": "record_free_space",
+            },
+            "read_dante_av_h_enabled": {
+                "label": "Read Dante AV-H mode",
+                "query_for": "dante_av_h_enabled",
+            },
+            "set_primary_tx": {
+                "label": "Set primary stream transmission",
+                "help": "Enable or disable the main SVSI stream. Direct Control acknowledges the command.",
+                "params": {
+                    "value": {"type": "boolean", "label": "Enabled", "required": True}
+                },
+            },
         },
         "device_settings": {
+            "record_port_enabled": {
+                "label": "USB recording port",
+                "type": "boolean",
+                "help": "Allow recording to an attached USB drive.",
+                "state_key": "record_port_enabled",
+                "setup": False,
+            },
             "selection_mode": {
                 "type": "enum",
                 "label": "HDMI selection mode",
@@ -881,7 +1088,9 @@ class AMXN2612SDriver(BaseDriver):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.DRIVER_INFO = deepcopy(type(self).DRIVER_INFO)
+        self._model = self.config.get("encoder_model", "Auto")
+        self._record_lock = asyncio.Lock()
+        self._reported_space = ""
         self._secure = False
         self._lock = asyncio.Lock()
         self._serial_lock = asyncio.Lock()
@@ -902,18 +1111,92 @@ class AMXN2612SDriver(BaseDriver):
         self._configure_surface()
         self._register_inputs()
 
+    @property
+    def _recorder(self):
+        return self._model in ("N3312D", "N3312D-C")
+
     def _configure_surface(self):
-        commands = self.DRIVER_INFO["commands"]
+        info = deepcopy(type(self).DRIVER_INFO)
+        self.DRIVER_INFO = info
+        if self._recorder:
+            self._omit_model_features(N2612_COMMANDS, N2612_STATES)
+            self._recorder_surface(info)
+        else:
+            self._omit_model_features(RECORDER_COMMANDS, RECORDER_STATES)
+            info["device_settings"].pop("record_port_enabled")
         if self.config.get("routing_owner") == "Dante AV":
-            commands.pop("set_stream_number")
-        if self.config.get("ssl") or not self.config.get("hdmi_events", True):
-            return
+            info["commands"].pop("set_stream_number")
+        if self._uses_hcontrol():
+            self._add_hcontrol_readback(info["commands"])
+
+    def _omit_model_features(self, commands, states):
+        for cmd in commands:
+            self.DRIVER_INFO["commands"].pop(cmd)
+        for key in states:
+            self.DRIVER_INFO["state_variables"].pop(key)
+
+    def _uses_hcontrol(self):
+        return (
+            not self._recorder
+            and not self.config.get("ssl")
+            and self.config.get("hdmi_events", True)
+        )
+
+    def _add_hcontrol_readback(self, commands):
         for key in HC_FLAGS:
             commands["set_" + key]["sets"] = {key: "{value}"}
             commands["read_" + key] = {
                 "label": "Read " + self.DRIVER_INFO["state_variables"][key]["label"],
                 "query_for": key,
             }
+
+    def _recorder_surface(self, info):
+        info["source_url"] = (
+            "https://www.amx.com/en-US/site_elements/direct-control-api-n33x2d"
+        )
+        info["help"]["setup"] = (
+            "1. Add the standalone encoder or rack card by its own IP address. Auto identifies the equipment. "
+            "Choose N3312D or N3312D-C to use that model in simulation or offline design. "
+            "Use TCP 50002 for ordinary control, or TLS 50102 with the encoder command password.\n"
+            "2. Check both HDMI inputs on the device page. Source selection, active input, cable detection and "
+            "resolution are independent readings. For network routing in Dante AV-H mode, use Dante Controller.\n"
+            "3. Enable the USB recording port and attach the drive. Check Recording media and Recording drive "
+            "free space. Start and Stop acknowledge the request. The encoder cannot record HDCP-protected video. "
+            "Check the saved file on the unit. Stop can initiate an automatic transfer configured in its web interface.\n"
+            "4. For Video Panel, enable secondary H.26x transmission in Multi Stream and configure a local RTSP output. "
+            "The Open Web UI button also provides access to the encoder's preview and file transfer settings.\n"
+            "5. For downstream serial, bind the attached equipment's own driver through the encoder's RS-232 port "
+            "on ordinary TCP 50004. The driver checks line settings. Confirm communication with a reply from the attached equipment."
+        )
+        for key in ("usb_enabled", "kvm_enabled"):
+            info["device_settings"].pop(key)
+        info["child_entity_types"]["input"]["state_variables"].pop("hdcp")
+        info["state_variables"].pop("snapshot_url")
+        info["config_schema"].pop("web_scheme")
+        info["config_schema"].pop("hdmi_events")
+        info["state_variables"]["stream_number"]["label"] = (
+            "Primary video stream number"
+        )
+        info["commands"]["read_stream_number"]["label"] = (
+            "Read primary video stream number"
+        )
+        info["commands"]["set_stream_number"]["label"] = (
+            "Set primary video stream number"
+        )
+        info["quick_actions"] = [
+            "route_input",
+            "start_record",
+            "stop_record",
+            "read_record_free_space",
+            "play_live",
+            "identify",
+        ]
+        info["commands"]["set_h26x_tx"]["help"] = (
+            "Enable or disable secondary transmission. Direct Control acknowledges the command."
+        )
+        info["commands"]["set_image_enabled"]["help"] = (
+            "Enable or disable the encoder web snapshot. Direct Control acknowledges the command."
+        )
 
     def _register_inputs(self):
         for n in (1, 2):
@@ -942,16 +1225,32 @@ class AMXN2612SDriver(BaseDriver):
     async def _post_connect(self):
         self._register_inputs()
         report = await self._request("getStatus", {"identity", "firmware"})
-        identity = report["identity"].upper()
-        if not re.search(r"\bN2612S(?!-C\b)(?=[\d\W]|$)", identity):
+        # The header can append the unit serial directly to the model.
+        match = ENCODER_MODEL.match(report["identity"].strip())
+        if not match:
             raise ConnectionFaultError(
-                "The reported encoder does not match NMX-ENC-N2612S.",
+                "Unsupported AMX encoder identity.", code="invalid_config"
+            )
+        actual = match.group(1).upper()
+        selected = self.config.get("encoder_model", "Auto")
+        if selected != "Auto" and actual.removesuffix("-C") != selected.removesuffix(
+            "-C"
+        ):
+            raise ConnectionFaultError(
+                "The reported encoder does not match the selected model.",
                 code="invalid_config",
             )
+        if actual != self._model:
+            self._model = actual
+            self._configure_surface()
 
     async def _initial_sync(self):
         await self._request("getNetStatus", {"mac"}, header=NETWORK)
-        if self.config.get("hdmi_events", True) and not self._secure:
+        if self._recorder:
+            await self._request(
+                "getStatus", {"record_port_enabled", "record_drive_connected"}
+            )
+        if self._uses_hcontrol():
             self.set_state("hdmi_feedback", "Connecting to HControl")
             self._watch = asyncio.create_task(self._watch_hcontrol())
         else:
@@ -968,6 +1267,10 @@ class AMXN2612SDriver(BaseDriver):
         await asyncio.gather(*tasks, return_exceptions=True)
         self._watch = self._event_refresh = None
         self._rtsp = ""
+        if self._recorder:
+            self._reported_space = ""
+            for key in RECORDER_STATES:
+                self.set_state(key, None)
         self._clear_hcontrol("Disconnected")
 
     async def _send(self, wire):
@@ -1064,25 +1367,63 @@ class AMXN2612SDriver(BaseDriver):
 
     def _receive_field(self, wire, value):
         key, reader = FIELDS[wire]
+        if key not in self.DRIVER_INFO["state_variables"]:
+            return
         try:
             reading = convert(reader, value)
         except (KeyError, ValueError):
             return
-        update = {key: reading}
-        if key == "selection_mode":
-            update["preferred_input"] = POLICY[reading]
-        if key == "active_input":
-            for n in (1, 2):
-                self.set_child_state("input", n, "selected", n == reading)
+        if key in RECORDER_FIELDS:
+            self._receive_recorder_field(key, reading)
+            return
+        update = self._source_update(key, reading)
         for prop, val in update.items():
             self.set_state(prop, val)
         if key in ("encode_mode", "h26x_shutdown"):
-            self._publish_preview()
+            self._update_preview_mode(key, reading)
         self._complete_read(update)
+
+    def _source_update(self, key, reading):
+        if key == "selection_mode":
+            return {key: reading, "preferred_input": POLICY[reading]}
+        if key == "active_input":
+            for n in (1, 2):
+                self.set_child_state("input", n, "selected", n == reading)
+        return {key: reading}
+
+    def _update_preview_mode(self, key, reading):
+        if key == "encode_mode" and reading == "SingleStream":
+            self._rtsp = ""
+        self._publish_preview()
+
+    def _receive_recorder_field(self, key, reading):
+        if key == "record_free_space":
+            self._reported_space = reading
+        else:
+            self.set_state(key, reading)
+        if key != "dante_av_h_enabled":
+            self._update_media()
+        self._complete_read({key: reading})
+
+    def _update_media(self):
+        connected = self.get_state("record_drive_connected")
+        if connected is False:
+            self._reported_space = ""
+        free = self._reported_space if connected else ""
+        self.set_state("record_free_space", free)
+        self.set_state("record_free_bytes", free_bytes(free))
+        self.set_state(
+            "record_media_status",
+            media_status(
+                self.get_state("record_port_enabled"), connected, self._reported_space
+            ),
+        )
 
     def _complete_read(self, update):
         if self._in_packet and self._waiting_for_reply():
             self._fresh.update(update)
+            if self._fresh.get("record_drive_connected") is False:
+                self._fresh["record_free_space"] = ""
             if self._needed.issubset(self._fresh):
                 self._reply.set_result(dict(self._fresh))
 
@@ -1099,6 +1440,19 @@ class AMXN2612SDriver(BaseDriver):
             return "unavailable", "The simulator supplies status only."
         if self.get_state("encode_mode") != "MultiStream":
             return "needs_setup", "Select Multi Stream to use the H.26x output."
+        if self._recorder:
+            return self._recorder_preview()
+        return self._n2612_preview()
+
+    def _recorder_preview(self):
+        if self._rtsp:
+            return (
+                "ready",
+                "Address reported by the encoder. Enable H.26x transmission for playback.",
+            )
+        return "needs_setup", "Configure a local RTSP output on the encoder."
+
+    def _n2612_preview(self):
         if self.get_state("h26x_shutdown") is not False:
             return (
                 "unavailable",
@@ -1138,6 +1492,9 @@ class AMXN2612SDriver(BaseDriver):
 
     def _clear_hcontrol(self, detail):
         self.set_state("hdmi_feedback", detail)
+        if self._recorder:
+            self._publish_preview()
+            return
         for n in (1, 2):
             self.set_child_state("input", n, "hdcp", None)
         for key in HC_FLAGS:
@@ -1277,6 +1634,14 @@ class AMXN2612SDriver(BaseDriver):
             raise CommandRefusedError("Unavailable for this encoder configuration.")
         if "query_for" in spec:
             return await self._query(spec["query_for"])
+        if command in ("start_record", "stop_record", "set_record_port_enabled"):
+            async with self._record_lock:
+                return await self._record_command(command, params or {})
+        return await self._send_control(command, params or {}, spec)
+
+    async def _send_control(self, command, params, spec):
+        if command == "set_stream_number":
+            await self._check_routing_owner()
         key = command.removeprefix("set_")
         if key in HC_FLAGS:
             async with self._flag_lock:
@@ -1286,7 +1651,52 @@ class AMXN2612SDriver(BaseDriver):
             return await self._confirm(wire, expected)
         await self._request(wire, {"identity"})
 
+    async def _check_routing_owner(self):
+        if self._recorder:
+            reply = await self._request("getStatus", {"dante_av_h_enabled"})
+            if reply["dante_av_h_enabled"]:
+                raise CommandRefusedError(
+                    "Dante AV-H is enabled. Manage network routing in Dante Controller."
+                )
+
+    async def _record_command(self, command, params):
+        if command == "set_record_port_enabled":
+            enabled = flag(params["value"])
+            return await self._confirm(
+                "setSettings:usbEnable:" + ("on" if enabled else "off"),
+                {"record_port_enabled": enabled},
+            )
+        if command == "start_record":
+            report = await self._record_media()
+            reason = media_status(
+                report["record_port_enabled"],
+                report["record_drive_connected"],
+                report.get("record_free_space"),
+            )
+            if reason != "USB drive connected":
+                raise CommandRefusedError(reason)
+        wire = "startRecord" if command == "start_record" else "stopRecord"
+        self.set_state("last_record_request", None)
+        await self._request(wire, {"identity"})
+        self.set_state(
+            "last_record_request",
+            "Start acknowledged" if command == "start_record" else "Stop acknowledged",
+        )
+
+    async def _record_media(self):
+        keys = {"record_port_enabled", "record_drive_connected"}
+        try:
+            return await self._request("getStatus", keys | {"record_free_space"})
+        except CommandRefusedError:
+            # A firmware reply may omit USBFree. The port and drive still tell
+            # us whether media is present, without assigning a capacity to it.
+            self._reported_space = ""
+            self._update_media()
+            return await self._request("getStatus", keys)
+
     async def _query(self, key):
+        if key == "record_free_space":
+            return await self._record_media()
         if key == "switch_port":
             return await self._request("getNetStatus", {key}, header=NETWORK)
         if key in HC_FLAGS:
@@ -1306,6 +1716,8 @@ class AMXN2612SDriver(BaseDriver):
             )
 
     def _operation(self, command, params):
+        if command in ("set_primary_tx", "set_record_basename"):
+            return self._recorder_setting(command, params), {}
         if command == "route_input":
             n = number(params["input"], 1, 2)
             return f"vidsrc:hdmi{n}", {"preferred_input": n}
@@ -1324,6 +1736,16 @@ class AMXN2612SDriver(BaseDriver):
                 raise CommandRefusedError("Enter a saved IR name without line breaks.")
             return "sendir:" + name, {}
         return self._setting(command, params["value"])
+
+    def _recorder_setting(self, command, params):
+        if command == "set_primary_tx":
+            return "txenable" if flag(params["value"]) else "txdisable"
+        name = params.get("name", "")
+        if not valid_basename(name):
+            raise CommandRefusedError(
+                "Enter a file base name without spaces, paths or line breaks."
+            )
+        return "setSettings:recordBaseName:" + name
 
     def _setting(self, command, value):
         key = command.removeprefix("set_")

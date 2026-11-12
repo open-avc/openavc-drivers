@@ -1,4 +1,4 @@
-"""N2612S training encoder. The two control protocols share one allocated
+"""N2612S and N3312D training encoders. The two control protocols share one allocated
 loopback port in simulation. Physical serial equipment uses a separate peer.
 Changing a cable in Auto mode selects the last connected source and delivers
 the documented HControl event to known subscribers.
@@ -98,6 +98,42 @@ PARAMS = {
     "H26xProfile": "H26XPROFILE",
 }
 ENABLE = {"kvmEnable": "KVMEnableStatus", "usbEnable": "USB20EnableStatus"}
+
+
+RECORDER_STATE = {
+    "USBRecPortStatus": "1",
+    "USBStatus": "1",
+    "USBFree": "32 GB",
+    "AVHEnable": "0",
+    "recording_simulated": False,
+    "record_basename": "Lecture",
+}
+RECORDER_CONTROLS = [
+    {
+        "type": "select",
+        "key": "USBRecPortStatus",
+        "label": "USB recording port",
+        "options": ["0", "1"],
+    },
+    {
+        "type": "select",
+        "key": "USBStatus",
+        "label": "Recording drive (0 absent, 1 present)",
+        "options": ["0", "1"],
+    },
+    {
+        "type": "select",
+        "key": "USBFree",
+        "label": "Drive free space",
+        "options": ["32 GB", "512 MB", "0 MB"],
+    },
+    {
+        "type": "select",
+        "key": "AVHEnable",
+        "label": "Dante AV-H enabled",
+        "options": ["0", "1"],
+    },
+]
 
 
 def hc_line(verb, path, **values):
@@ -216,16 +252,50 @@ class AMXN2612SSimulator(TCPSimulator):
     }
 
     def __init__(self, device_id, config=None):
-        super().__init__(device_id, config)
+        config = config or {}
+        model = config.get("encoder_model", "Auto")
+        self._recorder = model in ("N3312D", "N3312D-C")
         self.SIMULATOR_INFO = {
-            **self.SIMULATOR_INFO,
-            "tls": bool(self.config.get("ssl")),
+            **type(self).SIMULATOR_INFO,
+            "tls": bool(config.get("ssl")),
         }
+        self._hcontrol_enabled = not self._recorder and not config.get("ssl")
+        self._status_fields = STATUS
+        if self._recorder:
+            self._configure_recorder(model)
+        super().__init__(device_id, config)
         self._certs = None
         self._direct = None
         self._subscriptions = {}
         self._notices = set()
         self._last_connected = 1
+
+    def _configure_recorder(self, model):
+        info = self.SIMULATOR_INFO
+        info["name"] = f"AMX SVSI {model} Simulator"
+        omit = {"H26XSHUTDOWN", "KVMEnableStatus", "USB20EnableStatus"}
+        seed = {k: v for k, v in info["initial_state"].items() if k not in omit}
+        seed.update(RECORDER_STATE)
+        seed.update(SVSI_TXGEN2=model + "15601300001", SWVER="1.5.9")
+        info["initial_state"] = seed
+        info["controls"] = [
+            c
+            for c in info["controls"]
+            if c["key"] not in ("mwc_tx", "h26x_tx", "image_enabled")
+        ] + RECORDER_CONTROLS
+        info["error_modes"] = {
+            **info["error_modes"],
+            "protected_source": {
+                "label": "HDCP-protected recording source",
+                "description": "The encoder accepts a Start command but cannot record the protected source.",
+            },
+        }
+        self._status_fields = tuple(k for k in STATUS if k not in omit) + (
+            "USBRecPortStatus",
+            "USBStatus",
+            "USBFree",
+            "AVHEnable",
+        )
 
     async def start(self, port):
         if not self.SIMULATOR_INFO["tls"]:
@@ -286,9 +356,7 @@ class AMXN2612SSimulator(TCPSimulator):
 
     def handle_command(self, data):
         wire = data.decode("ascii", "replace").strip()
-        if not self.SIMULATOR_INFO["tls"] and wire.startswith(
-            ("get {", "subscribeevent {")
-        ):
+        if self._hcontrol_enabled and wire.startswith(("get {", "subscribeevent {")):
             return self._hcontrol(wire)
         client = CLIENT.get()
         if self._direct in self._clients and self._direct != client:
@@ -300,23 +368,40 @@ class AMXN2612SSimulator(TCPSimulator):
         if wire == "getNetStatus":
             return self._packet(NETWORK)
         self._direct_command(wire)
-        return self._packet(dict.fromkeys(STATUS, ""))
+        return self._packet(dict.fromkeys(self._status_fields, ""))
 
     def _packet(self, fields):
         lines = []
         for key, default in fields.items():
-            sep = "" if key == "SVSI_TXGEN2" else ":"
+            sep = "" if key == "SVSI_TXGEN2" and not self._recorder else ":"
             lines.append(key + sep + str(self.state.get(key, default)))
         return ("\r".join(lines) + "\r").encode()
 
     def _direct_command(self, wire):
         if "locked_settings" in self.active_errors:
             return
+        if self._recorder and wire in ("startRecord", "stopRecord"):
+            self._record(wire)
+            return
         if wire in FIXED:
             self.set_state(*FIXED[wire])
             return
         cmd, _, value = wire.partition(":")
         self._parameter_command(cmd, value)
+
+    def _record(self, wire):
+        if wire == "stopRecord":
+            self.set_state("recording_simulated", False)
+            return
+        if (
+            self.get_state("USBRecPortStatus") == "1"
+            and self.get_state("USBStatus") == "1"
+        ):
+            full = self.get_state("USBFree", "").partition(" ")[0] == "0"
+            self.set_state(
+                "recording_simulated",
+                not full and "protected_source" not in self.active_errors,
+            )
 
     def _parameter_command(self, cmd, value):
         if cmd == "vidsrc" and value in ("auto", "hdmi1", "hdmi2"):
@@ -337,8 +422,19 @@ class AMXN2612SSimulator(TCPSimulator):
 
     def _setting(self, wire):
         key, _, val = wire.partition(":")
-        if key == "setStream" and self.config.get("routing_owner") == "Dante AV":
+        if key == "setStream" and self._dante_routing():
             return
+        if self._recorder and self._record_setting(key, val):
+            return
+        self._stream_setting(key, val)
+
+    def _dante_routing(self):
+        return (
+            self.config.get("routing_owner") == "Dante AV"
+            or self.get_state("AVHEnable") == "1"
+        )
+
+    def _stream_setting(self, key, val):
         if key in PARAMS:
             self.set_state(PARAMS[key], val)
         elif key in ENABLE:
@@ -347,6 +443,15 @@ class AMXN2612SSimulator(TCPSimulator):
             self.set_state("ENCMODE", "2" if val == "MultiStream" else "1")
         elif key == "Preview":
             self.set_state("image_enabled", val == "on")
+
+    def _record_setting(self, key, val):
+        if key == "usbEnable":
+            self.set_state("USBRecPortStatus", "1" if val == "on" else "0")
+            return True
+        if key == "recordBaseName":
+            self.set_state("record_basename", val)
+            return True
+        return False
 
     def _hcontrol(self, wire):
         verb, body = wire.split(" ", 1)
@@ -367,6 +472,11 @@ class AMXN2612SSimulator(TCPSimulator):
         super().set_state(key, value)
         if old == value:
             return
+        if key in ("USBStatus", "USBRecPortStatus") and value == "0":
+            self.set_state("recording_simulated", False)
+        self._update_input(key, value)
+
+    def _update_input(self, key, value):
         if key in CABLES:
             self._cable_change(CABLES.index(key) + 1, value)
         elif key == "VSRC":

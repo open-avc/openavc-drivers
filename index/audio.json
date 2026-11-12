@@ -1840,8 +1840,8 @@
       "file": "audio/extron_dmp_128_plus.py",
       "format": "python",
       "files": {
-        "audio/extron_dmp_128_plus.py": "729ff7b51b0aaa9c34af51f953d5f325463705b32400dd4364c1c8e1eb4120f4",
-        "audio/extron_dmp_128_plus_sim.py": "a23cb154eae6d0fefe7c3b9097c22deb6d224507aab5867e33723f84a45558f9"
+        "audio/extron_dmp_128_plus.py": "d54750392d1d6042da51bd40f0bf12614d9919a8c54209717f552a687ce8c1e0",
+        "audio/extron_dmp_128_plus_sim.py": "362a2e2d12e7b89fba784511c2b35f03fdeb8ceeccb19f9c26f5ee808864b7d7"
       },
       "ports": [
         22023

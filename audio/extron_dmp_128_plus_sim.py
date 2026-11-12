@@ -100,6 +100,7 @@ class Dmp128PlusSimulator(TCPSimulator):
         self._sessions = {}
         self._offline = {"verbose": 0, "group": 0}
         self._stream = None
+        self._last_levels = self._group_reports()
         if self.config.get("model"):
             self.set_state("model", self.config["model"])
 
@@ -114,6 +115,7 @@ class Dmp128PlusSimulator(TCPSimulator):
     async def _meter_loop(self):
         while True:
             await asyncio.sleep(0.5)
+            await self._changed_levels()
             for client, session in tuple(self._sessions.items()):
                 if client not in self._clients:
                     self._sessions.pop(client, None)
@@ -124,6 +126,19 @@ class Dmp128PlusSimulator(TCPSimulator):
                     await self.push_to(
                         client, self._line(f"GrpmV{slot}*" + "*".join(map(str, values)))
                     )
+
+    def _group_reports(self):
+        return (
+            f"GrpmD2*{round(self.get_state('room_level') * 10)}",
+            f"GrpmD9*{int(self.get_state('mic_muted'))}",
+        )
+
+    async def _changed_levels(self):
+        current = self._group_reports()
+        for previous, report in zip(self._last_levels, current):
+            if previous != report:
+                await self.push(self._line(report))
+        self._last_levels = current
 
     async def stop(self):
         if self._stream is not None:
@@ -253,6 +268,7 @@ class Dmp128PlusSimulator(TCPSimulator):
         if not raw.isdigit() or int(raw) not in self.names["G"]:
             return "E13"
         slot = int(raw)
-        self.set_state("room_level", -30.0 if slot == 17 else -12.0)
-        self.set_state("mic_muted", False)
+        level = "-300" if slot == 17 else "-120"
+        self._gain_group(level, "")
+        self._group_value(12, "0", "")
         return f"Rpr{slot:02}"

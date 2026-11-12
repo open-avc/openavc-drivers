@@ -350,7 +350,7 @@ class ExtronDmp128Plus(BaseDriver):
         },
         "commands": {
             "set_input_level": {
-                "label": "Set Pre-mixer level",
+                "label": "Set input level",
                 "help": "Adjust this input before the mix. Microphone preamp "
                 "gain stays at its commissioned setting.",
                 "params": {
@@ -371,7 +371,7 @@ class ExtronDmp128Plus(BaseDriver):
                 "sets": {"level": "{level}"},
             },
             "set_output_level": {
-                "label": "Set Output attenuation",
+                "label": "Set output level",
                 "help": "Adjust the loudspeaker feed from this output.",
                 "params": {
                     "output": {
@@ -391,7 +391,7 @@ class ExtronDmp128Plus(BaseDriver):
                 "sets": {"level": "{level}"},
             },
             "set_gain_group_level": {
-                "label": "Set Group level",
+                "label": "Set group volume",
                 "help": "Adjust the selected room fader within the DSP’s "
                 "current soft limits.",
                 "params": {
@@ -412,7 +412,7 @@ class ExtronDmp128Plus(BaseDriver):
                 "sets": {"level": "{level}"},
             },
             "set_input_mute": {
-                "label": "Set mic/line input mute",
+                "label": "Set input mute",
                 "help": "Mute or restore audio on the selected mic/line input and "
                 "confirm the DSP’s mute status.",
                 "params": {
@@ -427,7 +427,7 @@ class ExtronDmp128Plus(BaseDriver):
                 "sets": {"muted": "{muted}"},
             },
             "set_output_mute": {
-                "label": "Set line output mute",
+                "label": "Set output mute",
                 "help": "Mute or restore audio on the selected line output and "
                 "confirm the DSP’s mute status.",
                 "params": {
@@ -442,7 +442,7 @@ class ExtronDmp128Plus(BaseDriver):
                 "sets": {"muted": "{muted}"},
             },
             "set_mute_group_mute": {
-                "label": "Set mute group mute",
+                "label": "Set room mute",
                 "help": "Mute or restore audio on the selected mute group "
                 "and confirm the DSP’s mute status.",
                 "params": {
@@ -590,6 +590,8 @@ class ExtronDmp128Plus(BaseDriver):
 
     def _receive(self, line):
         self._feedback(line)
+        if line.lower().startswith("grpu"):
+            self._stream_notice(line)
         if not self._pending:
             return
         pattern, future = self._pending
@@ -635,6 +637,11 @@ class ExtronDmp128Plus(BaseDriver):
         elif kind == "mute_group":
             self.set_child_state(kind, slot, "muted", bool(raw))
 
+    def _stream_notice(self, line):
+        match = re.fullmatch(r"GrpuG(\d+)", line, re.I)
+        if match and int(match[1]) <= 64:
+            self._activate(int(match[1]))
+
     def _meter_feedback(self, slot, values):
         members = self._members.get(slot, ())
         if slot != self._active or len(members) != len(values):
@@ -675,7 +682,6 @@ class ExtronDmp128Plus(BaseDriver):
         await self._read_firmware()
 
     async def _initial_sync(self):
-        await self._read_firmware()
         part = await self._ask("N", r"(?:Pno\s*\*?)?(60-\d{4}-\d{2})")
         self.set_state("part_number", part[1])
         await self.refresh_children()
@@ -846,8 +852,7 @@ class ExtronDmp128Plus(BaseDriver):
         self.set_state("active_meter_group", slot)
 
     async def _meter_selection(self):
-        reply = await self._ask(unit_query("GGRPU"), r"GrpuG0*(\d+)")
-        self._activate(int(reply[1]))
+        await self._ask(unit_query("GGRPU"), r"GrpuG0*(\d+)")
 
     async def _channel_read(self, op, oid):
         return await self._ask(unit_query(f"{op}{oid}AU"), rf"Ds{op}{oid}\*([+-]?\d+)")
@@ -922,7 +927,6 @@ class ExtronDmp128Plus(BaseDriver):
         if slot:
             await self._require_group(slot, "meter_group")
         await self._ask(unit_query(f"G{slot}GRPU"), rf"GrpuG0*{slot}")
-        self._activate(slot)
         await self._meter_selection()
         self._confirm(self._active, slot)
 

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1333,
+    "total_devices": 1334,
     "shards": null
   },
   "devices": [
@@ -723,6 +723,18 @@
           "id": "amx_svsi_n2622s",
           "confidence": "untested",
           "notes": "Standalone decoder. Derived from AMX Direct Control API v1.3 and the N2600S HControl guide. Hardware verification pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AMX",
+      "model": "NMX-DEC-N3322D",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "amx_svsi_n2622s",
+          "confidence": "untested",
+          "notes": "Standalone 4K60 H.26x/Dante AV-H decoder. AMX N33x2D Direct Control. Hardware verification pending."
         }
       ]
     },

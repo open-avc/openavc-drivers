@@ -1,7 +1,8 @@
-"""AMX NMX-DEC-N2622S. Direct Control v1.3 reports a CR-separated status
+"""AMX NMX-DEC-N2622S / N3322D. Direct Control reports a CR-separated status
 packet even for writes. Python correlates fresh fields across those packets,
 prefixes secure commands with the receiver's command password, and subscribes
-to HDMI events on the separate HControl connection at ordinary sites.
+to N2622S HDMI events. N3322D Matrix selections combine several independently
+reported fields from one status packet and respect Dante AV-H ownership.
 """
 
 from __future__ import annotations
@@ -27,6 +28,52 @@ ROUTES = {
     "set_audio_stream",
     "follow_video",
 }
+MODEL_PATTERN = r"(?:NMX-DEC-)?(N2622S|N3322D)(?!-C)(?=\d|[ :\t-]|$)"
+N33_MODES = [
+    "auto",
+    "720p50",
+    "720p60",
+    "1080p50",
+    "1080p60",
+    "2160p25",
+    "2160p30",
+    "2160p50",
+    "2160p60",
+]
+N26_ONLY = {
+    "usb_enabled",
+    "usb_host",
+    "kvm_enabled",
+    "kvm_host",
+    "wall_enabled",
+    "wall_rows",
+    "wall_columns",
+    "wall_row",
+    "wall_column",
+    "playlist",
+    "output_resolution",
+    "hdcp_status",
+}
+N33_ONLY = {
+    "dante_av_h_enabled",
+    "hold_last_frame",
+    "disable_hdmi_on_loss",
+    "hdmi_audio_mode",
+    "local_uses_stream_audio",
+    "audio_sample_rate",
+}
+OWNED_COMMANDS = ROUTES | {"set_receive_mode", "set_stream_url", "select_audio_source"}
+MATRIX_READINGS = {"video_source", "audio_selection", "dante_av_h_enabled"}
+ROUTE_READINGS = {
+    "dante_av_h_enabled",
+    "play_mode",
+    "receive_mode",
+    "audio_stream",
+    "video_stream",
+    "stream_url",
+}
+AUDIO_INPUTS = {"svsi": "SVSI", "dante": "Dante", "H.26x": "H.26x"}
+ON_OFF = {"off": False, "on": True}
 HDMI_ROOT = "/decoder/systemStatus/"
 HDMI_EVENTS = {
     "hdmiOutCableStatusChanged": "hdmiOutStatus",
@@ -38,6 +85,14 @@ HDMI_READS = {
     "hdcpStatus": "hdcp_status",
 }
 TOGGLES = {
+    "hold_last_frame": (
+        "setSettings:holdlastframe:off",
+        "setSettings:holdlastframe:on",
+    ),
+    "disable_hdmi_on_loss": (
+        "setSettings:disableHDMILostStream:off",
+        "setSettings:disableHDMILostStream:on",
+    ),
     "audio_muted": ("unmute", "mute"),
     "video_muted": ("vunmute", "vmute"),
     "hdmi_enabled": ("hdmiOff", "hdmiOn"),
@@ -53,6 +108,12 @@ LEVELS = {
 }
 FIELDS = {
     STATUS: ("identity", str),
+    "HDMIAUDIO": ("hdmi_audio_mode", str.lower),
+    "LIVEAUDIOLP": ("local_uses_stream_audio", ON_OFF),
+    "SAMPLE": ("audio_sample_rate", str),
+    "AVHENABLE": ("dante_av_h_enabled", {"0": False, "1": True}),
+    "FRAMEHOLD": ("hold_last_frame", ON_OFF),
+    "VIDOFFNOSTRM": ("disable_hdmi_on_loss", ON_OFF),
     "NAME": ("device_name", str),
     "IP": ("ip", str),
     "MAC": ("mac", str),
@@ -125,15 +186,20 @@ def serial_format(params):
     return dict(zip(SERIAL, (baud, bits, parity, stops)))
 
 
-def stream_url(value):
+BASIC_SCHEMES = {"rtsp", "rtp", "udp"}
+N26_SCHEMES = BASIC_SCHEMES | {"http", "https"}
+N33_SCHEMES = BASIC_SCHEMES | {"rtmp", "rtmps", "srtp"}
+
+
+def stream_url(value, *, schemes=N26_SCHEMES):
     value = str(value)
     if not re.fullmatch(r"[!-~]+", value):
         raise CommandRefusedError(
             "Use an ASCII stream URL without spaces or line breaks."
         )
-    url = urlsplit(value)
-    if url.scheme not in ("rtsp", "rtp", "udp", "http", "https") or not url.hostname:
-        raise CommandRefusedError("Enter a complete H.26x stream URL.")
+    url = parse_address(value)
+    if url.scheme not in schemes:
+        raise CommandRefusedError("Enter a supported H.26x stream URL.")
     if any((url.username is not None, url.query, url.fragment)):
         raise CommandRefusedError(
             "Use the decoder web page for URLs with credentials, query strings or fragments."
@@ -141,10 +207,20 @@ def stream_url(value):
     return value
 
 
+def parse_address(value):
+    try:
+        url = urlsplit(value)
+        if not url.hostname or url.port == 0:
+            raise ValueError
+        return url
+    except ValueError:
+        raise CommandRefusedError("Enter a valid stream address and port.") from None
+
+
 def report_url(value):
     # Site-configured URLs can contain secrets. Publish only credential-free addresses.
     try:
-        return stream_url(value) if value else ""
+        return stream_url(value, schemes=N26_SCHEMES | N33_SCHEMES) if value else ""
     except (CommandRefusedError, ValueError):
         return "Private stream URL"
 
@@ -177,31 +253,97 @@ def valid_hc_packet(body):
     return packet if isinstance(path, str) and path.startswith(HDMI_ROOT) else None
 
 
-def read_field(wire, value):
-    key, convert = FIELDS[wire]
+def split_field(line):
+    for header in (STATUS, NETWORK):
+        if line.upper().startswith(header):
+            return header, line[len(header) :].lstrip(": \t")
+    wire, _, value = line.partition(":")
+    return wire.upper(), value.strip()
+
+
+def n33_audio(value):
+    # AMX names the sources but does not define numeric AUDIOSTREAM codes.
+    return {"svsi": "SVSI", "dante": "Dante", "h.26x": "H.26x", "h26x": "H.26x"}.get(
+        value.lower(), value
+    )
+
+
+def read_field(spec, value):
+    key, convert = spec
     try:
         parsed = convert[value.lower()] if isinstance(convert, dict) else convert(value)
     except (ValueError, KeyError):
         return {}
-    update = {key: parsed}
-    if key in ("video_stream", "audio_stream"):
-        update["video_source" if key == "video_stream" else "audio_selection"] = str(
-            parsed
-        )
-    return update
+    return {key: parsed}
+
+
+def video_selection(packet):
+    if packet.get("play_mode") == "local":
+        return {"video_source": ""}
+    source_key = {"SVSI": "video_stream", "H26X": "stream_url"}.get(
+        packet.get("receive_mode")
+    )
+    if packet.get("play_mode") != "live" or source_key not in packet:
+        return {}
+    source = packet[source_key]
+    return {"video_source": "" if source == "Private stream URL" else str(source)}
+
+
+def video_recall_steps(source, urls):
+    if source in urls:
+        mode = "H26X"
+        selection = ("setSettings:streamURL:" + source, "stream_url", source)
+    else:
+        mode = "SVSI"
+        selection = ("set:" + source, "video_stream", int(source))
+    return [
+        ("setSettings:ReceiveSrc:" + mode, "receive_mode", mode),
+        selection,
+        ("live", "play_mode", "live"),
+    ]
+
+
+def numbered_source(row, name):
+    stream = str(number(row.get("stream"), 1, 32511))
+    return stream, f"{name} ({stream})"
+
+
+def url_source(row, name):
+    return stream_url(row.get("url", ""), schemes=N33_SCHEMES), name
+
+
+def source_choices(rows, parse):
+    choices = []
+    ids = set()
+    for row in rows or ():
+        name = str(row.get("name", "")).strip()
+        value, label = parse(row, name)
+        if not name or value in ids:
+            raise ValueError(
+                "Each source needs a name and a unique stream number or URL."
+            )
+        ids.add(value)
+        choices.append({"value": value, "label": label})
+    return ids, choices
 
 
 FIELDS["STREAMURL"] = ("stream_url", report_url)
+N33_FIELDS = {
+    **FIELDS,
+    "AUDIOSTREAM": ("audio_source", n33_audio),
+    "RCVMODE": ("receive_mode", {"1": "SVSI", "2": "H26X"}),
+}
+LEGACY_SELECTIONS = {"video_stream": "video_source", "audio_stream": "audio_selection"}
 
 
 class AMXN2622SDriver(BaseDriver):
     DRIVER_INFO = {
         "id": "amx_svsi_n2622s",
-        "name": "AMX SVSI NMX-DEC-N2622S",
+        "name": "AMX SVSI N2622S / N3322D Decoders",
         "manufacturer": "AMX",
         "category": "switcher",
         "author": "OpenAVC",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "transport": "tcp",
         "delimiter": "\r",
         "ports": [50002, 50102],
@@ -210,8 +352,8 @@ class AMXN2622SDriver(BaseDriver):
         "verified": False,
         "min_platform_version": "0.37.2",
         "source_url": "https://www.amx.com/da/site_elements/amx-direct-control-api-n26xxs",
-        "description": "Routes SVSI video and audio to one N2622S receiver. Controls local playback, scaling, "
-        "USB/KVM and line levels, and reports HDMI, serial and network status.",
+        "description": "Routes named video and independent audio to an N2622S or N3322D. Controls local playback, scaling, "
+        "line levels and HDMI output. The N3322D supports named H.26x sources and Dante AV-H ownership feedback.",
         "tags": ["av-over-ip", "decoder", "svsi", "4k", "serial-bridge", "cec"],
         "compatible_models": [
             {
@@ -220,7 +362,13 @@ class AMXN2622SDriver(BaseDriver):
                 "confidence": "untested",
                 "notes": "Standalone decoder. Derived from AMX Direct Control API v1.3 and the "
                 "N2600S HControl guide. Hardware verification pending.",
-            }
+            },
+            {
+                "manufacturer": "AMX",
+                "models": ["NMX-DEC-N3322D"],
+                "confidence": "untested",
+                "notes": "Standalone 4K60 H.26x/Dante AV-H decoder. AMX N33x2D Direct Control. Hardware verification pending.",
+            },
         ],
         "help": {
             "overview": "One decoder is one destination. Name the encoder streams in Sources to build "
@@ -233,7 +381,7 @@ class AMXN2622SDriver(BaseDriver):
             "2. Match Routing configured on receiver to its actual Dante AV setting. Dante "
             "Controller, Domain Manager or Director owns the routes in Dante AV mode. This driver "
             "leaves that device setting alone.\n"
-            "3. On an ordinary connection, allow outbound TCP 4197 for live HDMI events and "
+            "3. On the N2622S with ordinary control, allow outbound TCP 4197 for live HDMI events and "
             "output resolution. Polling and replies cover the Direct Control readings. HControl "
             "output resolution and HDCP readings clear if the event link closes.\n"
             "4. To control a serial display, add the display with its own serial driver, select "
@@ -251,6 +399,8 @@ class AMXN2622SDriver(BaseDriver):
             "routing owner.",
         },
         "default_config": {
+            "decoder_model": "Auto",
+            "url_sources": [],
             "host": "",
             "port": 50002,
             "ssl": False,
@@ -262,6 +412,28 @@ class AMXN2622SDriver(BaseDriver):
             "poll_interval": 10,
         },
         "config_schema": {
+            "decoder_model": {
+                "type": "enum",
+                "label": "Decoder model",
+                "values": ["Auto", "N2622S", "N3322D"],
+                "default": "Auto",
+                "help": "Auto identifies the connected decoder. Choose N3322D for offline design or simulation. Auto simulates the N2622S.",
+            },
+            "url_sources": {
+                "type": "table",
+                "label": "N3322D H.26x video sources",
+                "default": [],
+                "row_label": "Source",
+                "help": "Each name appears in the Video Matrix alongside the numbered streams. Use stream addresses without credentials or query strings.",
+                "columns": {
+                    "name": {
+                        "type": "string",
+                        "label": "Source name",
+                        "required": True,
+                    },
+                    "url": {"type": "string", "label": "Stream URL", "required": True},
+                },
+            },
             "host": {"type": "string", "label": "Decoder address", "required": True},
             "port": {
                 "type": "integer",
@@ -320,7 +492,7 @@ class AMXN2622SDriver(BaseDriver):
             },
             "hdmi_events": {
                 "type": "boolean",
-                "label": "Listen for live HDMI changes",
+                "label": "Listen for N2622S live HDMI changes",
                 "default": True,
                 "help": "Uses HControl on TCP 4197 with ordinary control. Secure "
                 "control uses Direct Control feedback.",
@@ -339,7 +511,7 @@ class AMXN2622SDriver(BaseDriver):
             "tcp_probe": {
                 "port": 50002,
                 "send_ascii": "getStatus\r",
-                "expect_regex": "(?i)SVSI_RXGEN2\\s*:\\s*(?:NMX-DEC-)?N2622S(?:\\b|-)",
+                "expect_regex": "(?i)SVSI_RXGEN2\\s*:?\\s*(?:NMX-DEC-)?(?:N2622S|N3322D)(?!-C)(?=[\\d\\s:-]|$)",
                 "timeout_ms": 1500,
             },
         },
@@ -369,6 +541,34 @@ class AMXN2622SDriver(BaseDriver):
             ],
         },
         "state_variables": {
+            "audio_sample_rate": {
+                "type": "string",
+                "label": "Reported audio sample rate",
+            },
+            "local_uses_stream_audio": {
+                "type": "boolean",
+                "label": "Local playback uses stream audio",
+            },
+            "hdmi_audio_mode": {
+                "type": "string",
+                "label": "HDMI audio output",
+                "control": True,
+            },
+            "dante_av_h_enabled": {
+                "type": "boolean",
+                "label": "Dante AV-H owns routing",
+                "cloud_priority": "high",
+            },
+            "hold_last_frame": {
+                "type": "boolean",
+                "label": "Hold last frame on signal loss",
+                "control": True,
+            },
+            "disable_hdmi_on_loss": {
+                "type": "boolean",
+                "label": "Disable HDMI on signal loss",
+                "control": True,
+            },
             "identity": {
                 "type": "string",
                 "label": "Decoder identifier",
@@ -831,6 +1031,73 @@ class AMXN2622SDriver(BaseDriver):
                 "receiver. Switch-provided labels may be empty.",
             },
             "refresh_status": {"label": "Read decoder status", "query_for": "identity"},
+            "read_audio_sample_rate": {
+                "label": "Read audio sample rate",
+                "query_for": "audio_sample_rate",
+            },
+            "read_local_uses_stream_audio": {
+                "label": "Read audio source policy during local playback",
+                "query_for": "local_uses_stream_audio",
+            },
+            "read_hdmi_audio_mode": {
+                "label": "Read HDMI audio output setting",
+                "query_for": "hdmi_audio_mode",
+            },
+            "set_hdmi_audio_mode": {
+                "label": "Set HDMI audio output",
+                "params": {
+                    "mode": {
+                        "type": "enum",
+                        "label": "HDMI audio",
+                        "required": True,
+                        "values": ["auto", "off"],
+                    }
+                },
+                "help": "Auto sends audio when the display supports it. Off suppresses HDMI audio.",
+                "sets": {"hdmi_audio_mode": "{mode}"},
+            },
+            "read_dante_av_h_enabled": {
+                "label": "Read Dante AV-H routing ownership",
+                "query_for": "dante_av_h_enabled",
+            },
+            "read_audio_source": {
+                "label": "Read receiver audio source",
+                "query_for": "audio_source",
+            },
+            "select_audio_source": {
+                "label": "Select audio input type",
+                "params": {
+                    "source": {
+                        "type": "enum",
+                        "label": "Audio input",
+                        "values": ["svsi", "dante", "H.26x"],
+                        "required": True,
+                    }
+                },
+                "help": "Select numbered SVSI audio, Dante audio or H.26x stream audio. Inspect the decoder audio source reading. AMX leaves the AUDIOSTREAM return encoding unspecified.",
+            },
+            "set_hold_last_frame": {
+                "label": "Hold last frame on signal loss",
+                "params": {
+                    "enabled": {"type": "boolean", "label": "Enabled", "required": True}
+                },
+                "sets": {"hold_last_frame": "{enabled}"},
+            },
+            "read_hold_last_frame": {
+                "label": "Read last frame hold",
+                "query_for": "hold_last_frame",
+            },
+            "set_disable_hdmi_on_loss": {
+                "label": "Disable HDMI on signal loss",
+                "params": {
+                    "enabled": {"type": "boolean", "label": "Enabled", "required": True}
+                },
+                "sets": {"disable_hdmi_on_loss": "{enabled}"},
+            },
+            "read_disable_hdmi_on_loss": {
+                "label": "Read HDMI behavior on signal loss",
+                "query_for": "disable_hdmi_on_loss",
+            },
             "read_video_source": {
                 "label": "Read Video stream selection",
                 "query_for": "video_source",
@@ -922,6 +1189,25 @@ class AMXN2622SDriver(BaseDriver):
             "read_wall_row": {"label": "Read Display row", "query_for": "wall_row"},
         },
         "device_settings": {
+            "hdmi_audio_mode": {
+                "type": "enum",
+                "label": "HDMI audio output",
+                "values": ["auto", "off"],
+                "state_key": "hdmi_audio_mode",
+                "setup": False,
+            },
+            "hold_last_frame": {
+                "type": "boolean",
+                "label": "Hold last frame on signal loss",
+                "state_key": "hold_last_frame",
+                "setup": False,
+            },
+            "disable_hdmi_on_loss": {
+                "type": "boolean",
+                "label": "Disable HDMI on signal loss",
+                "state_key": "disable_hdmi_on_loss",
+                "setup": False,
+            },
             "scaler_enabled": {
                 "type": "boolean",
                 "label": "Output scaler enabled",
@@ -997,7 +1283,12 @@ class AMXN2622SDriver(BaseDriver):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.DRIVER_INFO = deepcopy(type(self).DRIVER_INFO)
+        self._model = self.config.get("decoder_model", "Auto")
+        self._identifying = True
+        self._ownership = None
+        self._route_lock = asyncio.Lock()
+        self._missing_routes = set()
+        self._packet = {}
         self._secure = False
         self._lock = asyncio.Lock()
         self._serial_lock = asyncio.Lock()
@@ -1007,43 +1298,124 @@ class AMXN2622SDriver(BaseDriver):
         self._needed = set()
         self._fresh = {}
         self._watch = None
+        self._configure_surface()
+
+    @property
+    def _n33(self):
+        return self._model == "N3322D"
+
+    def _configure_surface(self):
+        info = deepcopy(type(self).DRIVER_INFO)
+        self.DRIVER_INFO = info
         self._source_ids = set()
+        self._urls = set()
+        if self._n33:
+            self._n33_surface(info)
+        else:
+            self._omit(N33_ONLY, {"select_audio_source", "read_audio_source"})
+            if self._model == "N2622S":
+                info["config_schema"].pop("url_sources")
+        fields = N33_FIELDS if self._n33 else FIELDS
+        self._fields = {
+            k: spec for k, spec in fields.items() if spec[0] in info["state_variables"]
+        }
         self._configure_routing()
 
+    def _omit(self, states, commands):
+        info = self.DRIVER_INFO
+        for key in states:
+            info["state_variables"].pop(key, None)
+            info["device_settings"].pop(key, None)
+        for cmd in (
+            commands
+            | {"read_" + key for key in states}
+            | {"set_" + key for key in states}
+        ):
+            info["commands"].pop(cmd, None)
+
+    def _n33_surface(self, info):
+        self._omit(N26_ONLY, {"set_wall_layout", "set_usb_host"})
+        info["source_url"] = (
+            "https://www.amx.com/en/site_elements/direct-control-api-n33x2d"
+        )
+        info["protocols"] = ["amx-svsi-direct-control"]
+        info["config_schema"].pop("hdmi_events")
+        info["help"]["setup"] = (
+            "1. Select N3322D for offline design or simulation, or let Auto identify a live receiver. Use ordinary TCP 50002 or TLS 50102 with its command password.\n"
+            "2. Name SVSI stream numbers and H.26x video URLs. A Video Matrix selection recalls live playback and the source format. Check incoming resolution and HDMI detection separately.\n"
+            "3. Audio Matrix assigns the numbered SVSI audio stream. Choose Follow video for stream 0. Select audio input type separately for SVSI, Dante audio or H.26x. "
+            "Dante AV-H ownership disables OpenAVC route changes. The local Dante AV project setting also reserves routing for Dante.\n"
+            "4. Local playback reports its mode. Check the receiver for the playing playlist number. Set the two signal-loss policies under Device Settings.\n"
+            "5. Bind a serial display through this decoder only on ordinary TCP 50004. The driver verifies the line settings. Secure downstream serial on 50104 requires an independent connection."
+        )
+        commands = info["commands"]
+        commands["play_local"]["sets"] = {"play_mode": "local"}
+        commands["play_local"]["help"] = (
+            "Request playlist 1–8. The decoder confirms local mode and does not report the slot."
+        )
+        for key, values in (
+            ("scaler_mode", N33_MODES),
+            ("receive_mode", ["SVSI", "H26X"]),
+        ):
+            commands["set_" + key]["params"]["mode"]["values"] = values
+            info["device_settings"][key]["values"] = values
+        commands["set_receive_mode"]["help"] = (
+            "Choose numbered SVSI video or the configured H.26x URL."
+        )
+        commands["route_video"]["help"] = (
+            "Recall a named stream number or URL and return to live playback. The highlighted source comes from decoder feedback."
+        )
+        commands["route_audio"]["help"] = (
+            "Set the SVSI audio stream assignment. Select the receiver audio input type separately."
+        )
+        info["routing"]["planes"][1]["label"] = "SVSI audio assignment"
+        info["state_variables"]["video_source"]["label"] = "Selected live video source"
+        info["state_variables"]["audio_selection"]["label"] = (
+            "SVSI audio assignment (0 follows video)"
+        )
+        info["quick_actions"] = [
+            "route_video",
+            "route_audio",
+            "select_audio_source",
+            "play_live",
+            "refresh_status",
+        ]
+
     def _configure_routing(self):
-        if self.config.get("routing_owner", "SVSI") == "Dante AV":
+        if self._routes_reserved():
             self._use_dante_routing()
             return
-        choices = self._source_choices()
-        for plane in ("audio", "video"):
-            options = (
-                [{"value": "0", "label": "Follow video"}] if plane == "audio" else []
-            ) + choices
-            self.DRIVER_INFO["commands"]["route_" + plane]["params"]["source"][
-                "values"
-            ] = options
+        self._source_ids, streams = source_choices(
+            self.config.get("sources"), numbered_source
+        )
+        urls = []
+        if self._n33:
+            self._urls, urls = source_choices(
+                self.config.get("url_sources"), url_source
+            )
+        commands = self.DRIVER_INFO["commands"]
+        commands["route_video"]["params"]["source"]["values"] = streams + urls
+        commands["route_audio"]["params"]["source"]["values"] = [
+            {"value": "0", "label": "Follow video"}
+        ] + streams
+
+    def _routes_reserved(self):
+        return self.config.get("routing_owner") == "Dante AV" or (
+            self._n33 and self._ownership
+        )
 
     def _use_dante_routing(self):
         self.DRIVER_INFO.pop("routing")
-        for cmd in ROUTES | {"set_stream_url", "set_receive_mode"}:
-            self.DRIVER_INFO["commands"].pop(cmd)
+        for cmd in OWNED_COMMANDS:
+            self.DRIVER_INFO["commands"].pop(cmd, None)
         self.DRIVER_INFO["device_settings"].pop("receive_mode")
         self.DRIVER_INFO["quick_actions"] = [
-            c for c in self.DRIVER_INFO["quick_actions"] if c not in ROUTES
+            c for c in self.DRIVER_INFO["quick_actions"] if c not in OWNED_COMMANDS
         ]
 
-    def _source_choices(self):
-        choices = []
-        for row in self.config.get("sources", []) or []:
-            stream = str(number(row.get("stream"), 1, 32511))
-            label = str(row.get("name", "")).strip()
-            if not label or stream in self._source_ids:
-                raise ValueError("Each source needs a name and a unique stream number.")
-            self._source_ids.add(stream)
-            choices.append({"value": stream, "label": f"{label} ({stream})"})
-        return choices
-
     async def _pre_connect(self):
+        self._identifying = True
+        self._missing_routes.clear()
         port = int(self.config.get("port", 50002))
         self._secure = secure = bool(self.config.get("ssl"))
         wrong_ports = (50001, 50002) if secure else (50101, 50102)
@@ -1065,20 +1437,26 @@ class AMXN2622SDriver(BaseDriver):
 
     async def _post_connect(self):
         report = await self._request("getStatus", {"identity", "firmware"})
-        model = re.search(
-            r"\bN[1-9][0-9]{3}[A-Z]*(?=[-\s]|$)", report["identity"].upper()
-        )
-        if model and model.group() != "N2622S":
+        match = re.match(MODEL_PATTERN, report["identity"], re.I)
+        if not match:
             raise ConnectionFaultError(
-                "The connected decoder identifies as "
-                + model.group()
-                + "; this driver is for N2622S.",
+                "Unsupported AMX decoder identity.", code="invalid_config"
+            )
+        actual = match[1].upper()
+        if self.config.get("decoder_model", "Auto") not in ("Auto", actual):
+            raise ConnectionFaultError(
+                "The connected decoder differs from the selected model.",
                 code="invalid_config",
             )
+        if self._model != actual:
+            self._model = actual
+            self._configure_surface()
+        self._identifying = False
+        await self._request("getStatus", {"identity", "firmware"})
 
     async def _initial_sync(self):
         await self._request("getNetStatus", {"mac"}, header=NETWORK)
-        if self.config.get("hdmi_events", True) and not self._secure:
+        if all((not self._n33, self.config.get("hdmi_events", True), not self._secure)):
             self._clear_hdmi("Direct Control; connecting to HControl")
             self._watch = asyncio.create_task(self._watch_hdmi())
         else:
@@ -1092,6 +1470,9 @@ class AMXN2622SDriver(BaseDriver):
             await asyncio.gather(self._watch, return_exceptions=True)
             self._watch = None
         self._clear_hdmi("Disconnected")
+        if self._n33:
+            for key in ("video_source", "audio_selection", "dante_av_h_enabled"):
+                self.set_state(key, None)
 
     async def _send(self, wire):
         if self.transport is None:
@@ -1126,6 +1507,7 @@ class AMXN2622SDriver(BaseDriver):
                 # Direct Control has no transaction IDs. A late reply must never
                 # satisfy another write on the same session.
                 if self._in_packet:
+                    self._clear_missing_routes()
                     raise CommandRefusedError(
                         "The decoder answered but omitted a requested status field."
                     ) from None
@@ -1142,23 +1524,77 @@ class AMXN2622SDriver(BaseDriver):
 
     async def on_data_received(self, data):
         for line in data.decode("utf-8", "replace").splitlines():
-            wire, sep, value = line.strip().partition(":")
-            if sep:
-                self._receive(wire.upper(), value.strip())
+            wire, value = split_field(line.strip())
+            self._receive(wire, value)
 
     def _receive(self, wire, value):
         if wire in (STATUS, NETWORK):
-            self._in_packet = wire == self._header
-            self._fresh = {}
-        if wire not in FIELDS:
-            return
-        update = read_field(wire, value)
+            self._begin_packet(wire)
+        update = self._status_update(wire, value)
+        self._missing_routes.difference_update(update)
         for key, reading in update.items():
             self.set_state(key, reading)
+        self._track_reply(update)
+
+    def _track_reply(self, update):
         if self._in_packet and self._waiting_for_reply():
             self._fresh.update(update)
             if self._needed.issubset(self._fresh):
                 self._reply.set_result(dict(self._fresh))
+
+    def _begin_packet(self, header):
+        # CR-delimited fields have no end marker. A new header closes the
+        # prior report, so an omitted reading cannot leave a stale crosspoint.
+        self._clear_missing_routes()
+        self._packet = {}
+        self._in_packet = header == self._header
+        self._fresh = {}
+        if all((header == STATUS, self._n33, not self._identifying)):
+            self._missing_routes = MATRIX_READINGS.copy()
+
+    def _clear_missing_routes(self):
+        if "dante_av_h_enabled" in self._missing_routes:
+            self._set_route_ownership("unknown")
+        for key in self._missing_routes:
+            self.set_state(key, None)
+        self._missing_routes.clear()
+
+    def _set_route_ownership(self, owner):
+        if self._ownership != owner:
+            self._ownership = owner
+            self._configure_surface()
+
+    def _status_update(self, wire, value):
+        if self._identifying and wire not in (STATUS, "SWVER"):
+            return {}
+        if wire not in self._fields:
+            return {}
+        update = read_field(self._fields[wire], value)
+        if self._n33:
+            return self._with_routes(update)
+        for key in LEGACY_SELECTIONS.keys() & update.keys():
+            update[LEGACY_SELECTIONS[key]] = str(update[key])
+        return update
+
+    def _with_routes(self, update):
+        if update.keys() & ROUTE_READINGS:
+            self._packet.update(update)
+            update.update(self._n33_routes())
+        return update
+
+    def _n33_routes(self):
+        packet = self._packet
+        owner = packet.get("dante_av_h_enabled")
+        if owner is None:
+            return {}
+        self._set_route_ownership(owner)
+        if self._routes_reserved():
+            return {"video_source": "", "audio_selection": ""}
+        routes = {}
+        if "audio_stream" in packet:
+            routes["audio_selection"] = str(packet["audio_stream"])
+        routes.update(video_selection(packet))
+        return routes
 
     def _waiting_for_reply(self):
         return self._reply is not None and not self._reply.done()
@@ -1171,8 +1607,9 @@ class AMXN2622SDriver(BaseDriver):
 
     def _clear_hdmi(self, mode):
         self.set_state("hdmi_feedback", mode)
-        self.set_state("output_resolution", None)
-        self.set_state("hdcp_status", None)
+        if not self._n33:
+            self.set_state("output_resolution", None)
+            self.set_state("hdcp_status", None)
 
     async def _watch_hdmi(self):
         while True:
@@ -1257,16 +1694,73 @@ class AMXN2622SDriver(BaseDriver):
             )
 
     async def send_command(self, command, params=None):
+        if self._n33 and command in OWNED_COMMANDS | {"play_live", "play_local"}:
+            async with self._route_lock:
+                return await self._n33_command(command, params or {})
+        return await self._dispatch(command, params or {})
+
+    async def _n33_command(self, command, params):
+        if command in OWNED_COMMANDS:
+            await self._check_owner()
+        if command == "route_video":
+            return await self._recall_video(str(params.get("source", "")))
+        if command == "select_audio_source":
+            return await self._select_audio_source(params.get("source"))
+        return await self._dispatch(
+            command, params, confirm_owner=command in OWNED_COMMANDS
+        )
+
+    async def _select_audio_source(self, value):
+        if value not in AUDIO_INPUTS:
+            raise CommandRefusedError("Choose a listed audio input.")
+        report = await self._request(
+            "setSettings:audioStream:" + value, {"audio_source", "dante_av_h_enabled"}
+        )
+        self._require_native_owner(report)
+        # AMX does not specify numeric AUDIOSTREAM codes. Preserve them as
+        # readings; only a recognized return value can contradict this request.
+        actual = report["audio_source"]
+        if actual in AUDIO_INPUTS.values() and actual != AUDIO_INPUTS[value]:
+            raise CommandRefusedError("The receiver reported a different audio input.")
+
+    async def _check_owner(self):
+        report = await self._request("getStatus", {"dante_av_h_enabled"})
+        self._require_native_owner(report)
+        return report
+
+    def _require_native_owner(self, report):
+        if (
+            report["dante_av_h_enabled"]
+            or self.config.get("routing_owner") == "Dante AV"
+        ):
+            raise CommandRefusedError(
+                "Dante owns this receiver’s audio and video routes."
+            )
+
+    async def _recall_video(self, source):
+        if source not in self._source_ids | self._urls:
+            raise CommandRefusedError("Choose a configured video source.")
+        for wire, key, value in video_recall_steps(source, self._urls):
+            current = await self._check_owner()
+            # A firmware packet can omit an empty URL. Write it whenever this
+            # fresh response has not already confirmed the requested value.
+            if current.get(key) != value:
+                await self._confirm(wire, {key: value, "dante_av_h_enabled": False})
+        await self._confirm("getStatus", {"video_source": source})
+
+    async def _dispatch(self, command, params, *, confirm_owner=False):
         spec = self.DRIVER_INFO["commands"].get(command)
         if spec is None:
             raise CommandRefusedError(
-                "This control is unavailable for the configured routing owner."
+                "This control is unavailable for this decoder model or routing owner."
             )
         if command == "refresh_network":
             return await self._request("getNetStatus", {"switch_port"}, header=NETWORK)
         if "query_for" in spec:
             return await self._request("getStatus", {spec["query_for"]})
         wire, expected = self._operation(command, params or {})
+        if confirm_owner:
+            expected["dante_av_h_enabled"] = False
         if expected:
             return await self._confirm(wire, expected)
         await self._request(wire, {"identity"})
@@ -1314,13 +1808,18 @@ class AMXN2622SDriver(BaseDriver):
                 ("kvm_host", "usb_host"), addr
             )
         if command == "set_stream_url":
-            url = stream_url(params["url"])
+            url = stream_url(
+                params["url"], schemes=N33_SCHEMES if self._n33 else N26_SCHEMES
+            )
             return "setSettings:streamURL:" + url, {"stream_url": url}
         if command == "set_wall_layout":
             return wall_layout(params)
         if command == "play_local":
             slot = number(params["playlist"], 1, 8)
-            return "local:" + str(slot), {"playlist": slot, "play_mode": "local"}
+            expected = {"play_mode": "local"}
+            if not self._n33:
+                expected["playlist"] = slot
+            return "local:" + str(slot), expected
         if command in ("identify", "play_live"):
             return (
                 ("idOn", {"identified": True})
@@ -1337,6 +1836,7 @@ class AMXN2622SDriver(BaseDriver):
         if value not in spec["values"]:
             raise CommandRefusedError("Choose one of the listed values.")
         prefix = {
+            "set_hdmi_audio_mode": "setSettings:hdmiAudio:",
             "set_scaler_mode": "modeset:",
             "set_receive_mode": "setSettings:ReceiveSrc:",
             "display_cec": "CECPower:",

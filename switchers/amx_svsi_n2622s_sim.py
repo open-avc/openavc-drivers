@@ -1,4 +1,4 @@
-"""AMX N2622S Direct Control and HControl simulator. The two protocol
+"""AMX N2622S / N3322D Direct Control simulator with N2622S HControl. The two protocol
 connections share an allocated loopback port in simulation. A second Direct
 Control client cannot take ownership on that port. The ordinary serial
 connector is represented by its line settings, without opening a fixed port.
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 from contextvars import ContextVar
+from copy import deepcopy
 import hmac
 import json
 
@@ -58,6 +59,46 @@ STATUS = {
     "SPAR": "none",
     "SP2S": "1",
 }
+N26_FIELDS = {
+    "PLAYLIST",
+    "USB20EnableStatus",
+    "KVMEnableStatus",
+    "KVMMainIP",
+    "USB20MainIP",
+    "wallEnable",
+    "wallHorMons",
+    "wallVerMons",
+    "wallMonPosH",
+    "wallMonPosV",
+}
+N33_FIELDS = {
+    "HDMIAUDIO": "auto",
+    "LIVEAUDIOLP": "off",
+    "SAMPLE": "48000",
+    "AVHENABLE": "0",
+    "FRAMEHOLD": "off",
+    "VIDOFFNOSTRM": "off",
+    "AUDIOSTREAM": "svsi",
+}
+N33_CONTROLS = [
+    {"key": "AVHENABLE", "label": "Dante AV-H owns routing", "options": ["0", "1"]},
+    {
+        "key": "RCVMODE",
+        "label": "Receive mode (1 SVSI, 2 H.26x)",
+        "options": ["1", "2"],
+    },
+    {
+        "key": "STREAMURL",
+        "label": "External H.26x video route",
+        "options": ["rtp://234.1.0.102:5500", "rtsp://192.0.2.30/live"],
+    },
+    {"key": "PLAYMODE", "label": "Playback mode", "options": ["live", "local"]},
+    {
+        "key": "AUDIOSTREAM",
+        "label": "Audio input type",
+        "options": ["svsi", "dante", "H.26x"],
+    },
+]
 NETWORK = {
     "SVSI_NETSTATS": "N2622S-SIM0001",
     "NAME": STATUS["NAME"],
@@ -101,7 +142,7 @@ def hc_line(verb, path, **data):
 class AMXN2622SSimulator(TCPSimulator):
     SIMULATOR_INFO = {
         "driver_id": "amx_svsi_n2622s",
-        "name": "AMX SVSI N2622S Simulator",
+        "name": "AMX SVSI N2622S / N3322D Decoder Simulator",
         "category": "switcher",
         "transport": "tcp",
         "default_port": 50002,
@@ -173,6 +214,11 @@ class AMXN2622SSimulator(TCPSimulator):
     }
 
     def __init__(self, device_id, config=None):
+        self._n33 = (config or {}).get("decoder_model") == "N3322D"
+        self._fields = dict(STATUS)
+        self.SIMULATOR_INFO = deepcopy(type(self).SIMULATOR_INFO)
+        if self._n33:
+            self._n33_profile(config)
         super().__init__(device_id, config)
         self.SIMULATOR_INFO = {
             **self.SIMULATOR_INFO,
@@ -182,8 +228,25 @@ class AMXN2622SSimulator(TCPSimulator):
         self._direct = None
         self._subscriptions = {}
         self._notices = set()
-        for key, value in STATUS.items():
+        for key, value in self._fields.items():
             self.state.setdefault(key, value)
+
+    def _n33_profile(self, config):
+        self._fields = {k: v for k, v in STATUS.items() if k not in N26_FIELDS}
+        self._fields.update(N33_FIELDS)
+        self._fields.update(
+            {
+                "SVSI_RXGEN2": "N3322D-SIM0001",
+                "SWVER": "simulated",
+                "MAC": "02:00:00:00:33:22",
+                "AVHENABLE": "1" if config.get("routing_owner") == "Dante AV" else "0",
+            }
+        )
+        info = self.SIMULATOR_INFO
+        hcontrol = {"hdmiOutResolution", "hdcpStatus"}
+        info["controls"] = [c for c in info["controls"] if c["key"] not in hcontrol]
+        info["controls"].extend({"type": "select", **c} for c in N33_CONTROLS)
+        info["initial_state"] = dict(self._fields)
 
     async def start(self, port):
         if not self.SIMULATOR_INFO["tls"]:
@@ -247,17 +310,20 @@ class AMXN2622SSimulator(TCPSimulator):
         if not self.SIMULATOR_INFO["tls"] and wire.startswith(
             ("get {", "subscribeevent {")
         ):
-            return self._hcontrol(wire)
+            return None if self._n33 else self._hcontrol(wire)
         client = CLIENT.get()
         if self._direct in self._clients and client != self._direct:
             self._clients[client].close()
             return None
         self._direct = client
         if wire == "getNetStatus":
-            return self._packet(NETWORK)
+            return self._packet(
+                {**NETWORK, "SVSI_NETSTATS": self._fields["SVSI_RXGEN2"]}
+            )
         for key, value in self._changes(wire).items():
-            self.set_state(key, value)
-        return self._packet(STATUS)
+            if key in self._fields:
+                self.set_state(key, value)
+        return self._packet(self._fields)
 
     def _packet(self, fields):
         return "".join(
@@ -292,11 +358,14 @@ class AMXN2622SSimulator(TCPSimulator):
     def _route_locked(self):
         return (
             "locked_routes" in self.active_errors
+            or self.get_state("AVHENABLE") == "1"
             or self.config.get("routing_owner") == "Dante AV"
         )
 
     def _setting(self, wire):
         name, _, value = wire.partition(":")
+        if self._n33:
+            return self._n33_setting(name, value)
         if name == "streamURL":
             return {"STREAMURL": value}
         if name == "VideoWallHorVer":
@@ -311,6 +380,21 @@ class AMXN2622SSimulator(TCPSimulator):
         if name == "ReceiveSrc" and value in ("MWC", "H26X"):
             return {"RCVMODE": "1" if value == "MWC" else "2"}
         return {}
+
+    def _n33_setting(self, name, value):
+        if name in {"ReceiveSrc", "streamURL", "audioStream"} and self._route_locked():
+            return {}
+        modes = {"SVSI": "1", "H26X": "2"}
+        if name == "ReceiveSrc" and value in modes:
+            return {"RCVMODE": modes[value]}
+        field = {
+            "streamURL": "STREAMURL",
+            "audioStream": "AUDIOSTREAM",
+            "hdmiAudio": "HDMIAUDIO",
+            "holdlastframe": "FRAMEHOLD",
+            "disableHDMILostStream": "VIDOFFNOSTRM",
+        }.get(name)
+        return {field: value} if field else {}
 
     def _hcontrol(self, wire):
         verb, body = wire.split(" ", 1)

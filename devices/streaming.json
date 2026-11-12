@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 112,
+    "total_devices": 114,
     "shards": null,
     "category": "streaming"
   },
@@ -820,6 +820,30 @@
           "id": "epiphan_pearl",
           "confidence": "untested",
           "notes": "Built from the Pearl device REST API v2.0. The Pearl Nano has one channel and one layout; multi-channel commands act on that one."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "SMP 352",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "extron_smp_352",
+          "confidence": "untested",
+          "notes": "Standard and 3G-SDI 400 GB models. Both exercised in simulation using the SMP 300 Series User Guide, revision R."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "SMP 352 3G-SDI",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "extron_smp_352",
+          "confidence": "untested",
+          "notes": "Standard and 3G-SDI 400 GB models. Both exercised in simulation using the SMP 300 Series User Guide, revision R."
         }
       ]
     },

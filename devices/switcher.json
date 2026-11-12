@@ -1242,9 +1242,9 @@
       "category": "switcher",
       "drivers": [
         {
-          "id": "lightware_lw3",
+          "id": "lightware_ucx_4x3_hc40",
           "confidence": "untested",
-          "notes": "Any Lightware product that implements LW3 (most products since 2012). Set Input Count / Output Count to the frame size \u2014 each port becomes a child entity with per-port state (default 4/4 covers UCX, Taurus, and MMX2). Commands accept any port number regardless; ports a model doesn't have answer LW3 errors on poll, which is benign.\n"
+          "notes": "Built from the manufacturer manual. Serial-over-IP must be enabled in Lightware Device Controller. The downstream driver supplies baud rate, parity and stop bits; hardware testing is outstanding."
         }
       ]
     },

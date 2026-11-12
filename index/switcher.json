@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 32,
+    "total_drivers": 33,
     "shards": null,
     "category": "switcher"
   },
@@ -1424,15 +1424,15 @@
       "name": "Lightware LW3",
       "manufacturer": "Lightware",
       "category": "switcher",
-      "version": "1.6.4",
+      "version": "1.6.5",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls Lightware switchers and matrix routers via Protocol #3 (LW3) over TCP port 6107. Covers UCX, Taurus UCX, MMX2, MMX, and MX2M products. Each configured output and input is a child entity tracking its routed source, mute, lock, HDCP, 5V and signal-type state per port, updated in real time via change-notification subscriptions with a keep-alive watchdog guarding the link. Provides video and audio crosspoint switching, EDID switching, analog audio level/mute/balance, and CEC command sending. For a new MMX2 project, choose the exact MMX2 model driver for its fixed port layout and two-way serial bridge connections.\n",
+      "description": "Controls Lightware switchers and matrix routers via Protocol #3 (LW3) over TCP port 6107. Covers UCX, Taurus UCX, MMX2, MMX, and MX2M products. Each configured output and input is a child entity tracking its routed source, mute, lock, HDCP, 5V and signal-type state per port, updated in real time via change-notification subscriptions with a keep-alive watchdog guarding the link. Provides video and audio crosspoint switching, EDID switching, analog audio level/mute/balance, and CEC command sending. For a UCX-4x3-HC40, MMX2-4x1-H20 or MMX2-4x3-H20, choose the matching model driver for its physical port layout and two-way serial bridges.\n",
       "source_url": "https://assets.prod.pim.lightware.com/assets/File-Downloads/Guides-and-Manuals/User-Manual/MMX2_series_UserManual.pdf",
       "file": "switchers/lightware_lw3.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/lightware_lw3.avcdriver": "7ac2bac54819b4a82cec9b37c50683fdf87d32feddc5023127974cbfd2fef57d"
+        "switchers/lightware_lw3.avcdriver": "09f48b1769cc347d76d99783d1b27a4dfa08b4dcffa5db36452fc38801053854"
       },
       "ports": [
         6107
@@ -1452,7 +1452,7 @@
         "cec"
       ],
       "help": {
-        "overview": "For MMX2-4x1-H20 and MMX2-4x3-H20, choose the matching model driver when adding a new device. Those drivers include the physical RS-232 connectors as two-way bridges with automatic serial line setup. Lightware LW3 is the unified ASCII control protocol used across Lightware's matrix switchers, extenders, and modular routers. Commands target a tree of nodes (e.g. /V1/MEDIA/VIDEO/XP) using GET, SET, and CALL operations. The driver exposes the most-used runtime control surface: video and audio routing, mute, HDCP, output power, EDID, analog audio level, and CEC.\n",
+        "overview": "For UCX-4x3-HC40, MMX2-4x1-H20 and MMX2-4x3-H20, choose the matching model driver when adding a new device. Those drivers include the physical RS-232 connectors as two-way bridges with automatic serial line setup. Lightware LW3 is the unified ASCII control protocol used across Lightware's matrix switchers, extenders, and modular routers. Commands target a tree of nodes (e.g. /V1/MEDIA/VIDEO/XP) using GET, SET, and CALL operations. The driver exposes the most-used runtime control surface: video and audio routing, mute, HDCP, output power, EDID, analog audio level, and CEC.\n",
         "setup": "1. Connect the Lightware device to the network via Ethernet. 2. Confirm the device's IP address using LDC (Lightware Device Controller)\n   or the front-panel display.\n3. In LDC's Network tab, ensure the LW3 service on port 6107 is enabled\n   and that authentication (IPLogin) is OFF \u2014 this driver does not\n   authenticate.\n4. Enter the IP address and port 6107 in the device config. 5. Set Input Count and Output Count to the frame size (default 4/4\n   covers UCX, Taurus, and MMX2) \u2014 each port becomes a child entity\n   with per-port routing, mute, lock, HDCP, 5V and signal state.\n6. Use input/output port numbers as integers (I3 \u2192 input=3, O2 \u2192 output=2).\n   Setting input=0 disconnects an output.\n"
       },
       "compatible_models": [
@@ -1462,7 +1462,6 @@
             "UCX-2x1-HC30",
             "UCX-2x2-H30",
             "UCX-4x3-HC30",
-            "UCX-4x3-HC40",
             "Taurus UCX",
             "MMX series",
             "MX2M-FR8",
@@ -1595,6 +1594,68 @@
           "manufacturer": "Lightware",
           "models": [
             "MMX2-4x3-H20"
+          ],
+          "confidence": "untested",
+          "notes": "Built from the manufacturer manual. Serial-over-IP must be enabled in Lightware Device Controller. The downstream driver supplies baud rate, parity and stop bits; hardware testing is outstanding."
+        }
+      ],
+      "discovery": {
+        "oui": [
+          "a8:d2:36"
+        ],
+        "port_open": [
+          6107
+        ],
+        "manufacturer_alias": [
+          "lightware",
+          "lightware visual engineering"
+        ]
+      }
+    },
+    {
+      "id": "lightware_ucx_4x3_hc40",
+      "name": "Lightware Taurus UCX-4x3-HC40",
+      "manufacturer": "Lightware",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Routes USB-C and HDMI sources to three displays, selects the computer using the room USB peripherals, and controls analog audio. Two RS-232 connectors provide two-way serial control with automatic line setup.",
+      "source_url": "https://assets.prod.pim.lightware.com/assets/File-Downloads/Guides-and-Manuals/User-Manual/UCX_series_UserManual.pdf",
+      "file": "switchers/lightware_ucx_4x3_hc40.py",
+      "format": "python",
+      "files": {
+        "switchers/lightware_ucx_4x3_hc40.py": "4b3aa97b333eea730b9899314468290bf0830ebcc98cea0f807cdda284d0d5d0",
+        "switchers/lightware_ucx_4x3_hc40_sim.py": "032b76f4e9dbf5f853e9a15e7d6ce0917565e03c8768604e71c26b00bb28a777"
+      },
+      "ports": [
+        6107
+      ],
+      "protocols": [
+        "lightware_lw3"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "taurus",
+        "usb-c",
+        "matrix-switcher",
+        "usb-switcher",
+        "lw3",
+        "serial-bridge",
+        "rs232",
+        "cec"
+      ],
+      "help": {
+        "overview": "Controls this four-input Taurus, its built-in Welcome Screen, three HDMI outputs and shared USB hub. Use either RS-232 connector for a projector, display or other serial device with its own driver.",
+        "setup": "1. Connect the UCX-4x3-HC40 to the control network and enter its IP address. For control and automatic line setup, enable LW3 on TCP 6107 in Lightware Device Controller (LDC). This driver uses the raw LW3 connection; it does not sign in to the web interface.\n2. In LDC, open Settings > Network and enable Serial over IP for each RS-232 port you will use. Allow TCP 6107 and the selected serial ports (8001 for P1, 8002 for P2) from the OpenAVC server.\n3. Connect TX to the serial device's RX, RX to TX, and ground to ground. Use eight data bits, no flow control, and 9600, 19200, 38400, 57600 or 115200 baud.\n4. Add the connected equipment with its own serial driver. Choose Through a bridge, select this UCX-4x3-HC40, then select its RS-232 connector. Set the equipment's baud rate, parity and stop bits in that device's connection settings. The bridge applies changed values and checks the device's reply before the downstream connection opens.\n5. Check Serial Setup for that port on the UCX-4x3-HC40 device page. If it reports a mismatch or failed setup, correct the settings and reconnect the downstream device. OpenAVC may still open its network connection after a setup failure; that alone does not prove serial communication works.\n6. Use one controlling driver per serial connector. Keep LARA or other controllers from writing to the same equipment at the same time. Test both a command and the equipment's returned status.\nSerial replies require an open downstream connection and are not buffered while it is closed. After reconnecting, request status from the serial device. Serial settings are checked again whenever the bridge reconnects. A device using software flow control must have that function disabled.\nSimulation covers the switcher and serial setup. It does not create the physical serial network ports; test a connected serial device separately.",
+        "connection": "Check the IP address and LW3 service. For serial equipment, check Serial Setup, Serial over IP in LDC, the selected connector and the TX/RX wiring. A network connection does not prove a serial reply was received. Enable just the serial service you need in LDC; keep web sign-in and other network settings unchanged."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Lightware",
+          "models": [
+            "UCX-4x3-HC40"
           ],
           "confidence": "untested",
           "notes": "Built from the manufacturer manual. Serial-over-IP must be enabled in Lightware Device Controller. The downstream driver supplies baud rate, parity and stop bits; hardware testing is outstanding."

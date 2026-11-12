@@ -506,6 +506,7 @@ class ExtronDmp128Plus(BaseDriver):
                 "sets": {"active_meter_group": 0},
             },
             "recall_preset": {
+                "sets": {"last_recalled_preset": "{preset}"},
                 "label": "Recall a room preset",
                 "help": "Apply a preset saved in DSP Configurator and refresh the "
                 "affected controls.",
@@ -561,7 +562,6 @@ class ExtronDmp128Plus(BaseDriver):
         self._names = {}
         self._generated_labels = {}
         self._active = 0
-        self._presets = {}
 
     def _resolve_delimiter(self):
         # SSH delivers arbitrary chunks. Use the same SIS framer on all links.
@@ -766,9 +766,16 @@ class ExtronDmp128Plus(BaseDriver):
         schema = self.DRIVER_INFO["child_entity_types"][kind]["state_variables"].copy()
         lower, upper = limits
         schema["level"] = dict(schema["level"], min=lower / 10, max=upper / 10)
+        retained = {}
         if self.is_child_registered(kind, slot) and self._limits.get(slot) != limits:
+            state = self.get_child_state(kind, slot)
+            retained = {
+                key: state[key]
+                for key in ("label", "members", "level")
+                if state.get(key) is not None
+            }
             self.deregister_child(kind, slot)
-        self.register_child(kind, slot, schema=schema)
+        self.register_child(kind, slot, initial_state=retained, schema=schema)
         self._limits[slot] = limits
         self.set_child_state(kind, slot, "lower_limit", lower / 10)
         self.set_child_state(kind, slot, "upper_limit", upper / 10)
@@ -779,15 +786,18 @@ class ExtronDmp128Plus(BaseDriver):
             kind = await self._group_kind(slot)
             if kind:
                 roster[slot] = await self._inventory_group(slot, kind)
+        self._remove_obsolete_groups(roster)
+        for slot, group in roster.items():
+            self._install_group(slot, *group)
+        self.set_state("group_count", len(roster))
+
+    def _remove_obsolete_groups(self, roster):
         for slot, old_kind in tuple(self._groups.items()):
             if slot not in roster or roster[slot][0] != old_kind:
                 self.deregister_child(old_kind, slot)
                 self._groups.pop(slot)
                 self._members.pop(slot, None)
                 self._limits.pop(slot, None)
-        for slot, group in roster.items():
-            self._install_group(slot, *group)
-        self.set_state("group_count", len(roster))
 
     async def _load_presets(self):
         choices = {}
@@ -800,7 +810,6 @@ class ExtronDmp128Plus(BaseDriver):
                 continue
             if name:
                 choices[slot] = name
-        self._presets = choices
         self.set_state(
             "preset_options",
             json.dumps(
@@ -843,13 +852,16 @@ class ExtronDmp128Plus(BaseDriver):
     async def _channel_read(self, op, oid):
         return await self._ask(unit_query(f"{op}{oid}AU"), rf"Ds{op}{oid}\*([+-]?\d+)")
 
-    async def poll(self):
-        await self._read_firmware()
+    async def _read_channels(self):
         for kind, ports in PORTS.items():
             for port in ports:
                 oid = GAIN_BASE[kind] + port - 1
                 await self._channel_read("G", oid)
                 await self._channel_read("M", oid)
+
+    async def poll(self):
+        await self._read_firmware()
+        await self._read_channels()
         for slot, kind in tuple(self._groups.items()):
             if kind != "meter_group":
                 await self._group_read("D", slot, r"([+-]?\d+)")
@@ -874,8 +886,17 @@ class ExtronDmp128Plus(BaseDriver):
                 "The DSP reported a different setting after the command."
             )
 
+    async def _require_group(self, slot, kind):
+        if await self._group_kind(slot) != kind:
+            raise CommandRefusedError(
+                f"Group {slot} changed in DSP Configurator. Refresh room controls."
+            )
+
     async def _write_group(self, kind, params):
         slot = number(params.get(kind), self.list_children(kind))
+        # Gain and mute share the same SIS write. Recheck the addressed group
+        # so an old panel binding cannot write to a reassigned control.
+        await self._require_group(slot, kind)
         if kind == "gain_group":
             raw = tenths(params.get("level"))
             limits = await self._soft_limits(slot)
@@ -898,6 +919,8 @@ class ExtronDmp128Plus(BaseDriver):
         self.set_child_state(kind, port, "meter", -raw / 10)
 
     async def _select_meters(self, slot):
+        if slot:
+            await self._require_group(slot, "meter_group")
         await self._ask(unit_query(f"G{slot}GRPU"), rf"GrpuG0*{slot}")
         self._activate(slot)
         await self._meter_selection()

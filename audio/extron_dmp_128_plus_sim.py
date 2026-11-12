@@ -210,23 +210,29 @@ class Dmp128PlusSimulator(TCPSimulator):
 
     def _group_value(self, kind, value, prefix):
         if kind == 6:
-            if value is not None:
-                level = int(value) / 10
-                if (
-                    not self.get_state("lower_limit")
-                    <= level
-                    <= self.get_state("upper_limit")
-                ):
-                    return "E13"
-                self.set_state("room_level", level)
-            return prefix + str(round(self.get_state("room_level") * 10))
+            return self._gain_group(value, prefix)
         if kind != 12:
             return "E14"
+        if value not in (None, "0", "1"):
+            return "E13"
         if value is not None:
-            if value not in ("0", "1"):
-                return "E13"
             self.set_state("mic_muted", value == "1")
+            self.set_state("M40100", int(value))
         return prefix + str(int(self.get_state("mic_muted")))
+
+    def _gain_group(self, value, prefix):
+        if value is not None:
+            level = int(value) / 10
+            if (
+                not self.get_state("lower_limit")
+                <= level
+                <= self.get_state("upper_limit")
+            ):
+                return "E13"
+            self.set_state("room_level", level)
+            self.set_state("G60000", int(value))
+            self.set_state("G60001", int(value))
+        return prefix + str(round(self.get_state("room_level") * 10))
 
     def _block(self, cmd):
         match = re.fullmatch(r"([GMV])(\d+)(?:\*(-?\d+))?AU", cmd)

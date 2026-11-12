@@ -2,11 +2,23 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 130,
+    "total_devices": 131,
     "shards": null,
     "category": "switcher"
   },
   "devices": [
+    {
+      "manufacturer": "AMX",
+      "model": "NMX-DEC-N2622S",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "amx_svsi_n2622s",
+          "confidence": "untested",
+          "notes": "Standalone decoder. Derived from AMX Direct Control API v1.3 and the N2600S HControl guide. Hardware verification pending."
+        }
+      ]
+    },
     {
       "manufacturer": "Atlona",
       "model": "AT-OME-MS42",

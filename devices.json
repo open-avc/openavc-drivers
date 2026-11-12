@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1328,
+    "total_devices": 1329,
     "shards": null
   },
   "devices": [
@@ -711,6 +711,18 @@
           "id": "allenheath_sq",
           "confidence": "untested",
           "notes": "Set Model to SQ5+ / SQ6+ / SQ7+: the SQ+ moves every master output to its own parameter numbers. MIDI over TCP needs firmware 2.0.2; RackUltra FX control needs 2.0.3. SQ5+ has 8 SoftKeys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AMX",
+      "model": "NMX-DEC-N2622S",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "amx_svsi_n2622s",
+          "confidence": "untested",
+          "notes": "Standalone decoder. Derived from AMX Direct Control API v1.3 and the N2600S HControl guide. Hardware verification pending."
         }
       ]
     },

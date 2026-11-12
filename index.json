@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 185,
+    "total_drivers": 186,
     "shards": null
   },
   "drivers": [
@@ -582,6 +582,72 @@
           "allen-heath",
           "audiotonix"
         ]
+      }
+    },
+    {
+      "id": "amx_svsi_n2622s",
+      "name": "AMX SVSI NMX-DEC-N2622S",
+      "manufacturer": "AMX",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Routes SVSI video and audio to one N2622S receiver. Controls local playback, scaling, USB/KVM and line levels, and reports HDMI, serial and network status.",
+      "source_url": "https://www.amx.com/da/site_elements/amx-direct-control-api-n26xxs",
+      "file": "switchers/amx_svsi_n2622s.py",
+      "format": "python",
+      "files": {
+        "switchers/amx_svsi_n2622s.py": "7defb550d9a9585c5f5e70afa831f11170f429e128ada513f88f77ef685bf1e9",
+        "switchers/amx_svsi_n2622s_sim.py": "d80d9c51363706f3c6f1f24b7491943072f9d4bd040a3e848bd6d014e98eb6ea"
+      },
+      "ports": [
+        50002,
+        50102
+      ],
+      "protocols": [
+        "amx-svsi-direct-control",
+        "hcontrol"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.2",
+      "tags": [
+        "av-over-ip",
+        "decoder",
+        "svsi",
+        "4k",
+        "serial-bridge",
+        "cec"
+      ],
+      "help": {
+        "overview": "One decoder is one destination. Name the encoder streams in Sources to build video and audio Matrix controls. Audio stream 0 follows video. Incoming resolution and HDMI detection help distinguish a selected route from a displayed picture.",
+        "setup": "1. Enter the receiver address. Use TCP 50002 for ordinary control. With Secure Ports Only, enable TLS, enter port 50102 and the receiver command password. Use a trusted receiver certificate. Each Direct Control port accepts one controller at a time.\n2. Match Routing configured on receiver to its actual Dante AV setting. Dante Controller, Domain Manager or Director owns the routes in Dante AV mode. This driver leaves that device setting alone.\n3. On an ordinary connection, allow outbound TCP 4197 for live HDMI events and output resolution. Polling and replies cover the Direct Control readings. HControl output resolution and HDCP readings clear if the event link closes.\n4. To control a serial display, add the display with its own serial driver, select Through a bridge and choose this receiver\u2019s RS-232 port. Use this only where ordinary TCP 50004 is enabled. Match baud, data bits, parity and stop bits to the display, and use no flow control. Check Serial line setup and request status from the display. Unsolicited serial replies require AMX firmware 1.8.8 or later. Binary serial protocols that send NUL (00) require firmware 2.0.8 or later. Secure serial on 50104 is unavailable. Keep site security settings in place.\n5. Simulate receiver control and line settings in OpenAVC. The physical serial display and its replies require a separate peer.",
+        "connection": "Only one connection can occupy the selected Direct Control port. Check the address, port, TLS setting, trust and command password. For absent audio or video, check stream format, local playback, mute, HDMI detection and the routing owner."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "AMX",
+          "models": [
+            "NMX-DEC-N2622S"
+          ],
+          "confidence": "untested",
+          "notes": "Standalone decoder. Derived from AMX Direct Control API v1.3 and the N2600S HControl guide. Hardware verification pending."
+        }
+      ],
+      "discovery": {
+        "port_open": [
+          50002,
+          50102
+        ],
+        "manufacturer_alias": [
+          "amx",
+          "svsi"
+        ],
+        "tcp_probe": {
+          "port": 50002,
+          "send_ascii": "getStatus\r",
+          "expect_regex": "(?i)SVSI_RXGEN2\\s*:\\s*(?:NMX-DEC-)?N2622S(?:\\b|-)",
+          "timeout_ms": 1500
+        }
       }
     },
     {

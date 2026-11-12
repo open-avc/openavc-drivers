@@ -317,16 +317,15 @@ N24_ROUTE_INPUTS = {"aes67_enabled", "audio_stream", "play_mode", "video_stream"
 
 
 def n24_selections(packet):
-    routes = {}
+    # N2400 has one numbered video format. Reuse the live/local selection
+    # rule, treating stream zero as the decoder's local fallback.
+    routes = video_selection({**packet, "receive_mode": "SVSI"})
+    if routes.get("video_source") == "0":
+        routes["video_source"] = ""
     if packet.get("aes67_enabled"):
         routes["audio_selection"] = ""
     elif packet.get("aes67_enabled") is False and "audio_stream" in packet:
         routes["audio_selection"] = str(packet["audio_stream"])
-    if packet.get("play_mode") == "local":
-        routes["video_source"] = ""
-    elif packet.get("play_mode") == "live" and "video_stream" in packet:
-        stream = packet["video_stream"]
-        routes["video_source"] = str(stream) if stream else ""
     return routes
 
 
@@ -1952,14 +1951,17 @@ class AMXN2622SDriver(BaseDriver):
         return await self._dispatch(command, params or {})
 
     async def _n24_command(self, command, params):
-        if command in ("route_usb", "set_usb_host"):
-            return await self._n24_keyboard(command, params)
-        if command in ("route_audio", "set_audio_stream", "follow_video"):
-            return await self._n24_audio(command, params)
         if command in ("route_video", "set_video_stream", "play_live", "play_local"):
             async with self._route_lock:
                 return await self._n24_video(command, params)
-        return await self._dispatch(command, params)
+        handler = {
+            "route_usb": self._n24_keyboard,
+            "set_usb_host": self._n24_keyboard,
+            "route_audio": self._n24_audio,
+            "set_audio_stream": self._n24_audio,
+            "follow_video": self._n24_audio,
+        }.get(command, self._dispatch)
+        return await handler(command, params)
 
     async def _n24_keyboard(self, command, params):
         addr = encoder_address(params.get("source", params.get("address")))

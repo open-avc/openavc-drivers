@@ -20,7 +20,7 @@
       "file": "switchers/amx_svsi_n2622s.py",
       "format": "python",
       "files": {
-        "switchers/amx_svsi_n2622s.py": "07206aac02d276bd2ecf4d6f180448d789d23896a8c1a217d00b95e332f59eaa",
+        "switchers/amx_svsi_n2622s.py": "5bcb35ffdbf5516302eb267f0803d8c2673c0f3ba586be3ac6a57b26d24850c8",
         "switchers/amx_svsi_n2622s_sim.py": "39d585a23c554d97484253a0b2bbaa12c995a26383a7cd9407496caa15308bb6"
       },
       "ports": [

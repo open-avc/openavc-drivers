@@ -1840,7 +1840,7 @@
       "file": "audio/extron_dmp_128_plus.py",
       "format": "python",
       "files": {
-        "audio/extron_dmp_128_plus.py": "d54750392d1d6042da51bd40f0bf12614d9919a8c54209717f552a687ce8c1e0",
+        "audio/extron_dmp_128_plus.py": "01c6d4086458d2d7b4274fd87b5ea6cb89a5840de040bc04a4b293b32545428c",
         "audio/extron_dmp_128_plus_sim.py": "362a2e2d12e7b89fba784511c2b35f03fdeb8ceeccb19f9c26f5ee808864b7d7"
       },
       "ports": [
@@ -1881,7 +1881,12 @@
         "tcp_probe": {
           "port": 23,
           "expect_regex": "(?i)Extron Electronics[^\\r\\n]*DMP 128 Plus(?: C V AT| C AT| C V| AT| C)?\\s*,",
-          "extract_manufacturer": "Extron"
+          "extract_manufacturer": "Extron",
+          "extract": {
+            "model": {
+              "regex": "(?i)(DMP 128 Plus(?: C V AT| C AT| C V| AT| C)?)\\s*,"
+            }
+          }
         },
         "oui": [
           "00:05:a6"

@@ -189,6 +189,11 @@ class ExtronDmp128Plus(BaseDriver):
                 "expect_regex": "(?i)Extron Electronics[^\\r\\n]*DMP 128 Plus(?: C V "
                 "AT| C AT| C V| AT| C)?\\s*,",
                 "extract_manufacturer": "Extron",
+                "extract": {
+                    "model": {
+                        "regex": r"(?i)(DMP 128 Plus(?: C V AT| C AT| C V| AT| C)?)\s*,"
+                    }
+                },
             },
             "oui": ["00:05:a6"],
             "hostname": ["(?i)^dmp-?128-?plus(?:-|$)"],
@@ -237,6 +242,7 @@ class ExtronDmp128Plus(BaseDriver):
                     "meter": {
                         "type": "number",
                         "label": "Signal level",
+                        "help": "Last measured level. Read the channel signal on demand or monitor a meter group containing this block.",
                         "min": -150,
                         "max": 0,
                         "step": 0.1,
@@ -265,6 +271,7 @@ class ExtronDmp128Plus(BaseDriver):
                     "meter": {
                         "type": "number",
                         "label": "Signal level",
+                        "help": "Last measured level. Read the channel signal on demand or monitor a meter group containing this block.",
                         "min": -150,
                         "max": 0,
                         "step": 0.1,
@@ -337,6 +344,7 @@ class ExtronDmp128Plus(BaseDriver):
                     "dbfs": {
                         "type": "number",
                         "label": "Signal level",
+                        "help": "Last measured level. Read the channel signal on demand or monitor a meter group containing this block.",
                         "min": -150,
                         "max": 0,
                         "step": 0.1,
@@ -649,6 +657,13 @@ class ExtronDmp128Plus(BaseDriver):
         for oid, raw in zip(members, values):
             if raw <= 1500 and self.is_child_registered("meter", oid):
                 self.set_child_state("meter", oid, "dbfs", -raw / 10)
+                self._channel_meter(oid, -raw / 10)
+
+    def _channel_meter(self, oid, value):
+        for kind, base in METER_BASE.items():
+            port = oid - base + 1
+            if port in PORTS[kind] and self.is_child_registered(kind, port):
+                self.set_child_state(kind, port, "meter", value)
 
     async def _close_session(self):
         if self._pending and not self._pending[1].done():

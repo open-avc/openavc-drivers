@@ -47,7 +47,7 @@ class ExtronSmp352(BaseDriver):
         "name": "Extron SMP 352",
         "manufacturer": "Extron",
         "category": "streaming",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "source_url": "https://media.extron.com/public/download/files/userman/smp_300_series_68-2238-01_R.pdf",
@@ -68,8 +68,9 @@ class ExtronSmp352(BaseDriver):
             }
         ],
         "transport": "ssh",
-        "transports": ["ssh", "serial"],
+        "transports": ["ssh", "tcp", "serial"],
         "default_config": {
+            "network_session": "Recorder SSH",
             "confidence_preview": "Off",
             "host": "",
             "port": 22023,
@@ -83,6 +84,14 @@ class ExtronSmp352(BaseDriver):
             "model": "SMP 352",
         },
         "config_schema": {
+            "network_session": {
+                "type": "enum",
+                "label": "Network endpoint",
+                "advanced": True,
+                "default": "Recorder SSH",
+                "values": ["Recorder SSH", "Transparent serial server"],
+                "description": "Use Recorder SSH for the SMP’s LAN port. For a standalone Ethernet-to-RS-232 adapter, choose Transparent serial server and enter the adapter address and TCP port. For an adapter already in the project, choose Through a bridge.",
+            },
             "confidence_preview": {
                 "type": "enum",
                 "label": "Confidence preview in Video Panel",
@@ -123,7 +132,7 @@ class ExtronSmp352(BaseDriver):
         "help": {
             "overview": "Operate a commissioned lecture recorder, recall its saved layouts and see "
             "whether its inputs have signal. Recording and streaming are independent.",
-            "setup": "Enter the recorder address and SIS login. SSH normally uses port 22023. For "
+            "setup": "Choose Network (IP) and enter the recorder address and SIS login. SSH normally uses port 22023. For "
             "RS-232 choose a local serial port or Through a bridge, at 9600 baud, 8 data "
             "bits, no parity and one stop bit. The recorder identifies its inputs on "
             "connection. Choose Refresh names after renaming sources or layouts in the "
@@ -379,6 +388,15 @@ class ExtronSmp352(BaseDriver):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Programmer presents both IP endpoints under Network (IP). Choose
+        # the physical endpoint at project load, before the simulator applies
+        # its own temporary TCP transport. A bound bridge supplies its link.
+        if not self.config.get("bridge") and self.config.get("transport") != "serial":
+            endpoint = self.config.get("network_session", "Recorder SSH")
+            self.config = dict(
+                self.config,
+                transport="tcp" if endpoint == "Transparent serial server" else "ssh",
+            )
         self._wire = asyncio.Lock()
         self._sync = asyncio.Lock()
         self._rx = b""

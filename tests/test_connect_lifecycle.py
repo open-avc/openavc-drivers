@@ -115,7 +115,7 @@ _CONFIG: dict[str, dict] = {
     "extron_nav": {"transport": "tcp"},
     # The DMP simulator serves its SSH/serial SIS session over a local TCP socket.
     "extron_dmp_128_plus": {"transport": "tcp"},
-    "extron_smp_352": {"transport": "tcp"},
+    "extron_smp_352": {"transport": "tcp", "network_session": "Transparent serial server"},
     # Same again: the Parlé VBC 2800's Network API is served over SSH as user
     # control, and its simulator stands in for the session after the login.
     "biamp_parle_vbc2800": {"transport": "tcp"},

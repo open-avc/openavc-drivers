@@ -5586,7 +5586,7 @@
       "name": "Extron SMP 352",
       "manufacturer": "Extron",
       "category": "streaming",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Control lecture recording and streaming. Detects the recorder model, reads saved input and layout names, and reports signal, storage and recording status.",
@@ -5594,7 +5594,7 @@
       "file": "streaming/extron_smp_352.py",
       "format": "python",
       "files": {
-        "streaming/extron_smp_352.py": "6492dfb8f5d09406c08ea9b0dfbf1c8e747c624e7ee767e3a5c6e4fc07987115",
+        "streaming/extron_smp_352.py": "ebc0f20763cb4ba7fe0e2431bcea6234283e34728929a826ece3b39d44e9338a",
         "streaming/extron_smp_352_sim.py": "46126a15dc0a9e9a079d952fc9856065701c40db8de0981b00af8086b31ea8dc"
       },
       "ports": [
@@ -5613,7 +5613,7 @@
       ],
       "help": {
         "overview": "Operate a commissioned lecture recorder, recall its saved layouts and see whether its inputs have signal. Recording and streaming are independent.",
-        "setup": "Enter the recorder address and SIS login. SSH normally uses port 22023. For RS-232 choose a local serial port or Through a bridge, at 9600 baud, 8 data bits, no parity and one stop bit. The recorder identifies its inputs on connection. Choose Refresh names after renaming sources or layouts in the Extron web interface.",
+        "setup": "Choose Network (IP) and enter the recorder address and SIS login. SSH normally uses port 22023. For RS-232 choose a local serial port or Through a bridge, at 9600 baud, 8 data bits, no parity and one stop bit. The recorder identifies its inputs on connection. Choose Refresh names after renaming sources or layouts in the Extron web interface.",
         "connection": "Use Read recorder status before class. Check the selected input, available internal recording time and recording destination. Recording time remaining refers to an active recording. RTMP Live reports whether the recorder has connected to its configured destination. Set up destinations and schedules in the Extron web interface."
       },
       "compatible_models": [

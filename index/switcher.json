@@ -2,25 +2,149 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 30,
+    "total_drivers": 32,
     "shards": null,
     "category": "switcher"
   },
   "drivers": [
     {
-      "id": "atlona_ome_ms",
-      "name": "Atlona AT-OME-MS Series Matrix Switcher",
+      "id": "atlona_ome_ms42",
+      "name": "Atlona AT-OME-MS42 Matrix Switcher",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.4.4",
+      "version": "1.0.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls the Atlona AT-OME-MS family of 4K/UHD matrix presentation switchers (MS42 / MS42-HDBT / MS52 / MS52W / MS52W-EU) over Telnet on TCP port 23. Routes any of five inputs (USB-C / DisplayPort / HDMI / HDMI / BYOD) to two outputs (HDBaseT and HDMI), with audio volume / mute (HDMI and analog independently), CEC display control, USB host switching, and per-input signal detection. Use this driver for the Display:Matrix:Set protocol family; the older PS62 with its xNAVxM syntax is covered by atlona_ome_ps62.",
+      "description": "Controls the AT-OME-MS42 4x2 presentation switcher, with video routing, output audio mute, input signal status, USB host selection and 2 bidirectional serial bridges. Uses the native TCP control port.",
+      "source_url": "https://ts.atlona.com/pdf/AT-OME-MS42_API.pdf",
+      "file": "switchers/atlona_ome_ms42.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "switchers/atlona_ome_ms42.avcdriver": "ac39b037012764acb4b0dbbb2c2c6ffa87de240f962e38e103274580b55b8332"
+      },
+      "ports": [
+        9000
+      ],
+      "protocols": [
+        "atlona_ome_ms42"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "matrix-switcher",
+        "presentation",
+        "hdbaset",
+        "usb",
+        "serial-bridge",
+        "rs232"
+      ],
+      "help": {
+        "overview": "AT-OME-MS42 routes four sources to HDMI OUT (output 1) and HDBaseT OUT (output 2). Inputs: USB-C (1), DisplayPort (2), HDMI (3), HDMI (4). Add equipment connected to one of its serial ports with that equipment's own serial driver and choose Through a bridge. The switcher sends bytes in both directions; its connected equipment still needs a driver.",
+        "setup": "Use MS42 firmware 1.1.4 or newer. Atlona fixed TCP proxy operation in\n1.1.3 and its persistence after reboot in 1.1.4; the local serial proxy\nwas added in 1.1.1. Older firmware is not a reliable bridge target.\n\n1. Give the switcher a fixed address or DHCP reservation. Use TCP 9000\n   for this driver, the manufacturer's MCU control socket. This is separate\n   from the configurable Telnet port. Allow TCP 9000 from the OpenAVC server.\n2. Select the required switching mode in Atlona's web interface. In Mirrored\n   mode a route changes both outputs; Matrix mode allows separate routes.\n   OpenAVC reads the resulting routes and leaves this operating mode alone.\n3. For manual USB host selection, set USB Host Mode to Manual. In the\n   follow modes, equipment connections or video selection can change it.\n4. Inputs and outputs can be renamed in OpenAVC to match the room.\n   Output 1 is HDMI OUT; output 2 is HDBaseT OUT.\n\nSerial equipment through this switcher:\n1. Connect TX to the equipment's RX, RX to TX, and ground to ground.\n   For remote ports, the connected HDBaseT transmitter/receiver must support\n   RS-232. Choose the physical connector, independent of the video route.\n2. In Atlona's web interface, open RS-232 and match baud rate, data bits,\n   parity and stop bits to the equipment. Use RS232 Console for the local\n   connector and RS232 over HDBaseT for a remote connector. Save the changes.\n   With an AT-OME-EX-RX receiver, the MS42 manual shows the HDBaseT\n       controls disabled and baud fixed at 115200. Check the receiver\n       combination before choosing serial equipment with a different rate.\n   Selecting serial settings in OpenAVC does not configure these hardware\n   settings. There is no documented API to configure or check them.\n3. For the local connector, set Display > Control Type to RS-232 and select\n   Local RS232 Terminal. The Display page is available in Mirrored mode or\n   Matrix mode with a static route. Check the effect on the installation\n   before changing modes; this driver never changes them automatically.\n4. If OpenAVC manages display power, disable Display Auto Power in Atlona's\n   web interface so that automatic display commands do not compete with it.\n5. Add the connected equipment using its own serial driver. Choose Through\n   a bridge, this switcher, then the named physical port. OpenAVC supplies\n   the switcher's address and the matching TCP port (9001-9002).\n6. Keep that downstream driver connected to receive replies and unsolicited\n   feedback. Serial data received while the socket is closed is lost. After\n   reconnect, the downstream driver must query any state it missed. Use one\n   controlling driver per connector. Test a command and its actual reply;\n   a connected TCP socket alone does not prove the serial wiring or settings.\n\nSimulation covers switching and control. The serial proxy ports require\nphysical equipment or separate serial test peers; this simulator does not\ncreate them. The simulated Mirrored Mode toggle lets you test coupled routes.\n",
+        "connection": "Check the address and TCP 9000 access. For bridged equipment, check the selected physical connector, HDBaseT link, local port mode, wiring and serial settings. The bridge ports are fixed even if the Telnet port changes."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Atlona",
+          "models": [
+            "AT-OME-MS42"
+          ],
+          "confidence": "untested",
+          "notes": "Exact-model manufacturer API and user manual. Protocol-derived; physical hardware has not been tested. Use firmware 1.1.4 or newer for the serial bridges and current control features."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 9000,
+          "send_ascii": "Type\r",
+          "expect_regex": "(?m)^AT-OME-MS42\\r?$",
+          "timeout_ms": 2000,
+          "extract": {
+            "model": {
+              "regex": "(?m)^(AT-OME-MS42)\\r?$",
+              "group": 1
+            }
+          },
+          "extract_manufacturer": "Atlona"
+        }
+      }
+    },
+    {
+      "id": "atlona_ome_ms42_hdbt",
+      "name": "Atlona AT-OME-MS42-HDBT Matrix Switcher",
+      "manufacturer": "Atlona",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls the AT-OME-MS42-HDBT 4x2 presentation switcher, with video routing, output audio mute, input signal status, USB host selection and 3 bidirectional serial bridges. Uses the native TCP control port.",
+      "source_url": "https://ts.atlona.com/pdf/AT-OME-MS42-HDBT_API.pdf",
+      "file": "switchers/atlona_ome_ms42_hdbt.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "switchers/atlona_ome_ms42_hdbt.avcdriver": "3b4234fb77dcc5e54efcb315c79d6c68dfa87393f55b7d92c243fab26c257053"
+      },
+      "ports": [
+        9000
+      ],
+      "protocols": [
+        "atlona_ome_ms42_hdbt"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "matrix-switcher",
+        "presentation",
+        "hdbaset",
+        "usb",
+        "serial-bridge",
+        "rs232"
+      ],
+      "help": {
+        "overview": "AT-OME-MS42-HDBT routes four sources to HDMI OUT (output 1) and HDBaseT OUT (output 2). Inputs: HDBaseT IN (1), USB-C (2), HDMI (3), HDMI (4). Add equipment connected to one of its serial ports with that equipment's own serial driver and choose Through a bridge. The switcher sends bytes in both directions; its connected equipment still needs a driver.",
+        "setup": "1. Give the switcher a fixed address or DHCP reservation. Use TCP 9000\n   for this driver, the manufacturer's MCU control socket. This is separate\n   from the configurable Telnet port. Allow TCP 9000 from the OpenAVC server.\n2. Select the required switching mode in Atlona's web interface. In Mirrored\n   mode a route changes both outputs; Matrix mode allows separate routes.\n   OpenAVC reads the resulting routes and leaves this operating mode alone.\n3. For manual USB host selection, set USB Host Mode to Manual. In the\n   follow modes, equipment connections or video selection can change it.\n4. Inputs and outputs can be renamed in OpenAVC to match the room.\n   Output 1 is HDMI OUT; output 2 is HDBaseT OUT.\n\nSerial equipment through this switcher:\n1. Connect TX to the equipment's RX, RX to TX, and ground to ground.\n   For remote ports, the connected HDBaseT transmitter/receiver must support\n   RS-232. Choose the physical connector, independent of the video route.\n2. In Atlona's web interface, open RS-232 and match baud rate, data bits,\n   parity and stop bits to the equipment. Use RS232 Console for the local\n   connector and RS232 over HDBaseT for a remote connector. Save the changes.\n   For HDBaseT IN paired with an AT-OME-EX-TX, the manual locks the\n       serial rate to 115200. HDBaseT OUT paired with an AT-OME-EX-RX\n       allows baud changes. If the downstream receiver has its own display\n       control (for example RX21/RX31/SR21/PS62), configure serial there.\n   Selecting serial settings in OpenAVC does not configure these hardware\n   settings. There is no documented API to configure or check them.\n3. For the local connector, set Display > Control Type to RS-232 and select\n   Local RS232 Terminal. The Display page is available in Mirrored mode or\n   Matrix mode with a static route. Check the effect on the installation\n   before changing modes; this driver never changes them automatically.\n4. If OpenAVC manages display power, disable Display Auto Power in Atlona's\n   web interface so that automatic display commands do not compete with it.\n5. Add the connected equipment using its own serial driver. Choose Through\n   a bridge, this switcher, then the named physical port. OpenAVC supplies\n   the switcher's address and the matching TCP port (9001-9003).\n6. Keep that downstream driver connected to receive replies and unsolicited\n   feedback. Serial data received while the socket is closed is lost. After\n   reconnect, the downstream driver must query any state it missed. Use one\n   controlling driver per connector. Test a command and its actual reply;\n   a connected TCP socket alone does not prove the serial wiring or settings.\n\nSimulation covers switching and control. The serial proxy ports require\nphysical equipment or separate serial test peers; this simulator does not\ncreate them. The simulated Mirrored Mode toggle lets you test coupled routes.\n",
+        "connection": "Check the address and TCP 9000 access. For bridged equipment, check the selected physical connector, HDBaseT link, local port mode, wiring and serial settings. The bridge ports are fixed even if the Telnet port changes."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Atlona",
+          "models": [
+            "AT-OME-MS42-HDBT"
+          ],
+          "confidence": "untested",
+          "notes": "Exact-model manufacturer API and user manual. Protocol-derived; physical hardware has not been tested."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 9000,
+          "send_ascii": "Type\r",
+          "expect_regex": "(?m)^AT-OME-MS42-HDBT\\r?$",
+          "timeout_ms": 2000,
+          "extract": {
+            "model": {
+              "regex": "(?m)^(AT-OME-MS42-HDBT)\\r?$",
+              "group": 1
+            }
+          },
+          "extract_manufacturer": "Atlona"
+        }
+      }
+    },
+    {
+      "id": "atlona_ome_ms",
+      "name": "Atlona AT-OME-MS52 Series Matrix Switcher",
+      "manufacturer": "Atlona",
+      "category": "switcher",
+      "version": "1.4.5",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls the Atlona AT-OME-MS family of 4K/UHD matrix presentation switchers (MS52 / MS52W / MS52W-EU) over Telnet on TCP port 23. Routes any of five inputs (USB-C / DisplayPort / HDMI / HDMI / BYOD) to two outputs (HDBaseT and HDMI), with audio volume / mute (HDMI and analog independently), CEC display control, USB host switching, and per-input signal detection. Use this driver for the Display:Matrix:Set protocol family. MS42, MS42-HDBT and PS62 use different commands and have separate drivers.",
       "source_url": "https://atlona.com/pdf/AT-OME-MS52W_API.pdf",
       "file": "switchers/atlona_ome_ms.py",
       "format": "python",
       "files": {
-        "switchers/atlona_ome_ms.py": "68a1fc4929d80e1189ca723f267d602a8f2829e78a0c506c0e31cc11ddc50da7",
+        "switchers/atlona_ome_ms.py": "c77994ec2fcbaa28a12cbbb041eca463032381dff6a0db2ac0bf97c3c56c5cca",
         "switchers/atlona_ome_ms_sim.py": "dbcdaa385c4849e22e10d1f8dcb3a60391c0793e4d1e5250f8ba3069882228ea"
       },
       "ports": [
@@ -40,21 +164,19 @@
         "telnet"
       ],
       "help": {
-        "overview": "AT-OME-MS matrices route HDMI / DisplayPort / USB-C sources to a HDBaseT extender output and a local HDMI output. Audio is independent of video routing \u2014 the HDMI and analog outputs each have their own mute and a shared system volume in dB. Display power can be controlled over CEC. USB host follow modes let a connected control host follow the active video source.",
+        "overview": "AT-OME-MS52 matrices route HDMI / DisplayPort / USB-C sources to a HDBaseT extender output and a local HDMI output. Audio is independent of video routing \u2014 the HDMI and analog outputs each have their own mute and a shared system volume in dB. Display power can be controlled over CEC. USB host follow modes let a connected control host follow the active video source. For AT-OME-MS42 or AT-OME-MS42-HDBT, choose its exact-model driver instead; existing controls must be rebound to that driver's commands.",
         "setup": "1. Set a static IP on the matrix via its web UI (or DHCP reservation).\n2. If Telnet Login Mode is ON in the matrix's web UI (System tab), enter the same Username and Password used for the web GUI in this driver's config. Leave both blank if Telnet Login Mode is OFF.\n3. Atlona requires at least 500 ms between commands; the driver enforces that automatically.\n4. Use Set Matrix Mode to switch between single-input (both outputs follow Display:Input:Set) and matrix mode (per-output routing via Display:Matrix:Set)."
       },
       "compatible_models": [
         {
           "manufacturer": "Atlona",
           "models": [
-            "AT-OME-MS42",
-            "AT-OME-MS42-HDBT",
             "AT-OME-MS52",
             "AT-OME-MS52W",
             "AT-OME-MS52W-EU"
           ],
           "confidence": "untested",
-          "notes": "All MS-series presentation matrices share the dotted Display:Matrix:Set / Audio:Volume:Set command vocabulary. MS42 (4x2) inputs 0-3, MS52/MS52W (5x2) inputs 0-4. The MS52W adds a 4 = BYOD wireless-link input. Outputs are always 0=HDBaseT, 1=HDMI. The driver advertises the 0-4 input range; the device rejects anything it doesn't have."
+          "notes": "MS52-series presentation matrices use the dotted Display:Matrix:Set / Audio:Volume:Set command vocabulary. MS52/MS52W (5x2) inputs 0-4. The MS52W adds a 4 = BYOD wireless-link input. Outputs are always 0=HDBaseT, 1=HDMI. The driver advertises the 0-4 input range; the device rejects anything it doesn't have."
         }
       ],
       "discovery": {
@@ -71,7 +193,7 @@
       "name": "Atlona AT-OME-PS62 Matrix Switcher",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.6.0",
+      "version": "1.6.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-OME-PS62 6x2 4K/UHD matrix presentation switcher over Telnet on port 23. Routes any of six inputs (HDMI / USB-C / HDBaseT) to two outputs (HDBaseT and HDMI). Independent four-zone audio with per-zone volume and mute, analog audio source routing, USB host switching, front-panel lock, and identify (POWER LED blink). Provides two-way RS-232 bridges through the HDBaseT input/output ports and the local serial port.\n",
@@ -79,7 +201,7 @@
       "file": "switchers/atlona_ome_ps62.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/atlona_ome_ps62.avcdriver": "972c3e49a8ae3e6b71ff999445bd817d02487f82feea0785e3f3c9472d5fefd7"
+        "switchers/atlona_ome_ps62.avcdriver": "ead12a22143f0405b07f522eac089d21b4b59cd0fd9f60a6b1f5e078d6f5a8f9"
       },
       "ports": [
         23
@@ -112,7 +234,7 @@
             "AT-OME-PS62"
           ],
           "confidence": "untested",
-          "notes": "6x2 4K/UHD matrix presentation switcher with USB hub. The MS42 / MS52 / MS52W family in the OME line uses a completely different command syntax (Display:Matrix:Set...) and is covered by a separate driver.\n"
+          "notes": "6x2 4K/UHD matrix presentation switcher with USB hub. MS52 / MS52W use Display:Matrix:Set commands. MS42 and MS42-HDBT use plain text with different I/O numbering and bridge ports. Each has a separate driver.\n"
         }
       ],
       "discovery": {

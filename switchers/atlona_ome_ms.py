@@ -1,12 +1,12 @@
 """
 OpenAVC Atlona AT-OME-MS Series Driver.
 
-Controls the AT-OME-MS family of presentation matrix switchers (MS42 / MS42-HDBT
-/ MS52 / MS52W / MS52W-EU) over Telnet on TCP port 23. The MS-series shares a
-single command syntax — `Display:Matrix:Set`, `Audio:Volume:Set`, etc. — and is
-the modern Atlona presentation-matrix protocol family. The older AT-OME-PS62 uses
-a completely different `xNAVxM` / `VOUTX Y` syntax and has its own driver
-(`atlona_ome_ps62`).
+Controls the AT-OME-MS52 / MS52W / MS52W-EU presentation matrix switchers over
+Telnet on TCP port 23, using `Display:Matrix:Set`, `Audio:Volume:Set`, etc.
+AT-OME-MS42 and AT-OME-MS42-HDBT use the plain-text xYAVxZ protocol and have
+exact-model drivers: atlona_ome_ms42 and atlona_ome_ms42_hdbt. AT-OME-PS62 also
+has its own driver. Existing projects using this driver for an MS42 must choose
+the matching driver and rebind their controls; these protocols are different.
 
 Why Python (not YAML):
     The MS-series feedback is JSON. Default is multi-line "pretty" JSON;
@@ -51,8 +51,7 @@ Liveness:
 
 Protocol reference: AT-OME-MS52W Application Programming Interface 2.9.6
     https://atlona.com/pdf/AT-OME-MS52W_API.pdf
-The MS42 / MS42-HDBT / MS52 use the same dotted command vocabulary; the
-MS52W adds a few BYOD / wireless-link commands not exposed here.
+The MS52W adds a few BYOD / wireless-link commands not exposed here.
 """
 
 from __future__ import annotations
@@ -74,7 +73,7 @@ VOLUME_MIN = -80
 VOLUME_MAX = 0
 
 # Inputs 0-4 (USB-C, DisplayPort, HDMI, HDMI, BYOD); outputs 0-1
-# (HDBaseT, HDMI). Range varies slightly across MS42 / MS52 — the driver
+# (HDBaseT, HDMI). Range varies slightly across MS52 / MS52W — the driver
 # accepts the union and lets the device reject anything it doesn't have.
 INPUT_MIN, INPUT_MAX = 0, 4
 OUTPUT_MIN, OUTPUT_MAX = 0, 1
@@ -150,24 +149,24 @@ class AtlonaOmeMsDriver(BaseDriver):
 
     DRIVER_INFO = {
         "id": "atlona_ome_ms",
-        "name": "Atlona AT-OME-MS Series Matrix Switcher",
+        "name": "Atlona AT-OME-MS52 Series Matrix Switcher",
         "manufacturer": "Atlona",
         "category": "switcher",
-        "version": "1.4.4",
+        "version": "1.4.5",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # confirm on factory_reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
         "description": (
             "Controls the Atlona AT-OME-MS family of 4K/UHD matrix "
-            "presentation switchers (MS42 / MS42-HDBT / MS52 / MS52W / "
+            "presentation switchers (MS52 / MS52W / "
             "MS52W-EU) over Telnet on TCP port 23. Routes any of five "
             "inputs (USB-C / DisplayPort / HDMI / HDMI / BYOD) to two "
             "outputs (HDBaseT and HDMI), with audio volume / mute (HDMI "
             "and analog independently), CEC display control, USB host "
             "switching, and per-input signal detection. Use this driver "
-            "for the Display:Matrix:Set protocol family; the older PS62 "
-            "with its xNAVxM syntax is covered by atlona_ome_ps62."
+            "for the Display:Matrix:Set protocol family. MS42, MS42-HDBT "
+            "and PS62 use different commands and have separate drivers."
         ),
         "source_url": "https://atlona.com/pdf/AT-OME-MS52W_API.pdf",
         "tags": ["matrix-switcher", "presentation", "hdbaset", "atlona", "ome", "telnet"],
@@ -187,17 +186,15 @@ class AtlonaOmeMsDriver(BaseDriver):
             {
                 "manufacturer": "Atlona",
                 "models": [
-                    "AT-OME-MS42",
-                    "AT-OME-MS42-HDBT",
                     "AT-OME-MS52",
                     "AT-OME-MS52W",
                     "AT-OME-MS52W-EU",
                 ],
                 "confidence": "untested",
                 "notes": (
-                    "All MS-series presentation matrices share the dotted "
+                    "MS52-series presentation matrices use the dotted "
                     "Display:Matrix:Set / Audio:Volume:Set command vocabulary. "
-                    "MS42 (4x2) inputs 0-3, MS52/MS52W (5x2) inputs 0-4. "
+                    "MS52/MS52W (5x2) inputs 0-4. "
                     "The MS52W adds a 4 = BYOD wireless-link input. Outputs "
                     "are always 0=HDBaseT, 1=HDMI. The driver advertises "
                     "the 0-4 input range; the device rejects anything it "
@@ -207,13 +204,15 @@ class AtlonaOmeMsDriver(BaseDriver):
         ],
         "help": {
             "overview": (
-                "AT-OME-MS matrices route HDMI / DisplayPort / USB-C "
+                "AT-OME-MS52 matrices route HDMI / DisplayPort / USB-C "
                 "sources to a HDBaseT extender output and a local HDMI "
                 "output. Audio is independent of video routing — the HDMI "
                 "and analog outputs each have their own mute and a shared "
                 "system volume in dB. Display power can be controlled "
                 "over CEC. USB host follow modes let a connected control "
-                "host follow the active video source."
+                "host follow the active video source. For AT-OME-MS42 or "
+                "AT-OME-MS42-HDBT, choose its exact-model driver instead; "
+                "existing controls must be rebound to that driver's commands."
             ),
             "setup": (
                 "1. Set a static IP on the matrix via its web UI (or DHCP "

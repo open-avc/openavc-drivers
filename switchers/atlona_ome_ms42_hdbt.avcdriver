@@ -1,0 +1,901 @@
+# AT-OME-MS42-HDBT: exact-model API; not the MS52W JSON protocol.
+# YAML fits the documented CR commands and CRLF replies, fixed children and
+# native TCP serial bridges. No wrapper, byte conversion or setup handshake
+# belongs on a serial proxy socket; the downstream driver owns that stream.
+# The API documents request/reply, with no subscription or push registration.
+# Poll external changes, including routing coupled by the hardware's mode.
+# Serial framing is commissioned in the Atlona web UI, never guessed on connect.
+# API: revision 1, June 2024.
+# API input names are copied from MS42; the exact-model user manual and
+# rear-panel diagram define 1=HDBaseT IN, 2=USB-C, 3/4=HDMI. Not bench verified.
+
+id: atlona_ome_ms42_hdbt
+name: Atlona AT-OME-MS42-HDBT Matrix Switcher
+manufacturer: Atlona
+category: switcher
+version: 1.0.0
+author: OpenAVC
+min_platform_version: 0.36.0
+description: Controls the AT-OME-MS42-HDBT 4x2 presentation switcher, with video routing, output
+  audio mute, input signal status, USB host selection and 3 bidirectional serial bridges. Uses the
+  native TCP control port.
+source_url: https://ts.atlona.com/pdf/AT-OME-MS42-HDBT_API.pdf
+tags:
+- matrix-switcher
+- presentation
+- hdbaset
+- usb
+- serial-bridge
+- rs232
+verified: false
+simulated: true
+protocols:
+- atlona_ome_ms42_hdbt
+ports:
+- 9000
+compatible_models:
+- manufacturer: Atlona
+  models:
+  - AT-OME-MS42-HDBT
+  confidence: untested
+  notes: Exact-model manufacturer API and user manual. Protocol-derived; physical hardware has not
+    been tested.
+transport: tcp
+delimiter: "\r\n"
+bridge:
+  ports:
+  - id: serial:1
+    kind: serial
+    label: HDBaseT IN (transmitter RS-232)
+    passthrough_port: 9001
+  - id: serial:2
+    kind: serial
+    label: HDBaseT OUT (receiver RS-232)
+    passthrough_port: 9002
+  - id: serial:3
+    kind: serial
+    label: Local RS-232
+    passthrough_port: 9003
+help:
+  overview: 'AT-OME-MS42-HDBT routes four sources to HDMI OUT (output 1) and HDBaseT OUT (output
+    2). Inputs: HDBaseT IN (1), USB-C (2), HDMI (3), HDMI (4). Add equipment connected to one of
+    its serial ports with that equipment''s own serial driver and choose Through a bridge. The switcher
+    sends bytes in both directions; its connected equipment still needs a driver.'
+  setup: |
+    1. Give the switcher a fixed address or DHCP reservation. Use TCP 9000
+       for this driver, the manufacturer's MCU control socket. This is separate
+       from the configurable Telnet port. Allow TCP 9000 from the OpenAVC server.
+    2. Select the required switching mode in Atlona's web interface. In Mirrored
+       mode a route changes both outputs; Matrix mode allows separate routes.
+       OpenAVC reads the resulting routes and leaves this operating mode alone.
+    3. For manual USB host selection, set USB Host Mode to Manual. In the
+       follow modes, equipment connections or video selection can change it.
+    4. Inputs and outputs can be renamed in OpenAVC to match the room.
+       Output 1 is HDMI OUT; output 2 is HDBaseT OUT.
+
+    Serial equipment through this switcher:
+    1. Connect TX to the equipment's RX, RX to TX, and ground to ground.
+       For remote ports, the connected HDBaseT transmitter/receiver must support
+       RS-232. Choose the physical connector, independent of the video route.
+    2. In Atlona's web interface, open RS-232 and match baud rate, data bits,
+       parity and stop bits to the equipment. Use RS232 Console for the local
+       connector and RS232 over HDBaseT for a remote connector. Save the changes.
+       For HDBaseT IN paired with an AT-OME-EX-TX, the manual locks the
+           serial rate to 115200. HDBaseT OUT paired with an AT-OME-EX-RX
+           allows baud changes. If the downstream receiver has its own display
+           control (for example RX21/RX31/SR21/PS62), configure serial there.
+       Selecting serial settings in OpenAVC does not configure these hardware
+       settings. There is no documented API to configure or check them.
+    3. For the local connector, set Display > Control Type to RS-232 and select
+       Local RS232 Terminal. The Display page is available in Mirrored mode or
+       Matrix mode with a static route. Check the effect on the installation
+       before changing modes; this driver never changes them automatically.
+    4. If OpenAVC manages display power, disable Display Auto Power in Atlona's
+       web interface so that automatic display commands do not compete with it.
+    5. Add the connected equipment using its own serial driver. Choose Through
+       a bridge, this switcher, then the named physical port. OpenAVC supplies
+       the switcher's address and the matching TCP port (9001-9003).
+    6. Keep that downstream driver connected to receive replies and unsolicited
+       feedback. Serial data received while the socket is closed is lost. After
+       reconnect, the downstream driver must query any state it missed. Use one
+       controlling driver per connector. Test a command and its actual reply;
+       a connected TCP socket alone does not prove the serial wiring or settings.
+
+    Simulation covers switching and control. The serial proxy ports require
+    physical equipment or separate serial test peers; this simulator does not
+    create them. The simulated Mirrored Mode toggle lets you test coupled routes.
+  connection: Check the address and TCP 9000 access. For bridged equipment, check the selected physical
+    connector, HDBaseT link, local port mode, wiring and serial settings. The bridge ports are fixed
+    even if the Telnet port changes.
+discovery:
+  tcp_probe:
+    port: 9000
+    send_ascii: "Type\r"
+    expect_regex: (?m)^AT-OME-MS42-HDBT\r?$
+    timeout_ms: 2000
+    extract:
+      model:
+        regex: (?m)^(AT-OME-MS42-HDBT)\r?$
+        group: 1
+    extract_manufacturer: Atlona
+default_config:
+  host: ''
+  port: 9000
+  poll_interval: 30
+  inter_command_delay: 0.5
+  tcp_keepalive: true
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 9000
+    min: 1
+    max: 65535
+    label: TCP Control Port
+    description: Use the MCU socket, normally 9000. Serial bridge ports are fixed separately.
+  poll_interval:
+    type: integer
+    default: 30
+    min: 0
+    label: Poll Interval (seconds)
+    description: Refresh reported state. Zero disables periodic polling; connection health is still
+      checked.
+  inter_command_delay:
+    type: number
+    default: 0.5
+    min: 0.5
+    label: Command Spacing (seconds)
+    description: Atlona requires at least 500 ms between control commands.
+state_variables:
+  model:
+    type: string
+    label: Model
+  firmware:
+    type: string
+    label: Firmware
+  power:
+    type: boolean
+    label: Switcher Power
+    help: Power of this switcher, not the connected display.
+    control: true
+    cloud_priority: high
+  usb_mode:
+    type: enum
+    label: USB Host Mode
+    values: &id003
+    - value: follow usb
+      label: Follow USB
+    - value: follow video
+      label: Follow Video
+    - value: manual
+      label: Manual
+  usb_host:
+    type: enum
+    label: USB Host
+    values:
+    - value: C
+      label: USB-C
+    - value: '1'
+      label: USB Host 1
+    - value: '2'
+      label: USB Host 2
+    - value: '3'
+      label: HDBaseT IN
+    - value: '4'
+      label: HDBaseT OUT
+    control: true
+    cloud_priority: high
+  analog_audio_enabled:
+    type: boolean
+    label: Analog Audio Enabled
+    control: true
+  identify:
+    type: boolean
+    label: Identify Light Flashing
+  hdmi_5v:
+    type: enum
+    label: Keep HDMI +5V
+    values: &id001
+    - value: 'on'
+      label: 'On'
+    - value: 'off'
+      label: 'Off'
+  usb_vbus:
+    type: enum
+    label: USB Vbus Control
+    values: *id001
+  front_panel_locked:
+    type: boolean
+    label: Front Panel Locked
+    help: Last Lock/Unlock acknowledgement. The API has no query for changes made elsewhere; this
+      is not continuously verified.
+child_entity_types:
+  input:
+    label: Input
+    label_plural: Inputs
+    id_format:
+      type: integer
+      min: 1
+      max: 4
+    state_variables:
+      signal:
+        type: boolean
+        label: Signal Present
+        cloud_priority: high
+    summary_fields:
+    - signal
+    instances:
+      count: 4
+      label: Input {id}
+  output:
+    label: Output
+    label_plural: Outputs
+    id_format:
+      type: integer
+      min: 1
+      max: 2
+    state_variables:
+      input:
+        type: integer
+        label: Routed Input
+        min: 1
+        max: 4
+        control: true
+        cloud_priority: high
+        help: Output 1 = HDMI OUT; output 2 = HDBaseT OUT.
+      audio_mute:
+        type: boolean
+        label: Audio Muted
+        control: true
+        cloud_priority: high
+      video_enabled:
+        type: boolean
+        label: Video Enabled
+        control: true
+        cloud_priority: high
+    summary_fields:
+    - input
+    - audio_mute
+    - video_enabled
+    instances:
+      count: 2
+      label: Output {id}
+routing:
+  planes:
+  - label: Video
+    destination_child_type: output
+    route_property: input
+    command: route
+commands:
+  route:
+    label: Route Input to Output
+    send: "x{input}AVx{output}\r"
+    help: Send the selected source to the output. In Mirrored mode both outputs change. The reported
+      routes show the result.
+    params:
+      input:
+        type: enum
+        values:
+        - value: 1
+          label: HDBaseT IN (1)
+        - value: 2
+          label: USB-C (2)
+        - value: 3
+          label: HDMI (3)
+        - value: 4
+          label: HDMI (4)
+        required: true
+        label: Input
+        pattern: '[1-4]'
+      output: &id002
+        type: child_id
+        child_type: output
+        required: true
+        label: Output
+        help: 1 = HDMI OUT; 2 = HDBaseT OUT.
+        pattern: '[12]'
+    sets:
+      input: '{input}'
+    read_back: "Status\r"
+  query_routing:
+    label: Read Video Routes
+    send: "Status\r"
+    help: Read the actual route for both outputs, including changes made at the front panel.
+  query_input_signal:
+    label: Read Input Signals
+    send: "InputStatus\r"
+    help: Check all four inputs for a connected video signal.
+  mute_on:
+    label: Mute Output Audio
+    send: "VOUTMute{output} on\r"
+    help: Mute the selected output (1 = HDMI; 2 = HDBaseT).
+    params:
+      output: *id002
+    sets:
+      audio_mute: true
+  mute_off:
+    label: Unmute Output Audio
+    send: "VOUTMute{output} off\r"
+    help: Unmute the selected output (1 = HDMI; 2 = HDBaseT).
+    params:
+      output: *id002
+    sets:
+      audio_mute: false
+  query_mute:
+    label: Read Audio Mute
+    send: "VOUTMute{output} sta\r"
+    help: Read the selected output's current audio mute.
+    params:
+      output: *id002
+    query_for: audio_mute
+  video_on:
+    label: Enable Video Output
+    send: "x{output}$ on\r"
+    help: Enable the selected output (1 = HDMI; 2 = HDBaseT).
+    params:
+      output: *id002
+    sets:
+      video_enabled: true
+  video_off:
+    label: Disable Video Output
+    send: "x{output}$ off\r"
+    help: Disable the selected output (1 = HDMI; 2 = HDBaseT).
+    params:
+      output: *id002
+    sets:
+      video_enabled: false
+  query_video:
+    label: Read Video Output
+    send: "x{output}$ sta\r"
+    help: Read the selected output's current video output.
+    params:
+      output: *id002
+    query_for: video_enabled
+  set_usb_mode:
+    label: Set USB Host Mode
+    send: "USBHostLogic {value}\r"
+    help: Choose whether the USB host follows USB connection, follows video, or is selected manually.
+    params:
+      value:
+        type: enum
+        values: *id003
+        required: true
+        label: USB Host Mode
+        pattern: follow usb|follow video|manual
+    sets:
+      usb_mode: '{value}'
+  query_usb_mode:
+    label: Read USB Host Mode
+    send: "USBHostLogic sta\r"
+    help: Read the current usb host mode.
+    query_for: usb_mode
+  set_usb_host:
+    label: Set USB Host
+    send: "USBHostRoute {value}\r"
+    help: Select the USB host connector. Use Manual USB Host Mode for a fixed selection; follow
+      modes can override it.
+    params:
+      value:
+        type: enum
+        values:
+        - value: C
+          label: USB-C
+        - value: '1'
+          label: USB Host 1
+        - value: '2'
+          label: USB Host 2
+        - value: '3'
+          label: HDBaseT IN
+        - value: '4'
+          label: HDBaseT OUT
+        required: true
+        label: USB Host
+        pattern: C|1|2|3|4
+    sets:
+      usb_host: '{value}'
+  query_usb_host:
+    label: Read USB Host
+    send: "USBHostRoute sta\r"
+    help: Read the current usb host.
+    query_for: usb_host
+  set_hdmi_5v:
+    label: Set Keep HDMI +5V
+    send: "OutHdmi5vKeep {value}\r"
+    help: Keep HDMI +5V on for faster switching, or turn this option off to let compatible displays
+      sleep without a signal.
+    params:
+      value:
+        type: enum
+        values: *id001
+        required: true
+        label: Keep HDMI +5V
+        pattern: on|off
+    sets:
+      hdmi_5v: '{value}'
+  query_hdmi_5v:
+    label: Read Keep HDMI +5V
+    send: "OutHdmi5vKeep sta\r"
+    help: Read the current keep hdmi +5v.
+    query_for: hdmi_5v
+  set_usb_vbus:
+    label: Set USB Vbus Control
+    send: "UsbVbusControl {value}\r"
+    help: Change the switcher's USB Vbus control option. Check hub power and reconnection behavior
+      with the connected USB equipment.
+    params:
+      value:
+        type: enum
+        values: *id001
+        required: true
+        label: USB Vbus Control
+        pattern: on|off
+    sets:
+      usb_vbus: '{value}'
+  query_usb_vbus:
+    label: Read USB Vbus Control
+    send: "UsbVbusControl sta\r"
+    help: Read the current usb vbus control.
+    query_for: usb_vbus
+  analog_audio_on:
+    label: Analog Audio On
+    send: "LRAUD on\r"
+    help: Enable the analog audio output.
+    sets:
+      analog_audio_enabled: true
+  analog_audio_off:
+    label: Analog Audio Off
+    send: "LRAUD off\r"
+    help: Disable the analog audio output.
+    sets:
+      analog_audio_enabled: false
+  query_analog_audio:
+    label: Read Analog Audio
+    send: "LRAUD sta\r"
+    help: Read the current analog audio state.
+    query_for: analog_audio_enabled
+  identify_on:
+    label: Identify Light On
+    send: "Blink on\r"
+    help: Flash the POWER indicator to locate this switcher.
+    sets:
+      identify: true
+  identify_off:
+    label: Identify Light Off
+    send: "Blink off\r"
+    help: Stop flashing the POWER indicator.
+    sets:
+      identify: false
+  query_identify:
+    label: Read Identify Light
+    send: "Blink sta\r"
+    help: Read the current identify light state.
+    query_for: identify
+  power_on:
+    label: Switcher Power On
+    send: "PWON\r"
+    help: Turn on this switcher. This is not a power command for the connected display.
+    sets:
+      power: true
+  power_off:
+    label: Switcher Power Off
+    send: "PWOFF\r"
+    help: Turn off this switcher. This is not a power command for the connected display.
+    sets:
+      power: false
+    confirm: Turns off the switcher and interrupts connected sources and displays.
+  query_power:
+    label: Read Switcher Power
+    send: "PWSTA\r"
+    help: Read whether the switcher itself is on.
+    query_for: power
+  lock_panel:
+    label: Lock Front Panel
+    send: "Lock\r"
+    help: Lock the switcher's front-panel buttons. An acknowledgement confirms this request; the
+      API has no later lock-state query.
+    sets:
+      front_panel_locked: true
+  unlock_panel:
+    label: Unlock Front Panel
+    send: "Unlock\r"
+    help: Unlock the switcher's front-panel buttons. An acknowledgement confirms this request; the
+      API has no later lock-state query.
+    sets:
+      front_panel_locked: false
+  display_button:
+    label: Send Display Button Action
+    send: "DispBtn {action}\r"
+    help: Trigger the configured DISPLAY button action. This reports no actual display power feedback;
+      use the display's own driver through a serial bridge for that.
+    params:
+      action:
+        type: enum
+        values:
+        - value: 'on'
+          label: 'On'
+        - value: 'off'
+          label: 'Off'
+        - value: tog
+          label: Toggle
+        required: true
+        label: Action
+        pattern: on|off|tog
+  query_model:
+    label: Read Model
+    send: "Type\r"
+    help: Read the switcher's reported model.
+    query_for: model
+  query_firmware:
+    label: Read Firmware
+    send: "Version\r"
+    help: Read the switcher's reported firmware.
+    query_for: firmware
+  reboot:
+    label: Reboot Switcher
+    send: "Reboot\r"
+    help: Restart the switcher while preserving its settings. Audio, video and serial connections
+      may be interrupted.
+    confirm: Restarts the switcher and interrupts the installation while it starts again.
+actions:
+- id: route
+  icon: route
+- id: mute_on
+  icon: volume-x
+- id: mute_off
+  icon: volume-2
+- id: set_usb_host
+  icon: usb
+- id: identify_on
+  icon: search
+- id: identify_off
+  icon: search
+device_settings:
+  usb_mode:
+    type: enum
+    label: USB Host Mode
+    help: Choose whether the USB host follows USB connection, follows video, or is selected manually.
+    values: *id003
+    default: follow video
+    state_key: usb_mode
+    write:
+      send: "USBHostLogic {value}\r"
+  hdmi_5v:
+    type: enum
+    label: Keep HDMI +5V
+    help: Keep HDMI +5V on for faster switching, or turn this option off to let compatible displays
+      sleep without a signal.
+    values: *id001
+    default: 'on'
+    state_key: hdmi_5v
+    write:
+      send: "OutHdmi5vKeep {value}\r"
+  usb_vbus:
+    type: enum
+    label: USB Vbus Control
+    help: Change the switcher's USB Vbus control option. Check hub power and reconnection behavior
+      with the connected USB equipment.
+    values: *id001
+    default: 'on'
+    state_key: usb_vbus
+    write:
+      send: "UsbVbusControl {value}\r"
+responses:
+- match: ^x([1-4])AVx1,\s*x([1-4])AVx2$
+  child_set:
+  - type: output
+    id: 1
+    state:
+      input: $1
+  - type: output
+    id: 2
+    state:
+      input: $2
+- match: ^x([1-4])AVx([12])$
+  child_set:
+  - type: output
+    id: $2
+    state:
+      input: $1
+- match: ^InputStatus\s+([01])([01])([01])([01])$
+  child_set:
+  - type: input
+    id: 1
+    state:
+      signal:
+        group: 1
+        map:
+          '1': 'true'
+          '0': 'false'
+  - type: input
+    id: 2
+    state:
+      signal:
+        group: 2
+        map:
+          '1': 'true'
+          '0': 'false'
+  - type: input
+    id: 3
+    state:
+      signal:
+        group: 3
+        map:
+          '1': 'true'
+          '0': 'false'
+  - type: input
+    id: 4
+    state:
+      signal:
+        group: 4
+        map:
+          '1': 'true'
+          '0': 'false'
+- match: ^VOUTMute([12])\s+(on|off)$
+  child_set:
+  - type: output
+    id: $1
+    state:
+      audio_mute:
+        group: 2
+        map:
+          'on': 'true'
+          'off': 'false'
+- match: ^x([12])\$\s+(on|off)$
+  child_set:
+  - type: output
+    id: $1
+    state:
+      video_enabled:
+        group: 2
+        map:
+          'on': 'true'
+          'off': 'false'
+- match: ^USBHostLogic\s+(follow usb|follow video|manual)$
+  set:
+    usb_mode: $1
+- match: ^USBHostRoute\s+(C|[1-4])$
+  set:
+    usb_host: $1
+- match: ^OutHdmi5vKeep\s+(on|off)$
+  set:
+    hdmi_5v: $1
+- match: ^UsbVbusControl\s+(on|off)$
+  set:
+    usb_vbus: $1
+- match: ^LRAUD\s+(on|off)$
+  mappings:
+  - state: analog_audio_enabled
+    group: 1
+    map:
+      'on': 'true'
+      'off': 'false'
+- match: ^Blink\s+(on|off)$
+  mappings:
+  - state: identify
+    group: 1
+    map:
+      'on': 'true'
+      'off': 'false'
+- match: ^PW(ON|OFF)$
+  mappings:
+  - state: power
+    group: 1
+    map:
+      'ON': 'true'
+      'OFF': 'false'
+- match: ^Lock$
+  set:
+    front_panel_locked: 'true'
+- match: ^Unlock$
+  set:
+    front_panel_locked: 'false'
+- match: ^(AT-OME-MS42-HDBT)$
+  set:
+    model: $1
+- match: ^(\d+\.\d+\.\d+)$
+  set:
+    firmware: $1
+- match: ^(?:DispBtn (?:on|off|tog)|Reboot)$
+  set: {}
+liveness:
+  send: "Type\r"
+  interval: 30
+  timeout: 5
+  max_failures: 2
+on_connect:
+- "Type\r"
+- "Version\r"
+- "Status\r"
+- "InputStatus\r"
+- "PWSTA\r"
+- each_child: output
+  send: "VOUTMute{child_id} sta\r"
+  query_for: audio_mute
+- each_child: output
+  send: "x{child_id}$ sta\r"
+  query_for: video_enabled
+- "LRAUD sta\r"
+- "USBHostLogic sta\r"
+- "USBHostRoute sta\r"
+- "OutHdmi5vKeep sta\r"
+- "UsbVbusControl sta\r"
+- "Blink sta\r"
+polling:
+  queries:
+  - "Status\r"
+  - "InputStatus\r"
+  - "PWSTA\r"
+  - each_child: output
+    send: "VOUTMute{child_id} sta\r"
+    query_for: audio_mute
+  - each_child: output
+    send: "x{child_id}$ sta\r"
+    query_for: video_enabled
+  - "LRAUD sta\r"
+  - "USBHostLogic sta\r"
+  - "USBHostRoute sta\r"
+  - "OutHdmi5vKeep sta\r"
+  - "UsbVbusControl sta\r"
+  - "Blink sta\r"
+simulator:
+  push_state: false
+  initial_state:
+    model: AT-OME-MS42-HDBT
+    firmware: 1.0.0
+    power: true
+    usb_mode: follow video
+    usb_host: C
+    analog_audio_enabled: true
+    hdmi_5v: 'on'
+    usb_vbus: 'on'
+    identify: false
+    front_panel_locked: false
+    mirrored_mode: false
+    route_1: 1
+    route_2: 2
+    audio_mute_1: false
+    audio_mute_2: false
+    video_enabled_1: true
+    video_enabled_2: true
+    input_signal_1: true
+    input_signal_2: false
+    input_signal_3: true
+    input_signal_4: false
+  controls:
+  - type: matrix
+    label: Video Routing (1 = HDMI OUT; 2 = HDBaseT OUT)
+    inputs: 4
+    outputs: 2
+    state_pattern: route_{output}
+  - type: toggle
+    key: mirrored_mode
+    label: Mirrored Mode
+  - type: toggle
+    key: input_signal_1
+    label: HDBaseT IN (1) Signal
+  - type: toggle
+    key: input_signal_2
+    label: USB-C (2) Signal
+  - type: toggle
+    key: input_signal_3
+    label: HDMI (3) Signal
+  - type: toggle
+    key: input_signal_4
+    label: HDMI (4) Signal
+  - type: toggle
+    key: audio_mute_1
+    label: Mute HDMI OUT
+  - type: toggle
+    key: video_enabled_1
+    label: Video Enabled HDMI OUT
+  - type: toggle
+    key: audio_mute_2
+    label: Mute HDBaseT OUT
+  - type: toggle
+    key: video_enabled_2
+    label: Video Enabled HDBaseT OUT
+  command_handlers:
+  - match: ^x([1-4])AVx([12])$
+    handler: |
+      source, output = int(match.group(1)), match.group(2)
+      if state['mirrored_mode']:
+          state['route_1'] = state['route_2'] = source
+          respond(f"x{source}AVx1, x{source}AVx2\r\n")
+      else:
+          state[f'route_{output}'] = source
+          respond(f"x{source}AVx{output}\r\n")
+  - match: ^Status$
+    handler: |
+      respond(f"x{state['route_1']}AVx1,x{state['route_2']}AVx2\r\n")
+  - match: ^InputStatus$
+    handler: |
+      bits = ''.join('1' if state[f'input_signal_{i}'] else '0' for i in range(1,5))
+      respond(f"InputStatus {bits}\r\n")
+  - match: ^VOUTMute([12]) (on|off|sta)$
+    handler: |
+      output, value = match.group(1), match.group(2)
+      key = f'audio_mute_{output}'
+      if value != 'sta':
+          state[key] = value == 'on'
+      current = 'on' if state[key] else 'off'
+      prefix = f'VOUTMute{output}'
+      respond(f"{prefix} {current}\r\n")
+  - match: ^x([12])\$ (on|off|sta)$
+    handler: |
+      output, value = match.group(1), match.group(2)
+      key = f'video_enabled_{output}'
+      if value != 'sta':
+          state[key] = value == 'on'
+      current = 'on' if state[key] else 'off'
+      prefix = f'x{output}$'
+      respond(f"{prefix} {current}\r\n")
+  - match: ^USBHostLogic (follow usb|follow video|manual|sta)$
+    handler: |
+      value = match.group(1)
+      if value != 'sta':
+          state['usb_mode'] = value
+      respond(f"USBHostLogic {state['usb_mode']}\r\n")
+  - match: ^USBHostRoute (C|1|2|3|4|sta)$
+    handler: |
+      value = match.group(1)
+      if value != 'sta':
+          state['usb_host'] = value
+      respond(f"USBHostRoute {state['usb_host']}\r\n")
+  - match: ^OutHdmi5vKeep (on|off|sta)$
+    handler: |
+      value = match.group(1)
+      if value != 'sta':
+          state['hdmi_5v'] = value
+      respond(f"OutHdmi5vKeep {state['hdmi_5v']}\r\n")
+  - match: ^UsbVbusControl (on|off|sta)$
+    handler: |
+      value = match.group(1)
+      if value != 'sta':
+          state['usb_vbus'] = value
+      respond(f"UsbVbusControl {state['usb_vbus']}\r\n")
+  - match: ^LRAUD (on|off|sta)$
+    handler: |
+      value = match.group(1)
+      if value != 'sta':
+          state['analog_audio_enabled'] = value == 'on'
+      current = 'on' if state['analog_audio_enabled'] else 'off'
+      respond(f"LRAUD {current}\r\n")
+  - match: ^Blink (on|off|sta)$
+    handler: |
+      value = match.group(1)
+      if value != 'sta':
+          state['identify'] = value == 'on'
+      current = 'on' if state['identify'] else 'off'
+      respond(f"Blink {current}\r\n")
+  - match: ^PW(ON|OFF|STA)$
+    handler: |
+      value = match.group(1)
+      if value != 'STA':
+          state['power'] = value == 'ON'
+      respond('PWON\r\n' if state['power'] else 'PWOFF\r\n')
+  - match: ^(Lock|Unlock)$
+    handler: |
+      value = match.group(1)
+      state['front_panel_locked'] = value == 'Lock'
+      respond(value + '\r\n')
+  - match: ^(Type|Version)$
+    handler: |
+      key = 'model' if match.group(1) == 'Type' else 'firmware'
+      respond(str(state[key]) + '\r\n')
+  - match: ^DispBtn (on|off|tog)$
+    handler: |
+      respond('DispBtn ' + match.group(1) + '\r\n')
+  - match: ^Reboot$
+    handler: |
+      state['identify'] = False
+      respond('Reboot\r\n')
+  - match: .+
+    handler: |
+      respond('Command FAILED\r\n')
+  error_modes:
+    communication_timeout:
+      description: The switcher stops answering control queries.
+      behavior: no_response

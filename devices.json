@@ -1200,9 +1200,9 @@
       "category": "switcher",
       "drivers": [
         {
-          "id": "atlona_ome_ms",
+          "id": "atlona_ome_ms42",
           "confidence": "untested",
-          "notes": "All MS-series presentation matrices share the dotted Display:Matrix:Set / Audio:Volume:Set command vocabulary. MS42 (4x2) inputs 0-3, MS52/MS52W (5x2) inputs 0-4. The MS52W adds a 4 = BYOD wireless-link input. Outputs are always 0=HDBaseT, 1=HDMI. The driver advertises the 0-4 input range; the device rejects anything it doesn't have."
+          "notes": "Exact-model manufacturer API and user manual. Protocol-derived; physical hardware has not been tested. Use firmware 1.1.4 or newer for the serial bridges and current control features."
         }
       ]
     },
@@ -1212,9 +1212,9 @@
       "category": "switcher",
       "drivers": [
         {
-          "id": "atlona_ome_ms",
+          "id": "atlona_ome_ms42_hdbt",
           "confidence": "untested",
-          "notes": "All MS-series presentation matrices share the dotted Display:Matrix:Set / Audio:Volume:Set command vocabulary. MS42 (4x2) inputs 0-3, MS52/MS52W (5x2) inputs 0-4. The MS52W adds a 4 = BYOD wireless-link input. Outputs are always 0=HDBaseT, 1=HDMI. The driver advertises the 0-4 input range; the device rejects anything it doesn't have."
+          "notes": "Exact-model manufacturer API and user manual. Protocol-derived; physical hardware has not been tested."
         }
       ]
     },
@@ -1226,7 +1226,7 @@
         {
           "id": "atlona_ome_ms",
           "confidence": "untested",
-          "notes": "All MS-series presentation matrices share the dotted Display:Matrix:Set / Audio:Volume:Set command vocabulary. MS42 (4x2) inputs 0-3, MS52/MS52W (5x2) inputs 0-4. The MS52W adds a 4 = BYOD wireless-link input. Outputs are always 0=HDBaseT, 1=HDMI. The driver advertises the 0-4 input range; the device rejects anything it doesn't have."
+          "notes": "MS52-series presentation matrices use the dotted Display:Matrix:Set / Audio:Volume:Set command vocabulary. MS52/MS52W (5x2) inputs 0-4. The MS52W adds a 4 = BYOD wireless-link input. Outputs are always 0=HDBaseT, 1=HDMI. The driver advertises the 0-4 input range; the device rejects anything it doesn't have."
         }
       ]
     },
@@ -1238,7 +1238,7 @@
         {
           "id": "atlona_ome_ms",
           "confidence": "untested",
-          "notes": "All MS-series presentation matrices share the dotted Display:Matrix:Set / Audio:Volume:Set command vocabulary. MS42 (4x2) inputs 0-3, MS52/MS52W (5x2) inputs 0-4. The MS52W adds a 4 = BYOD wireless-link input. Outputs are always 0=HDBaseT, 1=HDMI. The driver advertises the 0-4 input range; the device rejects anything it doesn't have."
+          "notes": "MS52-series presentation matrices use the dotted Display:Matrix:Set / Audio:Volume:Set command vocabulary. MS52/MS52W (5x2) inputs 0-4. The MS52W adds a 4 = BYOD wireless-link input. Outputs are always 0=HDBaseT, 1=HDMI. The driver advertises the 0-4 input range; the device rejects anything it doesn't have."
         }
       ]
     },
@@ -1250,7 +1250,7 @@
         {
           "id": "atlona_ome_ms",
           "confidence": "untested",
-          "notes": "All MS-series presentation matrices share the dotted Display:Matrix:Set / Audio:Volume:Set command vocabulary. MS42 (4x2) inputs 0-3, MS52/MS52W (5x2) inputs 0-4. The MS52W adds a 4 = BYOD wireless-link input. Outputs are always 0=HDBaseT, 1=HDMI. The driver advertises the 0-4 input range; the device rejects anything it doesn't have."
+          "notes": "MS52-series presentation matrices use the dotted Display:Matrix:Set / Audio:Volume:Set command vocabulary. MS52/MS52W (5x2) inputs 0-4. The MS52W adds a 4 = BYOD wireless-link input. Outputs are always 0=HDBaseT, 1=HDMI. The driver advertises the 0-4 input range; the device rejects anything it doesn't have."
         }
       ]
     },
@@ -1262,7 +1262,7 @@
         {
           "id": "atlona_ome_ps62",
           "confidence": "untested",
-          "notes": "6x2 4K/UHD matrix presentation switcher with USB hub. The MS42 / MS52 / MS52W family in the OME line uses a completely different command syntax (Display:Matrix:Set...) and is covered by a separate driver.\n"
+          "notes": "6x2 4K/UHD matrix presentation switcher with USB hub. MS52 / MS52W use Display:Matrix:Set commands. MS42 and MS42-HDBT use plain text with different I/O numbering and bridge ports. Each has a separate driver.\n"
         }
       ]
     },

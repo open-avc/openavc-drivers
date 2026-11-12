@@ -2,7 +2,8 @@
 #
 # Controls the Atlona AT-OME-PS62 6x2 matrix presentation switcher over Telnet
 # (port 23). One product — distinct from the Display:Matrix:Set syntax used by
-# the AT-OME-MS42 / MS52 / MS52W family, which needs its own driver.
+# the AT-OME-MS52 / MS52W family. MS42 and MS42-HDBT have exact-model
+# plain-text drivers with different I/O numbering and serial bridge ports.
 #
 # Inputs (1-6):  HDMI 1, HDMI 2, HDMI 3, USB-C, HDBaseT IN 1, HDBaseT IN 2
 # Outputs (1-2): HDBaseT OUT, HDMI OUT
@@ -67,7 +68,7 @@ id: atlona_ome_ps62
 name: Atlona AT-OME-PS62 Matrix Switcher
 manufacturer: Atlona
 category: switcher
-version: 1.6.0
+version: 1.6.1
 author: OpenAVC
 min_platform_version: "0.36.0"
 description: >
@@ -90,9 +91,9 @@ compatible_models:
       - AT-OME-PS62
     confidence: untested
     notes: >
-      6x2 4K/UHD matrix presentation switcher with USB hub. The MS42 / MS52
-      / MS52W family in the OME line uses a completely different command
-      syntax (Display:Matrix:Set...) and is covered by a separate driver.
+      6x2 4K/UHD matrix presentation switcher with USB hub. MS52 / MS52W
+      use Display:Matrix:Set commands. MS42 and MS42-HDBT use plain text
+      with different I/O numbering and bridge ports. Each has a separate driver.
 
 transport: tcp
 delimiter: "\r\n"

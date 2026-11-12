@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1339,
+    "total_devices": 1352,
     "shards": null
   },
   "devices": [
@@ -11282,6 +11282,162 @@
           "id": "onkyo_integra_eiscp",
           "confidence": "untested",
           "notes": "Onkyo absorbed Pioneer's A/V receiver line; current Pioneer network receivers speak the same eISCP command set on TCP 60128. Discovery uses the Onkyo \"!x\" device-search broadcast; Pioneer units also answer a \"!p\" broadcast, so a Pioneer that stays silent to discovery can still be added by IP address."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Planar",
+      "model": "URL109-MFT",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "planar_ultrares",
+          "confidence": "untested",
+          "notes": "UltraRes L LED displays. Four HDMI sources and DisplayPort. Manufacturer documentation and simulation."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Planar",
+      "model": "URL122-MFT",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "planar_ultrares",
+          "confidence": "untested",
+          "notes": "UltraRes L LED displays. Four HDMI sources and DisplayPort. Manufacturer documentation and simulation."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Planar",
+      "model": "URL136-MFT",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "planar_ultrares",
+          "confidence": "untested",
+          "notes": "UltraRes L LED displays. Four HDMI sources and DisplayPort. Manufacturer documentation and simulation."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Planar",
+      "model": "URL136-T",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "planar_ultrares",
+          "confidence": "untested",
+          "notes": "UltraRes L LED displays. Four HDMI sources and DisplayPort. Manufacturer documentation and simulation."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Planar",
+      "model": "URX100",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "planar_ultrares",
+          "confidence": "untested",
+          "notes": "UltraRes X LCD displays. Adds the OPS source. Manufacturer documentation and simulation."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Planar",
+      "model": "URX100-ERO",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "planar_ultrares",
+          "confidence": "untested",
+          "notes": "UltraRes X LCD displays. Adds the OPS source. Manufacturer documentation and simulation."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Planar",
+      "model": "URX100-ERO-T",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "planar_ultrares",
+          "confidence": "untested",
+          "notes": "UltraRes X LCD displays. Adds the OPS source. Manufacturer documentation and simulation."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Planar",
+      "model": "URX75",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "planar_ultrares",
+          "confidence": "untested",
+          "notes": "UltraRes X LCD displays. Adds the OPS source. Manufacturer documentation and simulation."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Planar",
+      "model": "URX75-ERO",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "planar_ultrares",
+          "confidence": "untested",
+          "notes": "UltraRes X LCD displays. Adds the OPS source. Manufacturer documentation and simulation."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Planar",
+      "model": "URX75-ERO-T",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "planar_ultrares",
+          "confidence": "untested",
+          "notes": "UltraRes X LCD displays. Adds the OPS source. Manufacturer documentation and simulation."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Planar",
+      "model": "URX85",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "planar_ultrares",
+          "confidence": "untested",
+          "notes": "UltraRes X LCD displays. Adds the OPS source. Manufacturer documentation and simulation."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Planar",
+      "model": "URX85-ERO",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "planar_ultrares",
+          "confidence": "untested",
+          "notes": "UltraRes X LCD displays. Adds the OPS source. Manufacturer documentation and simulation."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Planar",
+      "model": "URX85-ERO-T",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "planar_ultrares",
+          "confidence": "untested",
+          "notes": "UltraRes X LCD displays. Adds the OPS source. Manufacturer documentation and simulation."
         }
       ]
     },

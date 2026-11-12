@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 189,
+    "total_drivers": 190,
     "shards": null
   },
   "drivers": [
@@ -9219,6 +9219,84 @@
           "Pharos",
           "Pharos Architectural Controls"
         ]
+      }
+    },
+    {
+      "id": "planar_ultrares",
+      "name": "Planar UltraRes L / X",
+      "manufacturer": "Planar",
+      "category": "display",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Route sources to four screen zones, switch multi-view layouts, follow audio and recall presets by their names. Detects the X-series OPS input.",
+      "source_url": "https://www.planar.com/media/iuant51m/planar-ultrares-l-series-rs232-user-manual.pdf",
+      "file": "displays/planar_ultrares.py",
+      "format": "python",
+      "files": {
+        "displays/planar_ultrares.py": "f4499912fdbaa5b83e8c8cb7b8a8ced44b0cfb84a10a7efe546f4c5fe18ee183",
+        "displays/planar_ultrares_sim.py": "9899229a64386f1f2133b3190ba96a61fc03db62a9f5960c757cd82b2bfca0cc"
+      },
+      "ports": [
+        57
+      ],
+      "protocols": [
+        "planar_ultrares"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "video-wall",
+        "multiview",
+        "microled",
+        "rs232"
+      ],
+      "help": {
+        "overview": "Select the source and inspect the signal for each of four zones, choose a multi-source layout, select which zone supplies audio, and recall presets using names read from the display.",
+        "setup": "On the display, select Networked Standby or Fast Startup under Power Down Mode so OpenAVC can wake it. For Ethernet, enable Network Commands and enter the display IP address (TCP 57). For RS-232, use a straight-through cable and select the local serial port or Through a bridge. Set the controller or bridge to 19200 baud, 8 data bits, no parity, one stop bit and no flow control.",
+        "connection": "Power on once to identify the model and populate its source list. The X series includes OPS for an installed slot computer. Choose a layout, route each zone, and check its Signal reading. Refresh Saved Presets after adding or renaming presets on the display."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Planar",
+          "models": [
+            "URL109-MFT",
+            "URL122-MFT",
+            "URL136-MFT",
+            "URL136-T"
+          ],
+          "confidence": "untested",
+          "notes": "UltraRes L LED displays. Four HDMI sources and DisplayPort. Manufacturer documentation and simulation."
+        },
+        {
+          "manufacturer": "Planar",
+          "models": [
+            "URX75",
+            "URX75-ERO",
+            "URX75-ERO-T",
+            "URX85",
+            "URX85-ERO",
+            "URX85-ERO-T",
+            "URX100",
+            "URX100-ERO",
+            "URX100-ERO-T"
+          ],
+          "confidence": "untested",
+          "notes": "UltraRes X LCD displays. Adds the OPS source. Manufacturer documentation and simulation."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 57,
+          "send_ascii": "MODEL.ID?\r",
+          "expect_regex": "(?i)MODEL\\.ID\\s*[:=]\\s*\"?((?:URL(?:109|122)(?:-MFT)?|URL136(?:-MFT|-T)?|URX(?:75|85|100)(?:-ERO(?:-T)?)?))\"?(?:[\\r\\n]|$)",
+          "extract_manufacturer": "Planar",
+          "extract": {
+            "model": {
+              "regex": "(?i)MODEL\\.ID\\s*[:=]\\s*\"?((?:URL(?:109|122)(?:-MFT)?|URL136(?:-MFT|-T)?|URX(?:75|85|100)(?:-ERO(?:-T)?)?))\"?(?:[\\r\\n]|$)"
+            }
+          }
+        }
       }
     },
     {

@@ -492,7 +492,7 @@ class PlanarUltraResDriver(BaseDriver):
         self._model = None
         self._presets_loaded = False
         self.set_state("preset_options", "[]")
-        if await self._power():
+        if await self._power() and await self._ready():
             await self._identify()
 
     async def _initial_sync(self):
@@ -527,10 +527,12 @@ class PlanarUltraResDriver(BaseDriver):
     async def _liveness_probe(self):
         await self._power()
 
+    async def _ready(self):
+        state = (await self._ask("SYSTEM.STATE")).upper()
+        self.set_state("system_state", state.replace(".", " ").title())
+        return state in ("ON", "BACKLIGHT.OFF")
+
     async def _read_room(self):
-        self.set_state(
-            "system_state", (await self._ask("SYSTEM.STATE")).replace(".", " ").title()
-        )
         layout = await self._ask("MULTI.VIEW")
         self.set_state("layout", LAYOUTS.get(layout))
         self.set_state("muted", switch(await self._ask("AUDIO.MUTE")))
@@ -550,7 +552,7 @@ class PlanarUltraResDriver(BaseDriver):
         self.set_child_state("zone", zone, "signal", signal)
 
     async def poll(self):
-        if not await self._power():
+        if not await self._power() or not await self._ready():
             return
         if not self._model:
             await self._identify()
@@ -647,14 +649,12 @@ class PlanarUltraResDriver(BaseDriver):
             value = integer(params.get("level"), minimum, 100)
             self.set_state(state, int(await self._set(key, str(value))))
 
-    async def send_command(self, command, params=None):
-        if command == "read_status":
-            return await self.poll()
-        if command == "refresh_presets":
-            return await self._refresh_presets()
-        if command in ("power_on", "power_off"):
-            await self._ask("DISPLAY.POWER", "=ON" if command == "power_on" else "=OFF")
-            return await self._power()
+    async def _change_power(self, command):
+        wanted = "ON" if command == "power_on" else "OFF"
+        await self._ask("DISPLAY.POWER", "=" + wanted)
+        await self.poll()
+
+    async def _operate(self, command, params):
         if not await self._power():
             raise CommandRefusedError(
                 "Power on the display before changing its picture or audio."
@@ -662,12 +662,21 @@ class PlanarUltraResDriver(BaseDriver):
         if not self._model:
             await self._identify()
         if command == "route":
-            return await self._route(params or {})
+            return await self._route(params)
         if command == "recall_preset":
-            return await self._recall(params or {})
+            return await self._recall(params)
+        return await self._set_room_control(command, params)
+
+    async def send_command(self, command, params=None):
         if command not in self.DRIVER_INFO["commands"]:
             raise CommandRefusedError("Unknown UltraRes command.")
-        return await self._set_room_control(command, params or {})
+        if command == "read_status":
+            return await self.poll()
+        if command == "refresh_presets":
+            return await self._refresh_presets()
+        if command in ("power_on", "power_off"):
+            return await self._change_power(command)
+        return await self._operate(command, params or {})
 
     async def set_device_setting(self, name, value):
         if name != "intensity":

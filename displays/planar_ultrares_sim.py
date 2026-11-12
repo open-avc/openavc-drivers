@@ -50,10 +50,12 @@ class PlanarUltraResSimulator(TCPSimulator):
             "source_2": "HDMI.2",
             "source_3": "HDMI.3",
             "source_4": "HDMI.4",
-            "signal_1": "3840x2160p 60Hz",
-            "signal_2": "1920x1080p 60Hz",
-            "signal_3": "Searching",
-            "signal_4": "No Signal",
+            "hdmi1_signal": "3840x2160p 60Hz",
+            "hdmi2_signal": "1920x1080p 60Hz",
+            "hdmi3_signal": "Searching",
+            "dp_signal": "3840x2160p 60Hz",
+            "ops_signal": "1920x1080p 60Hz",
+            "hdmi4_signal": "No Signal",
         },
         "controls": [
             {"type": "toggle", "key": "power", "label": "Display powered on"},
@@ -85,8 +87,8 @@ class PlanarUltraResSimulator(TCPSimulator):
             },
             {
                 "type": "select",
-                "key": "signal_1",
-                "label": "Zone 1 signal",
+                "key": "hdmi1_signal",
+                "label": "HDMI 1 signal",
                 "options": [
                     "3840x2160p 60Hz",
                     "1920x1080p 60Hz",
@@ -126,7 +128,7 @@ class PlanarUltraResSimulator(TCPSimulator):
     def _command(self, word, modifier, op, operand):
         if word == "DISPLAY.POWER":
             return self._switch("power", op, operand)
-        if word == "BUILD.INFO" and modifier == "PKG.VERSION" and op == "?":
+        if (word, modifier, op) == ("BUILD.INFO", "PKG.VERSION", "?"):
             return ":" + json.dumps(self.state["firmware"])
         if word.startswith("PRESET."):
             return self._preset(word, modifier, op)
@@ -140,19 +142,25 @@ class PlanarUltraResSimulator(TCPSimulator):
 
     def _picture(self, word, modifier, op, operand):
         if word in LEVELS:
-            key, low = LEVELS[word]
-            if op == "=" and not low <= int(operand) <= 100:
-                return "!ERR 5"
-            return self._value(key, op, operand, int)
+            return self._level(word, op, operand)
         if word == "AUDIO.MUTE":
             return self._switch("muted", op, operand)
         if word == "MULTI.VIEW":
             return self._layout(op, operand)
         if word == "AUDIO.ZONE":
-            if op == "=":
-                self.set_state("audio_zone", ZONES.index(operand) + 1)
-            return ":" + ZONES[self.state["audio_zone"] - 1]
+            return self._audio_zone(op, operand)
         return self._zone(word, modifier, op, operand)
+
+    def _audio_zone(self, op, operand):
+        if op == "=":
+            self.set_state("audio_zone", ZONES.index(operand) + 1)
+        return ":" + ZONES[self.state["audio_zone"] - 1]
+
+    def _level(self, word, op, operand):
+        key, low = LEVELS[word]
+        if op == "=" and not low <= int(operand) <= 100:
+            return "!ERR 5"
+        return self._value(key, op, operand, int)
 
     def _zone(self, word, modifier, op, operand):
         if word not in ("SOURCE.SELECT", "SOURCE.MESSAGE"):
@@ -162,7 +170,13 @@ class PlanarUltraResSimulator(TCPSimulator):
         zone = ZONES.index(modifier) + 1
         if word == "SOURCE.MESSAGE":
             return (
-                ":" + json.dumps(self.state[f"signal_{zone}"])
+                ":"
+                + json.dumps(
+                    self.state[
+                        self.state[f"source_{zone}"].replace(".", "").lower()
+                        + "_signal"
+                    ]
+                )
                 if op == "?"
                 else "!ERR 6"
             )
@@ -191,27 +205,35 @@ class PlanarUltraResSimulator(TCPSimulator):
         return ":ON" if self.state[key] else ":OFF"
 
     def _preset(self, word, modifier, op):
-        if word == "PRESET.COUNT" and op == "?":
+        if (word, op) == ("PRESET.COUNT", "?"):
             return ":" + str(len(self.presets))
-        if word == "PRESET.LIST" and op == "?":
-            if modifier == "FIRST":
-                self._cursor = 0
-            elif modifier != "NEXT":
-                return "!ERR 4"
-            slots = sorted(self.presets)[self._cursor : self._cursor + 64]
-            self._cursor += len(slots)
-            return ":" + " ".join(map(str, slots))
+        if (word, op) == ("PRESET.LIST", "?"):
+            return self._preset_page(modifier)
         slot = int(modifier or 0)
-        if word == "PRESET.FULL" and op == "?":
+        if (word, op) == ("PRESET.FULL", "?"):
             return ":YES" if slot in self.presets else ":NO"
         if slot not in self.presets:
             return "^NAK"
-        name, layout, sources = self.presets[slot]
-        if word == "PRESET.NAME" and op == "?":
-            return ":" + json.dumps(name, ensure_ascii=False)
-        if word == "PRESET.RECALL" and op == "" and self.state["power"]:
-            self._layout("=", layout)
-            for zone, source in enumerate(sources, 1):
-                self.set_state(f"source_{zone}", source)
-            return "@ACK"
-        return "^NAK"
+        if (word, op) == ("PRESET.NAME", "?"):
+            return ":" + json.dumps(self.presets[slot][0], ensure_ascii=False)
+        if (word, op) == ("PRESET.RECALL", ""):
+            return self._recall(slot)
+        return "!ERR 6"
+
+    def _preset_page(self, modifier):
+        if modifier == "FIRST":
+            self._cursor = 0
+        elif modifier != "NEXT":
+            return "!ERR 4"
+        slots = sorted(self.presets)[self._cursor : self._cursor + 64]
+        self._cursor += len(slots)
+        return ":" + " ".join(map(str, slots))
+
+    def _recall(self, slot):
+        if not self.state["power"]:
+            return "^NAK"
+        _, layout, sources = self.presets[slot]
+        self._layout("=", layout)
+        for zone, source in enumerate(sources, 1):
+            self.set_state(f"source_{zone}", source)
+        return "@ACK"

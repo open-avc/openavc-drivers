@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 36,
+    "total_drivers": 37,
     "shards": null,
     "category": "switcher"
   },
@@ -81,6 +81,75 @@
           "port": 50002,
           "send_ascii": "getStatus\r",
           "expect_regex": "(?i)SVSI_TXGEN2\\s*:?\\s*(?:NMX-ENC-)?(?:N2612S|N3312D)(?:-C)?(?!-C)(?=[\\d\\s:\\-]|$)",
+          "timeout_ms": 1500
+        }
+      }
+    },
+    {
+      "id": "amx_svsi_n2615_wp",
+      "name": "AMX SVSI N2615 HDMI / USB-C Wallplate Encoders",
+      "manufacturer": "AMX",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Switch HDMI and USB-C or let the last-connected source win. Reports active input, cable presence and incoming resolution, and controls SVSI streaming, audio, USB and KVM.",
+      "source_url": "https://www.amx.com/en-US/products/nmx-enc-n2615d-wp",
+      "file": "switchers/amx_svsi_n2615_wp.py",
+      "format": "python",
+      "files": {
+        "switchers/amx_svsi_n2615_wp.py": "26753fb238aaf80439e1bb3ac95d254b4c0ea96d6c2d7cf948b8293cfcf97abe",
+        "switchers/amx_svsi_n2615_wp_sim.py": "5dac22f6db256ac2fb7843ea6c6e1bd05ff3bce65ac426d15300ef474d45e88b"
+      },
+      "ports": [
+        50002,
+        50102
+      ],
+      "protocols": [
+        "amx-svsi-direct-control",
+        "hcontrol"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.2",
+      "tags": [
+        "av-over-ip",
+        "encoder",
+        "wallplate",
+        "usb-c",
+        "svsi",
+        "dante-av-a"
+      ],
+      "help": {
+        "overview": "One wallplate takes HDMI and USB-C video. In Auto, the latest connected source wins. Check the active input, cable and resolution separately. USB-C video requires a DisplayPort Alt Mode capable source and cable.",
+        "setup": "1. Enter the address of the individual wallplate. Use ordinary TCP 50002, or TLS 50102 with its command password and trusted certificate. Each Direct Control port accepts one controller at a time.\n2. Match Routing configured on encoder to the wallplate. Leave network stream assignment with Dante when Dante AV-A mode is enabled.\n3. In Matrix, select HDMI, USB-C or Auto. Local playlist playback clears the live-source highlight. Device Settings can change the switching policy while local content plays.\n4. Ordinary HControl on TCP 4197 adds live cable events and HDMI resolution events. Keep periodic status refresh enabled for changes without a documented event, including USB-C timing changes. The snapshot URL is published when web preview is confirmed enabled.",
+        "connection": "Check control port, TLS, command password and whether another controller holds the port. Check wallplate power, cable detection, incoming timing, playback mode and mutes when video is missing."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "AMX",
+          "models": [
+            "NMX-ENC-N2615D-WP-NA",
+            "NMX-ENC-N2615D-WP-EK",
+            "NMX-ENC-N2615-WP-NA",
+            "NMX-ENC-N2615-WP-EK"
+          ],
+          "confidence": "untested",
+          "notes": "US and EU/UK N2615 wallplate encoder versions. D and non-D hardware share firmware; Dante licensing and routing mode are commissioned separately. Simulator-tested, awaiting physical qualification."
+        }
+      ],
+      "discovery": {
+        "port_open": [
+          50002,
+          50102
+        ],
+        "manufacturer_alias": [
+          "amx",
+          "svsi"
+        ],
+        "tcp_probe": {
+          "port": 50002,
+          "send_ascii": "getStatus\r",
+          "expect_regex": "(?i)SVSI_TXGEN2\\s*:?\\s*(?:NMX-ENC-)?N2615D?(?:-?WP(?:-(?:NA|EK))?|-(?:NA|EK))(?=\\d|[\\s:]|-\\d|$)",
           "timeout_ms": 1500
         }
       }

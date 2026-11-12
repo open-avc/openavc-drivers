@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 137,
+    "total_devices": 141,
     "shards": null,
     "category": "switcher"
   },
@@ -52,6 +52,54 @@
           "id": "amx_svsi_n2612s",
           "confidence": "untested",
           "notes": "Standalone AMX-N26E001 and rack card AMX-N26E001C. Both have two HDMI inputs, USB extension and a secondary H.26x stream. Simulator tested. Physical qualification pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AMX",
+      "model": "NMX-ENC-N2615-WP-EK",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "amx_svsi_n2615_wp",
+          "confidence": "untested",
+          "notes": "US and EU/UK N2615 wallplate encoder versions. D and non-D hardware share firmware; Dante licensing and routing mode are commissioned separately. Simulator-tested, awaiting physical qualification."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AMX",
+      "model": "NMX-ENC-N2615-WP-NA",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "amx_svsi_n2615_wp",
+          "confidence": "untested",
+          "notes": "US and EU/UK N2615 wallplate encoder versions. D and non-D hardware share firmware; Dante licensing and routing mode are commissioned separately. Simulator-tested, awaiting physical qualification."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AMX",
+      "model": "NMX-ENC-N2615D-WP-EK",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "amx_svsi_n2615_wp",
+          "confidence": "untested",
+          "notes": "US and EU/UK N2615 wallplate encoder versions. D and non-D hardware share firmware; Dante licensing and routing mode are commissioned separately. Simulator-tested, awaiting physical qualification."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AMX",
+      "model": "NMX-ENC-N2615D-WP-NA",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "amx_svsi_n2615_wp",
+          "confidence": "untested",
+          "notes": "US and EU/UK N2615 wallplate encoder versions. D and non-D hardware share firmware; Dante licensing and routing mode are commissioned separately. Simulator-tested, awaiting physical qualification."
         }
       ]
     },

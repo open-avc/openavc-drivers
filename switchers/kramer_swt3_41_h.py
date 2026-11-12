@@ -1,4 +1,4 @@
-"""Kramer SWT3-41-H Protocol 3000 switcher and rear RS-232 gateway.
+"""Kramer SWT3-21-H and SWT3-41-H Protocol 3000 switcher and rear RS-232 gateway.
 
 The gateway is a separate native TCP stream. Python checks the bound driver's
 serial format against live COM-ROUTE and UART replies without reconfiguring
@@ -19,6 +19,7 @@ except ImportError:  # Earlier supported releases report refusals as RuntimeErro
     CommandRefusedError = RuntimeError
 
 
+INPUT_COUNTS = {"SWT3-21-H": 2, "SWT3-41-H": 4}
 MODES = ("Manual", "Priority", "Last connected")
 PARITIES = ("N", "O", "E", "M", "S")
 
@@ -54,14 +55,14 @@ SIMPLE_COMMANDS = {
 class KramerSwt3Driver(BaseDriver):
     DRIVER_INFO = {
         "id": "kramer_swt3_41_h",
-        "name": "Kramer SWT3-41-H",
+        "name": "Kramer SWT3-21-H / SWT3-41-H",
         "manufacturer": "Kramer",
         "category": "switcher",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "min_platform_version": "0.27.0",
         "source_url": "https://cdn.kramerav.com/web/downloads/manuals/kramer-swt3-21-h__swt3-41-h_um_rev_7.pdf",
-        "description": "Four-input HDMI auto switcher with analog audio output and a bidirectional RS-232 gateway for a display or projector. Checks the gateway port, reply setting and serial format.",
+        "description": "Auto-detected two- or four-input HDMI switcher with analog audio output and a bidirectional RS-232 gateway for a display or projector. Checks the gateway port, reply setting and serial format.",
         "tags": [
             "hdmi",
             "presentation",
@@ -80,7 +81,13 @@ class KramerSwt3Driver(BaseDriver):
                 "models": ["SWT3-41-H"],
                 "confidence": "untested",
                 "notes": "Switcher feedback is based on the manual and earlier captures from firmware 1.0.65739. The new driver and serial gateway have not been qualified on physical equipment.",
-            }
+            },
+            {
+                "manufacturer": "Kramer",
+                "models": ["SWT3-21-H"],
+                "confidence": "untested",
+                "notes": "Two HDMI inputs. Model detection, switching and serial gateway checks are based on the shared Kramer manual and simulator.",
+            },
         ],
         "transport": "tcp",
         "delimiter": "\r\n",
@@ -123,24 +130,31 @@ class KramerSwt3Driver(BaseDriver):
             },
         },
         "help": {
-            "overview": "Select any of four HDMI inputs, follow signal and display status, control output volume and muting, and connect one serial device through the rear RS-232 terminal.",
-            "setup": "1. Add this exact switcher with its IP address and Protocol 3000 control port (normally 5000). Select the input-switching policy under Device Settings. Automatic selection may change the route after a manual selection.\n2. Wire the rear three-pin RS-232 terminal to the display or projector: TX to RX, RX to TX, ground to ground. Use one downstream driver for that connector.\n3. In the Kramer web interface open Control Gateway → Serial Ports. Set Tunneling to Gateway. Match the attached equipment’s baud rate, data bits, parity and stop bits, then save. In Advanced Properties choose TCP, IP Port 5001 and enable replies to new clients. Save. Switching to Gateway repurposes the connector if it was controlling the switcher or running Display ON commands.\n4. In OpenAVC add the display or projector with its own serial driver. Select Through a bridge, this Kramer and Rear RS-232 (TCP 5001). Enter the same serial settings. Read Serial Gateway Setup here, then request status from the attached device and confirm its reply.\n5. This bridge uses TCP 5001. If this project already uses another tunnel port, coordinate the change in the Kramer web interface with its other users before binding a downstream device. The driver reads the settings and leaves them in place.",
+            "overview": "Select either HDMI input on the 21-H or any of four on the 41-H, follow signal and display status, control output volume and muting, and connect one serial device through the rear RS-232 terminal.",
+            "setup": "1. Add the switcher with its IP address and Protocol 3000 control port (normally 5000). The driver reads the model and lists its HDMI inputs automatically. Select the input-switching policy under Device Settings. Automatic selection may change the route after a manual selection.\n2. Wire the rear three-pin RS-232 terminal to the display or projector: TX to RX, RX to TX, ground to ground. Use one downstream driver for that connector.\n3. In the Kramer web interface open Control Gateway → Serial Ports. Set Tunneling to Gateway. Match the attached equipment’s baud rate, data bits, parity and stop bits, then save. In Advanced Properties choose TCP, IP Port 5001 and enable replies to new clients. Save. Switching to Gateway repurposes the connector if it was controlling the switcher or running Display ON commands.\n4. In OpenAVC add the display or projector with its own serial driver. Select Through a bridge, this Kramer and Rear RS-232 (TCP 5001). Enter the same serial settings. Read Serial Gateway Setup here, then request status from the attached device and confirm its reply.\n5. This bridge uses TCP 5001. If this project already uses another tunnel port, coordinate the change in the Kramer web interface with its other users before binding a downstream device. The driver reads the settings and leaves them in place.",
             "connection": "Allow the switcher control port and TCP 5001 between the OpenAVC server and the Kramer. OpenAVC can open the network socket even when Serial Gateway Setup reports a mismatch. Correct that setting before sending display commands. A returned display status checks the RS-232 wiring. After a change in Kramer, reconnect the attached device to check its settings again.",
         },
         "discovery": {
             "tcp_probe": {
                 "port": 5000,
                 "send_ascii": "#MODEL?\r\n",
-                "expect_regex": "(?i)~\\d+@MODEL\\s+SWT3-41-H(?:\\s|$)",
+                "expect_regex": "(?i)~\\d+@MODEL\\s+SWT3-[24]1-H(?:\\s|$)",
                 "extract_manufacturer": "Kramer",
                 "extract": {
-                    "model": {"regex": "(?i)~\\d+@MODEL\\s+(SWT3-41-H)(?:\\s|$)"}
+                    "model": {"regex": "(?i)~\\d+@MODEL\\s+(SWT3-[24]1-H)(?:\\s|$)"}
                 },
             },
             "oui": ["00:1d:56"],
         },
         "state_variables": {
             "model": {"type": "string", "label": "Switcher Model"},
+            "source": {
+                "type": "integer",
+                "label": "Selected HDMI Input",
+                "min": 1,
+                "max": 4,
+                "control": True,
+            },
             "firmware": {"type": "string", "label": "Firmware Version"},
             "volume": {
                 "type": "number",
@@ -191,8 +205,7 @@ class KramerSwt3Driver(BaseDriver):
             "input": {
                 "label": "HDMI Input",
                 "label_plural": "HDMI Inputs",
-                "id_format": {"type": "integer", "min": 1, "max": 4},
-                "instances": {"count": 4, "label": "HDMI {id}"},
+                "id_format": {"type": "integer", "min": 1},
                 "state_variables": {
                     "signal": {
                         "type": "boolean",
@@ -223,6 +236,7 @@ class KramerSwt3Driver(BaseDriver):
             },
         },
         "routing": {
+            "source_child_type": "input",
             "destination_child_type": "output",
             "command": "route",
             "planes": [{"label": "Video", "route_property": "source"}],
@@ -233,15 +247,10 @@ class KramerSwt3Driver(BaseDriver):
                 "help": "Select the HDMI source for the output. Automatic switching can select another source when signals change.",
                 "params": {
                     "input": {
-                        "type": "enum",
+                        "type": "child_id",
+                        "child_type": "input",
                         "label": "HDMI Input",
                         "required": True,
-                        "values": [
-                            {"value": 1, "label": "HDMI 1"},
-                            {"value": 2, "label": "HDMI 2"},
-                            {"value": 3, "label": "HDMI 3"},
-                            {"value": 4, "label": "HDMI 4"},
-                        ],
                     },
                     "output": {
                         "type": "child_id",
@@ -338,17 +347,35 @@ class KramerSwt3Driver(BaseDriver):
         self._bound_settings = None
         self._mute_address = None
         self.register_child("output", 1, {"label": "HDMI Out"})
-        for n in range(1, 5):
-            self.register_child("input", n, {"label": f"HDMI {n}"})
+        self._inputs = range(0)
 
     async def _post_connect(self) -> None:
         self._mute_address = None
         self.set_state("gateway_status", "Serial gateway settings have not been read.")
-        model = await self._ask("MODEL?")
-        if model.upper() != "SWT3-41-H":
+        self._inputs = range(0)
+        await self._identify_model()
+
+    async def _identify_model(self) -> None:
+        model = (await self._ask("MODEL?")).upper()
+        ports = range(1, INPUT_COUNTS.get(model, 0) + 1)
+        if self._inputs != ports or not ports:
+            self._sync_inputs(ports)
+        if not ports:
             raise CommandRefusedError(
-                f"This driver requires SWT3-41-H. The switcher reported {model}."
+                f"Expected SWT3-21-H or SWT3-41-H. The switcher reported {model}."
             )
+
+    def _sync_inputs(self, ports: range) -> None:
+        self._inputs = ports
+        for old in set(self.list_children("input")).difference(ports):
+            self.deregister_child("input", old)
+        for port in ports:
+            self.register_child("input", port)
+            if not self.get_child_state("input", port).get("label"):
+                self.set_child_state("input", port, "label", f"HDMI {port}")
+        if self.get_child_state("output", 1).get("source") not in ports:
+            self.set_child_state("output", 1, "source", None)
+            self.set_state("source", None)
 
     async def _initial_sync(self) -> None:
         await self.poll()
@@ -414,9 +441,17 @@ class KramerSwt3Driver(BaseDriver):
     def _publish_child(self, verb: str, args: str) -> bool:
         pattern, kind, key, convert = CHILD_REPORTS[verb]
         match = re.fullmatch(pattern, args)
-        if match:
-            self.set_child_state(kind, int(match[1]), key, convert(match[2]))
-        return match is not None
+        if not match:
+            return False
+        port, value = int(match[1]), convert(match[2])
+        if kind == "input" and port not in self._inputs:
+            return False
+        if key == "source":
+            if value not in self._inputs:
+                return False
+            self.set_state("source", value)
+        self.set_child_state(kind, port, key, value)
+        return True
 
     async def _read_mute(self) -> None:
         # The manual gives the short form. Firmware 1.0.65739 also reports
@@ -444,7 +479,7 @@ class KramerSwt3Driver(BaseDriver):
             ("DISPLAY? 1", "1,"),
             ("AV-SW-MODE? 1,1", "1,1,"),
         ]
-        for n in range(1, 5):
+        for n in self._inputs:
             queries.extend(
                 [(f"SIGNAL? {n}", f"{n},"), (f"HDCP-STAT? 0,{n}", f"0,{n},")]
             )
@@ -463,7 +498,7 @@ class KramerSwt3Driver(BaseDriver):
         await self.poll()
 
     async def _liveness_probe(self) -> None:
-        await self._ask("MODEL?")
+        await self._identify_model()
 
     async def set_device_setting(self, name: str, value: Any) -> None:
         if name != "switch_mode" or value not in MODES:
@@ -483,8 +518,14 @@ class KramerSwt3Driver(BaseDriver):
 
     async def _route_input(self, values: dict) -> str:
         source = str(values.get("input", ""))
-        if source not in ("1", "2", "3", "4") or str(values.get("output", 1)) != "1":
-            raise CommandRefusedError("Choose HDMI input 1–4 and HDMI Out.")
+        if not self._inputs:
+            raise CommandRefusedError(
+                "Connect the switcher to identify its HDMI inputs."
+            )
+        if source not in map(str, self._inputs) or str(values.get("output", 1)) != "1":
+            raise CommandRefusedError(
+                f"Choose HDMI input 1–{len(self._inputs)} and HDMI Out."
+            )
         return await self._ask("ROUTE 1,1," + source, "1,1,")
 
     async def _set_volume(self, values: dict) -> str:
@@ -508,7 +549,7 @@ class KramerSwt3Driver(BaseDriver):
             return await self._route_input(values)
         if command == "set_volume":
             return await self._set_volume(values)
-        raise CommandRefusedError("Unknown SWT3-41-H command.")
+        raise CommandRefusedError("Unknown SWT3 switcher command.")
 
     async def prepare_bridge_port(self, port_id: str, params: dict[str, Any]) -> None:
         if port_id != "serial:1":

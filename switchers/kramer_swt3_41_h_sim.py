@@ -1,4 +1,4 @@
-"""Kramer SWT3-41-H control simulator. A separate peer can represent serial equipment on TCP 5001."""
+"""Kramer SWT3-21-H and SWT3-41-H control simulator. A separate peer can represent serial equipment on TCP 5001."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from openavc.simulator.tcp_simulator import TCPSimulator
 class KramerSwt3Simulator(TCPSimulator):
     SIMULATOR_INFO = {
         "driver_id": "kramer_swt3_41_h",
-        "name": "Kramer SWT3-41-H Simulator",
+        "name": "Kramer SWT3-21-H / SWT3-41-H Simulator",
         "category": "switcher",
         "transport": "tcp",
         "default_port": 5000,
@@ -44,6 +44,12 @@ class KramerSwt3Simulator(TCPSimulator):
             "mute_address": "1,1,1",
         },
         "controls": [
+            {
+                "type": "select",
+                "key": "model",
+                "label": "Switcher Model (reconnect after changing)",
+                "options": ["SWT3-21-H", "SWT3-41-H"],
+            },
             {
                 "type": "select",
                 "key": "source",
@@ -105,11 +111,30 @@ class KramerSwt3Simulator(TCPSimulator):
     def _frame(body: str) -> bytes:
         return ("~01@" + body + "\r\n").encode("ascii")
 
+    def _ports(self):
+        return range(1, 3) if self.get_state("model") == "SWT3-21-H" else range(1, 5)
+
+    def to_info_dict(self):
+        info = super().to_info_dict()
+        info["controls"] = [
+            dict(control, options=[str(n) for n in self._ports()])
+            if control["key"] == "source"
+            else control
+            for control in self.SIMULATOR_INFO["controls"]
+        ]
+        return info
+
     def set_state(self, key, value):
+        if key == "source" and int(value) not in self._ports():
+            raise ValueError("Choose an input available on this switcher.")
         old = self.get_state(key)
         super().set_state(key, value)
-        if old == value or not self.running:
-            return
+        if key == "model" and int(self.get_state("source")) not in self._ports():
+            self.set_state("source", 1)
+        if old != value and self.running:
+            self._notify_change(key, value)
+
+    def _notify_change(self, key, value):
         if key in self._REPORTS:
             data = self._frame(self._REPORTS[key] + str(int(value)))
             task = asyncio.create_task(self.push(data))
@@ -149,7 +174,7 @@ class KramerSwt3Simulator(TCPSimulator):
             ("AUD-LVL", "1,1"): "volume",
             ("AUD-MUTE", self.get_state("mute_address")): "audio_muted",
         }
-        for port in range(1, 5):
+        for port in self._ports():
             readbacks[("SIGNAL", str(port))] = f"signal_{port}"
             readbacks[("HDCP-STAT", f"0,{port}")] = f"hdcp_{port}"
         key = readbacks.get((name, args))
@@ -171,7 +196,7 @@ class KramerSwt3Simulator(TCPSimulator):
 
     def _write(self, name, args):
         changes = {
-            "ROUTE": ("source", "1,1", [1, 2, 3, 4]),
+            "ROUTE": ("source", "1,1", self._ports()),
             "AV-SW-MODE": ("switch_mode", "1,1", [0, 1, 2]),
             "VMUTE": ("video_muted", "1", [0, 1]),
             "AUD-MUTE": ("audio_muted", self.get_state("mute_address"), [0, 1]),

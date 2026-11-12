@@ -91,7 +91,7 @@ id: kramer_p3000
 name: Kramer Protocol 3000
 manufacturer: Kramer
 category: switcher
-version: 1.8.2
+version: 1.8.3
 author: OpenAVC
 # learned_from on the input and output counts.
 min_platform_version: "0.37.0"
@@ -134,8 +134,8 @@ delimiter: "\r\n"
 
 help:
   overview: >
-    For a new SWT3-41-H installation, select Kramer SWT3-41-H to use its
-    four HDMI inputs and rear RS-232 gateway.
+    For a new SWT3-21-H or SWT3-41-H installation, select the Kramer SWT3-21-H / SWT3-41-H
+    driver for automatic HDMI input detection and the rear RS-232 gateway.
     Controls Kramer matrix switchers, scalers, presentation switchers, and
     distribution amplifiers via Protocol 3000. Common in corporate AV,
     education, and houses of worship. On matrix switchers, configure the
@@ -168,7 +168,7 @@ discovery:
   tcp_probe:
     port: 5000
     send_ascii: "#MODEL?\r\n"
-    expect_regex: '(?is)\A(?!.*~\d+@MODEL\s+SWT3-41-H(?:\s|$)).*(?:~\d+@MODEL|Welcome to Kramer|Kramer\s+(?:P3K|Protocol))'
+    expect_regex: '(?is)\A(?!.*~\d+@MODEL\s+SWT3-[24]1-H(?:\s|$)).*(?:~\d+@MODEL|Welcome to Kramer|Kramer\s+(?:P3K|Protocol))'
     extract_manufacturer: "Kramer"
     extract:
       model:

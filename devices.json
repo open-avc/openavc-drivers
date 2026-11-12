@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1332,
+    "total_devices": 1333,
     "shards": null
   },
   "devices": [
@@ -7680,6 +7680,18 @@
           "id": "zeevee_zmp",
           "confidence": "untested",
           "notes": "Managed by the ZyPer Management Platform from release 4.1 (compatible with ZyPerUHD60). Add the ZMP, not the KDS-17."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Kramer",
+      "model": "SWT3-21-H",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "kramer_swt3_41_h",
+          "confidence": "untested",
+          "notes": "Two HDMI inputs. Model detection, switching and serial gateway checks are based on the shared Kramer manual and simulator."
         }
       ]
     },

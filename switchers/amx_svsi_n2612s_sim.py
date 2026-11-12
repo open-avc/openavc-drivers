@@ -263,6 +263,12 @@ class AMXN2612SSimulator(TCPSimulator):
         self._status_fields = STATUS
         if self._recorder:
             self._configure_recorder(model)
+        elif model == "N2612S-C":
+            self.SIMULATOR_INFO["name"] = "AMX SVSI N2612S-C Simulator"
+            self.SIMULATOR_INFO["initial_state"] = {
+                **self.SIMULATOR_INFO["initial_state"],
+                "SVSI_TXGEN2": "N2612S-C15601300001",
+            }
         super().__init__(device_id, config)
         self._certs = None
         self._direct = None
@@ -366,7 +372,7 @@ class AMXN2612SSimulator(TCPSimulator):
         if "communication_timeout" in self.active_errors:
             return None
         if wire == "getNetStatus":
-            return self._packet(NETWORK)
+            return self._packet({**NETWORK, "SVSI_NETSTATS": self.state["SVSI_TXGEN2"]})
         self._direct_command(wire)
         return self._packet(dict.fromkeys(self._status_fields, ""))
 

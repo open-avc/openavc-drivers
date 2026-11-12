@@ -15,7 +15,7 @@ from openavc.core.device_traffic import get_traffic_recorder
 from openavc.drivers.base import BaseDriver, CommandRefusedError, ConnectionFaultError
 
 ENCODER_MODEL = re.compile(
-    r"(?:NMX-ENC-)?(N2612S(?!-C)|N3312D(?:-C)?)(?=\d|[ :\t-]|$)", re.I
+    r"(?:NMX-ENC-)?((?:N2612S|N3312D)(?:-C)?)(?!-C)(?=\d|[ :\t-]|$)", re.I
 )
 STATUS = "SVSI_TXGEN2"
 NETWORK = "SVSI_NETSTATS"
@@ -260,7 +260,7 @@ class AMXN2612SDriver(BaseDriver):
         "manufacturer": "AMX",
         "category": "switcher",
         "author": "OpenAVC",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "transport": "tcp",
         "delimiter": "\r",
         "ports": [50002, 50102],
@@ -281,7 +281,7 @@ class AMXN2612SDriver(BaseDriver):
         },
         "id": "amx_svsi_n2612s",
         "name": "AMX SVSI N2612S and N3312D Encoders",
-        "description": "Select either HDMI input or Auto, monitor both inputs, and control the SVSI and "
+        "description": "Select either HDMI input or Auto on the standalone encoder or rack card, monitor both inputs, and control the SVSI and "
         "H.26x streams. N3312D standalone and card encoders also offer USB recording.",
         "tags": [
             "av-over-ip",
@@ -296,9 +296,9 @@ class AMXN2612SDriver(BaseDriver):
         "compatible_models": [
             {
                 "manufacturer": "AMX",
-                "models": ["NMX-ENC-N2612S"],
+                "models": ["NMX-ENC-N2612S", "NMX-ENC-N2612S-C"],
                 "confidence": "untested",
-                "notes": "Standalone AMX-N26E001. Manufacturer protocol and simulator tested. "
+                "notes": "Standalone AMX-N26E001 and rack card AMX-N26E001C. Both have two HDMI inputs, USB extension and a secondary H.26x stream. Simulator tested. "
                 "Physical qualification pending.",
             },
             {
@@ -325,7 +325,7 @@ class AMXN2612SDriver(BaseDriver):
             "encoder_model": {
                 "type": "enum",
                 "label": "Encoder model",
-                "values": ["Auto", "N2612S", "N3312D", "N3312D-C"],
+                "values": ["Auto", "N2612S", "N2612S-C", "N3312D", "N3312D-C"],
                 "default": "Auto",
                 "help": "Auto reads the hardware identity. Choose a model to build offline or simulate that encoder. Auto simulates an N2612S.",
             },
@@ -396,7 +396,7 @@ class AMXN2612SDriver(BaseDriver):
             "cable and resolution readings. Auto selects the last connected input. The "
             "active input, source selection policy and local playlist are separate "
             "readings.",
-            "setup": "1. Add the encoder by IP address or DNS name. Select its model for offline design or simulation. Use TCP 50002 for "
+            "setup": "1. Enter the IP address or DNS name of the encoder itself, including for a card in the rack chassis. Select its model for offline design or simulation. Use TCP 50002 for "
             "ordinary Direct Control. For secure control enable TLS, use port 50102 and enter "
             "the unit command password. Verify the encoder certificate with a trusted issuer. "
             "One controller can occupy each Direct Control port.\n"
@@ -435,7 +435,7 @@ class AMXN2612SDriver(BaseDriver):
             "tcp_probe": {
                 "port": 50002,
                 "send_ascii": "getStatus\r",
-                "expect_regex": "(?i)SVSI_TXGEN2\\s*:?\\s*(?:NMX-ENC-)?(?:N2612S(?!-C)|N3312D(?:-C)?)(?=[\\d\\s:\\-]|$)",
+                "expect_regex": "(?i)SVSI_TXGEN2\\s*:?\\s*(?:NMX-ENC-)?(?:N2612S|N3312D)(?:-C)?(?!-C)(?=[\\d\\s:\\-]|$)",
                 "timeout_ms": 1500,
             },
         },

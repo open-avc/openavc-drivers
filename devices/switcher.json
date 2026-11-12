@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 136,
+    "total_devices": 137,
     "shards": null,
     "category": "switcher"
   },
@@ -39,7 +39,19 @@
         {
           "id": "amx_svsi_n2612s",
           "confidence": "untested",
-          "notes": "Standalone AMX-N26E001. Manufacturer protocol and simulator tested. Physical qualification pending."
+          "notes": "Standalone AMX-N26E001 and rack card AMX-N26E001C. Both have two HDMI inputs, USB extension and a secondary H.26x stream. Simulator tested. Physical qualification pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AMX",
+      "model": "NMX-ENC-N2612S-C",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "amx_svsi_n2612s",
+          "confidence": "untested",
+          "notes": "Standalone AMX-N26E001 and rack card AMX-N26E001C. Both have two HDMI inputs, USB extension and a secondary H.26x stream. Simulator tested. Physical qualification pending."
         }
       ]
     },

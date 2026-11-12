@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 131,
+    "total_devices": 132,
     "shards": null,
     "category": "switcher"
   },
@@ -16,6 +16,18 @@
           "id": "amx_svsi_n2622s",
           "confidence": "untested",
           "notes": "Standalone decoder. Derived from AMX Direct Control API v1.3 and the N2600S HControl guide. Hardware verification pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AMX",
+      "model": "NMX-ENC-N2612S",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "amx_svsi_n2612s",
+          "confidence": "untested",
+          "notes": "Standalone AMX-N26E001. Manufacturer protocol and simulator tested. Physical qualification pending."
         }
       ]
     },

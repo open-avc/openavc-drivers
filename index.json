@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 187,
+    "total_drivers": 188,
     "shards": null
   },
   "drivers": [
@@ -646,6 +646,72 @@
           "port": 50002,
           "send_ascii": "getStatus\r",
           "expect_regex": "(?i)SVSI_RXGEN2\\s*:\\s*(?:NMX-DEC-)?N2622S(?:\\b|-)",
+          "timeout_ms": 1500
+        }
+      }
+    },
+    {
+      "id": "amx_svsi_n2612s",
+      "name": "AMX SVSI NMX-ENC-N2612S",
+      "manufacturer": "AMX",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Select either HDMI input or Auto, monitor both inputs, and control the SVSI and H.26x streams on one standalone N2612S encoder.",
+      "source_url": "https://www.amx.com/da/site_elements/amx-direct-control-api-n26xxs",
+      "file": "switchers/amx_svsi_n2612s.py",
+      "format": "python",
+      "files": {
+        "switchers/amx_svsi_n2612s.py": "4d2fac3a8bf4fbbd56365466a721be24c6cefa99c35d13c54acd8ca1694ab356",
+        "switchers/amx_svsi_n2612s_sim.py": "1f7b0b3661db315498571d029d8ce367af3952c7bb1ebe8748cb686c6b800259"
+      },
+      "ports": [
+        50002,
+        50102
+      ],
+      "protocols": [
+        "amx-svsi-direct-control",
+        "hcontrol"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.2",
+      "tags": [
+        "av-over-ip",
+        "encoder",
+        "svsi",
+        "hdmi",
+        "h26x",
+        "serial-bridge"
+      ],
+      "help": {
+        "overview": "One encoder represents one source location. HDMI 1 and HDMI 2 show their own cable and resolution readings. Auto selects the last connected input. The active input, source selection policy and local playlist are separate readings.",
+        "setup": "1. Add the standalone NMX-ENC-N2612S by IP address or DNS name. Use TCP 50002 for ordinary Direct Control. For secure control enable TLS, use port 50102 and enter the unit command password. Verify the encoder certificate with a trusted issuer. One controller can occupy each Direct Control port.\n2. Match the routing profile to the physical encoder. Use a unique SVSI stream number for this encoder and enter that number in Sources on the N2622S decoder. Switching an HDMI input changes the source at this encoder. Selecting a stream for a room display is performed at its decoder. Dante Controller owns Dante AV routing.\n3. Inspect each HDMI input for connection, resolution and selection. Ordinary control can receive HDMI events over TCP 4197. Direct Control refreshes both inputs even with HControl disabled. Stream transmit switches have HControl readback. In secure mode those switches acknowledge delivery only.\n4. Use Multi Stream for the H.26x output. When HControl confirms transmission and the encoder reports a local RTSP URL, the Video Panel can offer that stream. A confirmed web preview exposes the encoder\u2019s /snapshot.jpg address. Access requires the site\u2019s network and web permissions. Simulation supplies status without serving video.\n5. Connect serial equipment with its own driver using Through a bridge, this encoder and its RS-232 connector. Use TCP 50004 only where site policy enables ordinary serial. The encoder applies the downstream baud, data bits, parity and stop bits. Check Serial line setup, then obtain a reply from the attached device. AMX documents unsolicited replies from firmware 1.8.8 and binary NUL transmission from 2.0.8. Secure serial bridging on 50104 remains unavailable.",
+        "connection": "Check that the selected port is free, TLS and the command password match the encoder, and the certificate is trusted. For an absent picture, check the selected connector, its detected resolution, playback mode, mute, transmit enable and the destination decoder\u2019s selected stream."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "AMX",
+          "models": [
+            "NMX-ENC-N2612S"
+          ],
+          "confidence": "untested",
+          "notes": "Standalone AMX-N26E001. Manufacturer protocol and simulator tested. Physical qualification pending."
+        }
+      ],
+      "discovery": {
+        "manufacturer_alias": [
+          "amx",
+          "svsi"
+        ],
+        "port_open": [
+          50002,
+          50102
+        ],
+        "tcp_probe": {
+          "port": 50002,
+          "send_ascii": "getStatus\r",
+          "expect_regex": "(?i)SVSI_TXGEN2\\s*:?\\s*(?:NMX-ENC-)?N2612S(?!-C\\b)(?=[\\d\\s:\\-]|$)",
           "timeout_ms": 1500
         }
       }

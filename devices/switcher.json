@@ -159,7 +159,7 @@
         {
           "id": "atlona_omnistream",
           "confidence": "untested",
-          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units.\n"
+          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units. The SERIAL 1 bridge is supported on the AT-OMNI-121.\n"
         }
       ]
     },
@@ -171,7 +171,7 @@
         {
           "id": "atlona_omnistream",
           "confidence": "untested",
-          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units.\n"
+          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units. The SERIAL 1 bridge is supported on the AT-OMNI-121.\n"
         }
       ]
     },
@@ -183,7 +183,7 @@
         {
           "id": "atlona_omnistream",
           "confidence": "untested",
-          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units.\n"
+          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units. The SERIAL 1 bridge is supported on the AT-OMNI-121.\n"
         }
       ]
     },
@@ -195,7 +195,7 @@
         {
           "id": "atlona_omnistream",
           "confidence": "untested",
-          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units.\n"
+          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units. The SERIAL 1 bridge is supported on the AT-OMNI-121.\n"
         }
       ]
     },
@@ -207,7 +207,7 @@
         {
           "id": "atlona_omnistream",
           "confidence": "untested",
-          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units.\n"
+          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units. The SERIAL 1 bridge is supported on the AT-OMNI-121.\n"
         }
       ]
     },
@@ -219,7 +219,7 @@
         {
           "id": "atlona_omnistream",
           "confidence": "untested",
-          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units.\n"
+          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units. The SERIAL 1 bridge is supported on the AT-OMNI-121.\n"
         }
       ]
     },
@@ -231,7 +231,7 @@
         {
           "id": "atlona_omnistream",
           "confidence": "untested",
-          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units.\n"
+          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units. The SERIAL 1 bridge is supported on the AT-OMNI-121.\n"
         }
       ]
     },

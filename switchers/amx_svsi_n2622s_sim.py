@@ -249,6 +249,7 @@ class AMXN2622SSimulator(TCPSimulator):
         model = (config or {}).get("decoder_model")
         self._n33 = model == "N3322D"
         self._n24 = model == "N2422A"
+        self._hcontrol_enabled = model in (None, "Auto", "N2622S")
         self._fields = dict(STATUS)
         self.SIMULATOR_INFO = deepcopy(type(self).SIMULATOR_INFO)
         if self._n24:
@@ -260,6 +261,15 @@ class AMXN2622SSimulator(TCPSimulator):
             **self.SIMULATOR_INFO,
             "tls": bool(self.config.get("ssl")),
         }
+        streams = {row["name"]: row["stream"] for row in self.config.get("sources", [])}
+        self._keyboard_streams = (
+            {
+                row["address"]: streams.get(row["name"])
+                for row in self.config.get("usb_sources", [])
+            }
+            if self._n24
+            else {}
+        )
         self._certs = None
         self._direct = None
         self._subscriptions = {}
@@ -362,31 +372,24 @@ class AMXN2622SSimulator(TCPSimulator):
         if not self.SIMULATOR_INFO["tls"] and wire.startswith(
             ("get {", "subscribeevent {")
         ):
-            return None if self._n33 or self._n24 else self._hcontrol(wire)
+            return self._hcontrol(wire) if self._hcontrol_enabled else None
         client = CLIENT.get()
         if self._direct in self._clients and client != self._direct:
             self._clients[client].close()
             return None
         self._direct = client
         if wire == "getNetStatus":
-            if self._n24:
-                fields = {
-                    key: value
-                    for key, value in NETWORK.items()
-                    if key != "SVSI_NETSTATS"
-                }
-                return self._packet(
-                    {"SVSI_RXGEN2": self._fields["SVSI_RXGEN2"], **fields}
-                )
-            return self._packet(
-                {**NETWORK, "SVSI_NETSTATS": self._fields["SVSI_RXGEN2"]}
-            )
-        if self._n24 and wire.startswith("KVMMasterIP:"):
-            self._switch_keyboard(wire.partition(":")[2])
+            return self._network_packet()
         for key, value in self._changes(wire).items():
             if key in self._fields:
                 self.set_state(key, value)
         return self._packet(self._fields)
+
+    def _network_packet(self):
+        header = "SVSI_RXGEN2" if self._n24 else "SVSI_NETSTATS"
+        fields = dict(NETWORK)
+        del fields["SVSI_NETSTATS"]
+        return self._packet({header: self._fields["SVSI_RXGEN2"], **fields})
 
     def _switch_keyboard(self, target):
         address, _, video = target.partition(",")
@@ -394,24 +397,7 @@ class AMXN2622SSimulator(TCPSimulator):
             return
         self.set_state("connected_keyboard_encoder", address)
         if video != "0":
-            # The optional video flag defaults to 1. Resolve the encoder via
-            # the simulator's configured source names when it has a matching stream.
-            name = next(
-                (
-                    row.get("name")
-                    for row in self.config.get("usb_sources", [])
-                    if row.get("address") == address
-                ),
-                None,
-            )
-            stream = next(
-                (
-                    row.get("stream")
-                    for row in self.config.get("sources", [])
-                    if row.get("name") == name
-                ),
-                None,
-            )
+            stream = self._keyboard_streams.get(address)
             if stream is not None:
                 self.set_state("STREAM", str(stream))
 
@@ -421,8 +407,21 @@ class AMXN2622SSimulator(TCPSimulator):
         ).encode()
 
     def _changes(self, wire):
-        if self._n24 and wire in ("hdmiOn", "hdmiOff"):
-            return {"DVIOFF": "off" if wire == "hdmiOn" else "on"}
+        if self._n24:
+            override = self._n24_changes(wire)
+            if override is not None:
+                return override
+        return self._common_changes(wire)
+
+    def _n24_changes(self, wire):
+        if wire.startswith("KVMMasterIP:"):
+            self._switch_keyboard(wire.partition(":")[2])
+            return {}
+        if wire.startswith("setSettings:"):
+            return {}
+        return {"hdmiOn": {"DVIOFF": "off"}, "hdmiOff": {"DVIOFF": "on"}}.get(wire)
+
+    def _common_changes(self, wire):
         if wire in FIXED:
             return FIXED[wire]
         cmd, _, value = wire.partition(":")
@@ -456,8 +455,6 @@ class AMXN2622SSimulator(TCPSimulator):
 
     def _setting(self, wire):
         name, _, value = wire.partition(":")
-        if self._n24:
-            return {}
         if self._n33:
             return self._n33_setting(name, value)
         if name == "streamURL":

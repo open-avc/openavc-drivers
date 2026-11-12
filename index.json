@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 190,
+    "total_drivers": 191,
     "shards": null
   },
   "drivers": [
@@ -5220,6 +5220,73 @@
           3738,
           3739,
           3740
+        ]
+      }
+    },
+    {
+      "id": "extron_dmp_128_plus",
+      "name": "Extron DMP 128 Plus",
+      "manufacturer": "Extron",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "ssh",
+      "description": "Room audio control for the DMP 128 Plus family. Learns gain and mute groups, reads fader limits, recalls named presets and shows signal levels.",
+      "source_url": "https://media.extron.com/public/download/files/userman/dmp_128_plus_68-2826-01_N.pdf",
+      "file": "audio/extron_dmp_128_plus.py",
+      "format": "python",
+      "files": {
+        "audio/extron_dmp_128_plus.py": "729ff7b51b0aaa9c34af51f953d5f325463705b32400dd4364c1c8e1eb4120f4",
+        "audio/extron_dmp_128_plus_sim.py": "a23cb154eae6d0fefe7c3b9097c22deb6d224507aab5867e33723f84a45558f9"
+      },
+      "ports": [
+        22023
+      ],
+      "protocols": [
+        "extron_sis"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.25.0",
+      "tags": [
+        "dsp",
+        "conferencing",
+        "audio",
+        "sis"
+      ],
+      "help": {
+        "overview": "Use the gain and mute groups already designed in DSP Configurator for room controls. Monitor a meter group or read a single input or output signal while commissioning.",
+        "setup": "Connect to the control LAN and enter the DSP account for SIS over SSH (normally port 22023). On AT models use the control LAN, not the Dante audio port. For RS-232 select the local serial port or Through a bridge. Match the DSP\u2019s serial settings, normally 38400 baud, 8 data bits, no parity, one stop bit and no flow control. Refresh room controls after editing the DSP project. Use the pencil beside a group to name it for the room; SIS exposes its type and members. Bind a panel fader to the gain group\u2019s Level to pick up its limits.",
+        "connection": "A mute group controls every member. Mic/line input levels adjust pre-mixer gain. Output levels adjust attenuation. Select Monitor a meter group to see its meters, or Read input signal for a spot check. On firmware before 1.11.0000-b006 the selection also affects other controllers. Presets are created and named in DSP Configurator."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Extron",
+          "models": [
+            "DMP 128 Plus",
+            "DMP 128 Plus C AT",
+            "DMP 128 Plus C",
+            "DMP 128 Plus AT",
+            "DMP 128 Plus C V",
+            "DMP 128 Plus C V AT"
+          ],
+          "confidence": "untested",
+          "notes": "Shared room DSP controls from the 128 Plus User Guide, revision N. Includes the C AT. Physical qualification pending."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 23,
+          "expect_regex": "(?i)Extron Electronics[^\\r\\n]*DMP 128 Plus(?: C V AT| C AT| C V| AT| C)?\\s*,",
+          "extract_manufacturer": "Extron"
+        },
+        "oui": [
+          "00:05:a6"
+        ],
+        "hostname": [
+          "(?i)^dmp-?128-?plus(?:-|$)"
+        ],
+        "manufacturer_alias": [
+          "extron"
         ]
       }
     },

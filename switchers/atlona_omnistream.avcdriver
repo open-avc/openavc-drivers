@@ -14,7 +14,7 @@
 # Protocol reference: Atlona OmniStream CLI Command Set + JSON over WebSocket
 #                     (Version 15, May 2023, firmware 2.0)
 # https://ts.atlona.com/pdf/OmniStream_CLI-JSON_API.pdf
-# AT-OMNI-121 serial wiring and TCP Proxy: decoder manual v19, pp. 16, 43-44.
+# AT-OMNI-121/122 port 1 wiring and TCP Proxy: decoder manual v19, pp. 16, 43-44.
 # https://ts.atlona.com/pdf/manuals/AT-OMNI-12x.pdf
 #
 # Command format: <Command><index><space><value><CR>     (CR = 0x0d)
@@ -43,7 +43,7 @@ id: atlona_omnistream
 name: Atlona OmniStream
 manufacturer: Atlona
 category: switcher
-version: 1.6.0
+version: 1.7.0
 author: OpenAVC
 min_platform_version: "0.24.0"
 description: >
@@ -52,8 +52,8 @@ description: >
   is a child entity tracking its active video/audio source and status,
   audio mute/volume, analog speaker power, and HDCP version. Supports
   source routing, video enable, and CEC/RS-232 display triggers.
-  An AT-OMNI-121 can also connect a display's own serial driver through
-  its rear SERIAL 1 port for two-way control.
+  The AT-OMNI-121 and AT-OMNI-122 can also connect a display's own serial
+  driver through rear RS-232 port 1 for two-way control.
 
 source_url: https://ts.atlona.com/pdf/OmniStream_CLI-JSON_API.pdf
 tags: [av-over-ip, encoder, decoder, omnistream, telnet, serial-bridge, rs232]
@@ -76,18 +76,18 @@ compatible_models:
       All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+.
       Some audio commands (mute, volume, AudioInput, AnalogPower,
       DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op
-      on R-Type units. The SERIAL 1 bridge is supported on the AT-OMNI-121.
+      on R-Type units. The SERIAL 1 bridge supports the AT-OMNI-121 and AT-OMNI-122.
 
 transport: tcp
 delimiter: "\r\n"
 
-# The port picker is shared by the family. Name the qualified model explicitly.
+# The family shares a port picker. Both named decoders use the same port ID.
 # 10000 is the listener the installer selects (manual p. 44), separate from Telnet.
 bridge:
   ports:
     - id: serial:1
       kind: serial
-      label: AT-OMNI-121 SERIAL 1 (TCP 10000)
+      label: AT-OMNI-121/122 SERIAL 1 (TCP 10000)
       passthrough_port: 10000
 
 help:
@@ -111,9 +111,10 @@ help:
        output number and the IP input name (e.g. "ip_input3") configured
        on the decoder's web UI.
 
-    Optional display control through an AT-OMNI-121
-    1. Set HDMI Output Count to 1 for this single-output decoder. Wire SERIAL 1
-       TX to the display's RX, RX to its TX, and GND to GND. SERIAL 2 is IR only.
+    Optional display control through an AT-OMNI-121 or AT-OMNI-122
+    1. Set HDMI Output Count to 1 for the 121 or 2 for the 122. On rear RS-232
+       port 1, wire TX to the display's RX, RX to its TX, and GND to GND.
+       On the 122, either HDMI output can feed the display wired to port 1.
     2. In the decoder's web interface, open Serial. Under Serial port configuration,
        set serial_port1 to Serial. Match baud rate, data bits, parity, stop bits
        and flow control to the display's manual. Click SAVE.
@@ -121,12 +122,12 @@ help:
        tcpproxy. Under TCPProxy, choose the Ethernet interface whose IP address
        you entered in OpenAVC, enter 10000 for Port, and click SAVE.
     4. Add the display with its own serial driver. Choose Through a bridge, select
-       this decoder, then AT-OMNI-121 SERIAL 1 (TCP 10000). OpenAVC fills in the
-       network connection. Send a status query from the display driver and look
-       for the display's reply.
+       this decoder. OpenAVC selects AT-OMNI-121/122 SERIAL 1 (TCP 10000) and
+       fills in the network connection. Send a status query from the display driver
+       and look for the display's reply.
   connection: >
-    If decoder control works but the display does not reply, run Read AT-OMNI-121
-    Serial Mode on the decoder. Serial Use 1 Mode should report tcpproxy.
+    If decoder control works but the display does not reply, run Read Serial Use 1
+    Mode on the decoder. Serial Use 1 Mode should report tcpproxy.
     Check the saved interface and TCPProxy Port (10000) in the decoder, then check
     the SERIAL 1 wiring and line settings against the display. Editing the display
     driver's serial settings in OpenAVC does not program the decoder.
@@ -225,7 +226,7 @@ state_variables:
   serial_use1_mode:
     type: string
     label: Serial Use 1 Mode
-    help: "Last mode reported by serial_use1 when queried. For the AT-OMNI-121 bridge, select serial_port1 and tcpproxy in the decoder."
+    help: "Last mode reported by serial_use1 when queried. For the AT-OMNI-121 or AT-OMNI-122 bridge, select serial_port1 and tcpproxy in the decoder."
 
 child_entity_types:
   output:
@@ -282,7 +283,7 @@ commands:
     help: "Flash the front-panel LEDs for 10 seconds to physically locate this unit."
 
   query_serial_use1_mode:
-    label: Read AT-OMNI-121 Serial Mode
+    label: Read Serial Use 1 Mode
     send: "SerialMode1 sta\r"
     query_for: serial_use1_mode
     help: "Read the decoder's first serial configuration. Serial Use 1 Mode shows its current mode. Check for tcpproxy, then query the display through its own driver to verify the wiring and reply."
@@ -608,7 +609,7 @@ commands:
   trigger_rs232:
     label: Trigger RS-232 Command
     send: "TrigRS232{port} {command}\r"
-    help: "Run a command stored in the OmniStream unit for the specified port. For two-way control through an AT-OMNI-121, send commands from the connected display's own driver."
+    help: "Run a command stored in the OmniStream unit for the specified port. For two-way control through port 1 of an AT-OMNI-121 or AT-OMNI-122, use the connected display's own driver."
     params:
       port:
         type: integer

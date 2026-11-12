@@ -1258,15 +1258,15 @@
       "name": "Atlona OmniStream",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.6.0",
+      "version": "1.7.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls Atlona OmniStream Pro, R-Type, and Wallplate AV-over-IP encoders and decoders via the Telnet CLI (port 23). Each HDMI output is a child entity tracking its active video/audio source and status, audio mute/volume, analog speaker power, and HDCP version. Supports source routing, video enable, and CEC/RS-232 display triggers. An AT-OMNI-121 can also connect a display's own serial driver through its rear SERIAL 1 port for two-way control.\n",
+      "description": "Controls Atlona OmniStream Pro, R-Type, and Wallplate AV-over-IP encoders and decoders via the Telnet CLI (port 23). Each HDMI output is a child entity tracking its active video/audio source and status, audio mute/volume, analog speaker power, and HDCP version. Supports source routing, video enable, and CEC/RS-232 display triggers. The AT-OMNI-121 and AT-OMNI-122 can also connect a display's own serial driver through rear RS-232 port 1 for two-way control.\n",
       "source_url": "https://ts.atlona.com/pdf/OmniStream_CLI-JSON_API.pdf",
       "file": "switchers/atlona_omnistream.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/atlona_omnistream.avcdriver": "9c1776f9a0c131630a3f30aba8817e4a1554712bec76065db25891592703b3fe"
+        "switchers/atlona_omnistream.avcdriver": "c2141fa37fe307a22826b2a8b94bd52cf2b7d938497ccbd05d24ec86591838af"
       },
       "ports": [
         23,
@@ -1289,8 +1289,8 @@
       ],
       "help": {
         "overview": "Atlona OmniStream is an AV-over-IP encoder/decoder system. Encoders take HDMI sources and produce network streams; decoders pick a stream and output HDMI to a display. Routing happens by setting which IP stream each decoder receives (the VideoInput command).\n",
-        "setup": "1. Set a static IP on the OmniStream unit via its web UI.\n2. If Telnet login authentication (IPLogin) is enabled on the device,\n   enter the unit's Username and Password in this driver's config \u2014\n   the driver will handle the \"Login:\" / \"Password:\" handshake. Leave\n   both blank if IPLogin is disabled.\n3. Configure encoder sessions (multicast addresses, video format)\n   and decoder IP inputs in the web UI before driver use.\n4. Connect this driver to port 23. The HDMI output index ranges\n   1..2 on most decoders; the session index ranges 1..6.\n5. Volume range is 0..15 (Atlona's native scale).\n6. To route a source: send the \"Set Video Input\" command with the\n   output number and the IP input name (e.g. \"ip_input3\") configured\n   on the decoder's web UI.\n\nOptional display control through an AT-OMNI-121\n1. Set HDMI Output Count to 1 for this single-output decoder. Wire SERIAL 1\n   TX to the display's RX, RX to its TX, and GND to GND. SERIAL 2 is IR only.\n2. In the decoder's web interface, open Serial. Under Serial port configuration,\n   set serial_port1 to Serial. Match baud rate, data bits, parity, stop bits\n   and flow control to the display's manual. Click SAVE.\n3. Under Serial configuration (serial_use1), select serial_port1 and mode\n   tcpproxy. Under TCPProxy, choose the Ethernet interface whose IP address\n   you entered in OpenAVC, enter 10000 for Port, and click SAVE.\n4. Add the display with its own serial driver. Choose Through a bridge, select\n   this decoder, then AT-OMNI-121 SERIAL 1 (TCP 10000). OpenAVC fills in the\n   network connection. Send a status query from the display driver and look\n   for the display's reply.\n",
-        "connection": "If decoder control works but the display does not reply, run Read AT-OMNI-121 Serial Mode on the decoder. Serial Use 1 Mode should report tcpproxy. Check the saved interface and TCPProxy Port (10000) in the decoder, then check the SERIAL 1 wiring and line settings against the display. Editing the display driver's serial settings in OpenAVC does not program the decoder.\n"
+        "setup": "1. Set a static IP on the OmniStream unit via its web UI.\n2. If Telnet login authentication (IPLogin) is enabled on the device,\n   enter the unit's Username and Password in this driver's config \u2014\n   the driver will handle the \"Login:\" / \"Password:\" handshake. Leave\n   both blank if IPLogin is disabled.\n3. Configure encoder sessions (multicast addresses, video format)\n   and decoder IP inputs in the web UI before driver use.\n4. Connect this driver to port 23. The HDMI output index ranges\n   1..2 on most decoders; the session index ranges 1..6.\n5. Volume range is 0..15 (Atlona's native scale).\n6. To route a source: send the \"Set Video Input\" command with the\n   output number and the IP input name (e.g. \"ip_input3\") configured\n   on the decoder's web UI.\n\nOptional display control through an AT-OMNI-121 or AT-OMNI-122\n1. Set HDMI Output Count to 1 for the 121 or 2 for the 122. On rear RS-232\n   port 1, wire TX to the display's RX, RX to its TX, and GND to GND.\n   On the 122, either HDMI output can feed the display wired to port 1.\n2. In the decoder's web interface, open Serial. Under Serial port configuration,\n   set serial_port1 to Serial. Match baud rate, data bits, parity, stop bits\n   and flow control to the display's manual. Click SAVE.\n3. Under Serial configuration (serial_use1), select serial_port1 and mode\n   tcpproxy. Under TCPProxy, choose the Ethernet interface whose IP address\n   you entered in OpenAVC, enter 10000 for Port, and click SAVE.\n4. Add the display with its own serial driver. Choose Through a bridge, select\n   this decoder. OpenAVC selects AT-OMNI-121/122 SERIAL 1 (TCP 10000) and\n   fills in the network connection. Send a status query from the display driver\n   and look for the display's reply.\n",
+        "connection": "If decoder control works but the display does not reply, run Read Serial Use 1 Mode on the decoder. Serial Use 1 Mode should report tcpproxy. Check the saved interface and TCPProxy Port (10000) in the decoder, then check the SERIAL 1 wiring and line settings against the display. Editing the display driver's serial settings in OpenAVC does not program the decoder.\n"
       },
       "compatible_models": [
         {
@@ -1305,7 +1305,7 @@
             "AT-OMNI-521"
           ],
           "confidence": "untested",
-          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units. The SERIAL 1 bridge is supported on the AT-OMNI-121.\n"
+          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units. The SERIAL 1 bridge supports the AT-OMNI-121 and AT-OMNI-122.\n"
         }
       ],
       "discovery": {

@@ -253,7 +253,7 @@ class AMXN2622SSimulator(TCPSimulator):
         self._fields = dict(STATUS)
         self.SIMULATOR_INFO = deepcopy(type(self).SIMULATOR_INFO)
         if self._n24:
-            self._n24_profile()
+            self._n24_profile(config)
         elif self._n33:
             self._n33_profile(config)
         super().__init__(device_id, config)
@@ -261,15 +261,6 @@ class AMXN2622SSimulator(TCPSimulator):
             **self.SIMULATOR_INFO,
             "tls": bool(self.config.get("ssl")),
         }
-        streams = {row["name"]: row["stream"] for row in self.config.get("sources", [])}
-        self._keyboard_streams = (
-            {
-                row["address"]: streams.get(row["name"])
-                for row in self.config.get("usb_sources", [])
-            }
-            if self._n24
-            else {}
-        )
         self._certs = None
         self._direct = None
         self._subscriptions = {}
@@ -277,7 +268,14 @@ class AMXN2622SSimulator(TCPSimulator):
         for key, value in self._fields.items():
             self.state.setdefault(key, value)
 
-    def _n24_profile(self):
+    def _n24_profile(self, config):
+        streams = {
+            row.get("name"): row.get("stream") for row in config.get("sources") or []
+        }
+        self._keyboard_streams = {
+            row.get("address"): streams.get(row.get("name"))
+            for row in config.get("usb_sources") or []
+        }
         self._fields = dict(N24_STATUS)
         info = self.SIMULATOR_INFO
         info["controls"] = [c for c in info["controls"] if c["key"] in self._fields]

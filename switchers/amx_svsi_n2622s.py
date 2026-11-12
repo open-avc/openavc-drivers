@@ -1394,15 +1394,9 @@ class AMXN2622SDriver(BaseDriver):
         self._watch = None
         self._configure_surface()
 
-    @property
-    def _n33(self):
-        return self._model == "N3322D"
-
-    @property
-    def _n24(self):
-        return self._model == "N2422A"
-
     def _configure_surface(self):
+        self._n24 = self._model == "N2422A"
+        self._n33 = self._model == "N3322D"
         info = deepcopy(type(self).DRIVER_INFO)
         self.DRIVER_INFO = info
         self._route_keys = {"N2422A": N24_FEEDBACK, "N3322D": MATRIX_READINGS}.get(
@@ -1709,9 +1703,6 @@ class AMXN2622SDriver(BaseDriver):
             await asyncio.gather(self._watch, return_exceptions=True)
             self._watch = None
         self._clear_hdmi("Disconnected")
-        self._clear_route_state()
-
-    def _clear_route_state(self):
         self._packet.clear()
         self._missing_routes.clear()
         keys = self._route_keys
@@ -1767,6 +1758,7 @@ class AMXN2622SDriver(BaseDriver):
             finally:
                 self._reply.cancel()
                 self._reply = None
+                self._header = None
 
     async def on_data_received(self, data):
         for line in data.decode("utf-8", "replace").splitlines():
@@ -1793,7 +1785,7 @@ class AMXN2622SDriver(BaseDriver):
         # prior report, so an omitted reading cannot leave a stale crosspoint.
         self._clear_missing_routes()
         self._packet = {}
-        if self._n24 and self._header == NETWORK and self._waiting_for_reply():
+        if self._n24 and self._header == NETWORK:
             # N2400 uses the same RX header for both replies.
             header = NETWORK
         self._in_packet = header == self._header

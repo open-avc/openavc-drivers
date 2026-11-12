@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1365,
+    "total_devices": 1367,
     "shards": null
   },
   "devices": [
@@ -1323,6 +1323,30 @@
           "id": "apc_rack_pdu",
           "confidence": "untested",
           "notes": "Rack PDU 2G and later, on the rPDU2 MIB branch. Switched models expose outlet control; Switched Metered-by-Outlet models (AP89xx) add per-outlet current, power and energy. Metered-only models connect and report banks, phases and device load with no outlet switching. The outlet, bank, phase and sensor rosters are read off the device, so a 16-outlet and a 24-outlet unit each surface exactly what they have."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Apple",
+      "model": "Apple TV 4K",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "apple_tv",
+          "confidence": "untested",
+          "notes": "Requires tvOS with the Companion Link remote service. Simulator and protocol interoperability tested."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Apple",
+      "model": "Apple TV HD",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "apple_tv",
+          "confidence": "untested",
+          "notes": "Requires tvOS with the Companion Link remote service. Simulator and protocol interoperability tested."
         }
       ]
     },

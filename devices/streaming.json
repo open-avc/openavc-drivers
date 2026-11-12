@@ -2,11 +2,35 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 114,
+    "total_devices": 116,
     "shards": null,
     "category": "streaming"
   },
   "devices": [
+    {
+      "manufacturer": "Apple",
+      "model": "Apple TV 4K",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "apple_tv",
+          "confidence": "untested",
+          "notes": "Requires tvOS with the Companion Link remote service. Simulator and protocol interoperability tested."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Apple",
+      "model": "Apple TV HD",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "apple_tv",
+          "confidence": "untested",
+          "notes": "Requires tvOS with the Companion Link remote service. Simulator and protocol interoperability tested."
+        }
+      ]
+    },
     {
       "manufacturer": "Barco",
       "model": "ClickShare C-10",

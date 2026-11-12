@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 193,
+    "total_drivers": 194,
     "shards": null
   },
   "drivers": [
@@ -1040,6 +1040,77 @@
           "american power conversion",
           "schneider electric",
           "apc by schneider electric"
+        ]
+      }
+    },
+    {
+      "id": "apple_tv",
+      "name": "Apple TV",
+      "manufacturer": "Apple",
+      "category": "streaming",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Pair over the local network to navigate tvOS, control playback, launch installed apps and monitor power.",
+      "source_url": "https://pyatv.dev/documentation/protocols/#companion",
+      "file": "streaming/apple_tv.py",
+      "format": "python",
+      "files": {
+        "streaming/apple_tv.py": "c9f9a79eb805632ab2010766075dbee3d8e416f2bd6e647f10a24a6628bf4abb",
+        "streaming/apple_tv_sim.py": "5c60a07f5804eb7d590dc65bc4cc05cd99104acbc4a8b1cbed6c6de45f9ec412"
+      },
+      "protocols": [
+        "companion_link"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.40.0",
+      "tags": [
+        "apple",
+        "streaming",
+        "media-player",
+        "tvos"
+      ],
+      "help": {
+        "overview": "Controls Apple TV HD and Apple TV 4K directly from OpenAVC. Give each room its own Apple TV device. Apps come from that TV, so an integrator can pick an installed app by name.",
+        "setup": "Add the Apple TV by discovery or enter its address. Keep its display visible. Under Actions choose 1. Show pairing PIN, then 2. Enter pairing PIN. Enter all four digits shown on that TV, including leading zeros. OpenAVC saves the verified pairing on this controller and reconnects. To replace a TV or restore onto a different controller, repeat both steps. If Bonjour cannot cross your VLANs, enter the TCP port advertised for _companion-link._tcp in Port override. Apple TV advertises this port dynamically. Playback and volume buttons depend on the active app and audio route. In the built-in simulator the PIN is 1234. Some tvOS versions first report power when it changes."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Apple",
+          "models": [
+            "Apple TV HD",
+            "Apple TV 4K"
+          ],
+          "confidence": "untested",
+          "notes": "Requires tvOS with the Companion Link remote service. Simulator and protocol interoperability tested."
+        }
+      ],
+      "discovery": {
+        "mdns": [
+          {
+            "service": "_companion-link._tcp.local.",
+            "txt": {
+              "rpMd": "AppleTV5,3"
+            }
+          },
+          {
+            "service": "_companion-link._tcp.local.",
+            "txt": {
+              "rpMd": "AppleTV6,2"
+            }
+          },
+          {
+            "service": "_companion-link._tcp.local.",
+            "txt": {
+              "rpMd": "AppleTV11,1"
+            }
+          },
+          {
+            "service": "_companion-link._tcp.local.",
+            "txt": {
+              "rpMd": "AppleTV14,1"
+            }
+          }
         ]
       }
     },

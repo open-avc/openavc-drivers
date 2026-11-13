@@ -64,6 +64,65 @@ def output(index):
     return row
 
 
+def valid_mark(payload):
+    if not isinstance(payload, dict):
+        return False
+    if not isinstance(payload.get("usedBy"), str):
+        return False
+    return type(payload.get("timer")) is int and 5 <= payload["timer"] <= 3600
+
+
+def write_status(collection, key, row, payload):
+    id_field = {
+        PAIRED: "mtUid",
+        OUTPUTS: "outputId",
+        CARRIERS: "rfChannelId",
+        PORTS: "antennaPortId",
+    }[collection]
+    if payload.get(id_field) != key or not set(payload) <= set(row):
+        return 400
+    if collection != PAIRED:
+        return 200
+    if payload.get("type") != row["type"]:
+        return 400
+    return 200 if row["state"] == "Connected" else 409
+
+
+def station_resources(config):
+    return {
+        "/api/ssc/usagemark": {"usedBy": "", "timer": 5},
+        "/api/audio/pendingactions": {"numPendingActions": 0},
+        "/api/device/identity": {
+            "product": "Spectera-Base-Station",
+            "vendor": "Sennheiser electronic SE & Co. KG",
+            "serial": "1534000001",
+            "variant": {"articleName": config.get("model", "Spectera Base Station")},
+        },
+        "/api/ssc/version": {
+            "protocol": "2.3",
+            "schema": config.get("api_version", "18.3"),
+        },
+        "/api/device/state": {"state": "Normal", "warnings": []},
+        IDENTIFICATION: {"visual": False},
+        "/api/device/site": {"deviceName": "Stage Left"},
+        "/api/firmware/update/state": {"deviceVersion": config.get("firmware", "1.5.0")},
+        "/api/health/psu": {"psu1": "connected", "psu2": "unconnected"},
+        "/api/health/tempstateoverall": {"value": "normal"},
+        "/api/audio/interface/aoip/status": {
+            "aoIpType": "Dante",
+            "status": "Locked",
+            "mute": False,
+        },
+        **{
+            f"/api/audio/interface/madi{i}/status": {
+                "inputStatus": {"mute": False},
+                "outputStatus": {"mute": False},
+            }
+            for i in (1, 2)
+        },
+    }
+
+
 class SennheiserSpecteraSimulator(HTTPSimulator):
     SIMULATOR_INFO = {
         "driver_id": "sennheiser_spectera",
@@ -178,42 +237,7 @@ class SennheiserSpecteraSimulator(HTTPSimulator):
                 for port in "abcd"
             },
         }
-        self.resources = {
-            "/api/ssc/usagemark": {"usedBy": "", "timer": 5},
-            "/api/audio/pendingactions": {"numPendingActions": 0},
-            "/api/device/identity": {
-                "product": "Spectera-Base-Station",
-                "vendor": "Sennheiser electronic SE & Co. KG",
-                "serial": "1534000001",
-                "variant": {
-                    "articleName": config.get("model", "Spectera Base Station")
-                },
-            },
-            "/api/ssc/version": {
-                "protocol": "2.3",
-                "schema": config.get("api_version", "18.3"),
-            },
-            "/api/device/state": {"state": "Normal", "warnings": []},
-            IDENTIFICATION: {"visual": False},
-            "/api/device/site": {"deviceName": "Stage Left"},
-            "/api/firmware/update/state": {
-                "deviceVersion": config.get("firmware", "1.5.0")
-            },
-            "/api/health/psu": {"psu1": "connected", "psu2": "unconnected"},
-            "/api/health/tempstateoverall": {"value": "normal"},
-            "/api/audio/interface/aoip/status": {
-                "aoIpType": "Dante",
-                "status": "Locked",
-                "mute": False,
-            },
-            **{
-                f"/api/audio/interface/madi{i}/status": {
-                    "inputStatus": {"mute": False},
-                    "outputStatus": {"mute": False},
-                }
-                for i in (1, 2)
-            },
-        }
+        self.resources = station_resources(config)
 
     def _authorized(self, headers):
         token = next(
@@ -223,27 +247,16 @@ class SennheiserSpecteraSimulator(HTTPSimulator):
         if "wrong_password" in self.active_errors or not token.startswith("Basic "):
             return False
         try:
-            user, _, password = (
-                base64.b64decode(token[6:], validate=True).decode().partition(":")
-            )
+            user, _, password = base64.b64decode(token[6:], validate=True).decode().partition(":")
         except (UnicodeError, ValueError):
             return False
-        return (
-            user == "controlSennheiser"
-            and bool(password)
-            and password != "invalid"
-            and (not self._password or self._password == password)
-        )
+        if user != "controlSennheiser" or password in ("", "invalid"):
+            return False
+        return self._password in (None, "", password)
 
     @staticmethod
     def _frame(event, data):
-        return (
-            "event: "
-            + event
-            + "\ndata: "
-            + json.dumps(data, separators=(",", ":"))
-            + "\n\n"
-        )
+        return "event: " + event + "\ndata: " + json.dumps(data, separators=(",", ":")) + "\n\n"
 
     def _notify(self, path, data):
         parent = path.rpartition("/")[0]
@@ -262,24 +275,26 @@ class SennheiserSpecteraSimulator(HTTPSimulator):
             return 200, ""
         if method != "PUT" or not isinstance(body, list):
             return 400, {}
-        for path in body:
-            if path not in self.collections and path not in self.resources:
-                return 400, {"path": path, "error": 404}
+        known = self.collections.keys() | self.resources.keys()
+        unsupported = next((p for p in body if not isinstance(p, str) or p not in known), None)
+        if unsupported is not None:
+            return 400, {"path": unsupported, "error": 404}
         session["paths"] = set(body)
         for path in body:
-            if path == PAIRED:
-                for uid, row in self.collections[path].items():
-                    session["queue"].put_nowait(
-                        self._frame("message", {f"{path}/{uid}": row})
-                    )
-            else:
-                data = (
-                    list(self.collections[path].values())
-                    if path in self.collections
-                    else self.resources[path]
-                )
-                session["queue"].put_nowait(self._frame("message", {path: data}))
+            self._initial_notifications(session["queue"], path)
         return 200, ""
+
+    def _initial_notifications(self, queue, path):
+        if path == PAIRED:
+            for uid, row in self.collections[path].items():
+                queue.put_nowait(self._frame("message", {f"{path}/{uid}": row}))
+            return
+        value = (
+            list(self.collections[path].values())
+            if path in self.collections
+            else self.resources[path]
+        )
+        queue.put_nowait(self._frame("message", {path: value}))
 
     async def _serve_sse(self, request, path):
         if not self._authorized(request.headers):
@@ -296,9 +311,7 @@ class SennheiserSpecteraSimulator(HTTPSimulator):
         self._sse_clients.add(queue)
         try:
             await response.write(
-                self._frame(
-                    "open", {"sessionUUID": ident, "path": f"{path}/{ident}"}
-                ).encode()
+                self._frame("open", {"sessionUUID": ident, "path": f"{path}/{ident}"}).encode()
             )
             while self.running:
                 msg = await queue.get()
@@ -323,28 +336,35 @@ class SennheiserSpecteraSimulator(HTTPSimulator):
             return
         uid = self._sek["mtUid"]
         if key == "sek_paired":
-            if value:
-                self.collections[PAIRED][uid] = self._sek
-            else:
-                self.collections[PAIRED].pop(uid, None)
-        elif key == "sek_connected":
-            self._sek["state"] = "Connected" if value else "Disconnected"
-        elif key == "sek_button":
-            if self._sek.get("commandBehavior") == "Latching":
-                self._sek["commandState"] = "Latched" if value else "Unlatched"
-            else:
-                self._sek["commandState"] = "Pressed" if value else "Released"
-        elif key == "sek_battery":
-            self._sek.update(batteryFillLevel=value, batteryLow=0 <= value <= 10)
+            self._set_paired(uid, value)
         else:
-            wire = {
-                "sek_minutes": "batteryRuntime",
-                "sek_mic_quality": "micLqi",
-                "sek_iem_quality": "iemLqi",
-            }.get(key)
-            if wire:
-                self._sek[wire] = value
+            self._sek.update(self._sek_change(key, value))
         self._notify(f"{PAIRED}/{uid}", self.collections[PAIRED].get(uid))
+
+    def _set_paired(self, uid, paired):
+        if paired:
+            self.collections[PAIRED][uid] = self._sek
+        else:
+            self.collections[PAIRED].pop(uid, None)
+
+    def _sek_change(self, key, value):
+        if key == "sek_connected":
+            return {"state": "Connected" if value else "Disconnected"}
+        if key == "sek_battery":
+            return {"batteryFillLevel": value, "batteryLow": 0 <= value <= 10}
+        if key == "sek_button":
+            states = (
+                ("Unlatched", "Latched")
+                if self._sek.get("commandBehavior") == "Latching"
+                else ("Released", "Pressed")
+            )
+            return {"commandState": states[bool(value)]}
+        wire = {
+            "sek_minutes": "batteryRuntime",
+            "sek_mic_quality": "micLqi",
+            "sek_iem_quality": "iemLqi",
+        }.get(key)
+        return {wire: value} if wire else {}
 
     def inject_error(self, mode):
         super().inject_error(mode)
@@ -361,85 +381,80 @@ class SennheiserSpecteraSimulator(HTTPSimulator):
         if path.startswith(SESSIONS + "/"):
             return self._session_request(method, path, payload)
         if path == "/api/ssc/usagemark":
-            mark = self.resources[path]
-            if self._mark_expires and time.monotonic() >= self._mark_expires:
-                mark["usedBy"] = ""
-                self._mark_expires = 0
-            if method == "PUT":
-                if (
-                    not isinstance(payload, dict)
-                    or not isinstance(payload.get("usedBy"), str)
-                    or not 5 <= payload.get("timer", 0) <= 3600
-                ):
-                    return 400, {}
-                mark.update(payload)
-                self._mark_expires = time.monotonic() + payload["timer"]
-                return 200, ""
+            return self._mark(method, payload)
         if path == "/api/audio/pendingactions" and self._pending:
-            pending_path, row, patch = self._pending
-            self._pending = None
-            row.update(patch)
-            self._notify(pending_path, row)
-            return 200, {"numPendingActions": 1}
+            return self._apply_pending()
         if method == "GET":
-            if path in self.collections:
-                return 200, json.dumps(list(self.collections[path].values()))
-            if path in self.resources:
-                return 200, self.resources[path]
-        if method == "PUT" and "refuse_write" in self.active_errors:
+            return self._read(path)
+        if method != "PUT":
+            return 405, {}
+        if "refuse_write" in self.active_errors:
             return 409, {}
-        if (
-            path == IDENTIFICATION
-            and method == "PUT"
-            and isinstance(payload, dict)
-            and type(payload.get("visual")) is bool
-        ):
+        return self._write(path, payload)
+
+    def _mark(self, method, payload):
+        mark = self.resources["/api/ssc/usagemark"]
+        if self._mark_expires and time.monotonic() >= self._mark_expires:
+            mark["usedBy"] = ""
+            self._mark_expires = 0
+        if method == "GET":
+            return 200, mark
+        if method != "PUT" or not valid_mark(payload):
+            return 400, {}
+        mark.update(payload)
+        self._mark_expires = time.monotonic() + payload["timer"]
+        return 200, ""
+
+    def _apply_pending(self):
+        path, row, patch = self._pending
+        self._pending = None
+        row.update(patch)
+        self._notify(path, row)
+        return 200, {"numPendingActions": 1}
+
+    def _resource_row(self, path):
+        collection, _, suffix = path.rpartition("/")
+        rows = self.collections.get(collection, {})
+        key = suffix if collection == PORTS else int(suffix) if suffix.isdecimal() else None
+        return collection, key, rows.get(key)
+
+    def _read(self, path):
+        if path in self.collections:
+            return 200, json.dumps(list(self.collections[path].values()))
+        if path in self.resources:
+            return 200, self.resources[path]
+        _, _, row = self._resource_row(path)
+        return (200, row) if row is not None else (404, {})
+
+    def _write(self, path, payload):
+        if not isinstance(payload, dict):
+            return 400, {}
+        if path == IDENTIFICATION:
+            if type(payload.get("visual")) is not bool:
+                return 400, {}
             self.resources[path].update(payload)
             self._notify(path, self.resources[path])
             return 200, self.resources[path]
-        collection, _, suffix = path.rpartition("/")
-        if collection not in self.collections:
-            return 404, {}
-        key = (
-            suffix
-            if collection == PORTS
-            else int(suffix)
-            if suffix.isdecimal()
-            else None
-        )
-        row = self.collections[collection].get(key)
+        coll, key, row = self._resource_row(path)
         if row is None:
             return 404, {}
-        if method == "GET":
-            return 200, row
-        if method != "PUT" or not isinstance(payload, dict):
-            return 405, {}
-        id_field = {
-            PAIRED: "mtUid",
-            OUTPUTS: "outputId",
-            CARRIERS: "rfChannelId",
-            PORTS: "antennaPortId",
-        }[collection]
-        if payload.get(id_field) != key:
-            return 400, {}
-        if collection == PAIRED:
-            if payload.get("type") != row["type"]:
-                return 400, {}
-            if row["state"] != "Connected":
-                return 409, {}
-        if not set(payload) <= set(row):
-            return 400, {}
-        if collection == OUTPUTS:
+        status = write_status(coll, key, row, payload)
+        if status != 200:
+            return status, {}
+        if coll == OUTPUTS:
             self._pending = (path, row, payload)
             return 200, ""
         row.update(payload)
-        if collection == CARRIERS:
-            for device in self.collections[PAIRED].values():
-                if device.get("rfChannelId") == key:
-                    if payload.get("rfState") == "RfMuted":
-                        device["state"] = "Disconnected"
-                    elif device is self._sek and self.get_state("sek_connected"):
-                        device["state"] = "Connected"
-                    self._notify(f"{PAIRED}/{device['mtUid']}", device)
+        if coll == CARRIERS:
+            self._carrier_change(key, payload)
         self._notify(path, row)
         return 200, ""
+
+    def _carrier_change(self, key, payload):
+        attached = [r for r in self.collections[PAIRED].values() if r.get("rfChannelId") == key]
+        for row in attached:
+            if payload.get("rfState") == "RfMuted":
+                row["state"] = "Disconnected"
+            elif row is not self._sek or self.get_state("sek_connected"):
+                row["state"] = "Connected"
+            self._notify(f"{PAIRED}/{row['mtUid']}", row)

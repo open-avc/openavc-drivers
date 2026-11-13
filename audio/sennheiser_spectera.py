@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-import math
+from collections import defaultdict
 import re
 import uuid
 from contextlib import asynccontextmanager
@@ -157,9 +157,7 @@ def output_state(row, sources):
 def wireless_state(row):
     state = row.get("rfState")
     return {
-        "requested_mute": state == "RfMuted"
-        if state in ("RfActive", "RfMuted")
-        else None,
+        "requested_mute": state == "RfMuted" if state in ("RfActive", "RfMuted") else None,
         "restricted": row.get("rfRestrictionViolation"),
         "frequency_khz": row.get("frequency"),
         "power_mw": row.get("txPower"),
@@ -188,49 +186,143 @@ def local_id(path, wire_id):
     return wire_id
 
 
+def wire_identity(path, row):
+    key = field(row, COLLECTIONS[path][1])
+    if path == ANTENNAS:
+        if key in ("a", "b", "c", "d"):
+            return key
+        raise ValueError("Invalid antenna port")
+    limit = {MOBILES: 4294967295, RF: 1, OUTPUTS: 31}[path]
+    if type(key) is not int or not 0 <= key <= limit:
+        raise ValueError("Invalid Spectera resource ID")
+    if path == MOBILES and row.get("type") not in ("SEK", "SKM"):
+        raise ValueError("Unknown mobile type")
+    return key
+
+
 def indexed_rows(path, body):
-    """Only a complete, well-formed collection can remove an existing child."""
     if not isinstance(body, list):
         raise ValueError("Spectera returned an invalid collection")
-    result = {}
-    for row in body:
-        wire_id = field(row, COLLECTIONS[path][1])
-        if path == ANTENNAS:
-            valid = wire_id in ("a", "b", "c", "d")
-        else:
-            limit = {MOBILES: 4294967295, RF: 1, OUTPUTS: 31}[path]
-            valid = type(wire_id) is int and 0 <= wire_id <= limit
-        if (
-            not valid
-            or wire_id in result
-            or (path == MOBILES and row.get("type") not in ("SEK", "SKM"))
-        ):
-            raise ValueError("Spectera returned an invalid or duplicate child identity")
-        result[wire_id] = row
-    return result
+    rows = {wire_identity(path, row): row for row in body}
+    if len(rows) != len(body):
+        raise ValueError("Duplicate Spectera resource ID")
+    return rows
+
+
+def numeric_value(value, schema):
+    if isinstance(value, bool):
+        raise ValueError("A numeric value is required")
+    number = float(value)
+    if not schema["min"] <= number <= schema["max"]:
+        raise ValueError("Value outside the supported range")
+    step = 1 if schema["type"] == "integer" else 0.5
+    if not (number / step).is_integer():
+        raise ValueError(f"Choose a value in steps of {step}.")
+    return int(number) if step == 1 else number
 
 
 def command_value(value, schema):
-    kind = schema["type"]
-    if kind == "boolean":
-        if str(value).lower() in ("true", "1", "on"):
-            return True
-        if str(value).lower() in ("false", "0", "off"):
-            return False
-    elif kind == "enum":
-        if value in schema["values"]:
-            return value
-    elif kind in ("integer", "number") and not isinstance(value, bool):
+    if schema["type"] == "boolean":
+        flags = {"true": True, "on": True, "1": True, "false": False, "off": False, "0": False}
         try:
-            number = float(value)
-        except (TypeError, ValueError):
-            number = math.nan
-        if math.isfinite(number) and schema["min"] <= number <= schema["max"]:
-            if kind == "integer" and number.is_integer():
-                return int(number)
-            if kind == "number" and (number * 2).is_integer():
-                return number
-    raise ValueError(f"Invalid {schema['label']} value")
+            return flags[str(value).lower()]
+        except KeyError:
+            raise ValueError("Choose on or off.") from None
+    if schema["type"] == "enum":
+        if value not in schema["values"]:
+            raise ValueError(f"Invalid {schema['label']} value")
+        return value
+    return numeric_value(value, schema)
+
+
+UNKNOWN_PRESENCE = {"online": None, "offline_reason": None, "offline_detail": None}
+
+
+def mobile_presence(state):
+    if state is None:
+        return UNKNOWN_PRESENCE
+    if state == "Connected":
+        return BaseDriver.child_fault()
+    return BaseDriver.child_fault(
+        CHILD_NOT_RESPONDING, f"Spectera reports this paired device as {state}."
+    )
+
+
+def antenna_presence(row):
+    state = row.get("state")
+    if state is None:
+        return UNKNOWN_PRESENCE
+    if state == "Unconnected":
+        return BaseDriver.child_fault(CHILD_NOT_FITTED)
+    if state == "Error":
+        return BaseDriver.child_fault(
+            CHILD_SERVICE_FAULT,
+            f"DAD antenna error: {row.get('errorStateDetails') or 'unspecified'}.",
+        )
+    return BaseDriver.child_fault()
+
+
+def sources_by_link(rows):
+    sources = defaultdict(list)
+    for row in rows.values():
+        link = measurement(row.get("micAudiolinkId"), 0, 255)
+        if link is not None:
+            sources[link].append(row)
+    return sources
+
+
+def notification_resource(path):
+    path = path if path.startswith("/api/") else "/api" + path
+    if path in RESOURCES:
+        return path
+    parent = path.rpartition("/")[0]
+    return parent if parent in COLLECTIONS else None
+
+
+def mobile_write(row, prop, value):
+    if row.get("state") != "Connected":
+        raise CommandRefusedError("The paired device is not connected.")
+    model = row["type"]
+    if prop == "headphone_db":
+        validate_headphones(row, value)
+    if prop == "gain_db" and model == "SEK" and value < -6:
+        raise ValueError("SEK gain starts at -6 dB.")
+    key = {
+        "identifying": "identify",
+        "gain_db": "micPreampGain",
+        "headphone_db": "headphoneVolume",
+        "command_behavior": "commandBehavior",
+    }[prop]
+    return {"type": model, key: value}
+
+
+def validate_headphones(row, value):
+    if row["type"] != "SEK":
+        raise ValueError("Headphone volume requires an SEK bodypack.")
+    if not row.get("headphoneVolumeMin", -100) <= value <= row.get("headphoneVolumeMax", 27.5):
+        raise ValueError("Volume is outside the performer's configured headphone limits.")
+
+
+def write_fields(path, row, prop, value):
+    if path == MOBILES:
+        return mobile_write(row, prop, value)
+    if path == RF:
+        return {"rfState": "RfMuted" if value else "RfActive"}
+    if path == ANTENNAS:
+        return {"identify": value}
+    dest, mode, _ = prop.split("_")
+    suffix = {"enabled": "EnableIfCommandIsEnabled", "disabled": "EnableIfCommandIsDisabled"}[mode]
+    return {DESTINATIONS[dest] + suffix: value}
+
+
+def station_reply(reply, method, path):
+    if reply.status_code in (400, 404, 405, 409, 422):
+        raise CommandRefusedError(f"Spectera refused {method} {path} (HTTP {reply.status_code}).")
+    if not reply.ok:
+        raise ConnectionError(f"Spectera returned HTTP {reply.status_code} for {path}.")
+    if method == "GET":
+        return reply.json_data if reply.json_data is not None else json.loads(reply.text)
+    return None
 
 
 class SennheiserSpecteraDriver(BaseDriver):
@@ -284,9 +376,7 @@ class SennheiserSpecteraDriver(BaseDriver):
                 "\r\n",
                 "expect_regex": '"product"\\s*:\\s*"Spectera-Base-Station"',
                 "extract_manufacturer": "Sennheiser",
-                "extract": {
-                    "model": {"regex": '"articleName"\\s*:\\s*"([^"]+)"', "group": 1}
-                },
+                "extract": {"model": {"regex": '"articleName"\\s*:\\s*"([^"]+)"', "group": 1}},
             },
             "manufacturer_alias": ["sennheiser"],
         },
@@ -1340,9 +1430,7 @@ class SennheiserSpecteraDriver(BaseDriver):
     }
 
     def __init__(self, device_id, config, state, events):
-        super().__init__(
-            device_id, {**self.DRIVER_INFO["default_config"], **config}, state, events
-        )
+        super().__init__(device_id, {**self.DRIVER_INFO["default_config"], **config}, state, events)
         self._lock = asyncio.Lock()
         self._rows = {path: {} for path in COLLECTIONS}
         self._dirty = set()
@@ -1364,7 +1452,9 @@ class SennheiserSpecteraDriver(BaseDriver):
     async def _request(self, method, path, body=None):
         if self.transport is None:
             raise ConnectionError("The Spectera connection has closed.")
-        auth_message = "Check the Spectera device password and account access in LinkDesk or the WebUI."
+        auth_message = (
+            "Check the Spectera device password and account access in LinkDesk or the WebUI."
+        )
         if self._auth_refused:
             raise ConnectionFaultError(auth_message, code="auth_failed")
         reply = await self.transport.request(method, path, json_body=body)
@@ -1373,19 +1463,7 @@ class SennheiserSpecteraDriver(BaseDriver):
             if self.connected:
                 self._force_disconnect("auth_failed", auth_message)
             raise ConnectionFaultError(auth_message, code="auth_failed")
-        if reply.status_code in (400, 404, 405, 409, 422):
-            raise CommandRefusedError(
-                f"Spectera refused {method} {path} (HTTP {reply.status_code})."
-            )
-        if not reply.ok:
-            raise ConnectionError(
-                f"Spectera returned HTTP {reply.status_code} for {path}."
-            )
-        if method != "GET":
-            return None
-        return (
-            reply.json_data if reply.json_data is not None else json.loads(reply.text)
-        )
+        return station_reply(reply, method, path)
 
     async def _post_connect(self):
         identity = await self._request("GET", "/api/device/identity")
@@ -1425,20 +1503,22 @@ class SennheiserSpecteraDriver(BaseDriver):
         changes = {}
         try:
             for path in paths:
-                try:
-                    body = await self._request("GET", path)
-                    if path in COLLECTIONS:
-                        changes[path] = indexed_rows(path, body)
-                    elif isinstance(body, dict):
-                        changes[path] = body
-                    else:
-                        raise ValueError("Spectera returned an invalid resource")
-                except Exception:
-                    self._expire(path)
-                    raise
+                changes[path] = await self._resource(path)
         finally:
             if not self._closing:
                 self._apply(changes)
+
+    async def _resource(self, path):
+        try:
+            body = await self._request("GET", path)
+            if path in COLLECTIONS:
+                return indexed_rows(path, body)
+            if not isinstance(body, dict):
+                raise ValueError("Spectera returned an invalid resource")
+            return body
+        except Exception:
+            self._expire(path)
+            raise
 
     def _expire(self, path):
         if path in PARENT:
@@ -1461,9 +1541,7 @@ class SennheiserSpecteraDriver(BaseDriver):
     def _clear_child(self, kind, ident):
         keys = self.DRIVER_INFO["child_entity_types"][kind]["state_variables"]
         transient = {
-            key: None
-            for key in keys
-            if key not in ("name", "model", "serial", "firmware_version")
+            key: None for key in keys if key not in ("name", "model", "serial", "firmware_version")
         }
         self.set_child_state_batch(
             kind,
@@ -1477,111 +1555,69 @@ class SennheiserSpecteraDriver(BaseDriver):
         )
 
     def _apply(self, changes):
-        for path, body in changes.items():
-            if path in PARENT:
-                self.set_states(
-                    {key: field(body, wire) for key, wire in PARENT[path].items()}
-                )
-            else:
-                self._rows[path] = body
+        for path in PARENT.keys() & changes.keys():
+            self.set_states({key: field(changes[path], wire) for key, wire in PARENT[path].items()})
+        for path in COLLECTIONS.keys() & changes.keys():
+            self._rows[path] = changes[path]
         for path in (MOBILES, RF, ANTENNAS):
             if path in changes:
                 self._publish_children(path)
-        if OUTPUTS in changes or MOBILES in changes:
+        if changes.keys() & {MOBILES, OUTPUTS}:
             self._publish_outputs()
 
-    def _publish_children(self, path):
-        rows = self._rows[path]
+    def _publish_rows(self, path, rows, translate):
         kind = COLLECTIONS[path][0]
         updates = []
-        for wire_id, row in rows.items():
-            ident = local_id(path, wire_id)
-            if path == MOBILES:
-                props = mobile_state(row)
-                status = props["state"]
-                if status == "Connected":
-                    presence = self.child_fault()
-                elif status is None:
-                    presence = {
-                        "online": None,
-                        "offline_reason": None,
-                        "offline_detail": None,
-                    }
-                else:
-                    presence = self.child_fault(
-                        CHILD_NOT_RESPONDING,
-                        f"Spectera reports this paired device as {status}.",
-                    )
-            elif path == ANTENNAS:
-                props = antenna_state(row)
-                status = props["state"]
-                if status == "Unconnected":
-                    presence = self.child_fault(CHILD_NOT_FITTED)
-                elif status == "Error":
-                    presence = self.child_fault(
-                        CHILD_SERVICE_FAULT,
-                        f"DAD antenna error: {props['error'] or 'unspecified'}.",
-                    )
-                elif status is None:
-                    presence = {
-                        "online": None,
-                        "offline_reason": None,
-                        "offline_detail": None,
-                    }
-                else:
-                    presence = self.child_fault()
-            else:
-                props = wireless_state(row)
-                presence = self.child_fault()
-            props.update(presence)
+        for key, row in rows.items():
+            ident = local_id(path, key)
+            props = translate(row)
             self.register_child(kind, ident, initial_state=props)
             updates.append((kind, ident, props))
         self.set_children_state_batch(updates)
-        seen = {local_id(path, wire_id) for wire_id in rows}
+        seen = {local_id(path, key) for key in rows}
+        remove = self.deregister_child if path == MOBILES else self._clear_child
         for missing in set(self.list_children(kind)) - seen:
-            if path == MOBILES:
-                self.deregister_child(kind, missing)
-            else:
-                self._clear_child(kind, missing)
+            remove(kind, missing)
+
+    def _publish_children(self, path):
+        rows = self._rows[path]
         if path == MOBILES:
-            links = {}
-            for row in rows.values():
-                link = measurement(row.get("micAudiolinkId"), 0, 255)
-                if link is not None:
-                    links[link] = links.get(link, 0) + 1
-            choices = [
-                {"value": uid, "label": row.get("name") or f"{row['type']} {uid}"}
-                for uid, row in rows.items()
-                if links.get(row.get("micAudiolinkId")) == 1
-            ]
-            self.set_state("microphone_choices", json.dumps(choices))
-            states = [row.get("state") for row in rows.values()]
-            self.set_states(
-                {
-                    "paired_count": len(rows),
-                    "connected_count": None
-                    if None in states
-                    else states.count("Connected"),
-                }
+            self._publish_rows(
+                path, rows, lambda row: {**mobile_state(row), **mobile_presence(row.get("state"))}
+            )
+            self._mobile_summary(rows)
+        elif path == ANTENNAS:
+            self._publish_rows(
+                path, rows, lambda row: {**antenna_state(row), **antenna_presence(row)}
+            )
+        else:
+            self._publish_rows(
+                path, rows, lambda row: {**wireless_state(row), **self.child_fault()}
             )
 
+    def _mobile_summary(self, rows):
+        sources = sources_by_link(rows)
+        unique = [group[0] for group in sources.values() if len(group) == 1]
+        choices = [
+            {"value": row["mtUid"], "label": row.get("name") or f"{row['type']} {row['mtUid']}"}
+            for row in unique
+        ]
+        states = [row.get("state") for row in rows.values()]
+        self.set_states(
+            {
+                "microphone_choices": json.dumps(choices),
+                "paired_count": len(rows),
+                "connected_count": None if None in states else states.count("Connected"),
+            }
+        )
+
     def _publish_outputs(self):
-        sources = {}
-        for row in self._rows[MOBILES].values():
-            link = measurement(row.get("micAudiolinkId"), 0, 255)
-            if link is not None:
-                sources.setdefault(link, []).append(row)
-        updates = []
-        outputs = self._rows[OUTPUTS]
-        for wire_id, row in outputs.items():
-            ident = local_id(OUTPUTS, wire_id)
-            props = {**output_state(row, sources), **self.child_fault()}
-            self.register_child("output", ident, initial_state=props)
-            updates.append(("output", ident, props))
-        self.set_children_state_batch(updates)
-        for ident in self.list_children("output"):
-            if ident - 1 not in outputs:
-                self._clear_child("output", ident)
+        sources = sources_by_link(self._rows[MOBILES])
+        self._publish_rows(
+            OUTPUTS,
+            self._rows[OUTPUTS],
+            lambda row: {**output_state(row, sources), **self.child_fault()},
+        )
 
     async def poll(self):
         await self._read_paths(RESOURCES)
@@ -1599,12 +1635,8 @@ class SennheiserSpecteraDriver(BaseDriver):
             # The HTTP control connection can outlive its stream. Clear live readings
             # until an authoritative GET or a newly armed stream restores them.
             async with self._lock:
-                self._expire(MOBILES)
-                self._expire(OUTPUTS)
-                for path in PARENT:
+                for path in RESOURCES:
                     self._expire(path)
-                self._expire(ANTENNAS)
-                self._expire(RF)
             return
         # The snapshot remains essential even if the station refuses a subscription list.
         try:
@@ -1632,14 +1664,7 @@ class SennheiserSpecteraDriver(BaseDriver):
             return
         # A creation announcement can be {}, deletion null, and updates can be partial.
         # Read affected resources once per burst; queued notifications cannot overwrite a later GET.
-        for path in event:
-            normalized = path if path.startswith("/api/") else "/api" + path
-            for resource in RESOURCES:
-                if normalized == resource or (
-                    resource in COLLECTIONS and normalized.startswith(resource + "/")
-                ):
-                    self._dirty.add(resource)
-                    break
+        self._dirty.update(filter(None, map(notification_resource, event)))
         if self._dirty and (self._refresh_task is None or self._refresh_task.done()):
             self._refresh_task = asyncio.create_task(self._drain_changes())
 
@@ -1695,9 +1720,7 @@ class SennheiserSpecteraDriver(BaseDriver):
                 return path, wire_id, name, ident
         return IDENTIFY, None, None, None
 
-    async def send_command(
-        self, command: str, params: dict[str, Any] | None = None
-    ) -> Any:
+    async def send_command(self, command: str, params: dict[str, Any] | None = None) -> Any:
         params = params or {}
         spec = self.DRIVER_INFO["commands"].get(command)
         if spec is None:
@@ -1713,11 +1736,7 @@ class SennheiserSpecteraDriver(BaseDriver):
         async with self._lock:
             if prop:
                 await self._read_locked(reads)
-                return (
-                    self.get_child_state(kind, ident).get(prop)
-                    if kind
-                    else self.get_state(prop)
-                )
+                return self._reported(kind, ident, prop)
             prop = next(iter(spec["sets"]))
             value = command_value(params.get("value"), spec["params"]["value"])
             # Re-read mobile identity before writing because its type is mandatory on every PUT.
@@ -1725,14 +1744,15 @@ class SennheiserSpecteraDriver(BaseDriver):
                 await self._read_locked([MOBILES])
             target, body = self._write_body(path, wire_id, prop, value)
             await self._write_and_read(target, body, reads)
-            reported = (
-                self.get_child_state(kind, ident).get(prop)
-                if kind
-                else self.get_state(prop)
-            )
+            reported = self._reported(kind, ident, prop)
             if reported != value:
                 raise CommandOutcomeError("uncertain")
             return reported
+
+    def _reported(self, kind, ident, prop):
+        if kind:
+            return self.get_child_state(kind, ident).get(prop)
+        return self.get_state(prop)
 
     async def _route_output(self, command, params):
         output = int(str(params.get("output")))
@@ -1743,19 +1763,7 @@ class SennheiserSpecteraDriver(BaseDriver):
                 raise ValueError("Select a reported audio output.")
             link = -1
             if uid is not None:
-                row = self._rows[MOBILES].get(uid, {})
-                link = measurement(row.get("micAudiolinkId"), 0, 255)
-                if (
-                    link is None
-                    or sum(
-                        r.get("micAudiolinkId") == link
-                        for r in self._rows[MOBILES].values()
-                    )
-                    != 1
-                ):
-                    raise CommandRefusedError(
-                        "The selected microphone needs a unique audio link assigned in LinkDesk."
-                    )
+                link = self._unique_link(uid)
             target = f"{OUTPUTS}/{output - 1}"
             await self._write_and_read(
                 target,
@@ -1768,6 +1776,15 @@ class SennheiserSpecteraDriver(BaseDriver):
                 raise CommandOutcomeError("uncertain")
             return reported
 
+    def _unique_link(self, uid):
+        rows = self._rows[MOBILES]
+        link = measurement(rows.get(uid, {}).get("micAudiolinkId"), 0, 255)
+        if len(sources_by_link(rows).get(link, [])) != 1:
+            raise CommandRefusedError(
+                "The selected microphone needs a unique audio link assigned in LinkDesk."
+            )
+        return link
+
     @asynccontextmanager
     async def _write_access(self):
         # SSCv2's usage mark is advisory. A second read catches a competing claim.
@@ -1779,31 +1796,22 @@ class SennheiserSpecteraDriver(BaseDriver):
         await self._request("PUT", USAGE, {"usedBy": self._writer_id, "timer": 15})
         try:
             if field(await self._request("GET", USAGE), "usedBy") != self._writer_id:
-                raise CommandRefusedError(
-                    "Another client acquired Spectera write access."
-                )
+                raise CommandRefusedError("Another client acquired Spectera write access.")
             yield
         finally:
             # A lost connection releases its own claim by the device-side timer.
             try:
-                if (
-                    field(await self._request("GET", USAGE), "usedBy")
-                    == self._writer_id
-                ):
+                if field(await self._request("GET", USAGE), "usedBy") == self._writer_id:
                     await self._request("PUT", USAGE, {"usedBy": "", "timer": 5})
             except Exception:
-                log.debug(
-                    "Spectera write mark will expire on the device.", exc_info=True
-                )
+                log.debug("Spectera write mark will expire on the device.", exc_info=True)
 
     async def _audio_settled(self):
         async with asyncio.timeout(4):
             while True:
                 count = field(await self._request("GET", PENDING), "numPendingActions")
                 if type(count) is not int or count < 0:
-                    raise ValueError(
-                        "Spectera did not report the number of pending audio actions."
-                    )
+                    raise ValueError("Spectera did not report the number of pending audio actions.")
                 if count == 0:
                     return
                 await asyncio.sleep(0.15)
@@ -1828,43 +1836,7 @@ class SennheiserSpecteraDriver(BaseDriver):
             return path, {"visual": value}
         row = self._rows[path].get(wire_id)
         if row is None:
-            raise CommandRefusedError(
-                "The station no longer reports this device or port."
-            )
+            raise CommandRefusedError("The station no longer reports this device or port.")
         body = {COLLECTIONS[path][1]: wire_id}
-        if path == MOBILES:
-            if row.get("state") != "Connected":
-                raise CommandRefusedError("The paired device is not connected.")
-            body["type"] = row["type"]
-            key = {
-                "identifying": "identify",
-                "gain_db": "micPreampGain",
-                "headphone_db": "headphoneVolume",
-                "command_behavior": "commandBehavior",
-            }[prop]
-            if prop == "gain_db" and row["type"] == "SEK" and value < -6:
-                raise ValueError("SEK gain starts at -6 dB.")
-            if prop == "headphone_db":
-                if row["type"] != "SEK":
-                    raise ValueError("Headphone volume requires an SEK bodypack.")
-                if (
-                    not row.get("headphoneVolumeMin", -100)
-                    <= value
-                    <= row.get("headphoneVolumeMax", 27.5)
-                ):
-                    raise ValueError(
-                        "Volume is outside the performer's configured headphone limits."
-                    )
-        elif path == OUTPUTS:
-            dest, mode, _ = prop.split("_")
-            key = DESTINATIONS[dest] + (
-                "EnableIfCommandIsEnabled"
-                if mode == "enabled"
-                else "EnableIfCommandIsDisabled"
-            )
-        elif path == RF:
-            key, value = "rfState", "RfMuted" if value else "RfActive"
-        else:
-            key = "identify"
-        body[key] = value
+        body.update(write_fields(path, row, prop, value))
         return f"{path}/{wire_id}", body

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 147,
+    "total_devices": 148,
     "shards": null,
     "category": "switcher"
   },
@@ -1449,6 +1449,18 @@
           "id": "lightware_ucx_4x3_hc40",
           "confidence": "untested",
           "notes": "Built from the manufacturer manual. Serial-over-IP must be enabled in Lightware Device Controller. The downstream driver supplies baud rate, parity and stop bits; hardware testing is outstanding."
+        }
+      ]
+    },
+    {
+      "manufacturer": "MuxLab",
+      "model": "500532",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "muxlab_500532",
+          "confidence": "untested",
+          "notes": "Exact transmitter and included HDBaseT receiver kit, manual 94-001072-A. Simulator tested."
         }
       ]
     },

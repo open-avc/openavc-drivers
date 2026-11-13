@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 201,
+    "total_drivers": 202,
     "shards": null
   },
   "drivers": [
@@ -8751,6 +8751,71 @@
           "legrand",
           "racklink"
         ]
+      }
+    },
+    {
+      "id": "muxlab_500532",
+      "name": "MuxLab 500532 USB-C/HDMI Presentation Switcher with Dante",
+      "manufacturer": "MuxLab",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Route the two presentation outputs and shared USB peripherals, select multiview layouts, recall the eight device-named scenes, and monitor connectors and audio including Dante.",
+      "source_url": "https://muxlab.com/wp-content/uploads/2025/08/SE-001072-A-500532-USB-CHDMI-4x2-Presentation-Switcher-with-Dante-User-Manual_v1.0.pdf",
+      "file": "switchers/muxlab_500532.py",
+      "format": "python",
+      "files": {
+        "switchers/muxlab_500532.py": "b92125799203ee0c39f99a50f2269dd5100b4c7afaa0473bce6db0917498e2be",
+        "switchers/muxlab_500532_sim.py": "c8454539130aa61b69336e629806238e9446fa2d2a441ca512c8336ff16668e5"
+      },
+      "ports": [
+        8000
+      ],
+      "protocols": [
+        "muxlab-500532-ascii"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.1",
+      "tags": [
+        "presentation-switcher",
+        "usb-c",
+        "byod",
+        "multiview",
+        "dante",
+        "hdbaset"
+      ],
+      "help": {
+        "overview": "Two video destinations share four presentation inputs. HDMI 2 and HDBaseT carry the second layout, with separate connector readings. Select Video Source puts that destination in Single layout. Set Multiview Sources assigns four windows without choosing a layout. USB can follow the video output chosen in the web interface, switch automatically, or run independently in manual mode. Select USB Host explicitly enters manual mode.",
+        "setup": "Enter the switcher address for ASCII control on TCP 8000 or use the transmitter RS-232 CTL port at 115200 baud, 8N1. Preset choices use the eight names read from the device. Save Preset overwrites the chosen scene. After recalling one, the driver reads the resulting routes, audio and layout. The equipment does not identify an active preset.",
+        "connection": "The driver identifies model 500532, reads the current routes and polls for front-panel and automatic changes. Unconfirmed readings clear on disconnection. In standby only power is polled. The web interface provides deeper audio processing, custom layout design and display programming."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "MuxLab",
+          "models": [
+            "500532"
+          ],
+          "confidence": "untested",
+          "notes": "Exact transmitter and included HDBaseT receiver kit, manual 94-001072-A. Simulator tested."
+        }
+      ],
+      "discovery": {
+        "manufacturer_alias": [
+          "muxlab"
+        ],
+        "tcp_probe": {
+          "port": 8000,
+          "send_ascii": "get model\r\n",
+          "expect_regex": "(?m)^500532\\r?$",
+          "extract_manufacturer": "MuxLab",
+          "extract": {
+            "model": {
+              "regex": "(?m)^(500532)\\r?$"
+            }
+          },
+          "timeout_ms": 2000
+        }
       }
     },
     {

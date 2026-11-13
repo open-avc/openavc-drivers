@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 317,
+    "total_devices": 318,
     "shards": null,
     "category": "audio"
   },
@@ -736,6 +736,18 @@
           "id": "atlasied_atmosphere",
           "confidence": "untested",
           "notes": "AZM4 / AZM8 are the standalone DSPs; AZMP4 / AZMP8 add internal amplification but share the same third-party control surface."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AUDAC",
+      "model": "LUNA-U",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "audac_luna_u",
+          "confidence": "untested",
+          "notes": "Exact-model ASCII v1.6.3 documentation and simulator. Physical verification pending."
         }
       ]
     },

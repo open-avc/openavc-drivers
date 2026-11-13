@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 117,
+    "total_devices": 121,
     "shards": null,
     "category": "streaming"
   },
@@ -772,6 +772,54 @@
           "id": "crestron_airmedia3",
           "confidence": "untested",
           "notes": "Built from the API for AirMedia Series 3 Receivers (firmware 3.0800.0157) and tested against the simulator. The commands and readings a model lacks are left off: no wireless conferencing on the AM-3000-WF, no HDMI input on the AM-3000-WF and AM-3100-WF, no AirMedia Connect adaptors on the AM-3200 and AM-3200-GV."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Echo360",
+      "model": "EchoVideo Pod",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "echo360_echovideo",
+          "confidence": "untested",
+          "notes": "Managed recorders using the public Capture API 3.0.2. Documented and simulated. Field verification pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Echo360",
+      "model": "EchoVideo Pro",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "echo360_echovideo",
+          "confidence": "untested",
+          "notes": "Managed recorders using the public Capture API 3.0.2. Documented and simulated. Field verification pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Echo360",
+      "model": "Universal Capture: Classroom (Mac)",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "echo360_echovideo",
+          "confidence": "untested",
+          "notes": "Managed recorders using the public Capture API 3.0.2. Documented and simulated. Field verification pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Echo360",
+      "model": "Universal Capture: Classroom (Windows)",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "echo360_echovideo",
+          "confidence": "untested",
+          "notes": "Managed recorders using the public Capture API 3.0.2. Documented and simulated. Field verification pending."
         }
       ]
     },

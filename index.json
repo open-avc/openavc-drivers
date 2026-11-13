@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 199,
+    "total_drivers": 200,
     "shards": null
   },
   "drivers": [
@@ -5023,6 +5023,57 @@
           "timeout_ms": 2000
         }
       }
+    },
+    {
+      "id": "echo360_echovideo",
+      "name": "Echo360 EchoVideo Capture",
+      "manufacturer": "Echo360",
+      "category": "streaming",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Control the classroom recorder directly. Start the scheduled class or an unscheduled lecture, pause, resume, finish and add time. Read the schedule, input signals and uploads.",
+      "source_url": "https://support.echo360.com/hc/en-us/articles/360042045412-EchoVideo-Capture-API",
+      "file": "streaming/echo360_echovideo.py",
+      "format": "python",
+      "files": {
+        "streaming/echo360_echovideo.py": "fe182573bb43bb9936d6266a627a1c95212f6c693aeeb8cab36ae6cbce16ada4",
+        "streaming/echo360_echovideo_sim.py": "dec2577ef6644758a71c802f045f523af5e8447ac011d099509e5301c444d50e"
+      },
+      "ports": [
+        8443,
+        443
+      ],
+      "protocols": [
+        "https",
+        "rest"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.2",
+      "tags": [
+        "education",
+        "lecture-capture",
+        "recording",
+        "software"
+      ],
+      "help": {
+        "overview": "One OpenAVC device controls one registered classroom PC, Mac, Pro or Pod through its local Capture API. Bind the lecture commands and feedback in your room project.",
+        "setup": "Enter the recorder\u2019s network address, HTTPS port and capture login. Check the reported room. Choose Set lecture defaults and select the capture profile by name. A sole profile is selected automatically. Campus IT can supply the device address and login. Generic logins may require manual course publishing for unscheduled lectures.",
+        "connection": "The controller must reach the recorder directly. Use the HTTPS port configured on the recorder (often 8443 or 443). A Mac running Classroom requires a logged-in user with permission to capture. Capture in progress includes an active session with unreported pause state. Recording and Pause explicitly reported stay unknown when the recorder reports only Active."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Echo360",
+          "models": [
+            "Universal Capture: Classroom (Windows)",
+            "Universal Capture: Classroom (Mac)",
+            "EchoVideo Pro",
+            "EchoVideo Pod"
+          ],
+          "confidence": "untested",
+          "notes": "Managed recorders using the public Capture API 3.0.2. Documented and simulated. Field verification pending."
+        }
+      ]
     },
     {
       "id": "epiphan_ec20",

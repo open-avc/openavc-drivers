@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1374,
+    "total_devices": 1378,
     "shards": null
   },
   "devices": [
@@ -6151,6 +6151,54 @@
           "id": "datapath_fx4",
           "confidence": "untested",
           "notes": "Based on Datapath\u2019s published Fx4 REST API. Model-specific feedback fields appear when the controller reports them. Not tested on hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Echo360",
+      "model": "EchoVideo Pod",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "echo360_echovideo",
+          "confidence": "untested",
+          "notes": "Managed recorders using the public Capture API 3.0.2. Documented and simulated. Field verification pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Echo360",
+      "model": "EchoVideo Pro",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "echo360_echovideo",
+          "confidence": "untested",
+          "notes": "Managed recorders using the public Capture API 3.0.2. Documented and simulated. Field verification pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Echo360",
+      "model": "Universal Capture: Classroom (Mac)",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "echo360_echovideo",
+          "confidence": "untested",
+          "notes": "Managed recorders using the public Capture API 3.0.2. Documented and simulated. Field verification pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Echo360",
+      "model": "Universal Capture: Classroom (Windows)",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "echo360_echovideo",
+          "confidence": "untested",
+          "notes": "Managed recorders using the public Capture API 3.0.2. Documented and simulated. Field verification pending."
         }
       ]
     },

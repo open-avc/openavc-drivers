@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1378,
+    "total_devices": 1379,
     "shards": null
   },
   "devices": [
@@ -5719,6 +5719,18 @@
           "id": "sacn_e131",
           "confidence": "untested",
           "notes": "Color Kinetics (Signify) architectural LED gateways. The controller side speaks sACN to drive Color Kinetics fixtures via PDS power/data supplies and Antumbra controllers."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Contemporary Research",
+      "model": "232-ATSC 4K",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "contemporary_research_232_atsc_4k",
+          "confidence": "untested",
+          "notes": "Part 5114-001. Based on the May 2026 product manual, pages 18\u201324. Simulator tested."
         }
       ]
     },

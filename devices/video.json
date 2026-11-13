@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 85,
+    "total_devices": 86,
     "shards": null,
     "category": "video"
   },
@@ -572,6 +572,18 @@
           "id": "cisco_roomos_xapi",
           "confidence": "untested",
           "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Contemporary Research",
+      "model": "232-ATSC 4K",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "contemporary_research_232_atsc_4k",
+          "confidence": "untested",
+          "notes": "Part 5114-001. Based on the May 2026 product manual, pages 18\u201324. Simulator tested."
         }
       ]
     },

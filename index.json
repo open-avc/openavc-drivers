@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 200,
+    "total_drivers": 201,
     "shards": null
   },
   "drivers": [
@@ -4677,6 +4677,70 @@
           "tandberg",
           "webex"
         ]
+      }
+    },
+    {
+      "id": "contemporary_research_232_atsc_4k",
+      "name": "Contemporary Research 232-ATSC 4K",
+      "manufacturer": "Contemporary Research",
+      "category": "video",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Control a broadcast or cable TV tuner from its own channel memory. Select named stations, step through channels, and monitor reception, received resolution, audio and captions.",
+      "source_url": "https://bucketeer-3c238a6b-adc2-4051-aeb1-2d2ab9e1e1b4.s3.amazonaws.com/documents/232-ATSC_4K_Product_Manual_052026.pdf",
+      "file": "video/contemporary_research_232_atsc_4k.py",
+      "format": "python",
+      "files": {
+        "video/contemporary_research_232_atsc_4k.py": "0077ef10687fb78b5dbc5e858640140bb0d70f1175b77d91ac3a30df752e8b0e",
+        "video/contemporary_research_232_atsc_4k_sim.py": "b361b8d690a4ecbeb11f3e1643573f7e7def0900796d27e7bfee12d5c2143fbe"
+      },
+      "ports": [
+        23
+      ],
+      "protocols": [
+        "cr-232-atsc"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.1",
+      "tags": [
+        "hdtv-tuner",
+        "atsc",
+        "qam",
+        "cable-tv",
+        "rs232"
+      ],
+      "help": {
+        "overview": "Pick a channel by its number and station name. Channel, station and reception reflect tuner reports. A blank signal reading means reception is unknown. A confirmed loss of reception shows Signal Present as false. Signal strength in dB or percent is not reported by the documented control protocol. Device Settings lets the installer select the video output resolution and check the actual output independently of the received broadcast format.",
+        "setup": "Scan or edit the channel memory on the tuner first. Use Refresh Channel List after edits. A completed empty scan produces an empty picker. Five-digit one-part stations use the documented remote-control digit keys and Enter. The driver verifies the tuned number. Direct tuning accepts a one-part number, major-minor for digital subchannels, or major-0 for analog.",
+        "connection": "Enter the tuner address and its Telnet port (default 23), or select a dedicated RS-232 connection (default 9600 baud, 8N1). Match the unit number to the tuner. Channel lists are unaddressed on the wire, so use a dedicated link for enumeration. On each reconnect the driver clears cached feedback and rereads tuner status and channel memory."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Contemporary Research",
+          "models": [
+            "232-ATSC 4K"
+          ],
+          "confidence": "untested",
+          "notes": "Part 5114-001. Based on the May 2026 product manual, pages 18\u201324. Simulator tested."
+        }
+      ],
+      "discovery": {
+        "manufacturer_alias": [
+          "contemporary research"
+        ],
+        "tcp_probe": {
+          "port": 23,
+          "send_ascii": ">ID\r",
+          "expect_regex": "(?i)\\b232-ATSC[ -]+4K\\b",
+          "extract_manufacturer": "Contemporary Research",
+          "extract": {
+            "model": {
+              "regex": "(?i)\\b(232-ATSC[ -]+4K)\\b"
+            }
+          },
+          "timeout_ms": 2500
+        }
       }
     },
     {

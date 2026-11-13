@@ -2489,8 +2489,8 @@
       "file": "audio/sennheiser_spectera.py",
       "format": "python",
       "files": {
-        "audio/sennheiser_spectera.py": "d06188bd9f694cbc3593ad4471c5d313143ee2efacaaf30ff08e3995516bb5c2",
-        "audio/sennheiser_spectera_sim.py": "408e3ce7b70c031cacd10b6d1e61755d85cd085036c3945f13c84a99491bfecf"
+        "audio/sennheiser_spectera.py": "b7154bbbd0a768226aced38f2b7c7e4a7819c4b099b74aba1c39e8c103163725",
+        "audio/sennheiser_spectera_sim.py": "37c0daa9472ef44788352e80ef1d5cc13663fe6ea4b7173e31274f44d66af1c7"
       },
       "ports": [
         443

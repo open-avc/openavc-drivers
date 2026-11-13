@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 14,
+    "total_drivers": 15,
     "shards": null,
     "category": "streaming"
   },
@@ -844,6 +844,53 @@
           "solstice"
         ]
       }
+    },
+    {
+      "id": "panopto_remote_recorder",
+      "name": "Panopto Remote Recorder",
+      "manufacturer": "Panopto",
+      "category": "streaming",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Choose a registered Windows lectern by name. Start and stop lectures and read the recorder's actual state through the campus Panopto site.",
+      "source_url": "https://demo.hosted.panopto.com/Panopto/PublicAPI/4.6/RemoteRecorderManagement.svc?singleWsdl",
+      "file": "streaming/panopto_remote_recorder.py",
+      "format": "python",
+      "files": {
+        "streaming/panopto_remote_recorder.py": "2dccc5b18e9a9056f53b8d06131260a397f60924a01be72864f2f8fe9b9cd2e7",
+        "streaming/panopto_remote_recorder_sim.py": "f68679301793b72cedc1d490322be4762be3910c2fc4dabe4c6bbb6a8ae6381c"
+      },
+      "ports": [
+        443
+      ],
+      "protocols": [
+        "https",
+        "soap"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.34.0",
+      "tags": [
+        "lecture-capture",
+        "recording",
+        "software",
+        "education"
+      ],
+      "help": {
+        "overview": "One device represents one registered lectern. Bind Start lecture, Stop lecture, Recording and Recorder status in your room project.",
+        "setup": "Enter the university\u2019s Panopto site hostname. Use an internal Panopto account with scheduling access to this lectern and Creator access to its recording folder. In Actions, choose Select lectern, pick the PC by name and save. Leave the folder blank to use the recorder\u2019s Panopto default. Use Refresh directory after adding rooms. The simulator supplies sample lecterns and folders.",
+        "connection": "A disconnected recorder can still appear in a connected campus site. Check Recorder status and Control status. Stop requires a single active session belonging only to the selected recorder. Panopto can keep reporting Recording during a local pause."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Panopto",
+          "models": [
+            "Windows Remote Recorder"
+          ],
+          "confidence": "untested",
+          "notes": "Requires a registered recorder on a Panopto site with public SOAP API 4.6. Simulator qualified."
+        }
+      ]
     },
     {
       "id": "roku_ecp",

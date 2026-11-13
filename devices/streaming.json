@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 116,
+    "total_devices": 117,
     "shards": null,
     "category": "streaming"
   },
@@ -1264,6 +1264,18 @@
           "id": "mersive_solstice",
           "confidence": "untested",
           "notes": "Requires Solstice Enterprise Edition license \u2014 Standard Edition Pods do not expose the OpenControl API. Some commands are Pod-only (reboot, hardware variant, HDMI input force-off); Windows Software hosts ignore them. Power-management / suspend / wake are Pod-only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panopto",
+      "model": "Windows Remote Recorder",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "panopto_remote_recorder",
+          "confidence": "untested",
+          "notes": "Requires a registered recorder on a Panopto site with public SOAP API 4.6. Simulator qualified."
         }
       ]
     },

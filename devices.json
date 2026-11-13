@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1369,
+    "total_devices": 1370,
     "shards": null
   },
   "devices": [
@@ -11334,6 +11334,18 @@
           "id": "panasonic_display",
           "confidence": "untested",
           "notes": "The command core (power, input, volume, mutes, aspect, picture) is uniform across the TH-series professional line; the SQ2H and EQ2 command lists are identical and CQ1 carries the same core. Per-series variation is which inputs exist \u2014 the input picker offers the SQ2H/EQ2 union and free-typed protocol codes pass through for model extras (e.g. CQ1's TV1 tuner input). Unsupported values return ERR2 on the display, logged at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panopto",
+      "model": "Windows Remote Recorder",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "panopto_remote_recorder",
+          "confidence": "untested",
+          "notes": "Requires a registered recorder on a Panopto site with public SOAP API 4.6. Simulator qualified."
         }
       ]
     },

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1370,
+    "total_devices": 1374,
     "shards": null
   },
   "devices": [
@@ -5062,6 +5062,30 @@
       ]
     },
     {
+      "manufacturer": "Catchbox",
+      "model": "Plus Hub CBPLRX003",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "catchbox_plus_hub",
+          "confidence": "untested",
+          "notes": "Network-enabled dual and quad Hubs. CBPLRX003 firmware 2.0/2.1 and CBPLRX004 firmware 2.1."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Catchbox",
+      "model": "Plus Hub CBPLRX004",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "catchbox_plus_hub",
+          "confidence": "untested",
+          "notes": "Network-enabled dual and quad Hubs. CBPLRX003 firmware 2.0/2.1 and CBPLRX004 firmware 2.1."
+        }
+      ]
+    },
+    {
       "manufacturer": "Chauvet",
       "model": "DataStream 4",
       "category": "lighting",
@@ -7574,6 +7598,18 @@
           "id": "pjlink_class1",
           "confidence": "untested",
           "notes": "Hitachi commercial projectors with the network/LAN module fitted. Not all Hitachi models include networking \u2014 check the datasheet."
+        }
+      ]
+    },
+    {
+      "manufacturer": "INOGENI",
+      "model": "TOGGLE ROOMS",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "inogeni_toggle_rooms",
+          "confidence": "untested",
+          "notes": "Original three-host switcher. User Guide 1.6."
         }
       ]
     },
@@ -15893,6 +15929,18 @@
           "id": "visionary_5_series_encoder",
           "confidence": "untested",
           "notes": "API 3.x. Model-specific controls follow the reported model. Hardware qualification is pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Visual Productions",
+      "model": "CueCore3",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "visual_productions_cuecore3",
+          "confidence": "untested",
+          "notes": "CueCore3 Manual, firmware 1.30.25, Appendix E."
         }
       ]
     },

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 61,
+    "total_devices": 62,
     "shards": null,
     "category": "lighting"
   },
@@ -856,6 +856,18 @@
           "id": "philips_hue",
           "confidence": "full",
           "notes": "Verified against a BSB002 bridge (firmware 1.78.1978074000): HTTPS + application-key connect, enumeration of a 19-light install with rooms/zones/scenes, live event-stream updates, and a light write confirmed back over the stream. The CLIP v2 API requires firmware 1948086000 or newer (any bridge updated since late 2019). The link-button pairing flow is unchanged from the previous driver generation, which was verified on the same bridge."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Visual Productions",
+      "model": "CueCore3",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "visual_productions_cuecore3",
+          "confidence": "untested",
+          "notes": "CueCore3 Manual, firmware 1.30.25, Appendix E."
         }
       ]
     }

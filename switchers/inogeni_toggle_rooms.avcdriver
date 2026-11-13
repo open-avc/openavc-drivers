@@ -1,0 +1,604 @@
+id: inogeni_toggle_rooms
+name: INOGENI TOGGLE ROOMS
+manufacturer: INOGENI
+category: switcher
+version: 1.0.0
+author: OpenAVC
+description: Switch meeting hosts or route USB peripherals, the room display and the content-share output independently.
+  Read the actual routes after switching or reconnecting.
+source_url: https://inogeni.com/documents/toggle-rooms/INOGENI-TOGGLE-ROOMS_User-Guide-V1-6.pdf
+verified: false
+simulated: true
+compatible_models:
+  - manufacturer: INOGENI
+    models:
+      - TOGGLE ROOMS
+    confidence: untested
+    notes: Original three-host switcher. User Guide 1.6.
+transport: http
+ports:
+  - 443
+  - 5000
+default_config:
+  host: ''
+  port: 443
+  ssl: true
+  verify_ssl: false
+  auth_type: none
+  token: ''
+  poll_interval: 5
+config_schema:
+  host:
+    type: string
+    label: Device Address
+    required: true
+  port:
+    type: integer
+    label: Control Port
+    default: 443
+    min: 1
+    max: 65535
+  auth_type:
+    type: enum
+    label: REST Authentication
+    default: none
+    values:
+      - value: none
+        label: None
+      - value: bearer
+        label: Bearer Token
+  token:
+    type: string
+    label: Bearer Token
+    secret: true
+  verify_ssl:
+    type: boolean
+    label: Verify Certificate
+    default: false
+  poll_interval:
+    type: integer
+    label: Refresh Interval (seconds)
+    default: 5
+    min: 1
+    max: 300
+min_platform_version: 0.37.0
+tags:
+  - byom
+  - usb
+  - hdmi
+  - switcher
+web_ui: https://{host}
+help:
+  overview: Select a meeting host for a one-time handoff or use the three Matrix planes individually. The installed
+    switching mode and cable changes can take precedence. Display audio controls send CEC commands and have
+    no volume or mute readback.
+  setup: Enter the address shown in MAESTRO. If REST authentication is enabled, choose Bearer Token and enter
+    the existing token from the System page. Use Verify Certificate when the device certificate is trusted.
+    Custom operation allows separate USB, Display and Share switching modes. In automatic switching the Room
+    PC is unavailable as a Share source.
+  connection: HTTPS uses port 443. To control attached serial equipment, first enable TCP to RS232 tunneling
+    in MAESTRO and match the serial settings to the downstream equipment. Add its driver through the RS-232
+    bridge port. Port 5000 is a separate raw TCP service. Enabling tunneling uses the physical serial port
+    for the downstream device.
+discovery:
+  manufacturer_alias:
+    - inogeni
+  hostname:
+    - ^toggle-rooms-[0-9a-f]{6}$
+bridge:
+  ports:
+    - id: serial:1
+      kind: serial
+      label: RS-232 (enable tunneling in MAESTRO)
+      passthrough_port: 5000
+state_variables:
+  usb_host:
+    type: enum
+    label: USB Host
+    values:
+      - value: '0'
+        label: Room PC
+      - value: '1'
+        label: Laptop USB-C
+      - value: '2'
+        label: Laptop USB-B
+      - value: '3'
+        label: 'Off'
+    control: true
+    cloud_priority: high
+  display_source:
+    type: enum
+    label: Display Source
+    values:
+      - value: '0'
+        label: Room PC
+      - value: '1'
+        label: Laptop USB-C
+      - value: '2'
+        label: Laptop HDMI
+      - value: '3'
+        label: 'Off'
+    control: true
+    cloud_priority: high
+  share_source:
+    type: enum
+    label: Share Source
+    values:
+      - value: '0'
+        label: Room PC
+      - value: '1'
+        label: Laptop USB-C
+      - value: '2'
+        label: Laptop HDMI
+      - value: '3'
+        label: 'Off'
+    control: true
+    cloud_priority: high
+  operation_mode:
+    type: enum
+    label: Operation Mode
+    values:
+      - value: '0'
+        label: Room PC with Content Sharing
+      - value: '1'
+        label: BYOM
+      - value: '2'
+        label: Custom
+    control: false
+    cloud_priority: low
+  usb_switching:
+    type: enum
+    label: USB Switching Mode
+    values:
+      - value: '0'
+        label: Automatic
+      - value: '1'
+        label: Manual
+      - value: '2'
+        label: Manual with Fallback
+      - value: '3'
+        label: USB Follows HDMI
+    control: false
+    cloud_priority: low
+  display_switching:
+    type: enum
+    label: Display Switching Mode
+    values:
+      - value: '0'
+        label: Automatic
+      - value: '1'
+        label: Manual
+      - value: '2'
+        label: Manual with Fallback
+      - value: '3'
+        label: HDMI Follows USB
+    control: false
+    cloud_priority: low
+  share_switching:
+    type: enum
+    label: Share Switching Mode
+    values:
+      - value: '0'
+        label: Automatic
+      - value: '1'
+        label: Manual
+      - value: '2'
+        label: Manual with Fallback
+      - value: '3'
+        label: HDMI Follows USB
+    control: false
+    cloud_priority: low
+  button_lock:
+    type: enum
+    label: Front Button Lock
+    values:
+      - value: '0'
+        label: Unlocked
+      - value: '1'
+        label: Locked
+    control: false
+    cloud_priority: low
+  hostname:
+    type: string
+    label: Device Name
+  firmware_major:
+    type: integer
+    label: Firmware Major
+  firmware_minor:
+    type: integer
+    label: Firmware Minor
+commands:
+  read_usb_host:
+    label: Read USB Host
+    method: GET
+    path: /api/v1/usbHost
+    query_for: usb_host
+  route_usb_host:
+    label: Select USB Host
+    method: GET
+    path: /api/v1/usbHost?host={source}
+    params:
+      source:
+        type: enum
+        label: Source
+        values:
+          - value: '0'
+            label: Room PC
+          - value: '1'
+            label: Laptop USB-C
+          - value: '2'
+            label: Laptop USB-B
+          - value: '3'
+            label: 'Off'
+    sets:
+      usb_host: '{source}'
+    read_back:
+      - /api/v1/usbHost
+  read_display_source:
+    label: Read Display Source
+    method: GET
+    path: /api/v1/displaySrc
+    query_for: display_source
+  route_display_source:
+    label: Select Display Source
+    method: GET
+    path: /api/v1/displaySrc?displaySrc={source}
+    params:
+      source:
+        type: enum
+        label: Source
+        values:
+          - value: '0'
+            label: Room PC
+          - value: '1'
+            label: Laptop USB-C
+          - value: '2'
+            label: Laptop HDMI
+          - value: '3'
+            label: 'Off'
+    sets:
+      display_source: '{source}'
+    read_back:
+      - /api/v1/displaySrc
+  read_share_source:
+    label: Read Share Source
+    method: GET
+    path: /api/v1/shareSrc
+    query_for: share_source
+  route_share_source:
+    label: Select Share Source
+    method: GET
+    path: /api/v1/shareSrc?shareSrc={source}
+    params:
+      source:
+        type: enum
+        label: Source
+        values:
+          - value: '0'
+            label: Room PC
+          - value: '1'
+            label: Laptop USB-C
+          - value: '2'
+            label: Laptop HDMI
+          - value: '3'
+            label: 'Off'
+    sets:
+      share_source: '{source}'
+    read_back:
+      - /api/v1/shareSrc
+  read_operation_mode:
+    label: Read Operation Mode
+    method: GET
+    path: /api/v1/opMode
+    query_for: operation_mode
+  read_usb_switching:
+    label: Read USB Switching Mode
+    method: GET
+    path: /api/v1/usbHostSwMode
+    query_for: usb_switching
+  read_display_switching:
+    label: Read Display Switching Mode
+    method: GET
+    path: /api/v1/displaySwMode
+    query_for: display_switching
+  read_share_switching:
+    label: Read Share Switching Mode
+    method: GET
+    path: /api/v1/shareSwMode
+    query_for: share_switching
+  read_button_lock:
+    label: Read Front Button Lock
+    method: GET
+    path: /api/v1/btnLock
+    query_for: button_lock
+  select_meeting_host:
+    label: Hand Off Meeting
+    help: Request a momentary handoff of USB and HDMI to the selected host. The active switching policies resume
+      on the next signal change.
+    method: GET
+    path: /api/v1/hostMeeting?host={host_id}
+    params:
+      host_id:
+        type: enum
+        label: Meeting Host
+        values:
+          - value: '0'
+            label: Room PC
+          - value: '1'
+            label: Laptop USB-C
+          - value: '2'
+            label: Laptop USB-B / HDMI
+    read_back:
+      - /api/v1/usbHost
+      - /api/v1/displaySrc
+      - /api/v1/shareSrc
+  display_volume_up:
+    label: Display Volume Up
+    method: GET
+    path: /api/v1/cecVolUp
+    help: Momentary CEC request to the attached display. The switcher does not report the display audio result.
+  display_volume_down:
+    label: Display Volume Down
+    method: GET
+    path: /api/v1/cecVolDown
+    help: Momentary CEC request to the attached display. The switcher does not report the display audio result.
+  display_toggle_mute:
+    label: Display Toggle Mute
+    method: GET
+    path: /api/v1/cecToggleMute
+    help: Momentary CEC request to the attached display. The switcher does not report the display audio result.
+  read_hostname:
+    label: Read Device Name
+    method: GET
+    path: /api/v1/hostname
+    query_for: hostname
+  read_firmware:
+    label: Read Firmware
+    method: GET
+    path: /api/v1/version
+    query_for: firmware_major
+device_settings:
+  operation_mode:
+    type: enum
+    label: Operation Mode
+    values:
+      - value: '0'
+        label: Room PC with Content Sharing
+      - value: '1'
+        label: BYOM
+      - value: '2'
+        label: Custom
+    default: '0'
+    state_key: operation_mode
+    setup: false
+    help: Changes the switcher configuration.
+    write:
+      method: GET
+      path: /api/v1/opMode?opMode={value}
+  usb_switching:
+    type: enum
+    label: USB Switching Mode
+    values:
+      - value: '0'
+        label: Automatic
+      - value: '1'
+        label: Manual
+      - value: '2'
+        label: Manual with Fallback
+      - value: '3'
+        label: USB Follows HDMI
+    default: '0'
+    state_key: usb_switching
+    setup: false
+    help: Custom operation mode enables independent switching policies.
+    write:
+      method: GET
+      path: /api/v1/usbHostSwMode?usbHostSwMode={value}
+  display_switching:
+    type: enum
+    label: Display Switching Mode
+    values:
+      - value: '0'
+        label: Automatic
+      - value: '1'
+        label: Manual
+      - value: '2'
+        label: Manual with Fallback
+      - value: '3'
+        label: HDMI Follows USB
+    default: '0'
+    state_key: display_switching
+    setup: false
+    help: Custom operation mode enables independent switching policies.
+    write:
+      method: GET
+      path: /api/v1/displaySwMode?displaySwMode={value}
+  share_switching:
+    type: enum
+    label: Share Switching Mode
+    values:
+      - value: '0'
+        label: Automatic
+      - value: '1'
+        label: Manual
+      - value: '2'
+        label: Manual with Fallback
+      - value: '3'
+        label: HDMI Follows USB
+    default: '0'
+    state_key: share_switching
+    setup: false
+    help: Custom operation mode enables independent switching policies.
+    write:
+      method: GET
+      path: /api/v1/shareSwMode?shareSwMode={value}
+  button_lock:
+    type: enum
+    label: Front Button Lock
+    values:
+      - value: '0'
+        label: Unlocked
+      - value: '1'
+        label: Locked
+    default: '0'
+    state_key: button_lock
+    setup: false
+    help: Changes the switcher configuration.
+    write:
+      method: GET
+      path: /api/v1/btnLock?btnLock={value}
+responses:
+  - json: true
+    set:
+      usb_host: usbHost
+      display_source: displaySrc
+      share_source: shareSrc
+      operation_mode: opMode
+      usb_switching: usbHostSwMode
+      display_switching: displaySwMode
+      share_switching: shareSwMode
+      button_lock: btnLock
+      hostname: hostname
+      firmware_major: major
+      firmware_minor: minor
+routing:
+  planes:
+    - label: USB Host
+      route_property: usb_host
+      command: route_usb_host
+      source_param: source
+    - label: Display Source
+      route_property: display_source
+      command: route_display_source
+      source_param: source
+    - label: Share Source
+      route_property: share_source
+      command: route_share_source
+      source_param: source
+actions:
+  - id: select_meeting_host
+    icon: users
+  - id: route_display_source
+    icon: monitor
+  - id: route_share_source
+    icon: share
+  - id: route_usb_host
+    icon: usb
+on_connect:
+  - read_hostname
+  - read_firmware
+  - read_usb_host
+  - read_display_source
+  - read_share_source
+  - read_operation_mode
+  - read_usb_switching
+  - read_display_switching
+  - read_share_switching
+  - read_button_lock
+polling:
+  queries:
+    - read_usb_host
+    - read_display_source
+    - read_share_source
+    - read_operation_mode
+    - read_usb_switching
+    - read_display_switching
+    - read_share_switching
+    - read_button_lock
+    - read_hostname
+    - read_firmware
+simulator:
+  initial_state:
+    usb_host: 0
+    display_source: 0
+    share_source: 0
+    operation_mode: 0
+    usb_switching: 0
+    display_switching: 0
+    share_switching: 0
+    button_lock: 0
+    hostname: TOGGLE-ROOMS-000001
+    firmware_major: 1
+    firmware_minor: 25
+  controls:
+    - type: select
+      key: usb_host
+      label: USB Host
+      options:
+        - 0
+        - 1
+        - 2
+        - 3
+    - type: select
+      key: display_source
+      label: Display Source
+      options:
+        - 0
+        - 1
+        - 2
+        - 3
+    - type: select
+      key: share_source
+      label: Share Source
+      options:
+        - 0
+        - 1
+        - 2
+        - 3
+    - type: select
+      key: operation_mode
+      label: Operation Mode
+      options:
+        - 0
+        - 1
+        - 2
+    - type: select
+      key: usb_switching
+      label: USB Switching Mode
+      options:
+        - 0
+        - 1
+        - 2
+        - 3
+    - type: select
+      key: display_switching
+      label: Display Switching Mode
+      options:
+        - 0
+        - 1
+        - 2
+        - 3
+    - type: select
+      key: share_switching
+      label: Share Switching Mode
+      options:
+        - 0
+        - 1
+        - 2
+        - 3
+    - type: select
+      key: button_lock
+      label: Front Button Lock
+      options:
+        - 0
+        - 1
+  command_handlers:
+    - match: GET /api/v1/([A-Za-z]+)(?:\?([A-Za-z]+)=([0-9]+))?
+      handler: |
+        endpoint, argument, raw = match.group(1), match.group(2), match.group(3)
+        properties = {'usbHost': 'usb_host', 'displaySrc': 'display_source', 'shareSrc': 'share_source', 'opMode': 'operation_mode', 'usbHostSwMode': 'usb_switching', 'displaySwMode': 'display_switching', 'shareSwMode': 'share_switching', 'btnLock': 'button_lock'}
+        if endpoint == "version":
+            respond(json.dumps({"major": state["firmware_major"], "minor": state["firmware_minor"]}))
+        elif endpoint == "hostname":
+            respond(json.dumps({"hostname": state["hostname"]}))
+        elif endpoint in properties and not argument:
+            respond(json.dumps({endpoint: state[properties[endpoint]], "message": "success"}))
+        elif endpoint in properties and argument == ("host" if endpoint == "usbHost" else endpoint):
+            state[properties[endpoint]] = int(raw)
+            respond('{"message":"success"}')
+        elif endpoint == "hostMeeting" and argument == "host":
+            state["usb_host"] = int(raw)
+            state["display_source"] = int(raw)
+            respond('{"message":"success"}')
+        elif endpoint in ("cecVolUp", "cecVolDown", "cecToggleMute"):
+            respond('{"message":"success"}')

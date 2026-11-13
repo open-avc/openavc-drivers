@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 54,
+    "total_drivers": 55,
     "shards": null,
     "category": "audio"
   },
@@ -1825,6 +1825,69 @@
           "bss audio",
           "soundweb omni"
         ]
+      }
+    },
+    {
+      "id": "catchbox_plus_hub",
+      "name": "Catchbox Plus Hub",
+      "manufacturer": "Catchbox",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "udp",
+      "description": "Discover the Hub and its fitted microphone channels. Control input and mix output mute and monitor link, charging, battery and RF signal for each microphone.",
+      "source_url": "https://docs.catchbox.com/v2.1/command-list/",
+      "file": "audio/catchbox_plus_hub.py",
+      "format": "python",
+      "files": {
+        "audio/catchbox_plus_hub.py": "c6db6e808383e66e9e774a66042f06eb4fd28f7a8bd599ade2f0cc1650f6e482",
+        "audio/catchbox_plus_hub_sim.py": "b90f3752d33e39c9ca9bfec38a7c3aa674f0d57627b59d1830cc5b6924f87e3b"
+      },
+      "ports": [
+        39030
+      ],
+      "protocols": [
+        "catchbox"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.2",
+      "tags": [
+        "wireless-microphone",
+        "battery",
+        "conferencing",
+        "catchbox"
+      ],
+      "help": {
+        "overview": "The receiver reports whether it has two or four microphone channels. Each channel has a stable slot, input mute and link status. Live transmitter readings disappear when the radio link drops. Charging is a distinct Hub report, not inferred from battery percentage.",
+        "setup": "Use a network-enabled Hub with the supported 2.x firmware. Discover it on the local subnet or enter the Hub IPv4 address and allow UDP port 39030. The Hub does not require an API login. Pair transmitters at the Hub before use.",
+        "connection": "Every connection identifies the Hub and reads each channel. Change subscriptions supply immediate feedback. A periodic refresh recovers lost UDP updates. RF signal uses the value reported by Catchbox, which does not specify a unit."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Catchbox",
+          "models": [
+            "Plus Hub CBPLRX003",
+            "Plus Hub CBPLRX004"
+          ],
+          "confidence": "untested",
+          "notes": "Network-enabled dual and quad Hubs. CBPLRX003 firmware 2.0/2.1 and CBPLRX004 firmware 2.1."
+        }
+      ],
+      "discovery": {
+        "mdns": [
+          {
+            "service": "_catchbox._udp"
+          }
+        ],
+        "manufacturer_alias": [
+          "catchbox"
+        ],
+        "udp_probe": {
+          "port": 39030,
+          "send_ascii": "{\"rx\":{\"device\":{\"device_type\":null}}}",
+          "expect_regex": "\"device_type\"\\s*:\\s*\"(?:dual|quad)\"",
+          "extract_manufacturer": "Catchbox"
+        }
       }
     },
     {

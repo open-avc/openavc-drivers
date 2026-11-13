@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 7,
+    "total_drivers": 8,
     "shards": null,
     "category": "lighting"
   },
@@ -636,6 +636,53 @@
             }
           }
         }
+      }
+    },
+    {
+      "id": "visual_productions_cuecore3",
+      "name": "Visual Productions CueCore3",
+      "manufacturer": "Visual Productions",
+      "category": "lighting",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "osc",
+      "description": "Run installed lighting cues across sixteen playbacks. Follow playback activity, cue number, intensity and speed changes, with master controls and a reachability check.",
+      "source_url": "https://api.visualproductions.nl/api/download/6332f4f7ae10192bdec2bd0c",
+      "file": "lighting/visual_productions_cuecore3.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "lighting/visual_productions_cuecore3.avcdriver": "96929ac2c8879312a41602d3de51f74ff718eabc3b30138146808ca2128fc17a"
+      },
+      "ports": [
+        8000
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "lighting",
+        "osc",
+        "playback",
+        "show-control"
+      ],
+      "help": {
+        "overview": "Use Next Cue, Previous Cue or Jump to Cue on a programmed playback. CueCore3 sends change notifications to its four most recent OSC clients. Values show the last report from the controller. After a network outage the current cue or intensity can remain unknown or show the previous report until that property changes. Hello checks connectivity only.",
+        "setup": "Use the default API prefix core, and match the OSC Input Port on the Settings page (Figure 5.6 shows 8000). Disable OSC Forward so incoming control messages do not echo as feedback. Enter the unicast device address. Each playback number corresponds to the same number on the Playback page.",
+        "connection": "OpenAVC registers by sending /core/hello and repeats it periodically. Reserve one of the four OSC client slots for OpenAVC. Use Identify to blink the controller LED when commissioning."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Visual Productions",
+          "models": [
+            "CueCore3"
+          ],
+          "confidence": "untested",
+          "notes": "CueCore3 Manual, firmware 1.30.25, Appendix E."
+        }
+      ],
+      "discovery": {
+        "manufacturer_alias": [
+          "visual productions"
+        ]
       }
     }
   ]

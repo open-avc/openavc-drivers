@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 38,
+    "total_drivers": 39,
     "shards": null,
     "category": "switcher"
   },
@@ -1481,6 +1481,57 @@
         },
         "manufacturer_alias": [
           "gefen"
+        ]
+      }
+    },
+    {
+      "id": "inogeni_toggle_rooms",
+      "name": "INOGENI TOGGLE ROOMS",
+      "manufacturer": "INOGENI",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Switch meeting hosts or route USB peripherals, the room display and the content-share output independently. Read the actual routes after switching or reconnecting.",
+      "source_url": "https://inogeni.com/documents/toggle-rooms/INOGENI-TOGGLE-ROOMS_User-Guide-V1-6.pdf",
+      "file": "switchers/inogeni_toggle_rooms.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "switchers/inogeni_toggle_rooms.avcdriver": "cead70493aa4ba7a182d9b589501710e546968686841be1354136eea44e8402b"
+      },
+      "ports": [
+        443,
+        5000
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "byom",
+        "usb",
+        "hdmi",
+        "switcher"
+      ],
+      "help": {
+        "overview": "Select a meeting host for a one-time handoff or use the three Matrix planes individually. The installed switching mode and cable changes can take precedence. Display audio controls send CEC commands and have no volume or mute readback.",
+        "setup": "Enter the address shown in MAESTRO. If REST authentication is enabled, choose Bearer Token and enter the existing token from the System page. Use Verify Certificate when the device certificate is trusted. Custom operation allows separate USB, Display and Share switching modes. In automatic switching the Room PC is unavailable as a Share source.",
+        "connection": "HTTPS uses port 443. To control attached serial equipment, first enable TCP to RS232 tunneling in MAESTRO and match the serial settings to the downstream equipment. Add its driver through the RS-232 bridge port. Port 5000 is a separate raw TCP service. Enabling tunneling uses the physical serial port for the downstream device."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "INOGENI",
+          "models": [
+            "TOGGLE ROOMS"
+          ],
+          "confidence": "untested",
+          "notes": "Original three-host switcher. User Guide 1.6."
+        }
+      ],
+      "discovery": {
+        "manufacturer_alias": [
+          "inogeni"
+        ],
+        "hostname": [
+          "^toggle-rooms-[0-9a-f]{6}$"
         ]
       }
     },

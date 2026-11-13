@@ -1,0 +1,376 @@
+id: visual_productions_cuecore3
+name: Visual Productions CueCore3
+manufacturer: Visual Productions
+category: lighting
+version: 1.0.0
+author: OpenAVC
+description: Run installed lighting cues across sixteen playbacks. Follow playback activity, cue number, intensity
+  and speed changes, with master controls and a reachability check.
+source_url: https://api.visualproductions.nl/api/download/6332f4f7ae10192bdec2bd0c
+verified: false
+simulated: true
+compatible_models:
+  - manufacturer: Visual Productions
+    models:
+      - CueCore3
+    confidence: untested
+    notes: CueCore3 Manual, firmware 1.30.25, Appendix E.
+transport: osc
+ports:
+  - 8000
+default_config:
+  host: ''
+  port: 8000
+  listen_port: 0
+  verify_timeout: 0
+  poll_interval: 0
+config_schema:
+  host:
+    type: string
+    label: Device Address
+    required: true
+  port:
+    type: integer
+    label: Control Port
+    default: 8000
+    min: 1
+    max: 65535
+min_platform_version: 0.36.0
+tags:
+  - lighting
+  - osc
+  - playback
+  - show-control
+web_ui: http://{host}
+help:
+  overview: Use Next Cue, Previous Cue or Jump to Cue on a programmed playback. CueCore3 sends change notifications
+    to its four most recent OSC clients. Values show the last report from the controller. After a network outage
+    the current cue or intensity can remain unknown or show the previous report until that property changes.
+    Hello checks connectivity only.
+  setup: Use the default API prefix core, and match the OSC Input Port on the Settings page (Figure 5.6 shows
+    8000). Disable OSC Forward so incoming control messages do not echo as feedback. Enter the unicast device
+    address. Each playback number corresponds to the same number on the Playback page.
+  connection: OpenAVC registers by sending /core/hello and repeats it periodically. Reserve one of the four
+    OSC client slots for OpenAVC. Use Identify to blink the controller LED when commissioning.
+discovery:
+  manufacturer_alias:
+    - visual productions
+state_variables:
+  master_intensity:
+    type: number
+    label: Last Reported Master Intensity
+    min: 0
+    max: 1
+    step: 0.01
+    control: true
+  master_rate:
+    type: number
+    label: Last Reported Master Rate
+    min: -1
+    max: 1
+    step: 0.01
+    control: true
+  master_fade:
+    type: string
+    label: Last Reported Master Fade
+child_entity_types:
+  playback:
+    label: Playback
+    label_plural: Playbacks
+    id_format:
+      type: integer
+      min: 1
+      max: 16
+    instances:
+      count: 16
+      label: Playback {id}
+    summary_fields:
+      - active
+      - cue
+      - intensity
+    state_variables:
+      active:
+        type: boolean
+        label: Last Reported Active
+        control: true
+        cloud_priority: high
+      cue:
+        type: integer
+        label: Last Reported Cue
+        control: true
+        cloud_priority: high
+      intensity:
+        type: number
+        label: Last Reported Intensity
+        min: 0
+        max: 1
+        step: 0.01
+        control: true
+      rate:
+        type: number
+        label: Last Reported Rate
+        min: -1
+        max: 1
+        step: 0.01
+        control: true
+commands:
+  next_cue:
+    label: Next Cue
+    address: /core/pb/{playback}/go+
+    params:
+      playback:
+        type: child_id
+        label: Playback
+        child_type: playback
+        required: true
+  previous_cue:
+    label: Previous Cue
+    address: /core/pb/{playback}/go-
+    params:
+      playback:
+        type: child_id
+        label: Playback
+        child_type: playback
+        required: true
+  jump_to_cue:
+    label: Jump to Cue
+    address: /core/pb/{playback}/jump
+    params:
+      playback:
+        type: child_id
+        label: Playback
+        child_type: playback
+        required: true
+      cue:
+        type: integer
+        label: Cue
+        min: 1
+        max: 128
+        required: true
+    args:
+      - type: i
+        value: '{cue}'
+  release_playback:
+    label: Release Playback
+    address: /core/pb/{playback}/release
+    params:
+      playback:
+        type: child_id
+        label: Playback
+        child_type: playback
+        required: true
+  set_intensity:
+    label: Set Playback Intensity
+    address: /core/pb/{playback}/intensity
+    params:
+      playback:
+        type: child_id
+        label: Playback
+        child_type: playback
+        required: true
+      value:
+        type: number
+        label: Intensity
+        min: 0
+        max: 1
+    args:
+      - type: f
+        value: '{value}'
+    sets:
+      intensity: '{value}'
+  set_rate:
+    label: Set Playback Rate
+    address: /core/pb/{playback}/rate
+    params:
+      playback:
+        type: child_id
+        label: Playback
+        child_type: playback
+        required: true
+      value:
+        type: number
+        label: Rate
+        min: -1
+        max: 1
+    args:
+      - type: f
+        value: '{value}'
+    sets:
+      rate: '{value}'
+  set_master_intensity:
+    label: Set Master Intensity
+    address: /core/pb/intensity
+    args:
+      - type: f
+        value: '{value}'
+    params:
+      value:
+        type: number
+        label: Intensity
+        min: 0
+        max: 1
+    sets:
+      master_intensity: '{value}'
+  set_master_rate:
+    label: Set Master Rate
+    address: /core/pb/rate
+    args:
+      - type: f
+        value: '{value}'
+    params:
+      value:
+        type: number
+        label: Rate
+        min: -1
+        max: 1
+    sets:
+      master_rate: '{value}'
+  set_master_fade:
+    label: Set Master Fade
+    address: /core/pb/fade
+    args:
+      - type: s
+        value: '{duration}'
+    params:
+      duration:
+        type: string
+        label: Fade Time
+        required: true
+        description: Controller time string, for example 3s.
+    sets:
+      master_fade: '{duration}'
+  release_all:
+    label: Release All Playbacks
+    address: /core/pb/release
+    confirm: Release all playbacks on this controller?
+  identify:
+    label: Identify Controller
+    address: /core/blink
+  check_connection:
+    label: Check Connection
+    address: /core/hello
+    help: The controller echoes Hello without altering a playback.
+actions:
+  - id: next_cue
+    icon: skip-forward
+  - id: jump_to_cue
+    icon: play
+  - id: release_playback
+    icon: stop-circle
+  - id: identify
+    icon: search
+on_connect:
+  - /core/hello
+liveness:
+  send: /core/hello
+  expect: "^/core/hello\0"
+  interval: 15
+  timeout: 4
+  max_failures: 2
+responses:
+  - address: /core/pb/*/active
+    child_set:
+      - type: playback
+        id:
+          segment: 2
+        state:
+          active:
+            arg: 0
+  - address: /core/pb/*/cue
+    child_set:
+      - type: playback
+        id:
+          segment: 2
+        state:
+          cue:
+            arg: 0
+  - address: /core/pb/*/intensity
+    child_set:
+      - type: playback
+        id:
+          segment: 2
+        state:
+          intensity:
+            arg: 0
+  - address: /core/pb/*/rate
+    child_set:
+      - type: playback
+        id:
+          segment: 2
+        state:
+          rate:
+            arg: 0
+  - address: /core/pb/intensity
+    mappings:
+      - arg: 0
+        state: master_intensity
+        type: float
+  - address: /core/pb/rate
+    mappings:
+      - arg: 0
+        state: master_rate
+        type: float
+  - address: /core/pb/fade
+    mappings:
+      - arg: 0
+        state: master_fade
+        type: string
+simulator:
+  initial_state:
+    master_intensity: 1.0
+    master_rate: 0.0
+    master_fade: 0s
+  push_state: true
+  controls:
+    - type: slider
+      key: master_intensity
+      label: Master Intensity
+      min: 0
+      max: 1
+      step: 0.01
+    - type: slider
+      key: master_rate
+      label: Master Rate
+      min: -1
+      max: 1
+      step: 0.01
+  command_handlers:
+    - address: /core/hello
+      handler: respond("/core/hello", [])
+    - address: /core/pb/*/*
+      handler: |-
+        parts = address.split("/")
+        slot, action = parts[3], parts[4]
+        base = "/core/pb/" + slot + "/"
+        key = "playback." + slot + "."
+        if action in ("go+", "go-", "jump"):
+            cue = int(state.get(key + "cue", 0) or 0)
+            if action == "jump":
+                cue = int(args[0][1])
+            elif action == "go+":
+                cue = min(128, cue + 1)
+            else:
+                cue = max(1, cue - 1)
+            state[key + "cue"] = cue
+            state[key + "active"] = True
+            respond(base + "active", [("i", 1)])
+            respond(base + "cue", [("i", cue)])
+        elif action == "release":
+            state[key + "active"] = False
+            respond(base + "active", [("i", 0)])
+        elif action in ("intensity", "rate") and args:
+            state[key + action] = args[0][1]
+            respond(address, args)
+    - address: /core/pb/release
+      handler: |-
+        for slot in range(1, 17):
+            state["playback." + str(slot) + ".active"] = False
+            respond("/core/pb/" + str(slot) + "/active", [("i", 0)])
+    - address: /core/pb/*
+      handler: |-
+        prop = address.split("/")[-1]
+        if prop in ("intensity", "rate", "fade") and args:
+            state["master_" + prop] = args[0][1]
+            respond(address, args)
+    - address: /core/blink
+      handler: state["identify_count"] = int(state.get("identify_count", 0)) + 1

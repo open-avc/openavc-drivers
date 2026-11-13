@@ -1048,19 +1048,21 @@
       "name": "Apple TV",
       "manufacturer": "Apple",
       "category": "streaming",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Pair over the local network to navigate tvOS, control playback, launch installed apps and monitor power.",
+      "description": "Pair directly with tvOS for room control, text entry, app and profile selection. Optional media pairing adds live Now Playing feedback and playback controls.",
       "source_url": "https://pyatv.dev/documentation/protocols/#companion",
       "file": "streaming/apple_tv.py",
       "format": "python",
       "files": {
-        "streaming/apple_tv.py": "c9f9a79eb805632ab2010766075dbee3d8e416f2bd6e647f10a24a6628bf4abb",
-        "streaming/apple_tv_sim.py": "5c60a07f5804eb7d590dc65bc4cc05cd99104acbc4a8b1cbed6c6de45f9ec412"
+        "streaming/apple_tv.py": "5062d1805130205e447915f176d94c3072ae6d4ec9e190c79257a48669857d59",
+        "streaming/apple_tv_sim.py": "2bd6fdaa113ec1ba7c78703ad6d65a6600d5096ca0d1d77967249f6de2b00c95"
       },
       "protocols": [
-        "companion_link"
+        "companion_link",
+        "airplay",
+        "media_remote"
       ],
       "simulated": true,
       "min_platform_version": "0.40.0",
@@ -1072,7 +1074,7 @@
       ],
       "help": {
         "overview": "Controls Apple TV HD and Apple TV 4K directly from OpenAVC. Give each room its own Apple TV device. Apps come from that TV, so an integrator can pick an installed app by name.",
-        "setup": "Add the Apple TV by discovery or enter its address. Keep its display visible. Under Actions choose 1. Show pairing PIN, then 2. Enter pairing PIN. Enter all four digits shown on that TV, including leading zeros. OpenAVC saves the verified pairing on this controller and reconnects. To replace a TV or restore onto a different controller, repeat both steps. If Bonjour cannot cross your VLANs, enter the TCP port advertised for _companion-link._tcp in Port override. Apple TV advertises this port dynamically. Playback and volume buttons depend on the active app and audio route. In the built-in simulator the PIN is 1234. Some tvOS versions first report power when it changes."
+        "setup": "Add the Apple TV by discovery or enter its address. Keep its display visible. Under Actions choose 1. Show pairing PIN, then 2. Enter pairing PIN. Enter all four digits shown on that TV, including leading zeros. OpenAVC saves the verified pairing on this controller and reconnects. To replace a TV or restore onto a different controller, repeat both steps. If Bonjour cannot cross your VLANs, enter the TCP port advertised for _companion-link._tcp in Port override. Apple TV advertises this port dynamically. Playback and volume buttons depend on the active app and audio route. In the built-in simulator the PIN is 1234. Some tvOS versions first report power when it changes. For Now Playing, leave the remote paired and run Show media PIN, then Enter media PIN. The second pairing uses the AirPlay service on the same TV. Leave Media port at 0 for Bonjour or enter its advertised port across VLANs. Bind Track title, Playing app, Playback state and Position to panel elements. Apps decide which fields, commands and cover images they supply."
       },
       "compatible_models": [
         {

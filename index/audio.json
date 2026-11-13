@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 56,
+    "total_drivers": 57,
     "shards": null,
     "category": "audio"
   },
@@ -123,6 +123,74 @@
         "manufacturer_alias": [
           "Algo",
           "Algo Communication Products"
+        ]
+      }
+    },
+    {
+      "id": "allenheath_ahm",
+      "name": "Allen & Heath AHM",
+      "manufacturer": "Allen & Heath",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Control an AHM-16, AHM-32 or AHM-64 audio matrix by zone, channel and source name. Includes room combining, presets and selectable audio sends.",
+      "source_url": "https://www.allen-heath.com/content/uploads/2024/10/AHM-TCP-Protocol-V1.5.pdf",
+      "file": "audio/allenheath_ahm.py",
+      "format": "python",
+      "files": {
+        "audio/allenheath_ahm.py": "9a6438bbb5b10e4260838edc6f17fa3f147de20b716c9429bed7fa4d7a78da58",
+        "audio/allenheath_ahm_sim.py": "962cea9efae5d8ee908919629bddc574735de8709a3b41003ea37850d0f3ebf8"
+      },
+      "ports": [
+        51327,
+        51325
+      ],
+      "protocols": [
+        "midi-over-tcp"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.2",
+      "tags": [
+        "dsp",
+        "audio-matrix",
+        "zone-control",
+        "room-combining"
+      ],
+      "help": {
+        "overview": "Control the channels and zones designed in AHM System Manager. A zone always controls that zone. A combiner room follows the primary room when spaces are combined.",
+        "setup": "Choose the processor model and enter its Network socket address. Match the External Control mode in System Manager. For SSL, enter the profile number and password. Refresh controls after changing the AHM project. Add favorite presets or named audio sends only if you use them.",
+        "connection": "Bind a zone fader to Fader position and a mute button to Muted. Select a named zone source lists each source with its zone. A source binding keeps its zone and slot number if the label changes. Preset, combiner source and divider indicators start unknown until the processor reports a change. A fader position is a native step, with 0 at silence and 127 at +10 dB."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Allen & Heath",
+          "models": [
+            "AHM-16",
+            "AHM-32",
+            "AHM-64"
+          ],
+          "confidence": "untested",
+          "notes": "Based on TCP/IP Protocol V1.5 and checked in simulation. Physical verification pending."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 51325,
+          "send_hex": "F0 00 00 1A 50 12 01 00 00 09 00 F7",
+          "expect_hex": "F0 00 00 1A 50 12 01 00 00 0A 00",
+          "timeout_ms": 1500
+        },
+        "port_open": [
+          51325,
+          51327
+        ],
+        "oui": [
+          "00:04:c4"
+        ],
+        "manufacturer_alias": [
+          "Allen & Heath",
+          "Audiotonix"
         ]
       }
     },

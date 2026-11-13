@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1381,
+    "total_devices": 1384,
     "shards": null
   },
   "devices": [
@@ -327,6 +327,42 @@
           "id": "algo_ip_endpoint",
           "confidence": "untested",
           "notes": "IP speakers. Built from Algo's RESTful API Guide; not yet run against a device. Firmware 5.4 or newer is needed for the status page and model detection, 5.7 for emergency alerts and play durations."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "AHM-16",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_ahm",
+          "confidence": "untested",
+          "notes": "Based on TCP/IP Protocol V1.5 and checked in simulation. Physical verification pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "AHM-32",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_ahm",
+          "confidence": "untested",
+          "notes": "Based on TCP/IP Protocol V1.5 and checked in simulation. Physical verification pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "AHM-64",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_ahm",
+          "confidence": "untested",
+          "notes": "Based on TCP/IP Protocol V1.5 and checked in simulation. Physical verification pending."
         }
       ]
     },

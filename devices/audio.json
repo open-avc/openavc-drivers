@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 313,
+    "total_devices": 315,
     "shards": null,
     "category": "audio"
   },
@@ -2466,6 +2466,30 @@
           "id": "sennheiser_sl_rack_receiver_dw",
           "confidence": "untested",
           "notes": "Built from Sennheiser's SSC developer guide for firmware 4.1.1; not yet run against a receiver. The SL MCR 2 / 4 DW multi-channel receivers and the CHG 2N / 4N chargers use different SSC commands and have their own drivers. Network address configuration and firmware updates belong to Sennheiser Control Cockpit.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sennheiser",
+      "model": "Spectera Base Station",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sennheiser_spectera",
+          "confidence": "untested",
+          "notes": "Spectera API 18.1 or 18.3, base firmware 1.4.0 or 1.5.x. Paired SEK and SKM devices and attached DAD antennas appear under the base station."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sennheiser",
+      "model": "Spectera Base Station ZMAN",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sennheiser_spectera",
+          "confidence": "untested",
+          "notes": "Spectera API 18.1 or 18.3, base firmware 1.4.0 or 1.5.x. Paired SEK and SKM devices and attached DAD antennas appear under the base station."
         }
       ]
     },

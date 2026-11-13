@@ -123,6 +123,8 @@ _CONFIG: dict[str, dict] = {
     # is auth_failed before any request); its sim accepts anything but
     # "invalid" and serves HTTPS with its own certificate.
     "sennheiser_tccm": {"password": "smokepw"},
+    # Spectera requires the device password; the simulator presents a local self-signed certificate.
+    "sennheiser_spectera": {"password": "smokepw", "verify_ssl": False},
     # The phone's REST API never takes a blank admin password, so the driver
     # refuses to send one; the sim accepts any password but "invalid".
     "poly_trio": {"password": "smokepw"},

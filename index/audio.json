@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 53,
+    "total_drivers": 54,
     "shards": null,
     "category": "audio"
   },
@@ -2471,6 +2471,72 @@
         "oui": [
           "00:1b:66"
         ],
+        "manufacturer_alias": [
+          "sennheiser"
+        ]
+      }
+    },
+    {
+      "id": "sennheiser_spectera",
+      "name": "Sennheiser Spectera",
+      "manufacturer": "Sennheiser",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Discover paired SEK bodypacks and SKM handhelds on a Spectera Base Station. Follow batteries, RF health, microphone and IEM links, command-button output mutes and DAD antennas live.",
+      "source_url": "https://docs.cloud.sennheiser.com/en-us/api-docs/spectera/open-api-specification-18-3.html",
+      "file": "audio/sennheiser_spectera.py",
+      "format": "python",
+      "files": {
+        "audio/sennheiser_spectera.py": "d06188bd9f694cbc3593ad4471c5d313143ee2efacaaf30ff08e3995516bb5c2",
+        "audio/sennheiser_spectera_sim.py": "408e3ce7b70c031cacd10b6d1e61755d85cd085036c3945f13c84a99491bfecf"
+      },
+      "ports": [
+        443
+      ],
+      "protocols": [
+        "sscv2"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.2",
+      "tags": [
+        "spectera",
+        "wireless-microphone",
+        "iem",
+        "sscv2",
+        "wmas"
+      ],
+      "help": {
+        "overview": "The paired device list follows each bodypack or handheld by its permanent radio ID. Each audio output shows the mute determined by its source's command button and its own AoIP and MADI routing settings. A missing or ambiguous source leaves the result unknown. Interface-wide mutes are reported separately.",
+        "setup": "Commission the station and pair the radios in LinkDesk or the Spectera WebUI. Enter the station address and the device password configured there. OpenAVC uses the controlSennheiser account. Check the password in LinkDesk after a refusal because repeated failures can temporarily block access.",
+        "connection": "HTTPS on port 443. Enable certificate verification when the station's certificate is trusted by OpenAVC. Subscriptions follow external changes. Every reconnect reads the complete roster and current settings. A periodic refresh also works while event delivery is unavailable."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Sennheiser",
+          "models": [
+            "Spectera Base Station",
+            "Spectera Base Station ZMAN"
+          ],
+          "confidence": "untested",
+          "notes": "Spectera API 18.1 or 18.3, base firmware 1.4.0 or 1.5.x. Paired SEK and SKM devices and attached DAD antennas appear under the base station."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 443,
+          "tls": true,
+          "send_ascii": "GET /api/device/identity HTTP/1.1\r\nHost: spectera\r\nConnection: close\r\n\r\n",
+          "expect_regex": "\"product\"\\s*:\\s*\"Spectera-Base-Station\"",
+          "extract_manufacturer": "Sennheiser",
+          "extract": {
+            "model": {
+              "regex": "\"articleName\"\\s*:\\s*\"([^\"]+)\"",
+              "group": 1
+            }
+          }
+        },
         "manufacturer_alias": [
           "sennheiser"
         ]

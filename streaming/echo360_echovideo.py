@@ -14,7 +14,7 @@ import math
 import re
 import ssl
 import time
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 import aiohttp
 from defusedxml import ElementTree as XML
@@ -139,7 +139,13 @@ def address(config):
     return f"https://{'[' + host + ']' if ':' in host else host}:{int(config.get('port') or 8443)}"
 
 
+class UnsupportedMedia(EchoError):
+    """The recorder explicitly refused the posted media type (HTTP 415)."""
+
+
 def api_error(status):
+    if status == 415:
+        return UnsupportedMedia("EchoVideo refused the request content type.")
     if status == 401:
         return ConnectionFaultError("EchoVideo declined the capture account or password.", code="auth_failed")
     if status == 403:
@@ -154,12 +160,32 @@ class CaptureAPI:
         self.client = client
         self.base = base
         self.trace = trace
+        self.form_type = "application/x-www-form-urlencoded"
 
     async def request(self, path, fields=None):
-        method = "GET" if fields is None else "POST"
+        if fields is None:
+            return await self._exchange(path, None, {})
+        body = urlencode(fields).encode("ascii")
+        first = self.form_type
+        try:
+            return await self._exchange(path, body, {"Content-Type": first})
+        except UnsupportedMedia:
+            # Both vendor examples use URL-encoded fields. The reference table
+            # names an XML header while its curl examples send the form header.
+            alternate = (
+                "application/xml" if first != "application/xml" else "application/x-www-form-urlencoded"
+            )
+            response = await self._exchange(path, body, {"Content-Type": alternate})
+            self.form_type = alternate
+            return response
+
+    async def _exchange(self, path, body, headers):
+        method = "GET" if body is None else "POST"
         self.trace("tx", f"{method} {path}")
         try:
-            async with self.client.request(method, self.base + path, data=fields, allow_redirects=False) as r:
+            async with self.client.request(
+                method, self.base + path, data=body, headers=headers, allow_redirects=False
+            ) as r:
                 self.trace("rx", f"{path} HTTP {r.status}")
                 if r.status != 200:
                     raise api_error(r.status)
@@ -351,7 +377,7 @@ class EchoVideo(BaseDriver):
         "name": "Echo360 EchoVideo Capture",
         "manufacturer": "Echo360",
         "category": "streaming",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         "min_platform_version": "0.37.2",
         "description": "Control the classroom recorder directly. Start the scheduled class or an unscheduled "

@@ -404,7 +404,7 @@
       "name": "Echo360 EchoVideo Capture",
       "manufacturer": "Echo360",
       "category": "streaming",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Control the classroom recorder directly. Start the scheduled class or an unscheduled lecture, pause, resume, finish and add time. Read the schedule, input signals and uploads.",
@@ -412,7 +412,7 @@
       "file": "streaming/echo360_echovideo.py",
       "format": "python",
       "files": {
-        "streaming/echo360_echovideo.py": "fe182573bb43bb9936d6266a627a1c95212f6c693aeeb8cab36ae6cbce16ada4",
+        "streaming/echo360_echovideo.py": "70e97c6f84d438c5fe56f9c9e232df36e34095e5b08189c8c04111b3eae0f3fa",
         "streaming/echo360_echovideo_sim.py": "dec2577ef6644758a71c802f045f523af5e8447ac011d099509e5301c444d50e"
       },
       "ports": [

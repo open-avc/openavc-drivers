@@ -192,11 +192,15 @@ def wire_identity(path, row):
         if key in ("a", "b", "c", "d"):
             return key
         raise ValueError("Invalid antenna port")
+    if path == MOBILES and row.get("type") not in ("SEK", "SKM"):
+        raise ValueError("Unknown mobile type")
+    return numeric_identity(path, key)
+
+
+def numeric_identity(path, key):
     limit = {MOBILES: 4294967295, RF: 1, OUTPUTS: 31}[path]
     if type(key) is not int or not 0 <= key <= limit:
         raise ValueError("Invalid Spectera resource ID")
-    if path == MOBILES and row.get("type") not in ("SEK", "SKM"):
-        raise ValueError("Unknown mobile type")
     return key
 
 
@@ -221,18 +225,23 @@ def numeric_value(value, schema):
     return int(number) if step == 1 else number
 
 
+def boolean_value(value):
+    flags = {"true": True, "1": True, "on": True, "false": False, "0": False, "off": False}
+    try:
+        return flags[str(value).lower()]
+    except KeyError:
+        raise ValueError("Choose on or off.") from None
+
+
 def command_value(value, schema):
-    if schema["type"] == "boolean":
-        flags = {"true": True, "on": True, "1": True, "false": False, "off": False, "0": False}
-        try:
-            return flags[str(value).lower()]
-        except KeyError:
-            raise ValueError("Choose on or off.") from None
-    if schema["type"] == "enum":
-        if value not in schema["values"]:
-            raise ValueError(f"Invalid {schema['label']} value")
-        return value
-    return numeric_value(value, schema)
+    kind = schema["type"]
+    if kind == "boolean":
+        return boolean_value(value)
+    if kind != "enum":
+        return numeric_value(value, schema)
+    if value not in schema["values"]:
+        raise ValueError(f"Invalid {schema['label']} value")
+    return value
 
 
 UNKNOWN_PRESENCE = {"online": None, "offline_reason": None, "offline_detail": None}
@@ -285,7 +294,7 @@ def mobile_write(row, prop, value):
     model = row["type"]
     if prop == "headphone_db":
         validate_headphones(row, value)
-    if prop == "gain_db" and model == "SEK" and value < -6:
+    if (prop, model) == ("gain_db", "SEK") and value < -6:
         raise ValueError("SEK gain starts at -6 dB.")
     key = {
         "identifying": "identify",
@@ -1665,7 +1674,7 @@ class SennheiserSpecteraDriver(BaseDriver):
         # A creation announcement can be {}, deletion null, and updates can be partial.
         # Read affected resources once per burst; queued notifications cannot overwrite a later GET.
         self._dirty.update(filter(None, map(notification_resource, event)))
-        if self._dirty and (self._refresh_task is None or self._refresh_task.done()):
+        if self._refresh_task is None and self._dirty:
             self._refresh_task = asyncio.create_task(self._drain_changes())
 
     async def _drain_changes(self):
@@ -1679,6 +1688,7 @@ class SennheiserSpecteraDriver(BaseDriver):
                     "Spectera live refresh failed; the next poll reconciles the resource.",
                     exc_info=True,
                 )
+        self._refresh_task = None
 
     async def _close_session(self):
         self._closing = True
@@ -1730,6 +1740,9 @@ class SennheiserSpecteraDriver(BaseDriver):
             return self.get_state("paired_count")
         if command in ("route_microphone", "clear_output"):
             return await self._route_output(command, params)
+        return await self._property_command(params, spec)
+
+    async def _property_command(self, params, spec):
         path, wire_id, kind, ident = self._target(params, spec)
         reads = (MOBILES, OUTPUTS) if path == OUTPUTS else (path,)
         prop = spec.get("query_for")

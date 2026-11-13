@@ -275,6 +275,9 @@ class SennheiserSpecteraSimulator(HTTPSimulator):
             return 200, ""
         if method != "PUT" or not isinstance(body, list):
             return 400, {}
+        return self._subscribe(session, body)
+
+    def _subscribe(self, session, body):
         known = self.collections.keys() | self.resources.keys()
         unsupported = next((p for p in body if not isinstance(p, str) or p not in known), None)
         if unsupported is not None:
@@ -378,6 +381,9 @@ class SennheiserSpecteraSimulator(HTTPSimulator):
             payload = json.loads(body) if body else None
         except ValueError:
             return 400, {}
+        return self._dispatch(method, path, payload)
+
+    def _dispatch(self, method, path, payload):
         if path.startswith(SESSIONS + "/"):
             return self._session_request(method, path, payload)
         if path == "/api/ssc/usagemark":

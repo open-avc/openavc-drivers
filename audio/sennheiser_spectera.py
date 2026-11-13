@@ -1697,21 +1697,9 @@ class SennheiserSpecteraDriver(BaseDriver):
             await asyncio.gather(self._refresh_task, return_exceptions=True)
             self._refresh_task = None
         self._dirty.clear()
-        for records in self._rows.values():
-            records.clear()
-        for kind, _ in COLLECTIONS.values():
-            for ident in self.list_children(kind):
-                self._clear_child(kind, ident)
-        transient = {key: None for path in PARENT.values() for key in path}
-        self.set_states(
-            {
-                **transient,
-                "paired_count": None,
-                "connected_count": None,
-                "microphone_choices": "[]",
-                "events_active": False,
-            }
-        )
+        for path in RESOURCES:
+            self._expire(path)
+        self.set_state("events_active", False)
 
     def _target(self, params, spec):
         for name, param in spec.get("params", {}).items():

@@ -27,7 +27,7 @@ _schema = importlib.util.spec_from_file_location("apple_tv_wire", Path(__file__)
 protocol = importlib.util.module_from_spec(_schema)
 _schema.loader.exec_module(protocol)
 
-# tvOS 27.0 on an Apple TV 4K (AppleTV18,1) writes records longer than the
+# tvOS 27.0 on an Apple TV A3593 (AppleTV18,1) writes records longer than the
 # 1024 bytes a controller may, leaves a request without an identifier
 # unanswered (acknowledged, never answered), and on a subscription names the
 # active player of every other app, the last for no app at all, after the

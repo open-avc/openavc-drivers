@@ -630,7 +630,7 @@ class AirStream:
                 raise EOFError("AirPlay connection closed")
             return raw
         # 1024 bytes is the longest record a sender may write (RECORD_SIZE), not
-        # the longest one to accept: tvOS 27.0 on an Apple TV 4K (AppleTV18,1)
+        # the longest one to accept: tvOS 27.0 on an Apple TV A3593 (AppleTV18,1)
         # sends longer ones (1098 bytes seen) as it describes the playing item.
         header = await self.reader.readexactly(2)
         size = int.from_bytes(header, "little")
@@ -807,6 +807,9 @@ MEDIA_EMPTY = {
     "episode_number": None,
     "duration": None,
     "position": None,
+    "elapsed": "",
+    "remaining": "",
+    "progress": None,
     "playback_state": "Unknown",
     "queue_count": None,
     "artwork_available": False,
@@ -929,6 +932,31 @@ def supported_commands(supported):
     return {first(item, 1) for item in commands if first(item, 2, 0)}
 
 
+def clock_text(seconds):
+    """A time as a panel shows it: m:ss, or h:mm:ss from an hour up; blank when unknown."""
+    if seconds is None:
+        return ""
+    hours, rest = divmod(int(max(0, seconds)), 3600)
+    minutes, secs = divmod(rest, 60)
+    return f"{hours}:{minutes:02d}:{secs:02d}" if hours else f"{minutes}:{secs:02d}"
+
+
+def playback_times(values):
+    position, duration = values.get("position"), values.get("duration")
+    known = position is not None and bool(duration)
+    return {
+        "elapsed": clock_text(position),
+        "remaining": clock_text(duration - position) if known else "",
+        "progress": round(min(100.0, max(0.0, position / duration * 100)), 1) if known else None,
+    }
+
+
+def mute_state(available, level):
+    if not available or level is None:
+        return "Unavailable"
+    return "Muted" if level == 0 else "Unmuted"
+
+
 def apply_playback_clock(values):
     rate = values.pop("rate", None)
     stamp = values.pop("timestamp", None)
@@ -981,6 +1009,7 @@ class NowPlaying:
         current = self.current()
         values = {**MEDIA_EMPTY, **(current.values if current else {})}
         apply_playback_clock(values)
+        values.update(playback_times(values))
         values["artwork_available"] = bool(values["artwork_available"])
         supported = self.supported()
         if supported is not None:
@@ -997,7 +1026,7 @@ class NowPlaying:
 
     def select_player(self, path):
         # The playing app changes only with SET_NOW_PLAYING_CLIENT (46); this names
-        # the active player inside one app. tvOS 27.0 on an Apple TV 4K (AppleTV18,1)
+        # the active player inside one app. tvOS 27.0 on an Apple TV A3593 (AppleTV18,1)
         # sends one per app on connect, the last for no app at all, while another
         # app is the one playing.
         (app, player), name = path_info(path)
@@ -1353,10 +1382,10 @@ class MediaSession:
             await asyncio.sleep(2)
             values = self.state.snapshot()
             if values["playback_state"] == "Playing":
-                self.update({"position": values["position"]})
+                self.update({key: values[key] for key in ("position", "elapsed", "remaining", "progress")})
 
     async def send(self, kind, extension, body, identifier=None):
-        # tvOS 27.0 on an Apple TV 4K (AppleTV18,1) acknowledges an unidentified
+        # tvOS 27.0 on an Apple TV A3593 (AppleTV18,1) acknowledges an unidentified
         # request and never answers it, the device information included, so
         # every message carries an identifier except the connection state,
         # which asks for no answer.
@@ -1590,7 +1619,7 @@ class AppleTVDriver(BaseDriver):
         "name": "Apple TV",
         "manufacturer": "Apple",
         "category": "streaming",
-        "version": "1.1.1",
+        "version": "1.2.0",
         "min_platform_version": "0.40.0",
         "author": "OpenAVC",
         "description": "Pair directly with tvOS for room control, text entry, app and profile selection. "
@@ -1605,12 +1634,19 @@ class AppleTVDriver(BaseDriver):
         "compatible_models": [
             {
                 "manufacturer": "Apple",
+                "models": ["Apple TV (A3593)"],
+                "confidence": "partial",
+                "notes": "Reports AppleTV18,1. Tested on tvOS 27.0: discovery, both pairings, the remote, "
+                "apps, sleep and wake, Now Playing, mute and the playback times. Artwork, seek, "
+                "repeat, shuffle, output changes, text entry and URL or file playback not yet tried.",
+            },
+            {
+                "manufacturer": "Apple",
                 "models": ["Apple TV HD", "Apple TV 4K"],
                 "confidence": "untested",
-                "notes": "Requires tvOS with the Companion Link remote service. Pairing, the remote "
-                "and Now Playing confirmed on one unit reporting model AppleTV18,1 with tvOS 27.0; "
-                "other models simulator and protocol interoperability tested.",
-            }
+                "notes": "Requires tvOS with the Companion Link remote service. Simulator and "
+                "protocol interoperability tested.",
+            },
         ],
         "help": {
             "overview": "Controls Apple TV HD and Apple TV 4K directly from OpenAVC. Give each room its "
@@ -1631,7 +1667,7 @@ class AppleTVDriver(BaseDriver):
             "panel elements. Apps decide which fields, commands and cover images they supply.",
         },
         # Each Apple TV announces its model code on Companion Link (rpMd) and on
-        # AirPlay (model), and a scan may hear only one of them: an Apple TV 4K
+        # AirPlay (model), and a scan may hear only one of them: an Apple TV A3593
         # (AppleTV18,1) was heard on AirPlay alone. Exact codes keep Macs, HomePods
         # and other AirPlay receivers out. 5,3 to 14,1 are pyatv's Apple TV table;
         # 18,1 was read off the unit.
@@ -1773,6 +1809,32 @@ class AppleTVDriver(BaseDriver):
                 "unit": "%",
                 "cloud_priority": "low",
             },
+            "elapsed": {
+                "type": "string",
+                "label": "Time elapsed",
+                "help": "Position in the playing item as m:ss, or h:mm:ss from an hour up.",
+                "cloud_priority": "low",
+            },
+            "remaining": {
+                "type": "string",
+                "label": "Time remaining",
+                "help": "Time left in the playing item as m:ss or h:mm:ss. Blank when the item reports no length.",
+                "cloud_priority": "low",
+            },
+            "progress": {
+                "type": "number",
+                "label": "Progress",
+                "unit": "%",
+                "min": 0,
+                "max": 100,
+                "help": "How much of the playing item has played. Empty when the item reports no length.",
+                "cloud_priority": "low",
+            },
+            "mute_state": {
+                "type": "string",
+                "label": "Mute state",
+                "help": "Muted, Unmuted, or Unavailable when the audio route does not report its volume.",
+            },
             "queue_count": {"type": "integer", "label": "Items in reported queue"},
             "episode_number": {"type": "integer", "label": "Episode"},
             "season_number": {"type": "integer", "label": "Season"},
@@ -1814,6 +1876,10 @@ class AppleTVDriver(BaseDriver):
                 "help": "Put the Apple TV to sleep.",
                 "label": "Sleep Apple TV",
                 "sets": {"power": "Off"},
+            },
+            "power_toggle": {
+                "help": "Put the Apple TV to sleep when it reports On, otherwise wake it.",
+                "label": "Wake / sleep Apple TV",
             },
             "screensaver": {
                 "help": "Display the Apple TV screen saver.",
@@ -1994,6 +2060,20 @@ class AppleTVDriver(BaseDriver):
                         "max": 100,
                     }
                 },
+            },
+            "mute": {
+                "label": "Mute",
+                "help": "Set the volume to 0 and remember the level, on an audio route that reports its volume.",
+                "sets": {"mute_state": "Muted"},
+            },
+            "unmute": {
+                "label": "Unmute",
+                "help": "Return to the level Mute remembered, while the same audio output is selected.",
+                "sets": {"mute_state": "Unmuted"},
+            },
+            "mute_toggle": {
+                "label": "Mute / unmute",
+                "help": "Mute, or unmute when muted.",
             },
             "read_volume": {
                 "label": "Read volume",
@@ -2206,6 +2286,7 @@ class AppleTVDriver(BaseDriver):
         self._touch_origin = None
         self._announced = {}
         self._media_came_up = False
+        self._unmute_to = None
 
     def _simulating(self):
         endpoint = ("127.0.0.1", int(self.config.get("port") or 0))
@@ -2229,7 +2310,7 @@ class AppleTVDriver(BaseDriver):
         return None
 
     async def _resolve(self, host, local, service=SERVICE):
-        # An Apple TV 4K (AppleTV18,1, tvOS 27.0) let one 2.5 s lookup go unanswered
+        # An Apple TV A3593 (AppleTV18,1, tvOS 27.0) let one 2.5 s lookup go unanswered
         # straight after a pairing, then answered every later one, so a miss is
         # asked again in a longer window before the last port it announced is used.
         target = host.rstrip(".").casefold()
@@ -2440,6 +2521,7 @@ class AppleTVDriver(BaseDriver):
             job.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
         self._media_job = self._volume_job = self._url_job = self._touch_origin = None
+        self._unmute_to = None
         self._flags = 0
         self._profiles.clear()
         self._outputs.clear()
@@ -2451,6 +2533,7 @@ class AppleTVDriver(BaseDriver):
                 "media_detail": "",
                 "keyboard_focus": "Unknown",
                 "volume_level": None,
+                "mute_state": "Unavailable",
                 "absolute_volume": False,
                 "profile_options": "[]",
                 "output_options": "[]",
@@ -2469,6 +2552,10 @@ class AppleTVDriver(BaseDriver):
             "refresh_apps": self._refresh_apps,
             "refresh_profiles": self._refresh_profiles,
             "read_volume": self._read_volume,
+            "mute": self._mute,
+            "unmute": self._unmute,
+            "mute_toggle": self._mute_toggle,
+            "power_toggle": self._power_toggle,
             "refresh_media": self._refresh_media,
             "download_artwork": self._artwork,
             "refresh_outputs": self._refresh_outputs,
@@ -2528,7 +2615,7 @@ class AppleTVDriver(BaseDriver):
         available = bool(self._flags & 256)
         self.set_state("absolute_volume", available)
         if not available:
-            self.set_state("volume_level", None)
+            self._publish_volume(None)
         elif not self._volume_job or self._volume_job.done():
             self._volume_job = asyncio.create_task(self._background_volume())
 
@@ -2536,7 +2623,12 @@ class AppleTVDriver(BaseDriver):
         try:
             await self._read_volume()
         except (OSError, ValueError, EOFError):
-            self.set_state("volume_level", None)
+            self._publish_volume(None)
+
+    def _publish_volume(self, level):
+        if level is None or level > 0:
+            self._unmute_to = None
+        self.set_states({"volume_level": level, "mute_state": mute_state(self._flags & 256, level)})
 
     async def _read_volume(self):
         if not self._flags & 256:
@@ -2544,7 +2636,33 @@ class AppleTVDriver(BaseDriver):
         reply = await self._wire.message("_mcc", {"_mcc": 5}, timeout=2)
         level = reply.get("_vol")
         if self._flags & 256:
-            self.set_state("volume_level", volume_percent(level))
+            self._publish_volume(volume_percent(level))
+
+    def _absolute_level(self):
+        level = self.get_state("volume_level")
+        if not self._flags & 256 or level is None:
+            raise PeerError("This audio route does not report its volume, so it cannot be muted here.")
+        return level
+
+    async def _mute(self):
+        level = self._absolute_level()
+        if level > 0:
+            self._unmute_to = (level, self.get_state("audio_output"))
+            await self._set_volume({"level": 0})
+
+    async def _unmute(self):
+        if self._absolute_level() > 0:
+            return
+        saved, self._unmute_to = self._unmute_to, None
+        if not saved or saved[1] != self.get_state("audio_output"):
+            raise ValueError("The level before Mute is not known for this output. Set a volume.")
+        await self._set_volume({"level": saved[0]})
+
+    async def _mute_toggle(self):
+        await (self._unmute() if self.get_state("mute_state") == "Muted" else self._mute())
+
+    async def _power_toggle(self):
+        await self._button("sleep" if self.get_state("power") == "On" else "wake")
 
     async def _set_volume(self, params):
         level = float(params["level"])

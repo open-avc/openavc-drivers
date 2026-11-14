@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1384,
+    "total_devices": 1385,
     "shards": null
   },
   "devices": [
@@ -1364,13 +1364,25 @@
     },
     {
       "manufacturer": "Apple",
+      "model": "Apple TV (A3593)",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "apple_tv",
+          "confidence": "partial",
+          "notes": "Reports AppleTV18,1. Tested on tvOS 27.0: discovery, both pairings, the remote, apps, sleep and wake, Now Playing, mute and the playback times. Artwork, seek, repeat, shuffle, output changes, text entry and URL or file playback not yet tried."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Apple",
       "model": "Apple TV 4K",
       "category": "streaming",
       "drivers": [
         {
           "id": "apple_tv",
           "confidence": "untested",
-          "notes": "Requires tvOS with the Companion Link remote service. Pairing, the remote and Now Playing confirmed on one unit reporting model AppleTV18,1 with tvOS 27.0; other models simulator and protocol interoperability tested."
+          "notes": "Requires tvOS with the Companion Link remote service. Simulator and protocol interoperability tested."
         }
       ]
     },
@@ -1382,7 +1394,7 @@
         {
           "id": "apple_tv",
           "confidence": "untested",
-          "notes": "Requires tvOS with the Companion Link remote service. Pairing, the remote and Now Playing confirmed on one unit reporting model AppleTV18,1 with tvOS 27.0; other models simulator and protocol interoperability tested."
+          "notes": "Requires tvOS with the Companion Link remote service. Simulator and protocol interoperability tested."
         }
       ]
     },

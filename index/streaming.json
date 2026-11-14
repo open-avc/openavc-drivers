@@ -12,7 +12,7 @@
       "name": "Apple TV",
       "manufacturer": "Apple",
       "category": "streaming",
-      "version": "1.1.1",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Pair directly with tvOS for room control, text entry, app and profile selection. Optional media pairing adds live Now Playing feedback and playback controls.",
@@ -20,8 +20,8 @@
       "file": "streaming/apple_tv.py",
       "format": "python",
       "files": {
-        "streaming/apple_tv.py": "a52f0d5134dc283915d3f009a655b879372358d80fc1d0766dd77a96d9c36abc",
-        "streaming/apple_tv_sim.py": "1159d9859e640ebfe8a03a139b917de2f3f0a636851758100c9f31f55dfc0f91"
+        "streaming/apple_tv.py": "269aceac08e975a7c2316ab8a67ab308ef25f181149f401738aa837a71fdecdd",
+        "streaming/apple_tv_sim.py": "ddc17d17eccf44b28032576d3b1b73670274b6d9cb23c9e30bbd053646c951a3"
       },
       "protocols": [
         "companion_link",
@@ -44,11 +44,19 @@
         {
           "manufacturer": "Apple",
           "models": [
+            "Apple TV (A3593)"
+          ],
+          "confidence": "partial",
+          "notes": "Reports AppleTV18,1. Tested on tvOS 27.0: discovery, both pairings, the remote, apps, sleep and wake, Now Playing, mute and the playback times. Artwork, seek, repeat, shuffle, output changes, text entry and URL or file playback not yet tried."
+        },
+        {
+          "manufacturer": "Apple",
+          "models": [
             "Apple TV HD",
             "Apple TV 4K"
           ],
           "confidence": "untested",
-          "notes": "Requires tvOS with the Companion Link remote service. Pairing, the remote and Now Playing confirmed on one unit reporting model AppleTV18,1 with tvOS 27.0; other models simulator and protocol interoperability tested."
+          "notes": "Requires tvOS with the Companion Link remote service. Simulator and protocol interoperability tested."
         }
       ],
       "discovery": {

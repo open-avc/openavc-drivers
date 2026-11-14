@@ -9,11 +9,11 @@ its own.
 from __future__ import annotations
 
 import pytest
-from cryptography.exceptions import InvalidTag
 
 from _platform_probe import load_driver
 
 DRV = load_driver("streaming/apple_tv.py")
+InvalidTag = DRV.InvalidTag
 
 
 def test_poly1305_matches_the_section_2_5_2_example():

@@ -20,7 +20,6 @@ from urllib.parse import urlsplit
 
 from aiohttp import web
 from cryptography.exceptions import InvalidSignature, InvalidTag
-from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
     Ed25519PublicKey,
@@ -29,15 +28,81 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import (
     X25519PrivateKey,
     X25519PublicKey,
 )
-from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+
+# The Windows installer and the macOS app bundle only the parts of `cryptography`
+# OpenAVC itself uses, which leaves out `ciphers.aead` and `kdf.hkdf`. The AEAD is
+# built below from the bundled ChaCha20 cipher, and HKDF from the standard library.
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 
 from openavc.discovery.mdns_scanner import MDNSScanner
 from openavc.drivers.base import BaseDriver, ConnectionFaultError
 from openavc.drivers.command_files import CommandFile, DeviceFile
+from openavc.utils.logger import get_logger
+
+log = get_logger(__name__)
 
 SERVICE = "_companion-link._tcp.local."
+RESOLVE_WINDOWS = (2.5, 4.0)
 LIMIT = 1024 * 1024
+POLY1305_PRIME = (1 << 130) - 5
+POLY1305_CLAMP = 0x0FFFFFFC0FFFFFFC0FFFFFFC0FFFFFFF
+
+
+def hkdf_sha512(secret, salt, info, length=32):
+    """HKDF (RFC 5869) with SHA-512."""
+    key = hmac.new(salt, secret, hashlib.sha512).digest()
+    output, block, counter = b"", b"", 1
+    while len(output) < length:
+        block = hmac.new(key, block + info + bytes([counter]), hashlib.sha512).digest()
+        output += block
+        counter += 1
+    return output[:length]
+
+
+def poly1305(key, message):
+    """The Poly1305 one-time authenticator (RFC 8439 section 2.5)."""
+    r = int.from_bytes(key[:16], "little") & POLY1305_CLAMP
+    s = int.from_bytes(key[16:32], "little")
+    accumulator = 0
+    for start in range(0, len(message), 16):
+        block = int.from_bytes(message[start : start + 16] + b"\x01", "little")
+        accumulator = (accumulator + block) * r % POLY1305_PRIME
+    return ((accumulator + s) & ((1 << 128) - 1)).to_bytes(16, "little")
+
+
+def padded(data):
+    return data + bytes(-len(data) % 16)
+
+
+class ChaChaPoly:
+    """ChaCha20-Poly1305 AEAD (RFC 8439 section 2.8), the interface of
+    `cryptography`'s ChaCha20Poly1305: a 12-byte nonce, the 16-byte tag after the
+    ciphertext, InvalidTag when it does not verify."""
+
+    def __init__(self, key):
+        self.key = bytes(key)
+
+    def _stream(self, nonce, counter):
+        cipher = Cipher(algorithms.ChaCha20(self.key, counter.to_bytes(4, "little") + bytes(nonce)), mode=None)
+        return cipher.encryptor()
+
+    def _tag(self, nonce, ciphertext, aad):
+        one_time_key = self._stream(nonce, 0).update(bytes(32))
+        lengths = len(aad).to_bytes(8, "little") + len(ciphertext).to_bytes(8, "little")
+        return poly1305(one_time_key, padded(aad) + padded(ciphertext) + lengths)
+
+    def encrypt(self, nonce, data, aad=None):
+        ciphertext = self._stream(nonce, 1).update(bytes(data))
+        return ciphertext + self._tag(nonce, ciphertext, bytes(aad or b""))
+
+    def decrypt(self, nonce, data, aad=None):
+        data = bytes(data)
+        if len(data) < 16:
+            raise InvalidTag()
+        ciphertext, tag = data[:-16], data[-16:]
+        if not hmac.compare_digest(tag, self._tag(nonce, ciphertext, bytes(aad or b""))):
+            raise InvalidTag()
+        return self._stream(nonce, 1).update(ciphertext)
 
 
 def packed_integer(value):
@@ -200,12 +265,12 @@ def fields(data):
 
 
 def derive(secret, salt, label):
-    return HKDF(algorithm=hashes.SHA512(), length=32, salt=salt.encode(), info=label.encode()).derive(secret)
+    return hkdf_sha512(secret, salt.encode(), label.encode())
 
 
 def pairing_cipher(secret, stage):
     purpose = "Pair-" + stage + "-Encrypt-"
-    return ChaCha20Poly1305(derive(secret, purpose + "Salt", purpose + "Info"))
+    return ChaChaPoly(derive(secret, purpose + "Salt", purpose + "Info"))
 
 
 def signature_prefix(secret, role):
@@ -291,7 +356,7 @@ class Wire:
         incoming = derive(shared, "", "ServerEncrypt-main")
         if server:
             outgoing, incoming = incoming, outgoing
-        self.tx, self.rx = ChaCha20Poly1305(outgoing), ChaCha20Poly1305(incoming)
+        self.tx, self.rx = ChaChaPoly(outgoing), ChaChaPoly(incoming)
 
     async def send(self, kind, message):
         data = pack(message)
@@ -546,6 +611,8 @@ def plist_bytes(body):
 class AirStream:
     """Incremental stream of authenticated HAP records. Each channel owns both counters."""
 
+    RECORD_SIZE = 1024
+
     def __init__(self, reader, writer):
         self.reader, self.writer = reader, writer
         self.buffer = bytearray()
@@ -553,8 +620,8 @@ class AirStream:
         self.received = self.sent = 0
 
     def keys(self, shared, salt, outbound, inbound):
-        self.tx = ChaCha20Poly1305(derive(shared, salt, outbound))
-        self.rx = ChaCha20Poly1305(derive(shared, salt, inbound))
+        self.tx = ChaChaPoly(derive(shared, salt, outbound))
+        self.rx = ChaChaPoly(derive(shared, salt, inbound))
 
     async def chunk(self):
         if not self.rx:
@@ -562,10 +629,11 @@ class AirStream:
             if not raw:
                 raise EOFError("AirPlay connection closed")
             return raw
+        # 1024 bytes is the longest record a sender may write (RECORD_SIZE), not
+        # the longest one to accept: tvOS 27.0 on an Apple TV 4K (AppleTV18,1)
+        # sends longer ones (1098 bytes seen) as it describes the playing item.
         header = await self.reader.readexactly(2)
         size = int.from_bytes(header, "little")
-        if not 0 < size <= 1024:
-            raise ValueError("Invalid AirPlay record length")
         raw = await self.reader.readexactly(size + 16)
         clear = self.rx.decrypt(bytes(4) + self.received.to_bytes(8, "little"), raw, header)
         self.received += 1
@@ -596,8 +664,8 @@ class AirStream:
 
     async def write(self, data):
         if self.tx:
-            for start in range(0, len(data), 1024):
-                part = data[start : start + 1024]
+            for start in range(0, len(data), self.RECORD_SIZE):
+                part = data[start : start + self.RECORD_SIZE]
                 header = len(part).to_bytes(2, "little")
                 raw = self.tx.encrypt(bytes(4) + self.sent.to_bytes(8, "little"), part, header)
                 self.writer.write(header + raw)
@@ -700,6 +768,30 @@ class AirControl(Wire):
             raise PairError("Apple TV declined the media pairing. Request a new media PIN.")
         return record
 
+
+SET_CONNECTION_STATE = 38
+
+MEDIA_FAILURES = (OSError, EOFError, ValueError, KeyError, IndexError, InvalidTag, plistlib.InvalidFileException)
+
+MEDIA_PROBLEMS = (
+    (TimeoutError, "The Apple TV did not answer the media connection."),
+    (ConnectionRefusedError, "The Apple TV refused the media connection. Check that AirPlay is on."),
+    ((EOFError, ConnectionResetError, BrokenPipeError), "The Apple TV closed the media connection."),
+    (
+        (InvalidTag, ValueError, KeyError, IndexError, plistlib.InvalidFileException),
+        "The Apple TV sent media data the driver could not read.",
+    ),
+)
+
+
+def media_problem(exc):
+    """The sentence for a failed media connection; never blank (a timeout has no message)."""
+    for kinds, sentence in MEDIA_PROBLEMS:
+        if isinstance(exc, kinds):
+            return sentence
+    if isinstance(exc, OSError) and exc.strerror:
+        return f"Could not reach the Apple TV for media: {exc.strerror}."
+    return str(exc) or "The media connection failed."
 
 ROOM_CONTROLS = {4: "can_stop", 45: "can_seek", 46: "can_repeat", 47: "can_shuffle"}
 
@@ -859,6 +951,7 @@ class NowPlaying:
         self.names = {}
         self.selected = ("", "")
         self.defaults = {}
+        self.active_players = {}
 
     def current_path(self):
         app, player = self.selected
@@ -898,18 +991,28 @@ class NowPlaying:
     def select_client(self, client):
         bundle = string_field(client, 2)
         if bundle != self.selected[0]:
-            self.selected = (bundle, "")
+            self.selected = (bundle, self.active_players.get(bundle, ""))
         if bundle:
             self.names[bundle] = string_field(client, 7) or self.names.get(bundle, "")
+
+    def select_player(self, path):
+        # The playing app changes only with SET_NOW_PLAYING_CLIENT (46); this names
+        # the active player inside one app. tvOS 27.0 on an Apple TV 4K (AppleTV18,1)
+        # sends one per app on connect, the last for no app at all, while another
+        # app is the one playing.
+        (app, player), name = path_info(path)
+        self.active_players[app] = player
+        if name:
+            self.names[app] = name
+        if app == self.selected[0]:
+            self.selected = (app, player)
 
     def route(self, packet):
         kind = first(packet, 1, 0)
         if kind == 46:
             self.select_client(embedded(embedded(packet, 50), 1))
         elif kind == 47:
-            self.selected, name = path_info(embedded(embedded(packet, 51), 1))
-            if name:
-                self.names[self.selected[0]] = name
+            self.select_player(embedded(embedded(packet, 51), 1))
         elif kind in (53, 54):
             self.remove(kind, packet)
         elif kind in (4, 56, 72):
@@ -922,6 +1025,8 @@ class NowPlaying:
         if kind == 54:
             key, _ = path_info(embedded(embedded(packet, 58), 1))
             self.players.pop(key, None)
+            if self.active_players.get(key[0]) == key[1]:
+                self.active_players.pop(key[0])
             if key == self.selected:
                 self.selected = (key[0], "")
             return
@@ -931,6 +1036,7 @@ class NowPlaying:
         self.players = {k: v for k, v in self.players.items() if k[0] != app}
         self.names.pop(app, None)
         self.defaults.pop(app, None)
+        self.active_players.pop(app, None)
         if self.selected[0] == app:
             self.selected = ("", "")
 
@@ -1231,12 +1337,12 @@ class MediaSession:
         )
         await self.send(15, 20, hello)
         await asyncio.wait_for(self.info.wait(), 5)
-        await self.send(38, 42, proto([(1, 2)]))
+        await self.send(SET_CONNECTION_STATE, 42, proto([(1, 2)]))
         await self.send(16, 21, proto([(1, 1), (2, 1), (3, 1), (5, 1)]))
         self.credential = saved
         self.ready = True
         self.tasks.append(asyncio.create_task(self.track_position()))
-        self.update({"media_status": "Connected", **self.state.snapshot()})
+        self.update({"media_status": "Connected", "media_detail": "", **self.state.snapshot()})
         await self.send(32, 37, proto([(1, 0), (2, 1), (3, 1)]))
         done, _ = await asyncio.wait(self.tasks, return_when=asyncio.FIRST_COMPLETED)
         for task in done:
@@ -1250,6 +1356,12 @@ class MediaSession:
                 self.update({"position": values["position"]})
 
     async def send(self, kind, extension, body, identifier=None):
+        # tvOS 27.0 on an Apple TV 4K (AppleTV18,1) acknowledges an unidentified
+        # request and never answers it, the device information included, so
+        # every message carries an identifier except the connection state,
+        # which asks for no answer.
+        if identifier is None and kind != SET_CONNECTION_STATE:
+            identifier = str(uuid.uuid4()).upper()
         envelope = [(1, kind), (extension, body)]
         if identifier:
             envelope.append((2, identifier))
@@ -1478,7 +1590,7 @@ class AppleTVDriver(BaseDriver):
         "name": "Apple TV",
         "manufacturer": "Apple",
         "category": "streaming",
-        "version": "1.1.0",
+        "version": "1.1.1",
         "min_platform_version": "0.40.0",
         "author": "OpenAVC",
         "description": "Pair directly with tvOS for room control, text entry, app and profile selection. "
@@ -1495,8 +1607,9 @@ class AppleTVDriver(BaseDriver):
                 "manufacturer": "Apple",
                 "models": ["Apple TV HD", "Apple TV 4K"],
                 "confidence": "untested",
-                "notes": "Requires tvOS with the Companion Link remote service. Simulator and "
-                "protocol interoperability tested.",
+                "notes": "Requires tvOS with the Companion Link remote service. Pairing, the remote "
+                "and Now Playing confirmed on one unit reporting model AppleTV18,1 with tvOS 27.0; "
+                "other models simulator and protocol interoperability tested.",
             }
         ],
         "help": {
@@ -1517,6 +1630,11 @@ class AppleTVDriver(BaseDriver):
             "port across VLANs. Bind Track title, Playing app, Playback state and Position to "
             "panel elements. Apps decide which fields, commands and cover images they supply.",
         },
+        # Each Apple TV announces its model code on Companion Link (rpMd) and on
+        # AirPlay (model), and a scan may hear only one of them: an Apple TV 4K
+        # (AppleTV18,1) was heard on AirPlay alone. Exact codes keep Macs, HomePods
+        # and other AirPlay receivers out. 5,3 to 14,1 are pyatv's Apple TV table;
+        # 18,1 was read off the unit.
         "discovery": {
             "mdns": [
                 {
@@ -1534,6 +1652,30 @@ class AppleTVDriver(BaseDriver):
                 {
                     "service": "_companion-link._tcp.local.",
                     "txt": {"rpMd": "AppleTV14,1"},
+                },
+                {
+                    "service": "_companion-link._tcp.local.",
+                    "txt": {"rpMd": "AppleTV18,1"},
+                },
+                {
+                    "service": "_airplay._tcp.local.",
+                    "txt": {"model": "AppleTV5,3"},
+                },
+                {
+                    "service": "_airplay._tcp.local.",
+                    "txt": {"model": "AppleTV6,2"},
+                },
+                {
+                    "service": "_airplay._tcp.local.",
+                    "txt": {"model": "AppleTV11,1"},
+                },
+                {
+                    "service": "_airplay._tcp.local.",
+                    "txt": {"model": "AppleTV14,1"},
+                },
+                {
+                    "service": "_airplay._tcp.local.",
+                    "txt": {"model": "AppleTV18,1"},
                 },
             ]
         },
@@ -1602,6 +1744,11 @@ class AppleTVDriver(BaseDriver):
             "playback_state": {"type": "string", "label": "Playback state"},
             "series_name": {"type": "string", "label": "Series"},
             "media_status": {"type": "string", "label": "Media connection"},
+            "media_detail": {
+                "type": "string",
+                "label": "Media connection problem",
+                "help": "Why the media connection is down. Empty while it is connected.",
+            },
             "repeat_mode": {"type": "string", "label": "Repeat mode"},
             "shuffle_mode": {"type": "string", "label": "Shuffle mode"},
             "profile_options": {"type": "string", "label": "Available profiles"},
@@ -2057,6 +2204,8 @@ class AppleTVDriver(BaseDriver):
         self._volume_job = None
         self._flags = 0
         self._touch_origin = None
+        self._announced = {}
+        self._media_came_up = False
 
     def _simulating(self):
         endpoint = ("127.0.0.1", int(self.config.get("port") or 0))
@@ -2080,13 +2229,20 @@ class AppleTVDriver(BaseDriver):
         return None
 
     async def _resolve(self, host, local, service=SERVICE):
-        scanner = MDNSScanner(control_ip=local or "", service_types=[service])
-        devices = await scanner.start(duration=2.5)
+        # An Apple TV 4K (AppleTV18,1, tvOS 27.0) let one 2.5 s lookup go unanswered
+        # straight after a pairing, then answered every later one, so a miss is
+        # asked again in a longer window before the last port it announced is used.
         target = host.rstrip(".").casefold()
-        for device in devices.values():
-            port = self._advertised(device, target, service)
-            if port:
-                return device.ip, port
+        for duration in RESOLVE_WINDOWS:
+            scanner = MDNSScanner(control_ip=local or "", service_types=[service])
+            devices = await scanner.start(duration=duration)
+            for device in devices.values():
+                port = self._advertised(device, target, service)
+                if port:
+                    self._announced[(target, service)] = (device.ip, port)
+                    return device.ip, port
+        if (target, service) in self._announced:
+            return self._announced[(target, service)]
         raise ConnectionError(
             f"Could not find {service} for this Apple TV. Check Bonjour or enter its advertised port."
         )
@@ -2206,34 +2362,37 @@ class AppleTVDriver(BaseDriver):
                 media.control = await self._open(media=True)
             await media.run(saved)
         finally:
+            self._media_came_up = media.ready
             self._media = None
             await media.close()
 
     async def _maintain_media(self):
         saved = self.config.get("media_key")
         if not saved and not self._simulating():
-            self.set_state("media_status", "Not paired")
+            self.set_states({"media_status": "Not paired", "media_detail": ""})
             return
-        delay = 2
+        delay, reported = 2, None
         while True:
             self.set_state("media_status", "Connecting")
+            self._media_came_up = False
             try:
                 await self._media_attempt(saved)
-            except (PairError, InvalidSignature):
-                self.set_states({**MEDIA_EMPTY, "audio_output": "", "media_status": "Pair again"})
+            except (PairError, InvalidSignature) as exc:
+                self._media_down("Pair again", str(exc) or "Use Show media PIN to renew the media pairing.", None)
                 return
-            except (
-                OSError,
-                EOFError,
-                ValueError,
-                KeyError,
-                IndexError,
-                InvalidTag,
-                plistlib.InvalidFileException,
-            ):
-                self.set_states({**MEDIA_EMPTY, "audio_output": "", "media_status": "Reconnecting"})
+            except MEDIA_FAILURES as exc:
+                reported = self._media_down("Reconnecting", media_problem(exc), reported)
+            if self._media_came_up:
+                delay, reported = 2, None
             await asyncio.sleep(delay)
             delay = min(delay * 2, 30)
+
+    def _media_down(self, status, detail, reported):
+        """Publish why the media connection is down; log a reason once until it changes."""
+        if detail != reported:
+            log.warning("[%s] Media connection: %s", self.device_id, detail)
+        self.set_states({**MEDIA_EMPTY, "audio_output": "", "media_status": status, "media_detail": detail})
+        return detail
 
     def _event(self, name, body):
         if name == "_iMC":
@@ -2289,6 +2448,7 @@ class AppleTVDriver(BaseDriver):
                 **MEDIA_EMPTY,
                 "audio_output": "",
                 "media_status": "Offline",
+                "media_detail": "",
                 "keyboard_focus": "Unknown",
                 "volume_level": None,
                 "absolute_volume": False,
@@ -2639,5 +2799,12 @@ class AppleTVDriver(BaseDriver):
         await progress("Pairing verified. Saving on this controller…", 85)
         if not self._simulating():
             await self.request_config_update({"media_key" if media else "pairing_key": saved})
-        await self.request_reconnect()
+        try:
+            await self.request_reconnect()
+        except OSError as exc:
+            if isinstance(exc, ConnectionFaultError):
+                raise
+            # The pairing is saved; the platform keeps reconnecting once the run ends.
+            log.warning("[%s] Paired, reconnect deferred: %s", self.device_id, exc)
+            return {"message": "Paired with Apple TV. It connects as soon as the Apple TV answers."}
         return {"message": "Paired with Apple TV."}

@@ -12,7 +12,7 @@
       "name": "Apple TV",
       "manufacturer": "Apple",
       "category": "streaming",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Pair directly with tvOS for room control, text entry, app and profile selection. Optional media pairing adds live Now Playing feedback and playback controls.",
@@ -20,8 +20,8 @@
       "file": "streaming/apple_tv.py",
       "format": "python",
       "files": {
-        "streaming/apple_tv.py": "5062d1805130205e447915f176d94c3072ae6d4ec9e190c79257a48669857d59",
-        "streaming/apple_tv_sim.py": "2bd6fdaa113ec1ba7c78703ad6d65a6600d5096ca0d1d77967249f6de2b00c95"
+        "streaming/apple_tv.py": "a52f0d5134dc283915d3f009a655b879372358d80fc1d0766dd77a96d9c36abc",
+        "streaming/apple_tv_sim.py": "1159d9859e640ebfe8a03a139b917de2f3f0a636851758100c9f31f55dfc0f91"
       },
       "protocols": [
         "companion_link",
@@ -48,7 +48,7 @@
             "Apple TV 4K"
           ],
           "confidence": "untested",
-          "notes": "Requires tvOS with the Companion Link remote service. Simulator and protocol interoperability tested."
+          "notes": "Requires tvOS with the Companion Link remote service. Pairing, the remote and Now Playing confirmed on one unit reporting model AppleTV18,1 with tvOS 27.0; other models simulator and protocol interoperability tested."
         }
       ],
       "discovery": {
@@ -75,6 +75,42 @@
             "service": "_companion-link._tcp.local.",
             "txt": {
               "rpMd": "AppleTV14,1"
+            }
+          },
+          {
+            "service": "_companion-link._tcp.local.",
+            "txt": {
+              "rpMd": "AppleTV18,1"
+            }
+          },
+          {
+            "service": "_airplay._tcp.local.",
+            "txt": {
+              "model": "AppleTV5,3"
+            }
+          },
+          {
+            "service": "_airplay._tcp.local.",
+            "txt": {
+              "model": "AppleTV6,2"
+            }
+          },
+          {
+            "service": "_airplay._tcp.local.",
+            "txt": {
+              "model": "AppleTV11,1"
+            }
+          },
+          {
+            "service": "_airplay._tcp.local.",
+            "txt": {
+              "model": "AppleTV14,1"
+            }
+          },
+          {
+            "service": "_airplay._tcp.local.",
+            "txt": {
+              "model": "AppleTV18,1"
             }
           }
         ]

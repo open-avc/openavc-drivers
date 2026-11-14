@@ -1,10 +1,13 @@
 """Apple TV simulator with a PIN-paired remote and independently held TV identity."""
 
 import asyncio
+import hashlib
 import hmac
 import importlib.util
 import secrets
+import struct
 import uuid
+import zlib
 from pathlib import Path
 
 from cryptography.exceptions import InvalidSignature, InvalidTag
@@ -23,6 +26,30 @@ from openavc.simulator.tcp_simulator import TCPSimulator
 _schema = importlib.util.spec_from_file_location("apple_tv_wire", Path(__file__).with_name("apple_tv.py"))
 protocol = importlib.util.module_from_spec(_schema)
 _schema.loader.exec_module(protocol)
+
+# tvOS 27.0 on an Apple TV 4K (AppleTV18,1) writes records longer than the
+# 1024 bytes a controller may, leaves a request without an identifier
+# unanswered (acknowledged, never answered), and on a subscription names the
+# active player of every other app, the last for no app at all, after the
+# playing one. The simulator does all three.
+TV_RECORD_SIZE = 4096
+
+
+def cover_png(side=24):
+    """A cover of real artwork's size (a few kilobytes, more than one record), built here."""
+
+    def chunk(kind, data):
+        body = kind + data
+        return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body))
+
+    rows = b"".join(
+        b"\0" + b"".join(hashlib.sha256(bytes([y, x])).digest()[:3] for x in range(side)) for y in range(side)
+    )
+    header = struct.pack(">IIBBBBB", side, side, 8, 2, 0, 0, 0)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header) + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b"")
+
+
+COVER_PNG = cover_png()
 
 APPS = {
     "com.apple.TVWatchList": "Apple TV",
@@ -85,6 +112,7 @@ class SimulatedMedia:
     async def listen(self, name, salt, outgoing, incoming):
         def connected(reader, writer):
             stream = protocol.AirStream(reader, writer)
+            stream.RECORD_SIZE = TV_RECORD_SIZE
             stream.keys(self.control.shared, salt, outgoing, incoming)
             task = asyncio.create_task(self.serve(stream, name))
             self.tasks.add(task)
@@ -203,16 +231,13 @@ class SimulatedMedia:
         )
         fields = [(1, title), (2, metadata)]
         if include_art and self.tv.get_state("cover"):
-            # One-pixel PNG generated for the bench; no external artwork required.
-            fields.append(
-                (
-                    3,
-                    bytes.fromhex(
-                        "89504e470d0a1a0a0000000d4948445200000001000000010804000000b51c0c020000000b4944415478da6364f80f00010501012718e3660000000049454e44ae426082"
-                    ),
-                )
-            )
+            fields.append((3, COVER_PNG))
         return protocol.proto(fields)
+
+    def other_players(self):
+        """SET_NOW_PLAYING_PLAYER for apps that are not playing, then for no app."""
+        watch = protocol.proto([(2, protocol.proto([(2, "com.apple.TVWatchList")])), (3, protocol.proto([(1, "MediaRemote-DefaultPlayer")]))])
+        return [self.envelope(47, 51, protocol.proto([(1, watch)])), self.envelope(47, 51, protocol.proto([(1, b"")]))]
 
     async def publish(self):
         for stream in tuple(self.peers):
@@ -238,11 +263,13 @@ class SimulatedMedia:
     async def answer(self, stream, packet):
         kind = protocol.first(packet, 1)
         identifier = protocol.first(packet, 2)
+        if not identifier:
+            return
         if kind == 15:
             await self.output(stream, [self.device(identifier)])
         elif kind in (16, 32):
             request = protocol.embedded(packet, 37)
-            await self.output(stream, self.item_messages(identifier, 4 in request))
+            await self.output(stream, self.item_messages(identifier, 4 in request) + self.other_players())
         elif kind == 1:
             self.transport(protocol.embedded(packet, 6))
             await self.output(stream, [self.envelope(2, 7, protocol.proto([(1, 0)]), identifier)])
@@ -522,6 +549,7 @@ class AppleTVSimulator(TCPSimulator):
             first = await asyncio.wait_for(reader.readexactly(1), 10)
             if first == b"P":
                 stream = protocol.AirStream(reader, writer)
+                stream.RECORD_SIZE = TV_RECORD_SIZE
                 stream.buffer.extend(first)
                 await self._air_client(AirPeer(stream))
                 return

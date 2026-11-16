@@ -47,21 +47,89 @@ def _licensed_features(info):
             if isinstance(entry, dict) and entry.get("valid") is True}
 
 
+def _canvas_region(mode):
+    region = mode.get("region") or {}
+    if {"x1", "y1", "x2", "y2"} <= region.keys():
+        return f"{region['x1']},{region['y1']} to {region['x2']},{region['y2']}"
+    return None
+
+
 def _output_values(port, display):
     mode = display.get("mode") or {}
     hdr = mode.get("hdr") or {}
-    region = mode.get("region") or {}
-    area = None
-    if all(k in region for k in ("x1", "y1", "x2", "y2")):
-        area = f"{region['x1']},{region['y1']} to {region['x2']},{region['y2']}"
     return {
         "connector_id": port["id"], "connection": port.get("status") or "unknown",
         "enabled": port.get("enabled"), "display_power": display.get("power") or "unknown",
         "power_save": display.get("power_save") or "unknown", "width": mode.get("width"),
         "height": mode.get("height"), "refresh_hz": mode.get("refresh"),
         "color_space": mode.get("colorspace"), "hdr_transfer": hdr.get("transfer"),
-        "canvas_region": area, "hdr_gamut": hdr.get("gamut"), "bits_per_color": hdr.get("bpc"),
+        "canvas_region": _canvas_region(mode), "hdr_gamut": hdr.get("gamut"), "bits_per_color": hdr.get("bpc"),
     }
+
+
+def _http_status(response, method):
+    if response.status_code == 401 and method == "get_info":
+        raise ConnectionFaultError("The player refused the monitoring login.", code="auth_failed")
+    if response.status_code in (401, 403):
+        raise RPCRefusal("This account does not have permission for " + method + ".")
+    if not response.ok:
+        raise ConnectionError(f"The player returned HTTP {response.status_code} for {method}.")
+
+
+def _rpc_result(reply, request_id, method):
+    if not isinstance(reply, dict):
+        raise ConnectionError("The RPC reply was not a JSON object.")
+    if reply.get("id") != request_id or "result" not in reply:
+        raise ConnectionError("The player returned an incomplete or mismatched RPC reply.")
+    if reply.get("error") is not None:
+        raise RPCRefusal(f"The player refused {method}: {reply['error']}")
+    return reply["result"]
+
+
+def _output_roster(info):
+    displays = _by_id(info.get("display", []))
+    outputs = {}
+    for key, port in _by_id(info.get("videoConnectors", [])).items():
+        if port.get("type") not in {"HDMI-A", "HDMI"}:
+            continue
+        label = port.get("name") or key
+        jack = re.fullmatch(r"HDMI ([1-4])", label)
+        local_id = "HDMI-" + jack[1] if jack else _child_id(key)
+        outputs[local_id] = (label, _output_values(port, displays.get(key, {})))
+    return outputs
+
+
+def _content_storage(info):
+    content = next((x for x in info.get("storage", []) if x.get("type") == "content"), {})
+    try:
+        free = float(content["free"])
+    except (KeyError, TypeError, ValueError):
+        free = None
+    return {"content_free": free, "storage_unit": content.get("unit")}
+
+
+def _variable_batch(rows, names):
+    if not isinstance(rows, list):
+        raise ValueError("Invalid Web Storage value reply.")
+    batch = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            raise ValueError("Invalid Web Storage value reply.")
+        name = row.get("name")
+        if name not in names or row.get("success") is not True:
+            continue
+        value = row.get("value")
+        if isinstance(value, str):
+            batch[_child_id(name)] = (name, {"name": name, "value": value,
+                                             "timestamp": str(row.get("timestamp", ""))})
+    return batch
+
+
+def _write_accepted(result, name):
+    if not isinstance(result, list):
+        return False
+    return any(row.get("success") is True for row in result
+               if isinstance(row, dict) and row.get("name") == name)
 
 
 class SpinetixIBX440Driver(BaseDriver):
@@ -175,18 +243,8 @@ class SpinetixIBX440Driver(BaseDriver):
         request_id = self._request_id
         response = await self.transport.request("POST", "/rpc", json_body={
             "method": method, "params": params, "id": request_id})
-        if response.status_code == 401 and method == "get_info":
-            raise ConnectionFaultError("The player refused the monitoring login.", code="auth_failed")
-        if response.status_code in (401, 403):
-            raise RPCRefusal("This account does not have permission for " + method + ".")
-        if not response.ok:
-            raise ConnectionError(f"The player returned HTTP {response.status_code} for {method}.")
-        reply = response.json_data
-        if not isinstance(reply, dict) or reply.get("id") != request_id or "result" not in reply:
-            raise ConnectionError("The player returned an incomplete or mismatched RPC reply.")
-        if reply.get("error") is not None:
-            raise RPCRefusal(f"The player refused {method}: {reply['error']}")
-        return reply["result"]
+        _http_status(response, method)
+        return _rpc_result(response.json_data, request_id, method)
 
     async def _info(self):
         info = await self._rpc("get_info", [_FLAGS])
@@ -224,26 +282,15 @@ class SpinetixIBX440Driver(BaseDriver):
             self.deregister_child(kind, stale)
 
     def _apply_info(self, info):
-        ports = _by_id(info.get("videoConnectors") or [])
-        displays = _by_id(info.get("display") or [])
-        outputs = {}
-        for key, port in ports.items():
-            if port.get("type") == "HDMI-A" or port.get("type") == "HDMI":
-                label = port.get("name") or key
-                jack = re.fullmatch(r"HDMI ([1-4])", label)
-                local_id = "HDMI-" + jack[1] if jack else _child_id(key)
-                outputs[local_id] = (label, _output_values(port, displays.get(key, {})))
-        self._reconcile("output", outputs)
+        self._reconcile("output", _output_roster(info))
         self._features = _licensed_features(info)
         temperature = info.get("temperature") or {}
-        content = next((x for x in info.get("storage") or [] if x.get("type") == "content"), {})
         errors = info.get("errors") or []
         self.set_states({
             "model": info["model"], "device_name": info.get("name"), "serial_number": info.get("serial"),
             "firmware_version": (info.get("firmware") or {}).get("version"), "operating_mode": info.get("mode"),
             "last_boot_reason": info.get("reason"), "temperature": temperature.get("C"),
-            "temperature_alarm": temperature.get("alarm"), "storage_unit": content.get("unit"),
-            "content_free": float(content["free"]) if content.get("free") is not None else None,
+            "temperature_alarm": temperature.get("alarm"), **_content_storage(info),
             "content_error": errors[-1].get("desc") if errors else "",
         })
 
@@ -259,26 +306,24 @@ class SpinetixIBX440Driver(BaseDriver):
             return
         # On older firmware the license flag may not exist. A successful
         # SYSTEMS-only listing is proof of access, even when the project is empty.
-        names = await self._rpc("webstorage_list", [])
-        if not isinstance(names, list) or not all(isinstance(name, str) for name in names):
-            raise ValueError("Invalid Web Storage variable list.")
+        names = await self._variable_names()
         entries = {}
         for start in range(0, len(names), 64):
             keys = names[start:start + 64]
             rows = await self._rpc("webstorage_get", [keys])
-            if not isinstance(rows, list):
-                raise ValueError("Invalid Web Storage value reply.")
-            for row in rows:
-                if not isinstance(row, dict):
-                    raise ValueError("Invalid Web Storage value reply.")
-                name = row.get("name")
-                if name in keys and row.get("success") is True and isinstance(row.get("value"), str):
-                    entries[_child_id(name)] = (name, {"name": name, "value": row["value"],
-                                                       "timestamp": str(row.get("timestamp", ""))})
+            entries.update(_variable_batch(rows, keys))
         self._reconcile("variable", entries)
         self._names = {key: entry[0] for key, entry in entries.items()}
         self._offer_variables(True)
         self.set_state("variable_access", "available")
+
+    async def _variable_names(self):
+        names = await self._rpc("webstorage_list", [])
+        if not isinstance(names, list):
+            raise ValueError("Invalid Web Storage variable list.")
+        if not all(isinstance(name, str) for name in names):
+            raise ValueError("A Web Storage key was not a string.")
+        return names
 
     async def _refresh_locked(self):
         info = await self._info()
@@ -305,24 +350,28 @@ class SpinetixIBX440Driver(BaseDriver):
         params = params or {}
         if command == "refresh":
             return await self.refresh_children()
-        async with self._lock:
-            if command == "set_variable":
-                return await self._write_variable(params)
-            if command == "restart":
-                result = await self._rpc("restart", [])
-                if not isinstance(result, dict) or result.get("success") is not True:
-                    raise RPCRefusal("The player did not accept the restart.")
-                return
-            if command == "publish_project":
-                url = params.get("url", "")
-                target = urlsplit(url)
-                if target.scheme not in {"http", "https"} or not target.hostname:
-                    raise ValueError("Enter an HTTP or HTTPS project listing URL.")
-                handle = await self._rpc("add_pull_action", [{"type": "publish", "uri": url}])
-                if not isinstance(handle, str) or not handle:
-                    raise RPCRefusal("The player did not return a content download handle.")
-                return handle
+        operations = {"set_variable": self._write_variable, "restart": self._restart,
+                      "publish_project": self._publish_project}
+        operation = operations.get(command)
+        if operation is None:
             raise ValueError(f"Unknown command: {command}")
+        async with self._lock:
+            return await operation(params)
+
+    async def _restart(self, params):
+        result = await self._rpc("restart", [])
+        if not isinstance(result, dict) or result.get("success") is not True:
+            raise RPCRefusal("The player did not accept the restart.")
+
+    async def _publish_project(self, params):
+        url = params.get("url", "")
+        target = urlsplit(url)
+        if target.scheme not in {"http", "https"} or not target.hostname:
+            raise ValueError("Enter an HTTP or HTTPS project listing URL.")
+        handle = await self._rpc("add_pull_action", [{"type": "publish", "uri": url}])
+        if not isinstance(handle, str) or not handle:
+            raise RPCRefusal("The player did not return a content download handle.")
+        return handle
 
     async def _write_variable(self, params):
         await self._refresh_locked()
@@ -338,9 +387,7 @@ class SpinetixIBX440Driver(BaseDriver):
         # concurrent update from another controller.
         result = await self._rpc("webstorage_cmpxchg", [[{"name": name, "expect": expected, "value": value}]])
         await self._refresh_locked()
-        if not isinstance(result, list) or not any(
-            row.get("name") == name and row.get("success") is True for row in result
-        ):
+        if not _write_accepted(result, name):
             raise RPCRefusal("The variable changed or the player refused the write. Check its current value.")
         if key not in self._names or self.get_child_state("variable", key).get("value") != value:
             raise RPCRefusal("The player did not report the requested variable value.")

@@ -73,26 +73,29 @@ class SpinetixIBX440Simulator(HTTPSimulator):
             self.timestamps["Room Mode"] = str(int(time.time() * 1000))
         if method == "webstorage_list":
             return list(self.variables)
-        rows = []
-        for item in params[0]:
-            if method == "webstorage_get":
-                name = item
-                row = {"name": name, "success": name in self.variables}
-            elif method == "webstorage_cmpxchg":
-                name = item["name"]
-                row = {"name": name, "success": name in self.variables and self.variables[name] == item["expect"]}
-                if row["success"]:
-                    self.variables[name] = item["value"]
-                    self.timestamps[name] = str(int(time.time() * 1000))
-                    if name == "Room Mode":
-                        self.set_state("room_mode", item["value"])
-                        self._last_room_mode = item["value"]
-            else:
-                raise ValueError("No such method.")
-            if name in self.variables:
-                row.update(value=self.variables[name], timestamp=self.timestamps.get(name, "0"))
-            rows.append(row)
-        return list(reversed(rows))
+        if method == "webstorage_get":
+            return [self._value_row(name) for name in reversed(params[0])]
+        if method == "webstorage_cmpxchg":
+            return [self._compare_and_set(change) for change in reversed(params[0])]
+        raise ValueError("No such method.")
+
+    def _value_row(self, name):
+        if name not in self.variables:
+            return {"name": name, "success": False}
+        return {"name": name, "success": True, "value": self.variables[name],
+                "timestamp": self.timestamps.get(name, "0")}
+
+    def _compare_and_set(self, change):
+        name = change["name"]
+        if self.variables.get(name) != change["expect"]:
+            return {"name": name, "success": False}
+        value = change["value"]
+        self.variables[name] = value
+        self.timestamps[name] = str(int(time.time() * 1000))
+        if name == "Room Mode":
+            self.set_state("room_mode", value)
+            self._last_room_mode = value
+        return self._value_row(name)
 
     def _dispatch(self, method, params):
         if method == "get_info":

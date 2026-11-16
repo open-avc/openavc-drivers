@@ -371,16 +371,18 @@ When a `controls` array is present, the UI renders those controls instead of the
 | Type | What it renders | Required fields |
 |------|----------------|-----------------|
 | `power` | Power button with LED indicator | `key` |
-| `select` | Button group | `key`, `options`; optional `labels` |
+| `select` | Button group | `key`, `options` (each a value the state key holds: text, a number or true/false); optional `labels` (button text keyed by the option) |
 | `slider` | Range slider with value display | `key`, `min`, `max`; optional `step`, `unit` |
-| `toggle` | On/off toggle button | `key`, `label` |
-| `matrix` | Input x output routing grid | `inputs`, `outputs`, `state_pattern` |
+| `toggle` | On/off toggle button | `key`; give it a `label`, which it shows with ON or OFF |
+| `matrix` | Input x output routing grid | `inputs`, `outputs`, `state_pattern`; optional `input_labels`, `output_labels` |
 | `meters` | Vertical level meter bars | `channels`, `key_pattern`; optional `mute_pattern` |
 | `presets` | Numbered/named preset buttons | `key`; `count` or `names` |
-| `group` | Groups other controls with a label | `label`, `controls` (nested array) |
-| `indicator` | Read-only status display | `key`, `label`; optional `color_map` |
+| `group` | Groups other controls with a label | `controls` (nested array); give it a `label` |
+| `indicator` | Read-only status display | `key`; give it a `label`; optional `color_map` |
 
-All control types also accept an optional `label` field.
+All control types also accept an optional `label` field. A toggle, group or indicator without one shows "undefined" where its label goes.
+
+`python -m openavc.drivers.check`, Validate, the Driver Builder's save and the catalog build refuse a control of any other type, naming the nine, one missing a required field, and a value of the wrong kind, such as an option written as a mapping. The Simulator UI shows "Unknown control type" in the place of a type it does not draw.
 
 **Matrix switcher example:**
 

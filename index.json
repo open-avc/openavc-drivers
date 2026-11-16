@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 207,
+    "total_drivers": 208,
     "shards": null
   },
   "drivers": [
@@ -13524,6 +13524,62 @@
         },
         "port_open": [
           23
+        ],
+        "oui": [
+          "18:66:96:1"
+        ],
+        "manufacturer_alias": [
+          "turtleav",
+          "turtle av",
+          "turtle"
+        ]
+      }
+    },
+    {
+      "id": "turtle_jef",
+      "name": "Turtle AV JEF Dante Mic Preamp",
+      "manufacturer": "TurtleAV",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls the Turtle AV JEF Dante Enabled Mic Preamp over its TCP control port. Input gain, mute and 48V phantom power, the reported input sensitivity, Master Out volume and mute, the input's 8-band parametric EQ, presets, and reboot.\n",
+      "source_url": "https://turtleav.com/download/262/mineola-2x2/28704/mineola-2x2-user-guide.pdf",
+      "file": "audio/turtle_jef.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "audio/turtle_jef.avcdriver": "c519ce3dffae67867946c2642334bf4eccf8818d005d5a07ebd6ddb009f9ba8d"
+      },
+      "ports": [
+        8000
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "dante",
+        "microphone",
+        "preamp",
+        "audio",
+        "mic"
+      ],
+      "help": {
+        "overview": "Controls the Turtle AV JEF, a Dante microphone preamp with one XLR input. Use it to set the input gain, mute the microphone, switch 48V phantom power, set the Master Out volume and mute, adjust the input's 8-band EQ, and save or recall presets. Dante routing, sample rate and latency are set in Dante Controller.\n",
+        "setup": "1. Connect the JEF's Dante PRIMARY (PoE) port to a PoE network switch. 2. Find the JEF's IP address in Dante Controller (Device Info tab). The\n   JEF uses DHCP out of the box.\n3. Enter that IP address here. The control port is 8000 unless it was\n   changed on the JEF's Network page.\n4. No password is needed for control. The Admin and User logins protect\n   the JEF's web page only.\n5. Set the input sensitivity, expander and compressor on the JEF's web\n   page. This driver shows the sensitivity the JEF reports.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "TurtleAV",
+          "models": [
+            "JEF"
+          ],
+          "confidence": "untested",
+          "notes": "Built from the Mineola Dante Bridge command list, which TurtleAV says the JEF shares. Not yet run against a JEF.\n"
+        }
+      ],
+      "discovery": {
+        "hostname": [
+          "^TAV-JEF-",
+          "^tav-jef-"
         ],
         "oui": [
           "18:66:96:1"

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 321,
+    "total_devices": 322,
     "shards": null,
     "category": "audio"
   },
@@ -3642,6 +3642,18 @@
           "id": "toa_9000m2",
           "confidence": "untested",
           "notes": "Digital Matrix Mixer. 8 mic/line inputs x 8 outputs. RS-232C, D-sub 9-pin, 9600-57600 8N1, straight cable."
+        }
+      ]
+    },
+    {
+      "manufacturer": "TurtleAV",
+      "model": "JEF",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "turtle_jef",
+          "confidence": "untested",
+          "notes": "Built from the Mineola Dante Bridge command list, which TurtleAV says the JEF shares. Not yet run against a JEF.\n"
         }
       ]
     },

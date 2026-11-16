@@ -1,0 +1,717 @@
+# Turtle AV JEF Dante Enabled Mic Preamp Driver
+#
+# Controls the Turtle AV JEF, a one-input Dante microphone preamp, over its
+# ASCII command port (default TCP 8000).
+#
+# Source. TurtleAV's JEF user guide (June 2026) covers the Web GUI only: it
+# names a "Web GUI and TCP/IP control port" and a settable TCP Port and
+# Telnet Port, but prints no command list. TurtleAV told us (2026-11-16, in
+# writing, from their technical team) that the JEF's API is the same as the
+# Mineola Dante Bridge's, so the commands and replies here are the
+# "7. API Control Command" chapter of the Mineola 2x2 user guide (the 4x4,
+# 8x8 and 16x16 guides print the same list), taken only where the JEF guide
+# shows the JEF has the feature:
+#   - Input 1 gain, mute, 48V phantom power, sensitivity (read only, below).
+#   - Master Out volume and mute (the JEF Web GUI has both).
+#   - The input's 8-band parametric EQ.
+#   - Presets (save / recall / clear).
+#   - Model, firmware, reboot.
+# Not taken: the outputs, master output members and output EQ (the JEF has no
+# analog outputs); power and standby (the JEF's System page has neither);
+# EQ presets, EQ stereo and EQ copy (one channel, and no Flat/Custom buttons
+# on the JEF's DSP page); factory reset (it waits for a typed "Yes"); the
+# network and password blocks (commissioning, as in turtle_bt_wallplate).
+# `raw_command` reaches all of them.
+#
+# Where the JEF differs from the Mineola document, and what this driver does:
+#   - Sensitivity: the JEF has five levels (-40/-30/-20/-10/0 dBu); the
+#     Mineola command takes a code 1-6 that means +24 dBu to -35 dBV there.
+#     Which code picks which JEF level is not documented, so the driver reads
+#     the level the unit reports (as its own words) and offers no write.
+#   - Expander, compressor and the input level meter: the JEF has them, the
+#     Mineola API has no commands for them. Not in the driver.
+#   - Presets: the JEF holds 8 (its guide), the Mineola API says 1-5. The
+#     driver takes 1-8; a narrower bound would refuse presets the JEF has.
+#   - Reply wording: the Mineola names its channel in each reply
+#     ("XLR IN1 gain: 10dB"). The JEF may name its one input differently, so
+#     every rule matches the field ("gain:", "mute:") and not the channel name.
+#   - Model: every Mineola guide prints "XLR22" for `get type`; the JEF's
+#     answer is not documented, so there is no discovery probe on it.
+#
+# Push vs poll: POLL. The document describes request/response only.
+#
+# Line ending: the document does not state it. CRLF is what the Dante
+# Bluetooth Wallplate (same TurtleAV firmware family: MCU/Web/DEP versions,
+# TCP and Telnet ports, the same command grammar) takes on the bench; replies
+# are framed on LF and trimmed, so a CRLF or LF reply reads the same.
+#
+# Format: YAML. One channel, text request/response, one reply line per value:
+# nothing here needs Python.
+
+id: turtle_jef
+name: Turtle AV JEF Dante Mic Preamp
+manufacturer: TurtleAV
+category: audio
+version: 1.0.0
+author: OpenAVC
+min_platform_version: "0.36.0"
+description: >
+  Controls the Turtle AV JEF Dante Enabled Mic Preamp over its TCP control
+  port. Input gain, mute and 48V phantom power, the reported input
+  sensitivity, Master Out volume and mute, the input's 8-band parametric EQ,
+  presets, and reboot.
+
+source_url: https://turtleav.com/download/262/mineola-2x2/28704/mineola-2x2-user-guide.pdf
+tags: [dante, microphone, preamp, audio, mic]
+verified: false
+simulated: true
+ports: [8000]
+compatible_models:
+  - manufacturer: TurtleAV
+    models: [JEF]
+    confidence: untested
+    notes: >
+      Built from the Mineola Dante Bridge command list, which TurtleAV says
+      the JEF shares. Not yet run against a JEF.
+
+transport: tcp
+delimiter: "\n"
+
+help:
+  overview: >
+    Controls the Turtle AV JEF, a Dante microphone preamp with one XLR input.
+    Use it to set the input gain, mute the microphone, switch 48V phantom
+    power, set the Master Out volume and mute, adjust the input's 8-band EQ,
+    and save or recall presets. Dante routing, sample rate and latency are set
+    in Dante Controller.
+  setup: >
+    1. Connect the JEF's Dante PRIMARY (PoE) port to a PoE network switch.
+    2. Find the JEF's IP address in Dante Controller (Device Info tab). The
+       JEF uses DHCP out of the box.
+    3. Enter that IP address here. The control port is 8000 unless it was
+       changed on the JEF's Network page.
+    4. No password is needed for control. The Admin and User logins protect
+       the JEF's web page only.
+    5. Set the input sensitivity, expander and compressor on the JEF's web
+       page. This driver shows the sensitivity the JEF reports.
+
+discovery:
+  # Hostname: the JEF guide gives its IP Hostname as "TAV-JEF-XXXXX.local"
+  # (e.g. TAV-JEF-0046F), changeable on its Network page, so this is a soft
+  # hint. OUI: TurtleAV's IEEE block is the MA-M 18:66:96:1 (the /24 around it
+  # is split among other companies); whether a JEF's MAC is in it is not
+  # documented. No tcp_probe: the JEF's answer to `get type` is not documented.
+  hostname:
+    - "^TAV-JEF-"
+    - "^tav-jef-"
+  oui:
+    - "18:66:96:1"
+  manufacturer_alias:
+    - "turtleav"
+    - "turtle av"
+    - "turtle"
+
+default_config:
+  host: ""
+  port: 8000
+  poll_interval: 5
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 8000
+    label: Port
+    help: "The JEF's TCP control port (default 8000, set on its Network page)."
+  poll_interval:
+    type: integer
+    default: 5
+    min: 0
+    label: Poll Interval (sec)
+
+on_connect:
+  - 'get type\r\n'
+  - 'get fw version\r\n'
+
+state_variables:
+  model:
+    type: string
+    label: Model
+    help: "What the JEF answers to 'get type'."
+  firmware_web:
+    type: string
+    label: Web Firmware
+  firmware_mcu:
+    type: string
+    label: MCU Firmware
+  firmware_dep:
+    type: string
+    label: Dante Firmware
+    help: "The Dante (DEP) firmware version."
+
+  gain:
+    type: number
+    label: Input Gain
+    min: -12
+    max: 12
+    step: 0.1
+    unit: dB
+    control: true
+    help: "Microphone input gain, -12 to +12 dB."
+  mute:
+    type: boolean
+    label: Input Mute
+    control: true
+    cloud_priority: high
+    help: "True when the microphone input is muted."
+  phantom_power:
+    type: boolean
+    label: Phantom Power
+    control: true
+    cloud_priority: high
+    help: "True when 48V phantom power is on at the XLR input."
+  sensitivity:
+    type: string
+    label: Input Sensitivity
+    help: >
+      The input sensitivity the JEF reports, in its own words (for example
+      -20dBu). Set it on the JEF's web page.
+  master_volume:
+    type: integer
+    label: Master Volume
+    min: 0
+    max: 100
+    control: true
+    help: "Master Out volume, 0 to 100."
+  master_mute:
+    type: boolean
+    label: Master Mute
+    control: true
+    cloud_priority: high
+    help: "True when Master Out is muted."
+
+commands:
+  # ── Input (the JEF has one: input 1) ──
+  set_input_gain:
+    label: Set Input Gain
+    send: 'set input 1 gain {value}\r\n'
+    sets: { gain: "{value}" }
+    help: "Set the microphone input gain, -12 to +12 dB in 0.1 dB steps."
+    params:
+      value:
+        type: number
+        required: true
+        label: Gain (dB)
+        min: -12
+        max: 12
+
+  # The answer to gain+ / gain- is "Increase ... gain: 1dB" (the document's
+  # examples print the step), not the new level, so the level is read back.
+  input_gain_up:
+    label: Input Gain Up
+    send: 'set input 1 gain+\r\n'
+    read_back: 'get input 1 gain\r\n'
+    help: "Raise the input gain by 1 dB."
+
+  input_gain_down:
+    label: Input Gain Down
+    send: 'set input 1 gain-\r\n'
+    read_back: 'get input 1 gain\r\n'
+    help: "Lower the input gain by 1 dB."
+
+  mute_on:
+    label: Mute Input
+    send: 'set input 1 mute on\r\n'
+    sets: { mute: true }
+    help: "Mute the microphone input."
+
+  mute_off:
+    label: Unmute Input
+    send: 'set input 1 mute off\r\n'
+    sets: { mute: false }
+    help: "Unmute the microphone input."
+
+  phantom_power_on:
+    label: Phantom Power On
+    send: 'set input 1 phantom power on\r\n'
+    sets: { phantom_power: true }
+    help: "Turn on 48V phantom power at the XLR input."
+
+  phantom_power_off:
+    label: Phantom Power Off
+    send: 'set input 1 phantom power off\r\n'
+    sets: { phantom_power: false }
+    help: "Turn off 48V phantom power at the XLR input."
+
+  # ── Master Out ──
+  set_master_volume:
+    label: Set Master Volume
+    send: 'set master vol {value}\r\n'
+    sets: { master_volume: "{value}" }
+    help: "Set the Master Out volume, 0 to 100."
+    params:
+      value:
+        type: integer
+        required: true
+        label: Volume
+        min: 0
+        max: 100
+
+  # The answer to vol+ / vol- carries the new volume
+  # ("Increase master volume: 51" from 50), so no read-back.
+  master_volume_up:
+    label: Master Volume Up
+    send: 'set master vol+\r\n'
+    help: "Raise the Master Out volume by 1."
+
+  master_volume_down:
+    label: Master Volume Down
+    send: 'set master vol-\r\n'
+    help: "Lower the Master Out volume by 1."
+
+  master_mute_on:
+    label: Mute Master
+    send: 'set master mute on\r\n'
+    sets: { master_mute: true }
+    help: "Mute Master Out."
+
+  master_mute_off:
+    label: Unmute Master
+    send: 'set master mute off\r\n'
+    sets: { master_mute: false }
+    help: "Unmute Master Out."
+
+  # ── Input parametric EQ (band 0 = all bands) ──
+  eq_band_on:
+    label: EQ Band On
+    send: 'set input 1 eq {band} on\r\n'
+    help: "Turn on one EQ band, or all of them."
+    params:
+      band:
+        type: enum
+        required: true
+        label: Band
+        values:
+          - { value: "0", label: "All bands" }
+          - "1"
+          - "2"
+          - "3"
+          - "4"
+          - "5"
+          - "6"
+          - "7"
+          - "8"
+
+  eq_band_off:
+    label: EQ Band Off
+    send: 'set input 1 eq {band} off\r\n'
+    help: "Turn off one EQ band, or all of them."
+    params:
+      band:
+        type: enum
+        required: true
+        label: Band
+        values:
+          - { value: "0", label: "All bands" }
+          - "1"
+          - "2"
+          - "3"
+          - "4"
+          - "5"
+          - "6"
+          - "7"
+          - "8"
+
+  set_eq_band:
+    label: Set EQ Band
+    send: 'set input 1 eq {band} typ {type} frq {freq} val {gain} q {q}\r\n'
+    help: "Set one EQ band's filter type, frequency, gain and Q."
+    params:
+      band:
+        type: enum
+        required: true
+        label: Band
+        values: ["1", "2", "3", "4", "5", "6", "7", "8"]
+      type:
+        type: enum
+        required: true
+        label: Filter Type
+        values:
+          - { value: "1", label: "Parametric" }
+          - { value: "2", label: "Lowpass" }
+          - { value: "3", label: "Highpass" }
+          - { value: "4", label: "Low Shelf" }
+          - { value: "5", label: "High Shelf" }
+      freq:
+        type: number
+        required: true
+        label: Frequency (Hz)
+        min: 20
+        max: 20000
+      gain:
+        type: number
+        required: true
+        label: Gain (dB)
+        min: -15
+        max: 15
+      q:
+        type: number
+        required: true
+        label: Q
+        min: 0.02
+        max: 16
+
+  eq_clear:
+    label: Clear EQ
+    confirm: "Sets every EQ band on the input back to flat, losing its settings."
+    send: 'set input 1 eq clear\r\n'
+    help: "Clear the input's EQ settings."
+
+  # ── Presets (the JEF holds 8) ──
+  preset_recall:
+    label: Recall Preset
+    send: 'set preset recall {preset}\r\n'
+    # A recall changes everything but the network settings, and its answer
+    # carries none of the new values.
+    read_back:
+      - 'get input 1 gain\r\n'
+      - 'get input 1 mute\r\n'
+      - 'get input 1 phantom power\r\n'
+      - 'get input 1 sensitivity\r\n'
+      - 'get master vol\r\n'
+      - 'get master mute\r\n'
+    help: "Recall a saved preset. Everything but the network settings changes."
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Preset
+        min: 1
+        max: 8
+
+  preset_save:
+    label: Save Preset
+    confirm: "Saves the JEF's current settings over this preset, replacing what it held."
+    send: 'set preset save {preset}\r\n'
+    help: "Save the current settings (all but the network settings) to a preset."
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Preset
+        min: 1
+        max: 8
+
+  preset_clear:
+    label: Clear Preset
+    confirm: "Erases this preset from the JEF."
+    send: 'set preset clear {preset}\r\n'
+    help: "Erase a saved preset."
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Preset
+        min: 1
+        max: 8
+
+  # ── System ──
+  reboot:
+    label: Reboot
+    send: 'set reboot\r\n'
+    help: "Reboot the JEF. Audio stops until it has started again."
+
+  raw_command:
+    label: Send Raw Command
+    send: '{command}\r\n'
+    help: >
+      Send a command from the Mineola API list exactly as written, without
+      the line ending. For settings this driver does not offer, such as the
+      network settings.
+    params:
+      command:
+        type: string
+        required: true
+        label: Command
+        trim: false
+
+device_settings:
+  gain:
+    type: number
+    min: -12
+    max: 12
+    label: Input Gain (dB)
+    help: "Microphone input gain, -12 to +12 dB."
+    state_key: gain
+    default: 0
+    setup: false
+    write:
+      send: 'set input 1 gain {value}\r\n'
+
+actions:
+  - id: mute_on
+    icon: mic-off
+  - id: mute_off
+    icon: mic
+  - id: master_mute_on
+    icon: volume-x
+  - id: master_mute_off
+    icon: volume-2
+
+responses:
+  # First match wins, so the order matters.
+  # gain+ / gain- answer with the step ("Increase XLR IN1 gain: 5dB"), not
+  # the level: read but not stored. The command reads the level back.
+  - match: '^(?:Increase|Decrease)\b.*\bgain:'
+    set: {}
+  - match: '\bgain:\s*(-?\d+(?:\.\d+)?)\s*dB'
+    set: { gain: "$1" }
+
+  # Master Out ("Master volume: 50"; vol+ / vol- answer the new volume,
+  # "Increase master volume: 51"). Before the input's mute rule, which would
+  # otherwise read "Master mute:".
+  - match: '[Mm]aster volume:\s*(\d+)'
+    set: { master_volume: "$1" }
+  - match: '[Mm]aster mute:\s*on\b'
+    set: { master_mute: "true" }
+  - match: '[Mm]aster mute:\s*off\b'
+    set: { master_mute: "false" }
+
+  - match: 'phantom power:\s*on\b'
+    set: { phantom_power: "true" }
+  - match: 'phantom power:\s*off\b'
+    set: { phantom_power: "false" }
+  - match: '\bmute:\s*on\b'
+    set: { mute: "true" }
+  - match: '\bmute:\s*off\b'
+    set: { mute: "false" }
+  - match: 'sensitivity:\s*(\S+)'
+    set: { sensitivity: "$1" }
+
+  # Firmware (`get fw version`, and the start-up lines after a reboot).
+  - match: '\b(?:Web|WEB):\s*(V\S+)'
+    set: { firmware_web: "$1" }
+  - match: '\bMCU:\s*(V\S+)'
+    set: { firmware_mcu: "$1" }
+  - match: '\bDEP:\s*(V\S+)'
+    set: { firmware_dep: "$1" }
+
+  # Acknowledgements that carry no value: EQ, presets, reboot.
+  - match: '\bEQ\b'
+    set: {}
+  - match: 'Type:\s*\d+,\s*Frequency:'
+    set: {}
+  - match: '^(?:Save to|Recall|Clear) preset \d+'
+    set: {}
+  - match: '^(?:Reboot|System Initializing|Initialization Finished)'
+    set: {}
+
+  # `get type` answers a bare model token on its own line ("XLR22" on a
+  # Mineola). Last, so no other reply is read as a model.
+  - match: '^([A-Z][A-Z0-9-]{2,})$'
+    set: { model: "$1" }
+
+polling:
+  queries:
+    - 'get input 1 gain\r\n'
+    - 'get input 1 mute\r\n'
+    - 'get input 1 phantom power\r\n'
+    - 'get input 1 sensitivity\r\n'
+    - 'get master vol\r\n'
+    - 'get master mute\r\n'
+
+# ── SIMULATOR ──
+# Answers in the Mineola document's reply forms ("XLR IN1 ..."). The model
+# string is the JEF hostname stem from its guide; the real answer is not
+# documented. The sensitivity words are the JEF guide's five levels.
+simulator:
+  initial_state:
+    model: "TAV-JEF"
+    firmware_web: "V1.00.02"
+    firmware_mcu: "V2.0.0"
+    firmware_dep: "V1.3.3.5_20250519"
+    gain: 0
+    mute: false
+    phantom_power: false
+    sensitivity: "-20dBu"
+    master_volume: 50
+    master_mute: false
+
+  delays:
+    command_response: 0.02
+
+  controls:
+    - type: slider
+      key: gain
+      label: Input Gain
+      min: -12
+      max: 12
+      step: 1
+    - type: toggle
+      key: mute
+      label: Input Mute
+    - type: toggle
+      key: phantom_power
+      label: Phantom Power
+    - type: select
+      key: sensitivity
+      label: Input Sensitivity
+      options: ["-40dBu", "-30dBu", "-20dBu", "-10dBu", "0dBu"]
+    - type: slider
+      key: master_volume
+      label: Master Volume
+      min: 0
+      max: 100
+      step: 1
+    - type: toggle
+      key: master_mute
+      label: Master Mute
+
+  command_handlers:
+    # ── System ──
+    - match: 'get type ?'
+      handler: |
+        respond(f'{state["model"]}\r\n')
+
+    - match: 'get fw version ?'
+      handler: |
+        respond(
+            f'Web: {state["firmware_web"]}\r\n'
+            f'MCU: {state["firmware_mcu"]}\r\n'
+            f'DEP: {state["firmware_dep"]}\r\n'
+        )
+
+    - match: 'set reboot ?'
+      handler: |
+        respond(
+            'Reboot...\r\n'
+            'System Initializing...\r\n'
+            'Initialization Finished!\r\n'
+            f'Web: {state["firmware_web"]}\r\n'
+            f'MCU: {state["firmware_mcu"]}\r\n'
+            f'DEP: {state["firmware_dep"]}\r\n'
+        )
+
+    # ── Input gain ──
+    - match: 'get input [01] gain ?'
+      handler: |
+        respond(f'XLR IN1 gain: {state["gain"]}dB\r\n')
+
+    - match: 'set input [01] gain (-?[\d.]+) ?'
+      handler: |
+        def _run():
+            val = max(-12.0, min(12.0, float(match.group(1))))
+            if val == int(val):
+                val = int(val)
+            state['gain'] = val
+            respond(f'XLR IN1 gain: {val}dB\r\n')
+        _run()
+
+    # The document's examples answer a step with the step itself.
+    - match: 'set input [01] gain([+-])([\d.]*) ?'
+      handler: |
+        def _run():
+            step = float(match.group(2)) if match.group(2) else 1.0
+            if step == int(step):
+                step = int(step)
+            up = match.group(1) == '+'
+            new = state['gain'] + (step if up else -step)
+            new = round(max(-12.0, min(12.0, new)), 1)
+            if new == int(new):
+                new = int(new)
+            state['gain'] = new
+            word = 'Increase' if up else 'Decrease'
+            shown = step if up else -step
+            respond(f'{word} XLR IN1 gain: {shown}dB\r\n')
+        _run()
+
+    # ── Input mute / phantom power / sensitivity ──
+    - match: 'get input [01] mute ?'
+      handler: |
+        respond(f'XLR IN1 mute: {"on" if state["mute"] else "off"}\r\n')
+
+    - match: 'set input [01] mute (on|off) ?'
+      handler: |
+        state['mute'] = match.group(1) == 'on'
+        respond(f'XLR IN1 mute: {match.group(1)}\r\n')
+
+    - match: 'get input [01] phantom power ?'
+      handler: |
+        respond(f'XLR IN1 phantom power: {"on" if state["phantom_power"] else "off"}\r\n')
+
+    - match: 'set input [01] phantom power (on|off) ?'
+      handler: |
+        state['phantom_power'] = match.group(1) == 'on'
+        respond(f'XLR IN1 phantom power: {match.group(1)}\r\n')
+
+    - match: 'get input [01] sensitivity ?'
+      handler: |
+        respond(f'XLR IN1 sensitivity: {state["sensitivity"]}\r\n')
+
+    # ── Master Out ──
+    - match: 'get (?:master )?vol ?'
+      handler: |
+        respond(f'Master volume: {state["master_volume"]}\r\n')
+
+    - match: 'set (?:master )?vol (\d+) ?'
+      handler: |
+        state['master_volume'] = max(0, min(100, int(match.group(1))))
+        respond(f'Master volume: {state["master_volume"]}\r\n')
+
+    - match: 'set (?:master )?vol([+-])(\d*) ?'
+      handler: |
+        def _run():
+            step = int(match.group(2)) if match.group(2) else 1
+            up = match.group(1) == '+'
+            state['master_volume'] = max(0, min(100, state['master_volume'] + (step if up else -step)))
+            word = 'Increase' if up else 'Decrease'
+            respond(f'{word} master volume: {state["master_volume"]}\r\n')
+        _run()
+
+    - match: 'get (?:master )?mute ?'
+      handler: |
+        respond(f'Master mute: {"on" if state["master_mute"] else "off"}\r\n')
+
+    - match: 'set (?:master )?mute (on|off) ?'
+      handler: |
+        state['master_mute'] = match.group(1) == 'on'
+        respond(f'Master mute: {match.group(1)}\r\n')
+
+    # ── EQ (acknowledged, not modelled) ──
+    - match: 'set input [01] eq (\d) (on|off) ?'
+      handler: |
+        band = 'all' if match.group(1) == '0' else match.group(1)
+        respond(f'XLR IN1 EQ {band}: {match.group(2)}\r\n')
+
+    - match: 'set input [01] eq (\d) typ (\S+) frq (\S+) val (\S+) q (\S+) ?'
+      handler: |
+        respond(
+            'XLR IN1 EQ :\r\n'
+            f'Type: {match.group(2)}, Frequency: {match.group(3)}Hz, '
+            f'Value: {match.group(4)}dB, Q: {match.group(5)}\r\n'
+        )
+
+    - match: 'set input [01] eq clear ?'
+      handler: |
+        respond('Clear XLR IN1 EQ\r\n')
+
+    # ── Presets (acknowledged, not modelled) ──
+    - match: 'set preset save (\d) ?'
+      handler: |
+        respond(f'Save to preset {match.group(1)}\r\n')
+
+    - match: 'set preset recall (\d) ?'
+      handler: |
+        respond(f'Recall preset {match.group(1)}\r\n')
+
+    - match: 'set preset clear (\d) ?'
+      handler: |
+        respond(f'Clear preset {match.group(1)}\r\n')
+
+  error_modes:
+    communication_timeout:
+      description: "The JEF stops answering"
+      behavior: no_response

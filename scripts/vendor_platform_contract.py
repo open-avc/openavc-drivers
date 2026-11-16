@@ -112,6 +112,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from .query_entry_checks import",
             ),
             (
+                "from openavc.drivers.reply_name_checks import",
+                "from .reply_name_checks import",
+            ),
+            (
                 "from openavc.drivers.response_rule_checks import",
                 "from .response_rule_checks import",
             ),
@@ -358,6 +362,17 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from openavc.utils.regex_safety import",
                 "from .regex_safety import",
             ),
+        ),
+    ),
+    (
+        "openavc/drivers/reply_name_checks.py",
+        "scripts/_vendor/reply_name_checks.py",
+        (
+            (
+                "from openavc.drivers.declared_names import",
+                "from .declared_names import",
+            ),
+            ("from openavc.drivers.spec import", "from .spec import"),
         ),
     ),
     (

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1394,
+    "total_devices": 1395,
     "shards": null
   },
   "devices": [
@@ -14933,6 +14933,17 @@
           "id": "pjlink_class1",
           "confidence": "untested",
           "notes": "Sony VPL data projectors. Configure via Web Advanced Menu \u2192 PJLINK. Up to 3 controllers can connect simultaneously. The dedicated `sony_vpl` driver (ADCP / SDAP) covers more (SHA-256 challenge-response auth, native lens controls)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SpinetiX",
+      "model": "iBX440",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "spinetix_ibx440",
+          "confidence": "untested"
         }
       ]
     },

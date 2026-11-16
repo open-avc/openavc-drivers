@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 122,
+    "total_devices": 123,
     "shards": null,
     "category": "streaming"
   },
@@ -1432,6 +1432,17 @@
           "id": "roku_ecp",
           "confidence": "untested",
           "notes": "Any Roku device with 'Control by mobile apps' enabled, including third-party Roku TVs (TCL, Hisense, onn, etc.). Power, volume, and input/tuner keys apply to models that report supports-tv-power-control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "SpinetiX",
+      "model": "iBX440",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "spinetix_ibx440",
+          "confidence": "untested"
         }
       ]
     },

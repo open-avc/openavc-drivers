@@ -1,0 +1,128 @@
+"""Direct RPC simulator for the SpinetiX iBX440, including sparse display replies."""
+
+import base64
+import json
+import time
+
+from openavc.simulator.http_simulator import HTTPSimulator
+
+
+class SpinetixIBX440Simulator(HTTPSimulator):
+    SIMULATOR_INFO = {
+        "driver_id": "spinetix_ibx440", "name": "SpinetiX iBX440 Simulator",
+        "category": "streaming", "transport": "http", "default_port": 443,
+        "initial_state": {
+            "systems": True, "allow_variables": True, "output_2_connected": True,
+            "output_1_power": "unknown", "room_mode": "Welcome", "temperature": 38,
+            "project_handle": "", "restart_pending": False,
+        },
+        "controls": [
+            {"type": "toggle", "key": "systems", "label": "SYSTEMS Feature Set"},
+            {"type": "toggle", "key": "allow_variables", "label": "Allow Shared Variables"},
+            {"type": "toggle", "key": "output_2_connected", "label": "HDMI 2 Cable Connected"},
+            {"type": "select", "key": "output_1_power", "label": "HDMI 1 Display Power",
+             "options": ["on", "off", "unknown", "gone"]},
+            {"type": "select", "key": "room_mode", "label": "Room Mode",
+             "options": ["Welcome", "Event", "Closed"]},
+            {"type": "slider", "key": "temperature", "label": "Player Temperature", "min": 20, "max": 85},
+        ],
+    }
+
+    def __init__(self, device_id, config=None):
+        settings = dict(config or {})
+        settings.setdefault("tls", settings.get("ssl", True))
+        super().__init__(device_id, settings)
+        self.variables = {"Room Mode": "Welcome", "Lobby/Message": "Welcome to the lobby"}
+        self.timestamps = {name: "0" for name in self.variables}
+        self._last_room_mode = "Welcome"
+        self._handles = 0
+
+    def _info(self, flags):
+        info = {"name": "Lobby Signage", "model": self.config.get("model", "iBX440"),
+                "serial": "SIM440", "mode": "normal",
+                "firmware": {"version": "4.9.4", "status": "normal"}}
+        ports = []
+        displays = []
+        for index in range(1, 5):
+            key = f"card0-HDMI-A-{index}"
+            connected = index == 1 or (index == 2 and self.state["output_2_connected"])
+            ports.append({"id": key, "type": "HDMI-A", "name": f"HDMI {index}",
+                          "status": "connected" if connected else "disconnected", "enabled": True})
+            if connected:
+                displays.append({"id": key, "type": "HDMI", "power_save": "off",
+                                 "power": self.state["output_1_power"] if index == 1 else "on",
+                                 "mode": {"width": 3840 if index == 1 else 1920,
+                                          "height": 2160 if index == 1 else 1080,
+                                          "refresh": 59.94, "colorspace": "YCbCr 4:2:0"}})
+        extra = {
+            "videoConnectors": ports, "display": list(reversed(displays)),
+            "license": {"features": [{"name": "_SYSTEMS", "valid": self.state["systems"]}]},
+            "temperature": {"C": self.state["temperature"], "alarm": "none"},
+            "storage": [{"type": "content", "free": "10832", "unit": "Mbytes"}],
+            "reason": "rpc", "errors": [],
+        }
+        info.update({key: item for key, item in extra.items() if flags.get(key) or flags.get("all")})
+        return info
+
+    def _variable_result(self, method, params):
+        if not self.state["systems"] or not self.state["allow_variables"]:
+            raise ValueError("Web Storage is unavailable.")
+        room_mode = self.state["room_mode"]
+        if room_mode != self._last_room_mode:
+            self.variables["Room Mode"] = self._last_room_mode = room_mode
+            self.timestamps["Room Mode"] = str(int(time.time() * 1000))
+        if method == "webstorage_list":
+            return list(self.variables)
+        rows = []
+        for item in params[0]:
+            if method == "webstorage_get":
+                name = item
+                row = {"name": name, "success": name in self.variables}
+            elif method == "webstorage_cmpxchg":
+                name = item["name"]
+                row = {"name": name, "success": name in self.variables and self.variables[name] == item["expect"]}
+                if row["success"]:
+                    self.variables[name] = item["value"]
+                    self.timestamps[name] = str(int(time.time() * 1000))
+                    if name == "Room Mode":
+                        self.set_state("room_mode", item["value"])
+                        self._last_room_mode = item["value"]
+            else:
+                raise ValueError("No such method.")
+            if name in self.variables:
+                row.update(value=self.variables[name], timestamp=self.timestamps.get(name, "0"))
+            rows.append(row)
+        return list(reversed(rows))
+
+    def _dispatch(self, method, params):
+        if method == "get_info":
+            return self._info(params[0] if params else {})
+        if method.startswith("webstorage_"):
+            return self._variable_result(method, params)
+        if method == "restart":
+            accepted = not self.state["restart_pending"]
+            self.set_state("restart_pending", True)
+            return {"success": accepted, "reason": "" if accepted else "Already scheduled"}
+        if method == "add_pull_action" and params[0]["type"] == "publish":
+            self._handles += 1
+            handle = str(self._handles)
+            self.set_state("project_handle", handle)
+            return handle
+        raise ValueError("No such method.")
+
+    def handle_request(self, method, path, headers, body):
+        if path != "/rpc" or method != "POST":
+            return 404, {}, {}
+        if self.config.get("password"):
+            login = self.config.get("username", "admin") + ":" + self.config["password"]
+            expected = "Basic " + base64.b64encode(login.encode()).decode()
+            if headers.get("Authorization", headers.get("authorization")) != expected:
+                return 401, {}, {"WWW-Authenticate": 'Basic realm="SpinetiX"'}
+        request = {}
+        try:
+            request = json.loads(body)
+            result = self._dispatch(request["method"], request["params"])
+        except (TypeError, KeyError, IndexError, ValueError) as exc:
+            return 200, {"id": request.get("id") if isinstance(request, dict) else None,
+                         "result": None, "error": str(exc)}, {}
+        return 200, {"id": request["id"], "result": result, "error": None}, {}

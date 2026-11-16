@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 16,
+    "total_drivers": 17,
     "shards": null,
     "category": "streaming"
   },
@@ -1094,6 +1094,70 @@
         ],
         "manufacturer_alias": [
           "Roku"
+        ]
+      }
+    },
+    {
+      "id": "spinetix_ibx440",
+      "name": "SpinetiX iBX440",
+      "manufacturer": "SpinetiX",
+      "category": "streaming",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Monitor four HDMI outputs and the signage player, request a content update, and control named project variables on SYSTEMS players.",
+      "source_url": "https://support.spinetix.com/w/images/3/3a/SpinetiX_Tech_RPC_API.pdf",
+      "file": "streaming/spinetix_ibx440.py",
+      "format": "python",
+      "files": {
+        "streaming/spinetix_ibx440.py": "ce862547f6378755e500cdd2fad76f325dc3c23da43e2ebab1da9a8afc216813",
+        "streaming/spinetix_ibx440_sim.py": "4860cbdbea17301b43fe76cf63c24d867cc851b1b2c8ca4ad784cf58a3397d48"
+      },
+      "ports": [
+        443,
+        80
+      ],
+      "protocols": [
+        "http",
+        "json-rpc"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "digital-signage",
+        "video-wall",
+        "hdmi",
+        "dsos"
+      ],
+      "help": {
+        "overview": "Read the iBX440's HDMI connector and display reports, temperature and content errors. On a SYSTEMS player, bind a project variable to a control or a trigger.",
+        "setup": "Enter the local player address and credentials from Control Center. A monitoring account can read player and output status. For that feedback plus variable control, use an account with the monitoring and content rights or an admin account. Content downloads and restart require admin rights.",
+        "connection": "Use the player\u2019s HTTPS service and certificate. For a player commissioned for plain HTTP, select port 80 and turn off Use HTTPS. Display Power can be unknown even with a connected cable. Gone means the display is missing or did not reply. A blank video mode means the player supplied no active mode. Shared Variable Access shows whether the player reported a valid SYSTEMS license and allowed the list to be read."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "SpinetiX",
+          "models": [
+            "iBX440"
+          ],
+          "confidence": "untested"
+        }
+      ],
+      "discovery": {
+        "mdns": [
+          {
+            "service": "_spx-hmp._tcp.local.",
+            "txt": {
+              "model": "iBX440"
+            }
+          }
+        ],
+        "hostname": [
+          "^spx-dsos-001d5023[0-9a-f]{4}([.]local[.]?)?$"
+        ],
+        "manufacturer_alias": [
+          "SpinetiX",
+          "SpinetiX SA"
         ]
       }
     },

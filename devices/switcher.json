@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 148,
+    "total_devices": 154,
     "shards": null,
     "category": "switcher"
   },
@@ -1101,6 +1101,78 @@
           "id": "extron_sis",
           "confidence": "untested",
           "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. Newer Extron units ship with their serial number as the password: enter it in Password. Verified on an SW4 HD 4K PLUS (firmware 1.02): password login, input select, video mute, auto-input switching. A DTP CrossPoint 4K switcher has its own driver, Extron DTP CrossPoint 4K, which reads its paired outputs, video mutes and audio correctly: use that one for it.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "IN1806",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_in1808",
+          "confidence": "untested",
+          "notes": "SIS controls from user guide 68-3131-01 Rev. B. Tested in simulation; physical verification pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "IN1808",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_in1808",
+          "confidence": "untested",
+          "notes": "SIS controls from user guide 68-3131-01 Rev. B. Tested in simulation; physical verification pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "IN1808 IPCP MA 70",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_in1808",
+          "confidence": "untested",
+          "notes": "SIS controls from user guide 68-3131-01 Rev. B. Tested in simulation; physical verification pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "IN1808 IPCP Q MA 70",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_in1808",
+          "confidence": "untested",
+          "notes": "SIS controls from user guide 68-3131-01 Rev. B. Tested in simulation; physical verification pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "IN1808 IPCP Q SA",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_in1808",
+          "confidence": "untested",
+          "notes": "SIS controls from user guide 68-3131-01 Rev. B. Tested in simulation; physical verification pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "IN1808 IPCP SA",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_in1808",
+          "confidence": "untested",
+          "notes": "SIS controls from user guide 68-3131-01 Rev. B. Tested in simulation; physical verification pending."
         }
       ]
     },

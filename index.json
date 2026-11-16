@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 204,
+    "total_drivers": 205,
     "shards": null
   },
   "drivers": [
@@ -5875,6 +5875,76 @@
         },
         "oui": [
           "00:05:a6"
+        ]
+      }
+    },
+    {
+      "id": "extron_in1808",
+      "name": "Extron IN1806 / IN1808 Series",
+      "manufacturer": "Extron",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "ssh",
+      "description": "Control IN1806 and IN1808 classroom presentation switchers using source names from the scaler. Includes signal and HDCP feedback, independent loop routing, room volume and model-specific amplifier channels.",
+      "source_url": "https://media.extron.com/public/download/files/userman/68-3131-01_B_IN1806-1808_UG.pdf",
+      "file": "switchers/extron_in1808.py",
+      "format": "python",
+      "files": {
+        "switchers/extron_in1808.py": "d8ad87a9006fd9a5008bd0adae2277d090caf0791772c41ac0911bd37f1af215",
+        "switchers/extron_in1808_sim.py": "c4e99cfb4a8b9338ca85af2704b3cda5693fbfdac0bcaaffada5d5d03f3ed65a"
+      },
+      "ports": [
+        22023
+      ],
+      "protocols": [
+        "extron_sis"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.27.0",
+      "tags": [
+        "presentation-switcher",
+        "scaler",
+        "classroom",
+        "sis",
+        "serial-bridge"
+      ],
+      "help": {
+        "overview": "Present one source to the room or switch video and audio separately. The main HDMI and twisted-pair outputs share the presentation source. The HDMI loop monitor has its own source.",
+        "setup": "Enter the scaler\u2019s address and SIS account for SSH. On IPCP models use the scaler address on a reachable LAN or AV LAN. The factory password is normally the serial number. For RS-232 use the rear Remote port at 9600 baud, 8 data bits, no parity and one stop bit. Refresh sources after editing their names in PCS.\nTo control a projector through the scaler, wire the projector to the receiver\u2019s RS-232 connector. Use a reachable scaler LAN address, UART start point 2000 and TCP/IP UART insertion on output 1B. Add the projector with its own serial driver. Choose Through a bridge, this scaler and Output 1B. Enter the projector\u2019s line settings on the projector device. The scaler applies and reads them back. Read output 1B serial setup, then request a real status from the projector. Full power and Standby with TP power support the link.",
+        "connection": "Bind the main video source for selection and Selected source has video for signal presence. The amplifier channels appear under Audio output channels on amplified models. For one room fader use Room master volume. Room groups respect their configured soft limits. Picture presets adjust the current input."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Extron",
+          "models": [
+            "IN1808 IPCP Q MA 70",
+            "IN1808 IPCP Q SA",
+            "IN1808",
+            "IN1808 IPCP MA 70",
+            "IN1808 IPCP SA",
+            "IN1806"
+          ],
+          "confidence": "untested",
+          "notes": "SIS controls from user guide 68-3131-01 Rev. B. Tested in simulation; physical verification pending."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 23,
+          "expect_regex": "(?i)Extron Electronics,\\s*IN180(?:6|8)(?: IPCP(?: Q)? (?:SA|MA 70))?\\s*,",
+          "extract_manufacturer": "Extron",
+          "extract": {
+            "model": {
+              "regex": "(?i)(IN180(?:6|8)(?: IPCP(?: Q)? (?:SA|MA 70))?)\\s*,"
+            }
+          }
+        },
+        "oui": [
+          "00:05:a6"
+        ],
+        "manufacturer_alias": [
+          "extron"
         ]
       }
     },

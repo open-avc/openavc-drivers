@@ -1039,7 +1039,11 @@ def test_files_map_includes_python_convention_companions(tmp_path: Path) -> None
     main = _write_python_driver(tmp_path)
     sim = tmp_path / "projectors" / "test_driver_sim.py"
     disco = tmp_path / "projectors" / "test_driver_discovery.py"
-    sim.write_text("SIM = True\n", encoding="utf-8")
+    sim.write_text(
+        "class TestSimulator:\n"
+        '    SIMULATOR_INFO = {"driver_id": "test_py_driver", "name": "Test", "initial_state": {}}\n',
+        encoding="utf-8",
+    )
     disco.write_text("def probe(ctx):\n    return None\n", encoding="utf-8")
 
     rc, _, err = _run(tmp_path)

@@ -147,7 +147,7 @@ def valid_tree(root: Path) -> None:
             {"manufacturer": "Acme", "models": ["AMP-1"], "confidence": "partial"},
         ],
     )
-    _text(root, "projectors/acme_py_sim.py", "# simulator\n")
+    _text(root, "projectors/acme_py_sim.py", _SIMULATOR)
     _text(root, "projectors/acme_py_discovery.py", "# discovery companion\n")
     _text(root, "projectors/README.md", "not a driver\n")
     _text(root, "projectors/notes.json", "{}\n")
@@ -209,7 +209,7 @@ def crlf_companion_in_checkout(root: Path) -> None:
     _manufacturers(root)
     (root / ".git").mkdir()
     _py(root, "projectors/acme_py.py")
-    _text(root, "projectors/acme_py_sim.py", "# sim\n", crlf=True)
+    _text(root, "projectors/acme_py_sim.py", _SIMULATOR, crlf=True)
 
 
 def crlf_without_checkout(root: Path) -> None:
@@ -344,6 +344,13 @@ def no_driver_files(root: Path) -> None:
     _manufacturers(root)
     _text(root, "audio/README.md", "nothing here\n")
     _text(root, "audio/x_sim.py", "# sim only\n")
+
+
+# A companion simulator the catalog's check of a SIMULATOR_INFO can read.
+_SIMULATOR = (
+    "class AcmePySimulator:\n"
+    '    SIMULATOR_INFO = {"driver_id": "acme_py", "name": "Acme Py", "initial_state": {}}\n'
+)
 
 
 MAIN_CASES: list[tuple[str, Callable[[Path], None], list[str], str]] = [

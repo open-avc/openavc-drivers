@@ -104,3 +104,60 @@ def test_the_catalog_refuses_an_empty_section_the_platform_reads_as_absent() -> 
         "audio/acme_widget.avcdriver: polling: is empty; leave it out (older OpenAVC releases "
         "refuse a driver with an empty section)"
     ]
+
+
+def test_the_catalog_refuses_an_empty_simulator_setting() -> None:
+    """A simulator setting left empty reads as absent on the platform; older
+    releases do not read it so, so a catalog driver leaves it out."""
+    from catalog_contract import ContractReport
+
+    data = {
+        "id": "acme_widget", "name": "Acme Widget", "transport": "tcp",
+        "commands": {"noop": {"send": "N\r"}}, "simulator": {"initial_state": None},
+    }
+    assert validate_driver_definition(data, strict=True) == []
+    errors = ContractReport().check(Path("audio/acme_widget.avcdriver"), "audio/acme_widget.avcdriver", data)
+    assert errors == [
+        "audio/acme_widget.avcdriver: simulator.initial_state: is empty; leave it out (older "
+        "OpenAVC releases do not read an empty simulator setting as left out)"
+    ]
+
+
+_PYTHON_DRIVER = """\
+class AcmeWidgetDriver:
+    DRIVER_INFO = {
+        "id": "acme_widget",
+        "name": "Acme Widget",
+        "transport": "tcp",
+        "commands": {"power_on": {"label": "Power On"}},
+    }
+"""
+
+
+def test_the_catalog_checks_a_python_drivers_simulator(tmp_path) -> None:
+    """A Python driver's companion simulator is checked with it: a value of
+    the wrong kind and an empty setting fail the build, an unknown key warns."""
+    from catalog_contract import ContractReport
+
+    driver = tmp_path / "acme_widget.py"
+    driver.write_text(_PYTHON_DRIVER, encoding="utf-8")
+    (tmp_path / "acme_widget_sim.py").write_text(
+        "class AcmeWidgetSimulator:\n"
+        "    SIMULATOR_INFO = {\n"
+        '        "driver_id": "acme_widget", "name": "Acme Widget Simulator",\n'
+        '        "initial_state": {}, "delays": None, "default_port": "23",\n'
+        '        "errors": {},\n'
+        "    }\n",
+        encoding="utf-8",
+    )
+    report = ContractReport()
+    errors = report.check(driver, "audio/acme_widget.py", {})
+    assert errors == [
+        "audio/acme_widget_sim.py: SIMULATOR_INFO.delays: is empty; leave it out (older "
+        "OpenAVC releases do not read an empty simulator setting as left out)",
+        "audio/acme_widget_sim.py: SIMULATOR_INFO.default_port: must be an integer",
+    ]
+    assert report.warnings == [
+        "audio/acme_widget_sim.py: SIMULATOR_INFO: unknown key 'errors' (did you mean "
+        "'error_modes'?); the simulator does not read it",
+    ]

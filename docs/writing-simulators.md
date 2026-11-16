@@ -92,7 +92,7 @@ The command-to-state link normally comes from naming conventions (`power_on` set
 
 ## Level 1: YAML Enhancement (15 Minutes)
 
-Add a `simulator:` section to the end of your `.avcdriver` file to enhance the auto-generated behavior. Everything in this section is optional and merged on top of what the auto-gen produces.
+Add a `simulator:` section to the end of your `.avcdriver` file to enhance the auto-generated behavior. Everything in this section is optional and merged on top of what the auto-gen produces. A setting left empty (`initial_state:` with nothing under it) reads as if it were not there; leave it out of a driver you publish, because older OpenAVC releases do not read it that way, and the catalog build asks you to remove it.
 
 ### Initial State
 
@@ -854,7 +854,9 @@ SIMULATOR_INFO = {
 }
 ```
 
-The control types and fields are the same as for YAML drivers. See the Controls Schema section under Level 1 for the full reference.
+The control types and fields are the same as for YAML drivers. See the Controls Schema section under Level 1 for the full reference. The validator checks them the same way, apart from two things it cannot see in a Python file: a control built from a constant in your code (`"options": INPUTS`) is named as not checked, and a control's `key` is not compared with `initial_state`, because a Python simulator can set any state in code.
+
+`SIMULATOR_INFO` takes the keys a `simulator:` section takes, plus seven of its own: `driver_id`, `name`, `transport`, `default_port`, `category`, `delimiter` and `tls`. `python -m openavc.drivers.check` and the catalog build check your simulator with its driver. A value of the wrong kind is an error, and a key the simulator never reads is a warning naming the key you probably meant (`errors` for `error_modes`). A setting set to `None` reads as if it were not there; leave it out of a driver you publish.
 
 ### SNMP Simulators (a MIB, Not a Handler)
 
@@ -1273,6 +1275,8 @@ python -m openavc.simulator.validate ../openavc-drivers/ --summary
 | Check | What it catches |
 |-------|----------------|
 | **SIMULATOR_INFO structure** | Missing required fields (`driver_id`, `name`, `initial_state`) |
+| **SIMULATOR_INFO keys** | A value of the wrong kind (an error), or a key the simulator never reads (a warning naming the nearest key it does read). This is the driver contract's check, run first; `python -m openavc.drivers.check` and the catalog build run it too |
+| **Controls** | As for a YAML driver: unknown types and missing per-type fields. A control holding a value built in code is named, not checked, and keys are not compared with `initial_state` |
 | **State coverage** | A simulator that seeds no `initial_state` at all while the driver declares state variables. Otherwise an INFO stating how many keys the simulator seeds against how many state variables the driver has -- the names are not expected to match (see below) |
 | **driver_id match** | Mismatched IDs between driver and simulator |
 | **Type consistency** | Wrong types in initial_state values |

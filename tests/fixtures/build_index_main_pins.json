@@ -1212,7 +1212,7 @@
               "files": {
                 "projectors/acme_py.py": "576b06f6b66604ec958f8387982f4ad225578fbf7ae763ec43f6404d5d09388a",
                 "projectors/acme_py_discovery.py": "6fcee505a0dad76caa02a7a28baef1594b5a49c29174637eb6da9a761982fcea",
-                "projectors/acme_py_sim.py": "576b40765dcb439d6b4bea23ac01c7b8dc1777338a804e6a390bc94a22a9ceee"
+                "projectors/acme_py_sim.py": "5e4e594c58a367c61d7a98f81bc3712c46fb87905d18e6f5c2a23bfe27071e16"
               },
               "format": "python",
               "id": "acme_py",
@@ -1265,7 +1265,7 @@
         "index/display.json": "5586461f592c078d6809477581b208111375cbfd59aae5a737011b3dfb9377b4",
         "index/lighting.json": "39a19946b0acf073818dbb55b6a03b897e77bdb2a2d214142e8479728c96e6a5",
         "index/power.json": "63538a3d0c576ff632c84894dc6d221b26dfeef5295e3a9414bc75c5fa4ef538",
-        "index/projector.json": "707b7ed1a0153f74f4b3db5cf14fcdd07d419ce55a087744888f714a7aabe0d1",
+        "index/projector.json": "dce7e1a50fc263025261342844c0dd68125cb1425c54d803cc9dc5dd7af1f5e8",
         "index/streaming.json": "af7444cb2c9669b495af87fec3c37ef7604884630b61ba9c5376428c2d02104f",
         "index/switcher.json": "fb9f31418c4d9aff534bfaaf80b5785caa844e64352ed0c79490607d46989d4f",
         "index/utility.json": "70b4c393fbd35a66251c86ebc3104e62c6515ab2c371288f817caf1e0bad0b6e",
@@ -1484,7 +1484,7 @@
               "files": {
                 "projectors/acme_py.py": "576b06f6b66604ec958f8387982f4ad225578fbf7ae763ec43f6404d5d09388a",
                 "projectors/acme_py_discovery.py": "6fcee505a0dad76caa02a7a28baef1594b5a49c29174637eb6da9a761982fcea",
-                "projectors/acme_py_sim.py": "576b40765dcb439d6b4bea23ac01c7b8dc1777338a804e6a390bc94a22a9ceee"
+                "projectors/acme_py_sim.py": "5e4e594c58a367c61d7a98f81bc3712c46fb87905d18e6f5c2a23bfe27071e16"
               },
               "format": "python",
               "id": "acme_py",
@@ -1537,7 +1537,7 @@
         "index/display.json": "5586461f592c078d6809477581b208111375cbfd59aae5a737011b3dfb9377b4",
         "index/lighting.json": "39a19946b0acf073818dbb55b6a03b897e77bdb2a2d214142e8479728c96e6a5",
         "index/power.json": "63538a3d0c576ff632c84894dc6d221b26dfeef5295e3a9414bc75c5fa4ef538",
-        "index/projector.json": "707b7ed1a0153f74f4b3db5cf14fcdd07d419ce55a087744888f714a7aabe0d1",
+        "index/projector.json": "dce7e1a50fc263025261342844c0dd68125cb1425c54d803cc9dc5dd7af1f5e8",
         "index/streaming.json": "af7444cb2c9669b495af87fec3c37ef7604884630b61ba9c5376428c2d02104f",
         "index/switcher.json": "fb9f31418c4d9aff534bfaaf80b5785caa844e64352ed0c79490607d46989d4f",
         "index/utility.json": "70b4c393fbd35a66251c86ebc3104e62c6515ab2c371288f817caf1e0bad0b6e",

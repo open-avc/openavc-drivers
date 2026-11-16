@@ -439,6 +439,29 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         ),
     ),
     (
+        "openavc/drivers/simulator_info.py",
+        "scripts/_vendor/simulator_info.py",
+        (
+            (
+                "from openavc.drivers.avcdriver_semantic import",
+                "from .avcdriver_semantic import",
+            ),
+            (
+                "from openavc.drivers.declared_names import",
+                "from .declared_names import",
+            ),
+            (
+                "from openavc.drivers.python_info import",
+                "from .python_info import",
+            ),
+            (
+                "from openavc.drivers.shape_checks import",
+                "from .shape_checks import",
+            ),
+            ("from openavc.drivers.spec import", "from .spec import"),
+        ),
+    ),
+    (
         "tests/fixtures/driver_validation_cases.json",
         "scripts/_vendor/driver_validation_cases.json",
         (),

@@ -1297,7 +1297,7 @@
       "file": "switchers/extron_in1808.py",
       "format": "python",
       "files": {
-        "switchers/extron_in1808.py": "d8ad87a9006fd9a5008bd0adae2277d090caf0791772c41ac0911bd37f1af215",
+        "switchers/extron_in1808.py": "0e2b7188976fbda571c6ae06133633e56bdb0550903440faba3dad27c7183732",
         "switchers/extron_in1808_sim.py": "c4e99cfb4a8b9338ca85af2704b3cda5693fbfdac0bcaaffada5d5d03f3ed65a"
       },
       "ports": [

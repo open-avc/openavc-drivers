@@ -19,22 +19,15 @@ except ImportError:  # Releases before typed command refusals.
 
 ESC = "\x1b"
 LINE_REPORT = r"Cpn0?9\s+Ccp(\d+),([NOEMS][a-z]*),([78]),([12])"
-BAUDS = (
-    300,
-    600,
-    1200,
-    1800,
-    2400,
-    3600,
-    4800,
-    7200,
-    9600,
-    14400,
-    19200,
-    28800,
-    38400,
-    57600,
-    115200,
+BAUDS = frozenset(
+    "300 600 1200 1800 2400 3600 4800 7200 9600 14400 19200 28800 38400 57600 115200".split()
+)
+SERIAL_SETTINGS = (
+    ("baudrate", "9600", BAUDS),
+    ("parity", "N", ("N", "O", "E", "M", "S")),
+    ("bytesize", "8", ("7", "8")),
+    ("stopbits", "1", ("1", "2", "1.0", "2.0")),
+    ("flow_control", "NONE", ("NONE", "")),
 )
 PARTS = {
     "IN1806": "60-1663-01",
@@ -119,28 +112,21 @@ def tenths(value, low, high):
 
 
 def serial_format(params):
-    baud = str(params.get("baudrate", 9600))
-    bits = str(params.get("bytesize", 8))
-    parity = str(params.get("parity", "N")).upper()
-    stop = str(params.get("stopbits", 1))
-    if not baud.isdecimal() or int(baud) not in BAUDS:
-        raise CommandRefusedError(
-            "Choose one of the scaler's supported baud rates from 300 to 115200."
-        )
-    if bits not in ("7", "8") or parity not in ("N", "O", "E", "M", "S"):
-        raise CommandRefusedError(
-            "Choose seven or eight data bits and a supported RS-232 parity."
-        )
-    flow = str(params.get("flow_control", "none")).lower()
-    if (
-        flow not in ("none", "")
-        or stop not in ("1", "1.0", "2", "2.0")
-        or any(params.get(k) for k in ("xonxoff", "rtscts", "dsrdtr"))
-    ):
-        raise CommandRefusedError(
-            "Choose one or two stop bits and no flow control for output 1B."
-        )
-    return baud, parity, bits, stop[0]
+    values = {}
+    for key, default, allowed in SERIAL_SETTINGS:
+        value = str(params.get(key, default)).upper()
+        if value not in allowed:
+            options = ", ".join(sorted(allowed)) if key != "flow_control" else "none"
+            raise CommandRefusedError(
+                f"Unsupported {key.replace('_', ' ')} for output 1B. Choose from {options}."
+            )
+        values[key] = value
+    return (
+        values["baudrate"],
+        values["parity"],
+        values["bytesize"],
+        values["stopbits"][0],
+    )
 
 
 def choice(value, options):
@@ -167,10 +153,6 @@ def route_pattern(prop):
     if prop == "loop_input":
         return r"Lout(\d+)"
     return rf"In\s*(\d+)\*0?1\s*{ROUTES[prop][1]}"
-
-
-def route_query(prop):
-    return ESC + "LOUT" if prop == "loop_input" else "1" + ROUTES[prop][0]
 
 
 def matches(line, pattern):
@@ -1008,16 +990,19 @@ class ExtronIN1808(BaseDriver):
         if not self._session:
             return
         if self._pending:
-            cmd, pattern, future = self._pending
-            if line in (cmd, cmd.replace(ESC, "^[")):
-                return
-            if self._write_errors is not None and matches(line, r"E\d\d"):
-                self._write_errors.append(line)
-                if cmd == "N":
-                    return
-            self._answer(line, pattern, future)
+            self._pending_line(line)
         if self._model:
             self._notice(line)
+
+    def _pending_line(self, line):
+        cmd, pattern, future = self._pending
+        if line in (cmd, cmd.replace(ESC, "^[")):
+            return
+        if self._write_errors is not None and matches(line, r"E\d\d"):
+            self._write_errors.append(line)
+            if cmd == "N":
+                return
+        self._answer(line, pattern, future)
 
     @staticmethod
     def _refusal(line):
@@ -1162,7 +1147,7 @@ class ExtronIN1808(BaseDriver):
             (r"Hdcp([IO])\s*(\d+)\*([0-2])", self._hdcp_notice),
             (r"HplgO\s*(\d+)\*[12]", lambda _: self._schedule_refresh()),
             (r"Vmt\s*(\d+)\*([0-2])", self._mute_notice),
-            (r"Vmt([0-2])", self._mute_all),
+            (r"Vmt([0-2])", lambda code: self._mute_list(code, code, code)),
             (r"Vmt([0-2])\s+([0-2])\s+([0-2])", self._mute_list),
             (r"Frz0?1\*([01])", lambda v: self.set_state("frozen", v == "1")),
             (r"Ausw([0-2])", lambda v: self.set_state("auto_switch", AUTO[int(v)])),
@@ -1170,8 +1155,7 @@ class ExtronIN1808(BaseDriver):
             (r"Grpm([DL])0*(\d+)\*([+-]?\d+)(?:\*([+-]?\d+))?", self._group_notice),
             (r"Ds([GM])(60\d{3})\*([+-]?\d+)", self._channel_notice),
             (r"Pnam2\*0*(\d+),(.*)", self._preset_name),
-            (r"2Rpr0*(\d+)", self._preset_recalled),
-            (r"(?:2Spr|PrstX2\*)0*(\d+)", self._preset_changed),
+            (r"(2Rpr|2Spr|PrstX2\*)0*(\d+)", self._preset_event),
         )
 
     def _main_notice(self, raw, plane):
@@ -1213,9 +1197,6 @@ class ExtronIN1808(BaseDriver):
 
     def _mute_notice(self, slot, code):
         self._child("output", int(slot), {"mute_mode": MUTES[int(code)]})
-
-    def _mute_all(self, code):
-        self._mute_list(code, code, code)
 
     def _mute_list(self, *codes):
         for slot, code in enumerate(codes, 1):
@@ -1316,16 +1297,15 @@ class ExtronIN1808(BaseDriver):
         self.register_child("preset", ident)
         self._child("preset", ident, {"name": name.strip()})
 
-    def _preset_changed(self, raw):
-        if int(raw) in range(1, 17):
-            self._needs_inventory = True
-            self._schedule_refresh()
-
-    def _preset_recalled(self, raw):
+    def _preset_event(self, op, raw):
         ident = int(raw)
-        if ident in range(1, 17):
+        if ident not in range(1, 17):
+            return
+        if op.lower() == "2rpr":
             self.set_state("last_picture_preset", ident)
-            self._schedule_refresh()
+        else:
+            self._needs_inventory = True
+        self._schedule_refresh()
 
     async def _global(self, key, value=None):
         prop, query, prefix = GLOBAL[key]
@@ -1349,7 +1329,8 @@ class ExtronIN1808(BaseDriver):
             )
 
     async def _read_route(self, prop):
-        return int((await self._ask(route_query(prop), route_pattern(prop)))[1])
+        query = ESC + "LOUT" if prop == "loop_input" else "1" + ROUTES[prop][0]
+        return int((await self._ask(query, route_pattern(prop)))[1])
 
     async def _signal_query(self):
         extra = len(self.list_children("input")) - 1
@@ -1448,7 +1429,7 @@ class ExtronIN1808(BaseDriver):
             )
         return ident
 
-    async def _bridge_status(self, desired=None):
+    async def _bridge_endpoint(self):
         if self.get_state("power_mode") == POWER[1]:
             raise CommandRefusedError(
                 "Output 1B is off in Standby. Select Full power or Standby with TP power."
@@ -1465,6 +1446,9 @@ class ExtronIN1808(BaseDriver):
                 "Output 1B is set to control the scaler. Select TCP/IP UART insertion "
                 "for output 1B in PCS to control the far-end equipment."
             )
+
+    async def _bridge_status(self, desired=None):
+        await self._bridge_endpoint()
         current = await self._bridge_line()
         if desired is not None and current != desired:
             await self._write(ESC + "9*" + ",".join(desired) + "CP", LINE_REPORT)
@@ -1509,17 +1493,18 @@ class ExtronIN1808(BaseDriver):
         params = params or {}
         action, _, key = command.partition("_")
         async with self._io:
-            if (
-                command == "present_source"
-                and self.get_state("power_mode") in POWER[1:]
-            ):
-                self._id("input", params["source"])
-                await self._global("power_mode", 0)
-            if key != "power_mode" and self.get_state("power_mode") != POWER[0]:
-                raise CommandRefusedError(
-                    "The scaler must be at full power for this control."
-                )
+            await self._ensure_power(command, key, params)
             return await self._operate(command, key, action, params)
+
+    async def _ensure_power(self, command, key, params):
+        mode = self.get_state("power_mode")
+        if key == "power_mode" or mode == POWER[0]:
+            return
+        if command == "present_source" and mode in POWER[1:]:
+            self._id("input", params["source"])
+            await self._global("power_mode", 0)
+            return
+        raise CommandRefusedError("The scaler must be at full power for this control.")
 
     async def _operate(self, command, key, action, params):
         if key in GLOBAL:

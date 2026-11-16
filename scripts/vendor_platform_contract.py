@@ -124,6 +124,14 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from .setting_checks import",
             ),
             (
+                "from openavc.drivers.platform_floor_checks import",
+                "from .platform_floor_checks import",
+            ),
+            (
+                "from openavc.drivers.shape_checks import",
+                "from .shape_checks import",
+            ),
+            (
                 "from openavc.drivers.sign_in_checks import",
                 "from .sign_in_checks import",
             ),
@@ -283,6 +291,16 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
             ),
             ("from openavc.drivers.spec import", "from .spec import"),
         ),
+    ),
+    (
+        "openavc/drivers/platform_floor_checks.py",
+        "scripts/_vendor/platform_floor_checks.py",
+        (("from openavc.drivers.spec import", "from .spec import"),),
+    ),
+    (
+        "openavc/drivers/shape_checks.py",
+        "scripts/_vendor/shape_checks.py",
+        (("from openavc.drivers.spec import", "from .spec import"),),
     ),
     (
         "openavc/drivers/sign_in_checks.py",

@@ -5,8 +5,12 @@ driver contract (``scripts/_vendor/``, kept in step by
 ``scripts/vendor_platform_contract.py``), so the catalog's verdict on a file
 is the platform loader's verdict, in the same words a contributor sees from
 ``python -m openavc.drivers.check`` and in the server log. On top of those
-rules sits the one that only publishing needs: a driver that uses anything
-gated must declare ``min_platform_version`` (``_with_catalog_platform_floor``).
+rules sit the ones that only publishing needs: a driver that uses anything
+gated must declare ``min_platform_version`` (``_with_catalog_platform_floor``),
+and a top-level section is left out rather than left empty
+(``_empty_sections``): the platform reads an empty one as absent, but the
+releases before it refuse the driver or fail its poll, and a catalog driver
+reaches those too.
 
 The two formats are checked differently because the platform reads them
 differently. A YAML definition runs the platform's whole definition check,
@@ -36,6 +40,7 @@ from _vendor.avcdriver_semantic import (
     validate_driver_definition,
     validate_driver_warnings,
 )
+from _vendor.spec import FIELDS, NULL_AS_ABSENT
 from _vendor.python_info import (
     ExtractError,
     extract_python_driver_info_full,
@@ -74,9 +79,12 @@ class ContractReport:
         # the driver is installed.
         errors = [
             f"{rel}: {err}"
-            for err in _with_catalog_platform_floor(
-                data, validate_driver_definition(data, strict=True)
-            )
+            for err in [
+                *_empty_sections(data),
+                *_with_catalog_platform_floor(
+                    data, validate_driver_definition(data, strict=True)
+                ),
+            ]
         ]
         self.warnings.extend(f"{rel}: {w}" for w in validate_driver_warnings(data))
         return errors
@@ -130,6 +138,27 @@ class ContractReport:
 def _files_named(lines: list[str]) -> int:
     """How many driver files a list of ``<file>: <detail>`` lines names."""
     return len({line.split(":", 1)[0] for line in lines})
+
+
+def _takes_no_null(name: str) -> bool:
+    """A field whose own declaration does not take a null (one that does,
+    such as min_platform_version, every release reads empty)."""
+    declared = FIELDS[name].get("type")
+    return "null" not in ((declared,) if isinstance(declared, str) else tuple(declared or ()))
+
+
+# The top-level fields a catalog driver leaves out rather than empty.
+_LEFT_OUT_WHEN_EMPTY = tuple(name for name in NULL_AS_ABSENT if _takes_no_null(name))
+
+
+def _empty_sections(data: dict[str, Any]) -> list[str]:
+    """A top-level section written with nothing under it, named with the fix."""
+    return [
+        f"{name}: is empty; leave it out (older OpenAVC releases refuse a "
+        "driver with an empty section)"
+        for name in _LEFT_OUT_WHEN_EMPTY
+        if name in data and data[name] is None
+    ]
 
 
 def _with_catalog_platform_floor(

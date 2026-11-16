@@ -87,3 +87,20 @@ def test_every_case_is_rejected() -> None:
 def test_minimal_definition_validates_clean() -> None:
     minimal = {"id": "acme_widget", "name": "Acme Widget", "transport": "tcp"}
     assert validate_driver_definition(minimal) == []
+
+
+def test_the_catalog_refuses_an_empty_section_the_platform_reads_as_absent() -> None:
+    """The platform reads a top-level section left empty as absent; older
+    releases refuse it or fail the poll, so a catalog driver leaves it out."""
+    from catalog_contract import ContractReport
+
+    data = {
+        "id": "acme_widget", "name": "Acme Widget", "transport": "tcp",
+        "commands": {"noop": {"send": "N\r"}}, "polling": None,
+    }
+    assert validate_driver_definition(data, strict=True) == []
+    errors = ContractReport().check(Path("audio/acme_widget.avcdriver"), "audio/acme_widget.avcdriver", data)
+    assert errors == [
+        "audio/acme_widget.avcdriver: polling: is empty; leave it out (older OpenAVC releases "
+        "refuse a driver with an empty section)"
+    ]

@@ -113,7 +113,7 @@ class _PushCheck:
         unknown = set(self.block) - known
         if unknown:
             self.found.append(
-                f"push: unknown key(s): {', '.join(sorted(unknown))} "
+                f"push: unknown key(s): {_names(unknown)} "
                 f"(known keys for type {push_type!r}: {', '.join(sorted(known))})"
             )
 
@@ -159,6 +159,12 @@ def _not_positive_seconds(value: Any) -> bool:
 
 def _blank(value: Any) -> bool:
     return not isinstance(value, str) or not value.strip()
+
+
+def _names(keys: set[Any]) -> str:
+    """Keys a block does not know, listed as text: YAML reads a bare ``1:``
+    as a number, which sorts with and joins into nothing else."""
+    return ", ".join(sorted(map(str, keys)))
 
 
 # --- each type's own checks ------------------------------------------------------------
@@ -263,7 +269,7 @@ def _session_checks(check: _PushCheck, session: Any, paths: list[Any] | None) ->
     unknown = set(session) - set(PUSH_SESSION_KEYS)
     if unknown:
         check.found.append(
-            f"push: session has unknown key(s): {', '.join(sorted(unknown))} "
+            f"push: session has unknown key(s): {_names(unknown)} "
             f"(known: {', '.join(PUSH_SESSION_KEYS)})"
         )
     for key in _SESSION_TEXT_KEYS:
@@ -343,7 +349,7 @@ class _Registration:
         unknown = set(item) - set(PUSH_REGISTER_ENTRY_KEYS)
         if unknown:
             self.check.found.append(
-                f"push: {where} has unknown key(s): {', '.join(sorted(unknown))} "
+                f"push: {where} has unknown key(s): {_names(unknown)} "
                 f"(known: {', '.join(PUSH_REGISTER_ENTRY_KEYS)})"
             )
         self.command(where, item.get("command"))

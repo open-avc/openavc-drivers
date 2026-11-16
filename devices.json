@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1391,
+    "total_devices": 1394,
     "shards": null
   },
   "devices": [
@@ -16433,6 +16433,42 @@
           "id": "wolfvision_cynap",
           "confidence": "untested",
           "notes": "Firmware 1.7x. Commands for features this model lacks (recording, a second output) are refused by the unit."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WolfVision",
+      "model": "VZ-3neo.UHD",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "wolfvision_visualizer",
+          "confidence": "untested",
+          "notes": "WolfProt Visualizer 1.86d. Sources and preset slots are read from the connected camera."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WolfVision",
+      "model": "VZ-8.UHD",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "wolfvision_visualizer",
+          "confidence": "untested",
+          "notes": "WolfProt Visualizer 1.86d. Sources and preset slots are read from the connected camera."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WolfVision",
+      "model": "VZ-8neo.UHD",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "wolfvision_visualizer",
+          "confidence": "untested",
+          "notes": "WolfProt Visualizer 1.86d. Sources and preset slots are read from the connected camera."
         }
       ]
     },

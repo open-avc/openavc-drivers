@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 158,
+    "total_devices": 161,
     "shards": null,
     "category": "camera"
   },
@@ -1893,6 +1893,42 @@
           "id": "vaddio_roboshot",
           "confidence": "untested",
           "notes": "The RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the RoboSHOT line.\nThe ConferenceShot AV is NOT covered here and has its own driver, `vaddio_conferenceshot_av`. Checking it against hardware showed the two protocols have diverged: the ConferenceShot AV has a seven-channel audio mixer, readable absolute pan/tilt/zoom, video mute, LED and IR-cut control and a CCU gamma value that this driver does not carry, and it does NOT have the CCU scenes or Tri-Synchronous Motion presets that this driver sends. Take the ConferenceShot 10 and FX as unverified for the same reason: the ConferenceShot line should not be assumed to match RoboSHOT until each is read against its own manual or a unit.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "WolfVision",
+      "model": "VZ-3neo.UHD",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "wolfvision_visualizer",
+          "confidence": "untested",
+          "notes": "WolfProt Visualizer 1.86d. Sources and preset slots are read from the connected camera."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WolfVision",
+      "model": "VZ-8.UHD",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "wolfvision_visualizer",
+          "confidence": "untested",
+          "notes": "WolfProt Visualizer 1.86d. Sources and preset slots are read from the connected camera."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WolfVision",
+      "model": "VZ-8neo.UHD",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "wolfvision_visualizer",
+          "confidence": "untested",
+          "notes": "WolfProt Visualizer 1.86d. Sources and preset slots are read from the connected camera."
         }
       ]
     }

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 17,
+    "total_drivers": 18,
     "shards": null,
     "category": "camera"
   },
@@ -1304,6 +1304,67 @@
           "vaddio",
           "legrand",
           "legrand av"
+        ]
+      }
+    },
+    {
+      "id": "wolfvision_visualizer",
+      "name": "WolfVision UHD Visualizer",
+      "manufacturer": "WolfVision",
+      "category": "camera",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Control WolfVision UHD document cameras over Ethernet. Detect the model, select supported sources and presets, and read back image, recording and privacy status.",
+      "source_url": "https://wolfvision.com/api_wolfprot/Visualizer_commands_1.86d.html",
+      "file": "cameras/wolfvision_visualizer.py",
+      "format": "python",
+      "files": {
+        "cameras/wolfvision_visualizer.py": "00df21d3466d004a41c6d5028b4681d4c8b7d3c35d38902989a6a19789973159",
+        "cameras/wolfvision_visualizer_sim.py": "70f6e3d69870e7b5b723996e898dcc68fcaf4e5e7acb73e391bba38a23776fdf"
+      },
+      "ports": [
+        50915,
+        50917
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.1",
+      "tags": [
+        "document-camera",
+        "visualizer",
+        "education",
+        "lectern",
+        "wolfprot"
+      ],
+      "help": {
+        "overview": "Control the lectern document camera, frame a page, recall presets and check whether the image is live or frozen. Camera controls and the optional RTSP preview work directly over the room network.",
+        "setup": "1. Power the camera on and connect its LAN port. Choose it in Network Discovery or enter its IP address or hostname. OpenAVC reads the model, source choices and preset slots.\n2. If Moderator password required is enabled under Advanced Settings > Security, enter the moderator password. Automatic uses TLS on port 50917.\n3. For remote power, choose Standby or Deep + WoL under Advanced Settings. Deep + WoL needs a local Wake-on-LAN path.\n4. To use Video Panel preview, enable streaming on the camera. Privacy mode and security mode disable preview. Freeze and recording are unavailable in security mode."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "WolfVision",
+          "models": [
+            "VZ-8.UHD",
+            "VZ-3neo.UHD",
+            "VZ-8neo.UHD"
+          ],
+          "confidence": "untested",
+          "notes": "WolfProt Visualizer 1.86d. Sources and preset slots are read from the connected camera."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 50915,
+          "send_hex": "08401600",
+          "expect_regex": "^\\x08\\x40\\x16\\x01[\\x00-\\x02]$",
+          "timeout_ms": 2000
+        },
+        "oui": [
+          "00:0c:92"
+        ],
+        "manufacturer_alias": [
+          "wolfvision",
+          "wolfvision gmbh"
         ]
       }
     }

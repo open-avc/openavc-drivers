@@ -726,6 +726,28 @@ def test_module_level_driver_info_rejected(tmp_path: Path) -> None:
     assert "DRIVER_INFO" in err or "no DRIVER_INFO" in err
 
 
+def test_a_python_driver_saved_with_a_byte_order_mark_builds(tmp_path: Path) -> None:
+    """Read as Python's import reads it: the mark some editors write first is
+    dropped, as it is when the platform loads the driver."""
+    _write_manufacturers(tmp_path)
+    fp = _write_python_driver(tmp_path)
+    fp.write_bytes(b"\xef\xbb\xbf" + fp.read_bytes())
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+    index = json.loads((tmp_path / "index.json").read_text(encoding="utf-8"))
+    assert [d["id"] for d in index["drivers"]] == ["test_py_driver"]
+
+
+def test_a_python_driver_python_cannot_decode_is_a_reported_error(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(tmp_path)
+    fp = _write_python_driver(tmp_path)
+    fp.write_bytes(b"# -*- coding: acme-8 -*-\n" + fp.read_bytes())
+    rc, _, err = _run(tmp_path)
+    assert rc != 0
+    assert "test_driver.py cannot be read as Python source" in err
+
+
 def test_dict_constructor_call_in_driver_info_rejected(tmp_path: Path) -> None:
     _write_manufacturers(tmp_path)
     _write_python_driver(

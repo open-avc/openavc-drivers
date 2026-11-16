@@ -108,20 +108,25 @@ def _content_storage(info):
     return {"content_free": free, "storage_unit": content.get("unit")}
 
 
+def _variable_reading(row):
+    if not isinstance(row, dict):
+        raise ValueError("Invalid Web Storage value reply.")
+    if row.get("success") is not True:
+        return None
+    if not isinstance(row.get("value"), str):
+        raise ValueError("The player returned a non-text Web Storage value.")
+    return {"name": row["name"], "value": row["value"], "timestamp": str(row.get("timestamp", ""))}
+
+
 def _variable_batch(rows, names):
     if not isinstance(rows, list):
         raise ValueError("Invalid Web Storage value reply.")
     batch = {}
     for row in rows:
-        if not isinstance(row, dict):
-            raise ValueError("Invalid Web Storage value reply.")
-        name = row.get("name")
-        if name not in names or row.get("success") is not True:
-            continue
-        value = row.get("value")
-        if isinstance(value, str):
-            batch[_child_id(name)] = (name, {"name": name, "value": value,
-                                             "timestamp": str(row.get("timestamp", ""))})
+        reading = _variable_reading(row)
+        if reading is not None and reading["name"] in names:
+            name = reading["name"]
+            batch[_child_id(name)] = (name, reading)
     return batch
 
 
@@ -375,13 +380,7 @@ class SpinetixIBX440Driver(BaseDriver):
 
     async def _write_variable(self, params):
         await self._refresh_locked()
-        key = params.get("variable")
-        if key not in self._names:
-            raise RPCRefusal("This variable is unavailable on the player.")
-        value = params.get("value")
-        if not isinstance(value, str):
-            raise ValueError("Enter a text value for the project variable.")
-        name = self._names[key]
+        key, name, value = self._variable_target(params)
         expected = self.get_child_state("variable", key)["value"]
         # Do not recreate a key that has just been deleted or overwrite a
         # concurrent update from another controller.
@@ -389,5 +388,14 @@ class SpinetixIBX440Driver(BaseDriver):
         await self._refresh_locked()
         if not _write_accepted(result, name):
             raise RPCRefusal("The variable changed or the player refused the write. Check its current value.")
-        if key not in self._names or self.get_child_state("variable", key).get("value") != value:
+        if self.get_child_state("variable", key).get("value") != value:
             raise RPCRefusal("The player did not report the requested variable value.")
+
+    def _variable_target(self, params):
+        key = params.get("variable")
+        if key not in self._names:
+            raise RPCRefusal("This variable is unavailable on the player.")
+        value = params.get("value")
+        if not isinstance(value, str):
+            raise ValueError("Enter a text value for the project variable.")
+        return key, self._names[key], value

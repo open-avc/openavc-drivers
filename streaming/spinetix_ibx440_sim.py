@@ -41,6 +41,18 @@ class SpinetixIBX440Simulator(HTTPSimulator):
         info = {"name": "Lobby Signage", "model": self.config.get("model", "iBX440"),
                 "serial": "SIM440", "mode": "normal",
                 "firmware": {"version": "4.9.4", "status": "normal"}}
+        ports, displays = self._outputs()
+        extra = {
+            "videoConnectors": ports, "display": list(reversed(displays)),
+            "license": {"features": [{"name": "_SYSTEMS", "valid": self.state["systems"]}]},
+            "temperature": {"C": self.state["temperature"], "alarm": "none"},
+            "storage": [{"type": "content", "free": "10832", "unit": "Mbytes"}],
+            "reason": "rpc", "errors": [],
+        }
+        info.update({key: item for key, item in extra.items() if flags.get(key) or flags.get("all")})
+        return info
+
+    def _outputs(self):
         ports = []
         displays = []
         for index in range(1, 5):
@@ -54,23 +66,12 @@ class SpinetixIBX440Simulator(HTTPSimulator):
                                  "mode": {"width": 3840 if index == 1 else 1920,
                                           "height": 2160 if index == 1 else 1080,
                                           "refresh": 59.94, "colorspace": "YCbCr 4:2:0"}})
-        extra = {
-            "videoConnectors": ports, "display": list(reversed(displays)),
-            "license": {"features": [{"name": "_SYSTEMS", "valid": self.state["systems"]}]},
-            "temperature": {"C": self.state["temperature"], "alarm": "none"},
-            "storage": [{"type": "content", "free": "10832", "unit": "Mbytes"}],
-            "reason": "rpc", "errors": [],
-        }
-        info.update({key: item for key, item in extra.items() if flags.get(key) or flags.get("all")})
-        return info
+        return ports, displays
 
     def _variable_result(self, method, params):
         if not self.state["systems"] or not self.state["allow_variables"]:
             raise ValueError("Web Storage is unavailable.")
-        room_mode = self.state["room_mode"]
-        if room_mode != self._last_room_mode:
-            self.variables["Room Mode"] = self._last_room_mode = room_mode
-            self.timestamps["Room Mode"] = str(int(time.time() * 1000))
+        self._sync_room_mode()
         if method == "webstorage_list":
             return list(self.variables)
         if method == "webstorage_get":
@@ -78,6 +79,12 @@ class SpinetixIBX440Simulator(HTTPSimulator):
         if method == "webstorage_cmpxchg":
             return [self._compare_and_set(change) for change in reversed(params[0])]
         raise ValueError("No such method.")
+
+    def _sync_room_mode(self):
+        room_mode = self.state["room_mode"]
+        if room_mode != self._last_room_mode:
+            self.variables["Room Mode"] = self._last_room_mode = room_mode
+            self.timestamps["Room Mode"] = str(int(time.time() * 1000))
 
     def _value_row(self, name):
         if name not in self.variables:
@@ -116,16 +123,23 @@ class SpinetixIBX440Simulator(HTTPSimulator):
     def handle_request(self, method, path, headers, body):
         if path != "/rpc" or method != "POST":
             return 404, {}, {}
-        if self.config.get("password"):
-            login = self.config.get("username", "admin") + ":" + self.config["password"]
-            expected = "Basic " + base64.b64encode(login.encode()).decode()
-            if headers.get("Authorization", headers.get("authorization")) != expected:
-                return 401, {}, {"WWW-Authenticate": 'Basic realm="SpinetiX"'}
+        if not self._authorized(headers):
+            return 401, {}, {"WWW-Authenticate": 'Basic realm="SpinetiX"'}
         request = {}
         try:
-            request = json.loads(body)
+            payload = json.loads(body)
+            if not isinstance(payload, dict):
+                raise ValueError("Expected an RPC object.")
+            request = payload
             result = self._dispatch(request["method"], request["params"])
         except (TypeError, KeyError, IndexError, ValueError) as exc:
-            return 200, {"id": request.get("id") if isinstance(request, dict) else None,
+            return 200, {"id": request.get("id"),
                          "result": None, "error": str(exc)}, {}
         return 200, {"id": request["id"], "result": result, "error": None}, {}
+
+    def _authorized(self, headers):
+        if not self.config.get("password"):
+            return True
+        login = self.config.get("username", "admin") + ":" + self.config["password"]
+        expected = "Basic " + base64.b64encode(login.encode()).decode()
+        return headers.get("Authorization", headers.get("authorization")) == expected

@@ -270,6 +270,9 @@ checks over your driver that it runs over every other driver in the library:
 - **Offline sentences.** The sentence a device card shows under **Offline**
   says what the device stopped doing, never "Connected, but".
 - **Poll timing.** A YAML driver's poll fits inside its poll interval.
+- **No empty sections.** A top-level section with nothing under it
+  (`polling:` alone) is left out instead. OpenAVC reads one as absent, but
+  older releases refuse the driver or fail its every poll.
 - **Discovery captures.** A probe reply captured from a real unit, under
   `tests/fixtures/discovery/`, matches your driver's probe and no other
   driver's (see [Cross-vendor anchors](#cross-vendor-anchors)).

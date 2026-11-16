@@ -128,6 +128,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from .routing_checks import",
             ),
             (
+                "from openavc.drivers.serial_line import",
+                "from .serial_line import",
+            ),
+            (
                 "from openavc.drivers.setting_checks import",
                 "from .setting_checks import",
             ),
@@ -297,6 +301,11 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         ),
     ),
     (
+        "openavc/drivers/serial_line.py",
+        "scripts/_vendor/serial_line.py",
+        (),
+    ),
+    (
         "openavc/drivers/setting_checks.py",
         "scripts/_vendor/setting_checks.py",
         (
@@ -417,6 +426,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
             (
                 "from openavc.drivers.push_block_checks import",
                 "from .push_block_checks import",
+            ),
+            (
+                "from openavc.drivers.serial_line import",
+                "from .serial_line import",
             ),
             ("from openavc.drivers.spec import", "from .spec import"),
             (

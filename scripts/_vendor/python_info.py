@@ -59,6 +59,7 @@ from .command_checks import SharedCommandChecks, state_name_errors
 from .declared_names import DeclaredSections
 from .param_aid_checks import one_param_aid_errors, sibling_refs
 from .push_block_checks import push_block_errors
+from .serial_line import SERIAL_LINE_SETTINGS, line_setting_errors
 from .spec import CONFIG_FIELD_SOURCES
 from .state_variable_checks import DEVICE_VARIABLE, state_variable_errors
 
@@ -282,8 +283,8 @@ def check_python_driver_info(
     has always been held to here (``_PythonWalk``). The checks of the sections
     both kinds of driver declare alike (``_SHARED_SECTIONS``: the state
     variables, the child types, each command's parameter aids and its
-    ``sets:`` and ``query_for:``, the push block; the routing block is one of
-    the first kind) refuse only in ``strict`` mode, where a driver is written
+    ``sets:`` and ``query_for:``, the push block, the serial line settings in
+    ``default_config``; the routing block is one of the first kind) refuse only in ``strict`` mode, where a driver is written
     (``drivers.check``, catalog CI, the Code view's save). Where a driver is
     loaded or a device connects they are the ``notices``, so a driver that
     worked before still does and the door can say what is wrong with it. A
@@ -598,6 +599,20 @@ def _typed(pdef: Any) -> Any:
     return {key: pdef.get(key) for key in ("type", "child_type")}
 
 
+def _line_setting_section(info: dict[str, Any], coverage: _Coverage) -> list[str]:
+    """Each serial line setting default_config holds, by ``serial_line``."""
+    if not coverage.section_seen("default_config"):
+        return []
+    section = info["default_config"]
+    if not isinstance(section, dict):
+        return []
+    seen = {
+        key: value for key, value in coverage.named(section)
+        if key in SERIAL_LINE_SETTINGS and coverage.judged(f"default_config.{key}", value)
+    }
+    return [message for _, message in line_setting_errors(seen)]
+
+
 def _push_section(info: dict[str, Any], coverage: _Coverage) -> list[str]:
     """The push block, by ``push_block_checks``."""
     block = info.get("push")
@@ -611,6 +626,7 @@ _SHARED_SECTIONS: tuple[tuple[str, Callable[[dict[str, Any], _Coverage], list[st
     ("child_entity_types", _child_type_section),
     ("commands", _command_section),
     ("push", _push_section),
+    ("default_config", _line_setting_section),
 )
 
 

@@ -75,6 +75,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from .action_checks import (",
             ),
             (
+                "from openavc.drivers.child_fault_checks import",
+                "from .child_fault_checks import",
+            ),
+            (
                 "from openavc.drivers.child_type_checks import",
                 "from .child_type_checks import",
             ),
@@ -166,6 +170,17 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from .param_aid_checks import",
             ),
             ("from openavc.drivers.spec import (", "from .spec import ("),
+        ),
+    ),
+    (
+        "openavc/drivers/child_fault_checks.py",
+        "scripts/_vendor/child_fault_checks.py",
+        (
+            (
+                "from openavc.drivers.declared_names import",
+                "from .declared_names import",
+            ),
+            ("from openavc.drivers.spec import", "from .spec import"),
         ),
     ),
     (

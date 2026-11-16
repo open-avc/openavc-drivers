@@ -74,11 +74,9 @@ class SpinetixIBX440Simulator(HTTPSimulator):
         self._sync_room_mode()
         if method == "webstorage_list":
             return list(self.variables)
-        if method == "webstorage_get":
-            return [self._value_row(name) for name in reversed(params[0])]
-        if method == "webstorage_cmpxchg":
-            return [self._compare_and_set(change) for change in reversed(params[0])]
-        raise ValueError("No such method.")
+        operation = {"webstorage_get": self._value_row, "webstorage_cmpxchg": self._compare_and_set}
+        apply = operation[method]
+        return [apply(item) for item in reversed(params[0])]
 
     def _sync_room_mode(self):
         room_mode = self.state["room_mode"]
@@ -110,15 +108,21 @@ class SpinetixIBX440Simulator(HTTPSimulator):
         if method.startswith("webstorage_"):
             return self._variable_result(method, params)
         if method == "restart":
-            accepted = not self.state["restart_pending"]
-            self.set_state("restart_pending", True)
-            return {"success": accepted, "reason": "" if accepted else "Already scheduled"}
+            return self._restart()
         if method == "add_pull_action" and params[0]["type"] == "publish":
-            self._handles += 1
-            handle = str(self._handles)
-            self.set_state("project_handle", handle)
-            return handle
+            return self._queue_project()
         raise ValueError("No such method.")
+
+    def _restart(self):
+        accepted = not self.state["restart_pending"]
+        self.set_state("restart_pending", True)
+        return {"success": accepted, "reason": "" if accepted else "Already scheduled"}
+
+    def _queue_project(self):
+        self._handles += 1
+        handle = str(self._handles)
+        self.set_state("project_handle", handle)
+        return handle
 
     def handle_request(self, method, path, headers, body):
         if path != "/rpc" or method != "POST":

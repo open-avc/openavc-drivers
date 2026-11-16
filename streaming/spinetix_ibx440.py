@@ -214,7 +214,7 @@ class SpinetixIBX440Driver(BaseDriver):
                         "help": "Read the current HDMI connections, display power and active video modes from the player."},
             "set_variable": {"label": "Set Shared Variable",
                 "params": {"variable": {"type": "child_id", "child_type": "variable", "required": True, "label": "Project Variable"},
-                           "value": {"type": "string", "required": True, "label": "New Value"}},
+                           "value": {"type": "string", "default": "", "label": "New Value", "help": "Leave blank to clear the text."}},
                 "sets": {"value": "{value}"}, "help": "Change the selected project variable and read its value back. The signage project determines what changes on screen."},
             "publish_project": {"label": "Pull Signage Project", "params": {
                 "url": {"type": "string", "required": True, "label": "Project Listing URL"}},
@@ -319,7 +319,7 @@ class SpinetixIBX440Driver(BaseDriver):
             entries.update(_variable_batch(rows, keys))
         self._reconcile("variable", entries)
         self._names = {key: entry[0] for key, entry in entries.items()}
-        self._offer_variables(True)
+        self._offer_variables(bool(entries))
         self.set_state("variable_access", "available")
 
     async def _variable_names(self):
@@ -395,7 +395,7 @@ class SpinetixIBX440Driver(BaseDriver):
         key = params.get("variable")
         if key not in self._names:
             raise RPCRefusal("This variable is unavailable on the player.")
-        value = params.get("value")
+        value = params.get("value", "")
         if not isinstance(value, str):
             raise ValueError("Enter a text value for the project variable.")
         return key, self._names[key], value

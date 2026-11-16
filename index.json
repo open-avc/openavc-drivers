@@ -13540,7 +13540,7 @@
       "name": "Turtle AV JEF Dante Mic Preamp",
       "manufacturer": "TurtleAV",
       "category": "audio",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Turtle AV JEF Dante Enabled Mic Preamp over its TCP control port. Input gain, mute and 48V phantom power, the reported input sensitivity, Master Out volume and mute, the input's 8-band parametric EQ, presets, and reboot.\n",
@@ -13548,7 +13548,7 @@
       "file": "audio/turtle_jef.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/turtle_jef.avcdriver": "c519ce3dffae67867946c2642334bf4eccf8818d005d5a07ebd6ddb009f9ba8d"
+        "audio/turtle_jef.avcdriver": "ae404494afbbd70f2350697f41a9192d4e95f91794302fe6ef8a04a561d39bfa"
       },
       "ports": [
         8000

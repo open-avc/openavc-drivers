@@ -5,9 +5,9 @@
 #
 # Source. TurtleAV's JEF user guide (June 2026) covers the Web GUI only: it
 # names a "Web GUI and TCP/IP control port" and a settable TCP Port and
-# Telnet Port, but prints no command list. TurtleAV told us (2026-11-16, in
-# writing, from their technical team) that the JEF's API is the same as the
-# Mineola Dante Bridge's, so the commands and replies here are the
+# Telnet Port, but prints no command list. TurtleAV told us in writing
+# (2026-11-16) that the JEF's API is the same as the Mineola Dante
+# Bridge's, so the commands and replies here are the
 # "7. API Control Command" chapter of the Mineola 2x2 user guide (the 4x4,
 # 8x8 and 16x16 guides print the same list), taken only where the JEF guide
 # shows the JEF has the feature:
@@ -15,7 +15,7 @@
 #   - Master Out volume and mute (the JEF Web GUI has both).
 #   - The input's 8-band parametric EQ.
 #   - Presets (save / recall / clear).
-#   - Model, firmware, reboot.
+#   - Model, firmware, reboot, and the command list (`help`).
 # Not taken: the outputs, master output members and output EQ (the JEF has no
 # analog outputs); power and standby (the JEF's System page has neither);
 # EQ presets, EQ stereo and EQ copy (one channel, and no Flat/Custom buttons
@@ -52,7 +52,7 @@ id: turtle_jef
 name: Turtle AV JEF Dante Mic Preamp
 manufacturer: TurtleAV
 category: audio
-version: 1.0.0
+version: 1.0.1
 author: OpenAVC
 min_platform_version: "0.36.0"
 description: >
@@ -133,8 +133,8 @@ config_schema:
     label: Poll Interval (sec)
 
 on_connect:
-  - 'get type\r\n'
-  - 'get fw version\r\n'
+  - query_model
+  - query_firmware
 
 state_variables:
   model:
@@ -194,6 +194,62 @@ state_variables:
     help: "True when Master Out is muted."
 
 commands:
+  # ── Status queries (the poll and start-up run these by name) ──
+  query_model:
+    label: Query Model
+    send: 'get type\r\n'
+    query_for: model
+    help: "Reads the model name the JEF reports."
+
+  query_firmware:
+    label: Query Firmware
+    send: 'get fw version\r\n'
+    query_for: firmware_web
+    help: "Reads the JEF's Web, MCU and Dante firmware versions."
+
+  query_input_gain:
+    label: Query Input Gain
+    send: 'get input 1 gain\r\n'
+    query_for: gain
+    help: "Reads the microphone input gain."
+
+  query_input_mute:
+    label: Query Input Mute
+    send: 'get input 1 mute\r\n'
+    query_for: mute
+    help: "Reads whether the microphone input is muted."
+
+  query_phantom_power:
+    label: Query Phantom Power
+    send: 'get input 1 phantom power\r\n'
+    query_for: phantom_power
+    help: "Reads whether 48V phantom power is on."
+
+  query_sensitivity:
+    label: Query Input Sensitivity
+    send: 'get input 1 sensitivity\r\n'
+    query_for: sensitivity
+    help: "Reads the input sensitivity the JEF is set to."
+
+  query_master_volume:
+    label: Query Master Volume
+    send: 'get master vol\r\n'
+    query_for: master_volume
+    help: "Reads the Master Out volume."
+
+  query_master_mute:
+    label: Query Master Mute
+    send: 'get master mute\r\n'
+    query_for: master_mute
+    help: "Reads whether Master Out is muted."
+
+  list_commands:
+    label: List API Commands
+    send: 'help\r\n'
+    help: >
+      Asks the JEF to list every command it takes. The list shows in the
+      device's traffic log and in a Device Audit report.
+
   # ── Input (the JEF has one: input 1) ──
   set_input_gain:
     label: Set Input Gain
@@ -238,13 +294,13 @@ commands:
     label: Phantom Power On
     send: 'set input 1 phantom power on\r\n'
     sets: { phantom_power: true }
-    help: "Turn on 48V phantom power at the XLR input."
+    help: "Turn on 48V phantom power at the XLR input. The 48V LED on the JEF lights."
 
   phantom_power_off:
     label: Phantom Power Off
     send: 'set input 1 phantom power off\r\n'
     sets: { phantom_power: false }
-    help: "Turn off 48V phantom power at the XLR input."
+    help: "Turn off 48V phantom power at the XLR input. The 48V LED on the JEF goes out."
 
   # ── Master Out ──
   set_master_volume:
@@ -428,9 +484,9 @@ commands:
     label: Send Raw Command
     send: '{command}\r\n'
     help: >
-      Send a command from the Mineola API list exactly as written, without
-      the line ending. For settings this driver does not offer, such as the
-      network settings.
+      Send a command to the JEF exactly as written, without the line
+      ending. For settings this driver does not offer, such as the network
+      settings.
     params:
       command:
         type: string
@@ -509,19 +565,26 @@ responses:
   - match: '^(?:Reboot|System Initializing|Initialization Finished)'
     set: {}
 
+  # The command list (`help`, `?`): in the Mineola document each line starts
+  # with the command code. Read but not stored.
+  - match: '^(?:\?|help|get|set)\s'
+    set: {}
+
   # `get type` answers a bare model token on its own line ("XLR22" on a
-  # Mineola). Last, so no other reply is read as a model.
-  - match: '^([A-Z][A-Z0-9-]{2,})$'
+  # Mineola; the JEF's hostname stem is TAV-JEF). The token must hold a digit
+  # or a hyphen, so a bare word such as an error reply is not read as a
+  # model. Last, so no other reply is read as a model.
+  - match: '^([A-Z][A-Z0-9]*[0-9-][A-Z0-9-]*)$'
     set: { model: "$1" }
 
 polling:
   queries:
-    - 'get input 1 gain\r\n'
-    - 'get input 1 mute\r\n'
-    - 'get input 1 phantom power\r\n'
-    - 'get input 1 sensitivity\r\n'
-    - 'get master vol\r\n'
-    - 'get master mute\r\n'
+    - query_input_gain
+    - query_input_mute
+    - query_phantom_power
+    - query_sensitivity
+    - query_master_volume
+    - query_master_mute
 
 # ── SIMULATOR ──
 # Answers in the Mineola document's reply forms ("XLR IN1 ..."). The model
@@ -582,6 +645,28 @@ simulator:
             f'Web: {state["firmware_web"]}\r\n'
             f'MCU: {state["firmware_mcu"]}\r\n'
             f'DEP: {state["firmware_dep"]}\r\n'
+        )
+
+    # The command list, one command code and its description per line, as
+    # the Mineola document's table prints them (the commands this driver uses).
+    - match: '(?:help|\?) ?'
+      handler: |
+        respond(
+            'get type          Get device model\r\n'
+            'get fw version    Get Firmware version\r\n'
+            'set reboot        Reboot the device\r\n'
+            'set input x gain y    Set input:x gain to y\r\n'
+            'get input x gain      Get input:x gain value\r\n'
+            'get input x sensitivity    Get input:x sensitivity\r\n'
+            'set input x phantom power on/off    Set input:x 48V phantom power on/off\r\n'
+            'get input x phantom power    Get input:x 48V phantom power status\r\n'
+            'set input x mute on/off    Set input:x mute on/off\r\n'
+            'get input x mute      Get input:x mute on/off\r\n'
+            'set master vol x      Set master output volume to x\r\n'
+            'get master vol        Get master output volume\r\n'
+            'set master mute on/off    Set master output mute on/off\r\n'
+            'get master mute       Get master output mute on/off\r\n'
+            'set preset recall x   Recall preset:x into unit\r\n'
         )
 
     - match: 'set reboot ?'

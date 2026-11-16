@@ -316,7 +316,7 @@ class AVerTR535Driver(BaseDriver):
         "name": "AVer TR535 / TR535N Dual-Lens Auto Tracking Camera",
         "manufacturer": "AVer",
         "category": "camera",
-        "version": "1.0.0",
+        "version": "1.0.1",
         # Binding the VISCA socket to Reach devices through (local_address)
         # needs 0.37.0; the contract check cannot see a method call.
         "min_platform_version": "0.37.0",

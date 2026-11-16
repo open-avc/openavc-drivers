@@ -181,7 +181,7 @@ class AVerPTZDriver(BaseDriver):
         "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
         "manufacturer": "AVer",
         "category": "camera",
-        "version": "1.3.12",
+        "version": "1.3.13",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # confirm on factory_reset needs 0.36.0; binding the VISCA socket to
         # Reach devices through, 0.37.0.

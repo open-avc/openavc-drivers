@@ -12,7 +12,7 @@
       "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
       "manufacturer": "AVer",
       "category": "camera",
-      "version": "1.3.12",
+      "version": "1.3.13",
       "author": "OpenAVC",
       "transport": "http",
       "description": "AVer Pro-AV PTZ310 / PTZ330 family. Combines VISCA-over-IP (UDP 52381) for power, PTZ motion, and position inquiries with AVer's HTTP CGI (port 80, /storks) for image quality (shutter, iris, gain, white balance, color temperature, saturation, contrast, sharpness), AI features (SmartShoot, SmartFraming), bulk status query, RTMP streaming, mirror/flip, and reboot. For the TR615 and TR211 / TR315 / TR335 tracking cameras use 'aver_tr'; for other AVer cameras, the generic 'visca_ip' driver.",
@@ -20,8 +20,8 @@
       "file": "cameras/aver_ptz.py",
       "format": "python",
       "files": {
-        "cameras/aver_ptz.py": "47f2aad441c51d009c9f22f47162b280cd59c57ccb43faf5c987d035f4cd87ea",
-        "cameras/aver_ptz_sim.py": "af9ade272070341ee27eb402b44d536907f458733ba5ffd8c1bfebf7cc3b9205"
+        "cameras/aver_ptz.py": "01a70e5d7971ac5b9f15397db1b3e79ddce6ca16bac841be8babbfcf9e5e35bf",
+        "cameras/aver_ptz_sim.py": "01d41a0cf02d83583e3ec51a74c348548b9fd6aba4f467d6dcaa1a907841474b"
       },
       "ports": [
         80,
@@ -71,7 +71,7 @@
       "name": "AVer TR Auto Tracking Camera (TR615, TR335 / TR315 / TR211)",
       "manufacturer": "AVer",
       "category": "camera",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "AVer TR615 and TR211 / TR315 / TR335 AI auto tracking PTZ cameras. VISCA over IP (UDP 52381) for power, pan, tilt, zoom, focus, presets, exposure, white balance, tally, freeze and auto tracking, with every value the camera reports read back; the HTTP CGI for tracking mode, preset save and recall, saturation, contrast, flip, theme mode and factory reset.",
@@ -79,8 +79,8 @@
       "file": "cameras/aver_tr.py",
       "format": "python",
       "files": {
-        "cameras/aver_tr.py": "6d83fa6b802c04488bac169c8b93107994e3a60c3b98922145a95f7bf802a78d",
-        "cameras/aver_tr_sim.py": "04f83046d1f1dd26e312706d924f38088176ecfaa7e09a280c83bb4ae79859ca"
+        "cameras/aver_tr.py": "72a16d5d8136940077d43f94d107b99da0f2f30cc40a4f67bcc313245d25e89d",
+        "cameras/aver_tr_sim.py": "107292d6c24fbfbac0e563e72736598fcdaae43914b0b2afc62c17eb19f6910c"
       },
       "ports": [
         80,
@@ -138,7 +138,7 @@
       "name": "AVer TR535 / TR535N Dual-Lens Auto Tracking Camera",
       "manufacturer": "AVer",
       "category": "camera",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "AVer TR535 and TR535N dual-lens AI auto tracking cameras. VISCA over IP (UDP 52381) for power, pan, tilt, zoom, focus, exposure, white balance, tally, freeze, auto tracking and tracking mode, theme mode, the HDMI 1 and HDMI 2 sources and the PIP / PBP layout, with every value the camera reports read back; the HTTP CGI for preset save and recall, saturation, contrast, factory reset and the RTMP stream's server, key and status. Both lenses' streams are offered for preview.",
@@ -146,8 +146,8 @@
       "file": "cameras/aver_tr535.py",
       "format": "python",
       "files": {
-        "cameras/aver_tr535.py": "3325512ce6f60e7a2a925511da289f3819b03812637a4445b8e7117b6db2bf7e",
-        "cameras/aver_tr535_sim.py": "27ea1ac853a65c845884a5b4e666372774cb175263880d34743729f138ddd20a"
+        "cameras/aver_tr535.py": "affc72796f5811a4a4e270709f94a99b148e970b1d4abe50091c356c14fa9f63",
+        "cameras/aver_tr535_sim.py": "f2aad3add37bc5f74c274657d038dbb7ce30dd442b54b6c0e9ab3f46aaf2eb8c"
       },
       "ports": [
         80,

@@ -269,7 +269,7 @@ class AVerTRDriver(BaseDriver):
         "name": "AVer TR Auto Tracking Camera (TR615, TR335 / TR315 / TR211)",
         "manufacturer": "AVer",
         "category": "camera",
-        "version": "1.0.1",
+        "version": "1.0.2",
         # Binding the VISCA socket to Reach devices through (local_address)
         # needs 0.37.0; the contract check cannot see a method call.
         "min_platform_version": "0.37.0",

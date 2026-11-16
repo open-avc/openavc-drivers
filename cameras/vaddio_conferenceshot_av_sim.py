@@ -170,9 +170,9 @@ class VaddioConferenceShotAVSimulator(TCPSimulator):
             {"type": "indicator", "key": "gamma", "label": "Gamma"},
             {"type": "indicator", "key": "temperature_c", "label": "Temperature"},
         ],
-        "errors": {
+        "error_modes": {
             "no_response": {
-                "label": "Stops answering",
+                "behavior": "no_response",
                 "description": (
                     "The shell accepts the connection and never replies — "
                     "what a wedged camera looks like to the liveness probe."

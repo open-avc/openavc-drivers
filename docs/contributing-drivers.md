@@ -257,7 +257,10 @@ hardware, or against the simulator if you have no unit, and CI runs the same
 checks over your driver that it runs over every other driver in the library:
 
 - **The catalog and the contract.** `scripts/build_index.py --check` (see
-  [Validation](#validation)).
+  [Validation](#validation)). A Python driver's `DRIVER_INFO` is held to the
+  same rules as a YAML driver for the sections both declare: state variables,
+  child types, a command's parameter aids, `sets:` and `query_for:`, and the
+  `push:` and `routing:` blocks.
 - **Connect, command, disconnect.** A Python driver that ships a `_sim.py` is
   loaded on the real OpenAVC platform, connected to its simulator, sent its
   first command that takes no parameters, and disconnected. If your simulator

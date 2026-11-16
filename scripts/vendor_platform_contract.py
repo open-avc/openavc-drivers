@@ -369,8 +369,29 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from .avcdriver_semantic import (",
             ),
             (
+                "from openavc.drivers.child_type_checks import",
+                "from .child_type_checks import",
+            ),
+            (
                 "from openavc.drivers.command_checks import",
                 "from .command_checks import",
+            ),
+            (
+                "from openavc.drivers.declared_names import",
+                "from .declared_names import",
+            ),
+            (
+                "from openavc.drivers.param_aid_checks import",
+                "from .param_aid_checks import",
+            ),
+            (
+                "from openavc.drivers.push_block_checks import",
+                "from .push_block_checks import",
+            ),
+            ("from openavc.drivers.spec import", "from .spec import"),
+            (
+                "from openavc.drivers.state_variable_checks import",
+                "from .state_variable_checks import",
             ),
         ),
     ),

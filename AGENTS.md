@@ -377,7 +377,7 @@ module constant, or filling them in once the device says what it supports —
 the check cannot decide that reference, so it skips it and names the skip:
 
 ```
-my_driver.py: note: cross-reference not checked: 6 action/quick_action reference(s) into commands, because commands is only partly visible (15 key(s) read, the rest merged or built at runtime)
+my_driver.py: note: not checked: 6 action/quick_action reference(s) into commands, because commands is only partly visible (15 key(s) read, the rest merged or built at runtime)
 ```
 
 That is deliberate. A subset of the target set proves nothing about what is
@@ -388,8 +388,9 @@ never per driver — everything else in the file is still checked. Write your
 compute it and you get a named gap instead.
 
 Catalog CI treats these as **errors**; the runtime loader logs them as
-**warnings**, so a driver already installed keeps working and reports the
-problem rather than vanishing and taking its devices offline with it.
+**warnings** and lists them on the driver's Installed entry, so a driver
+already installed keeps working and reports the problem rather than vanishing
+and taking its devices offline with it.
 
 ### 8.1 What else CI checks
 

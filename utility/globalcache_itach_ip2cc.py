@@ -158,7 +158,7 @@ class GlobalCacheItachIP2CCDriver(BaseDriver):
         "name": "Global Cache iTach IP2CC Contact Closure (Relay)",
         "manufacturer": "Global Cache",
         "category": "utility",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "author": "OpenAVC",
         "transport": "tcp",
         "description": (
@@ -193,17 +193,17 @@ class GlobalCacheItachIP2CCDriver(BaseDriver):
         "state_variables": {
             "firmware_version": {"type": "string", "label": "Firmware"},
             "relay_1": {
-                "type": "bool",
+                "type": "boolean",
                 "label": "Relay 1",
                 "help": "True when relay 1 contacts are closed.",
             },
             "relay_2": {
-                "type": "bool",
+                "type": "boolean",
                 "label": "Relay 2",
                 "help": "True when relay 2 contacts are closed.",
             },
             "relay_3": {
-                "type": "bool",
+                "type": "boolean",
                 "label": "Relay 3",
                 "help": "True when relay 3 contacts are closed.",
             },

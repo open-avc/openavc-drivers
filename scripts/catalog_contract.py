@@ -15,13 +15,14 @@ reaches those too.
 The two formats are checked differently because the platform reads them
 differently. A YAML definition runs the platform's whole definition check,
 strictly, plus its warnings. A Python driver runs the checks that can be
-decided from its source text: unknown keys and structure over the WHOLE
-``DRIVER_INFO``, never just the catalog's index fields, because a misspelled
-key in a runtime block otherwise ships inert.
+decided from its source text: unknown keys over the WHOLE ``DRIVER_INFO``,
+never just the catalog's index fields, because a misspelled key in a runtime
+block otherwise ships inert, and the platform's strict verdict on it (the
+section checks the two formats share among them).
 
 What a check could not decide is reported, never silent: values the source
-reader could not evaluate, cross-references whose target set is computed at
-runtime, and the platform's warnings. ``ContractReport`` keeps those for the
+reader could not evaluate, the checks left out because of them (a part holding
+one, or naming into a set built at runtime), and the platform's warnings. ``ContractReport`` keeps those for the
 whole catalog and prints them once, before the build's errors. A new kind of
 note is a list on the report, the place a check fills it, and its line in
 ``print_notes``; nothing outside this module changes.
@@ -90,13 +91,12 @@ class ContractReport:
         return errors
 
     def _check_python(self, filepath: Path, rel: str) -> list[str]:
-        # Unknown keys and STRUCTURE, never the cross-reference rules that
-        # validate_driver_definition also runs: a Python driver may populate
-        # commands and state at runtime, so those false-positive here, while
-        # whether the contract declares a key and whether an entry is shaped
-        # the way the runtime reads it are decidable without the class. The
-        # two checks that need the loaded class are left unanswered; nothing
-        # here imports a driver.
+        # Unknown keys and the platform's strict verdict on a DRIVER_INFO,
+        # never the YAML wire rules validate_driver_definition also runs. A
+        # Python driver may populate commands and state at runtime, so a
+        # check against a set the reader could not see is skipped and named,
+        # never failed. The two checks that need the loaded class are left
+        # unanswered; nothing here imports a driver.
         try:
             full_info, opaque_spots = extract_python_driver_info_full(filepath)
         except ExtractError as e:
@@ -127,9 +127,10 @@ class ContractReport:
             )
         if self.reference_skips:
             print(
-                f"Note: {len(self.reference_skips)} cross-reference group(s) in "
+                f"Note: {len(self.reference_skips)} check group(s) in "
                 f"{_files_named(self.reference_skips)} Python driver(s) were not "
-                f"checked; the set they resolve against is computed at runtime."
+                f"run; what they judge, or the set they resolve against, is "
+                f"computed at runtime."
             )
         for warning in self.warnings:
             print(f"warning: {warning}", file=sys.stderr)

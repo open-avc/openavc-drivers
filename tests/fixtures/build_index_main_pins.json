@@ -1858,7 +1858,7 @@
         ],
         [
           "out",
-          "Note: 3 computed value(s) in 2 Python driver(s) could not be read; keys nested under them are unchecked.\nNote: 3 cross-reference group(s) in 2 Python driver(s) were not checked; the set they resolve against is computed at runtime.\n"
+          "Note: 3 computed value(s) in 2 Python driver(s) could not be read; keys nested under them are unchecked.\nNote: 4 check group(s) in 2 Python driver(s) were not run; what they judge, or the set they resolve against, is computed at runtime.\n"
         ],
         [
           "err",
@@ -2344,7 +2344,7 @@
         ],
         [
           "out",
-          "Note: 3 computed value(s) in 2 Python driver(s) could not be read; keys nested under them are unchecked.\nNote: 3 cross-reference group(s) in 2 Python driver(s) were not checked; the set they resolve against is computed at runtime.\n"
+          "Note: 3 computed value(s) in 2 Python driver(s) could not be read; keys nested under them are unchecked.\nNote: 4 check group(s) in 2 Python driver(s) were not run; what they judge, or the set they resolve against, is computed at runtime.\n"
         ],
         [
           "err",
@@ -2418,7 +2418,7 @@
         ],
         [
           "out",
-          "Note: 3 computed value(s) in 2 Python driver(s) could not be read; keys nested under them are unchecked.\nNote: 3 cross-reference group(s) in 2 Python driver(s) were not checked; the set they resolve against is computed at runtime.\n"
+          "Note: 3 computed value(s) in 2 Python driver(s) could not be read; keys nested under them are unchecked.\nNote: 4 check group(s) in 2 Python driver(s) were not run; what they judge, or the set they resolve against, is computed at runtime.\n"
         ],
         [
           "err",

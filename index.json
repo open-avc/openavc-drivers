@@ -7023,7 +7023,7 @@
       "name": "Global Cache iTach IP2CC Contact Closure (Relay)",
       "manufacturer": "Global Cache",
       "category": "utility",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Network-controlled three-relay contact closure. Latch or pulse each dry-contact relay to trigger screens, lifts, shades, door strikes, or the trigger input of other AV gear.",
@@ -7031,7 +7031,7 @@
       "file": "utility/globalcache_itach_ip2cc.py",
       "format": "python",
       "files": {
-        "utility/globalcache_itach_ip2cc.py": "38666195734280bea12917eac6a4097b27b758741f3aca98ab16c3348225495e",
+        "utility/globalcache_itach_ip2cc.py": "8b3ac15986ca10f98b9d29026b1e61add01fc6ca72fe5525665644695c74a914",
         "utility/globalcache_itach_ip2cc_sim.py": "0ca560bfd16e923d789fd2e47fbc997aa95fe83e851962d04a10169efcb4fbb7"
       },
       "ports": [

@@ -5883,7 +5883,7 @@
       "name": "Extron IN1806 / IN1808 Series",
       "manufacturer": "Extron",
       "category": "switcher",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Control IN1806 and IN1808 classroom presentation switchers using source names from the scaler. Includes signal and HDCP feedback, independent loop routing, room volume and model-specific amplifier channels.",
@@ -5891,7 +5891,7 @@
       "file": "switchers/extron_in1808.py",
       "format": "python",
       "files": {
-        "switchers/extron_in1808.py": "0e2b7188976fbda571c6ae06133633e56bdb0550903440faba3dad27c7183732",
+        "switchers/extron_in1808.py": "cba8d4ab585d646c152bd72729e57f37ca71a45a155143c046bead6518191392",
         "switchers/extron_in1808_sim.py": "c4e99cfb4a8b9338ca85af2704b3cda5693fbfdac0bcaaffada5d5d03f3ed65a"
       },
       "ports": [

@@ -165,7 +165,7 @@ class ExtronIN1808(BaseDriver):
         "name": "Extron IN1806 / IN1808 Series",
         "manufacturer": "Extron",
         "category": "switcher",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "min_platform_version": "0.27.0",
         "author": "OpenAVC",
         "source_url": "https://media.extron.com/public/download/files/userman/68-3131-01_B_IN1806-1808_UG.pdf",
@@ -200,7 +200,7 @@ class ExtronIN1808(BaseDriver):
             }
         ],
         "transport": "ssh",
-        "transports": ["ssh", "serial"],
+        "transports": ["ssh", "tcp", "serial"],
         "bridge": {
             "ports": [
                 {
@@ -212,6 +212,7 @@ class ExtronIN1808(BaseDriver):
             ]
         },
         "default_config": {
+            "network_session": "Scaler SSH",
             "host": "",
             "port": 22023,
             "baudrate": 9600,
@@ -224,6 +225,14 @@ class ExtronIN1808(BaseDriver):
             "poll_interval": 120,
         },
         "config_schema": {
+            "network_session": {
+                "type": "enum",
+                "label": "Network endpoint",
+                "advanced": True,
+                "default": "Scaler SSH",
+                "values": ["Scaler SSH", "Transparent serial server"],
+                "description": "Use Scaler SSH for the scaler’s LAN port. Choose Transparent serial server only for a separate Ethernet-to-RS-232 adapter, and enter that adapter’s TCP port. For an adapter already in your project choose Through a bridge.",
+            },
             "host": {"type": "string", "label": "Scaler address", "required": True},
             "port": {
                 "type": "integer",
@@ -933,6 +942,14 @@ class ExtronIN1808(BaseDriver):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Programmer groups the scaler LAN and an external serial server under Network (IP).
+        # Simulation redirects the transport after the driver has been constructed.
+        if not self.config.get("bridge") and self.config.get("transport") != "serial":
+            endpoint = self.config.get("network_session", "Scaler SSH")
+            self.config = dict(
+                self.config,
+                transport="tcp" if endpoint == "Transparent serial server" else "ssh",
+            )
         self._io = asyncio.Lock()
         self._sync = asyncio.Lock()
         self._pending = None

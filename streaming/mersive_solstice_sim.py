@@ -113,18 +113,20 @@ class MersiveSolsticeSimulator(HTTPSimulator):
             {"type": "indicator", "key": "connected_users", "label": "Users"},
             {"type": "indicator", "key": "current_post_count", "label": "Posts"},
             {
-                "type": "number",
+                "type": "slider",
                 "key": "connected_users",
                 "label": "Simulate Users",
                 "min": 0,
                 "max": 16,
+                "step": 1,
             },
             {
-                "type": "number",
+                "type": "slider",
                 "key": "current_post_count",
                 "label": "Simulate Posts",
                 "min": 0,
                 "max": 32,
+                "step": 1,
             },
             {
                 "type": "toggle",

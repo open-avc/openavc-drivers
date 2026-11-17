@@ -1980,7 +1980,7 @@
     },
     "mdns_filtered_then_unfiltered": {
       "collisions": [
-        "Signal collision: mdns:_a._tcp. \u2014 'acme_b' (audio/driver_1.avcdriver) claims it without a TXT filter, which would shadow 'acme_a''s filtered claim (audio/driver_0.avcdriver)"
+        "Signal collision on mdns:_a._tcp.: 'acme_b' (audio/driver_1.avcdriver) claims it without a TXT filter, which would shadow 'acme_a''s filtered claim (audio/driver_0.avcdriver)"
       ],
       "errors": [],
       "locator": [],
@@ -1988,7 +1988,7 @@
     },
     "mdns_refused_claim_not_recorded": {
       "collisions": [
-        "Signal collision: mdns:_a._tcp. \u2014 'acme_b' (audio/driver_1.avcdriver) claims it without a TXT filter, which would shadow 'acme_a''s filtered claim (audio/driver_0.avcdriver)"
+        "Signal collision on mdns:_a._tcp.: 'acme_b' (audio/driver_1.avcdriver) claims it without a TXT filter, which would shadow 'acme_a''s filtered claim (audio/driver_0.avcdriver)"
       ],
       "errors": [],
       "locator": [],
@@ -2044,8 +2044,8 @@
     },
     "mdns_three_way": {
       "collisions": [
-        "Signal collision: mdns:_a._tcp. \u2014 'acme_a' (audio/driver_0.avcdriver) claims it without a TXT filter, which would shadow 'acme_b''s filtered claim (audio/driver_1.avcdriver)",
-        "Signal collision: mdns:_a._tcp. \u2014 'acme_a' (audio/driver_0.avcdriver) claims it without a TXT filter, which would shadow 'acme_c''s filtered claim (audio/driver_2.avcdriver)",
+        "Signal collision on mdns:_a._tcp.: 'acme_a' (audio/driver_0.avcdriver) claims it without a TXT filter, which would shadow 'acme_b''s filtered claim (audio/driver_1.avcdriver)",
+        "Signal collision on mdns:_a._tcp.: 'acme_a' (audio/driver_0.avcdriver) claims it without a TXT filter, which would shadow 'acme_c''s filtered claim (audio/driver_2.avcdriver)",
         "Signal collision: mdns:_a._tcp. claimed by both 'acme_a' (audio/driver_0.avcdriver) and 'acme_d' (audio/driver_3.avcdriver)"
       ],
       "errors": [],
@@ -2054,7 +2054,7 @@
     },
     "mdns_three_way_filtered_first": {
       "collisions": [
-        "Signal collision: mdns:_a._tcp. \u2014 'acme_c' (audio/driver_2.avcdriver) claims it without a TXT filter, which would shadow 'acme_a''s filtered claim (audio/driver_0.avcdriver)",
+        "Signal collision on mdns:_a._tcp.: 'acme_c' (audio/driver_2.avcdriver) claims it without a TXT filter, which would shadow 'acme_a''s filtered claim (audio/driver_0.avcdriver)",
         "Signal collision: mdns:_a._tcp. claimed by both 'acme_b' (audio/driver_1.avcdriver) and 'acme_d' (audio/driver_3.avcdriver)"
       ],
       "errors": [],
@@ -2063,7 +2063,7 @@
     },
     "mdns_unfiltered_then_filtered": {
       "collisions": [
-        "Signal collision: mdns:_a._tcp. \u2014 'acme_a' (audio/driver_0.avcdriver) claims it without a TXT filter, which would shadow 'acme_b''s filtered claim (audio/driver_1.avcdriver)"
+        "Signal collision on mdns:_a._tcp.: 'acme_a' (audio/driver_0.avcdriver) claims it without a TXT filter, which would shadow 'acme_b''s filtered claim (audio/driver_1.avcdriver)"
       ],
       "errors": [],
       "locator": [],
@@ -2105,7 +2105,7 @@
     },
     "ssdp_filtered_then_unfiltered": {
       "collisions": [
-        "Signal collision: ssdp:urn:a \u2014 'acme_b' (audio/driver_1.avcdriver) claims it without a TXT filter, which would shadow 'acme_a''s filtered claim (audio/driver_0.avcdriver)"
+        "Signal collision on ssdp:urn:a: 'acme_b' (audio/driver_1.avcdriver) claims it without a TXT filter, which would shadow 'acme_a''s filtered claim (audio/driver_0.avcdriver)"
       ],
       "errors": [],
       "locator": [],
@@ -2135,7 +2135,7 @@
     },
     "ssdp_unfiltered_shadows": {
       "collisions": [
-        "Signal collision: ssdp:urn:a \u2014 'acme_a' (audio/driver_0.avcdriver) claims it without a TXT filter, which would shadow 'acme_b''s filtered claim (audio/driver_1.avcdriver)"
+        "Signal collision on ssdp:urn:a: 'acme_a' (audio/driver_0.avcdriver) claims it without a TXT filter, which would shadow 'acme_b''s filtered claim (audio/driver_1.avcdriver)"
       ],
       "errors": [],
       "locator": [],

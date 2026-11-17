@@ -382,7 +382,7 @@ def extract_yaml_driver_info(filepath: Path) -> dict[str, Any]:
     try:
         data = yaml.safe_load(filepath.read_text(encoding="utf-8"))
     except yaml.YAMLError as e:
-        raise ExtractError(f"{filepath.name}: invalid YAML — {e}")
+        raise ExtractError(f"{filepath.name} is not valid YAML: {e}")
     if not isinstance(data, dict):
         raise ExtractError(f"{filepath.name}: top-level YAML must be a mapping")
     return data
@@ -991,7 +991,7 @@ def _report_stale(stale: list[str]) -> None:
     # prints above the validation line that precedes it.
     sys.stdout.flush()
     print(
-        f"\nFAILED: the catalog is out of date — {len(stale)} generated "
+        f"\nFAILED: the catalog is out of date. {len(stale)} generated "
         f"file(s) no longer match the drivers they come from:\n",
         file=sys.stderr,
     )
@@ -1014,7 +1014,7 @@ def _report_stale(stale: list[str]) -> None:
 def _load_manufacturers(repo_root: Path) -> set[str]:
     f = repo_root / "manufacturers.json"
     if not f.exists():
-        raise FileNotFoundError(f"{f} not found — required for cross-driver validation")
+        raise FileNotFoundError(f"{f} not found. It is required for cross-driver validation")
     data = json.loads(f.read_text(encoding="utf-8"))
     if not isinstance(data, list):
         raise ValueError("manufacturers.json must be a JSON array of strings")
@@ -1042,7 +1042,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Validate only — do not write outputs (used in CI)",
+        help="Validate only; do not write outputs (used in CI)",
     )
     parser.add_argument(
         "--check-json-schema",

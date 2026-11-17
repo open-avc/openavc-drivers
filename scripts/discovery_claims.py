@@ -70,13 +70,13 @@ def _claim_conflict(signal: str, prior: _Claim, claim: _Claim) -> str | None:
         )
     if not prior_filter:
         return (
-            f"Signal collision: {signal} — {prior_driver!r} "
+            f"Signal collision on {signal}: {prior_driver!r} "
             f"({prior_file}) claims it without a TXT filter, which "
             f"would shadow {driver_id!r}'s filtered claim ({file})"
         )
     if not filter_set:
         return (
-            f"Signal collision: {signal} — {driver_id!r} "
+            f"Signal collision on {signal}: {driver_id!r} "
             f"({file}) claims it without a TXT filter, which would "
             f"shadow {prior_driver!r}'s filtered claim ({prior_file})"
         )

@@ -989,7 +989,7 @@
       "transcript": [
         [
           "err",
-          "ERROR: broken.avcdriver: invalid YAML \u2014 while parsing a flow sequence\n  in \"<unicode string>\", line 1, column 5:\n    id: [unclosed\n        ^\nexpected ',' or ']', but got '<stream end>'\n  in \"<unicode string>\", line 2, column 1:\n    \n    ^\n"
+          "ERROR: broken.avcdriver is not valid YAML: while parsing a flow sequence\n  in \"<unicode string>\", line 1, column 5:\n    id: [unclosed\n        ^\nexpected ',' or ']', but got '<stream end>'\n  in \"<unicode string>\", line 2, column 1:\n    \n    ^\n"
         ]
       ]
     },
@@ -1004,7 +1004,7 @@
         ],
         [
           "err",
-          "\nFAILED: the catalog is out of date \u2014 5 generated file(s) no longer match the drivers they come from:\n\n  - devices.json\n  - devices/audio.json\n  - devices/projector.json\n  - index.json\n  - index/audio.json\n\nThe catalog is what the platform installs from, and it carries a checksum\nfor every driver file. A checksum that no longer matches is refused, not\nwarned about, so a driver whose entry is stale cannot be installed at all.\n\nRegenerate and commit the result alongside your driver change:\n\n    python scripts/build_index.py\n\n"
+          "\nFAILED: the catalog is out of date. 5 generated file(s) no longer match the drivers they come from:\n\n  - devices.json\n  - devices/audio.json\n  - devices/projector.json\n  - index.json\n  - index/audio.json\n\nThe catalog is what the platform installs from, and it carries a checksum\nfor every driver file. A checksum that no longer matches is refused, not\nwarned about, so a driver whose entry is stale cannot be installed at all.\n\nRegenerate and commit the result alongside your driver change:\n\n    python scripts/build_index.py\n\n"
         ]
       ]
     },
@@ -1592,7 +1592,7 @@
         ],
         [
           "err",
-          "\nFAILED: the catalog is out of date \u2014 22 generated file(s) no longer match the drivers they come from:\n\n  - devices.json\n  - devices/audio.json\n  - devices/camera.json\n  - devices/display.json\n  - devices/lighting.json\n  - devices/power.json\n  - devices/projector.json\n  - devices/streaming.json\n  - devices/switcher.json\n  - devices/utility.json\n  - devices/video.json\n  - index.json\n  - index/audio.json\n  - index/camera.json\n  - index/display.json\n  - index/lighting.json\n  - index/power.json\n  - index/projector.json\n  - index/streaming.json\n  - index/switcher.json\n  - index/utility.json\n  - index/video.json\n\nThe catalog is what the platform installs from, and it carries a checksum\nfor every driver file. A checksum that no longer matches is refused, not\nwarned about, so a driver whose entry is stale cannot be installed at all.\n\nRegenerate and commit the result alongside your driver change:\n\n    python scripts/build_index.py\n\n"
+          "\nFAILED: the catalog is out of date. 22 generated file(s) no longer match the drivers they come from:\n\n  - devices.json\n  - devices/audio.json\n  - devices/camera.json\n  - devices/display.json\n  - devices/lighting.json\n  - devices/power.json\n  - devices/projector.json\n  - devices/streaming.json\n  - devices/switcher.json\n  - devices/utility.json\n  - devices/video.json\n  - index.json\n  - index/audio.json\n  - index/camera.json\n  - index/display.json\n  - index/lighting.json\n  - index/power.json\n  - index/projector.json\n  - index/streaming.json\n  - index/switcher.json\n  - index/utility.json\n  - index/video.json\n\nThe catalog is what the platform installs from, and it carries a checksum\nfor every driver file. A checksum that no longer matches is refused, not\nwarned about, so a driver whose entry is stale cannot be installed at all.\n\nRegenerate and commit the result alongside your driver change:\n\n    python scripts/build_index.py\n\n"
         ]
       ]
     },
@@ -1607,7 +1607,7 @@
         ],
         [
           "err",
-          "\nFAILED: the catalog is out of date \u2014 5 generated file(s) no longer match the drivers they come from:\n\n  - devices.json\n  - devices/audio.json\n  - devices/projector.json\n  - index.json\n  - index/audio.json\n\nThe catalog is what the platform installs from, and it carries a checksum\nfor every driver file. A checksum that no longer matches is refused, not\nwarned about, so a driver whose entry is stale cannot be installed at all.\n\nRegenerate and commit the result alongside your driver change:\n\n    python scripts/build_index.py\n\n"
+          "\nFAILED: the catalog is out of date. 5 generated file(s) no longer match the drivers they come from:\n\n  - devices.json\n  - devices/audio.json\n  - devices/projector.json\n  - index.json\n  - index/audio.json\n\nThe catalog is what the platform installs from, and it carries a checksum\nfor every driver file. A checksum that no longer matches is refused, not\nwarned about, so a driver whose entry is stale cannot be installed at all.\n\nRegenerate and commit the result alongside your driver change:\n\n    python scripts/build_index.py\n\n"
         ]
       ]
     },
@@ -2016,7 +2016,7 @@
       "transcript": [
         [
           "err",
-          "ERROR: <root>/manufacturers.json not found \u2014 required for cross-driver validation\n"
+          "ERROR: <root>/manufacturers.json not found. It is required for cross-driver validation\n"
         ]
       ]
     },

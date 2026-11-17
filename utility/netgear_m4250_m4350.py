@@ -539,7 +539,7 @@ class NetgearM4250M4350Driver(BaseDriver):
         "name": "NETGEAR M4250 / M4350 AV Line Switch",
         "manufacturer": "NETGEAR",
         "category": "utility",
-        "version": "1.4.11",
+        "version": "1.4.12",
         "author": "OpenAVC",
         # confirm on the commands that erase, delete or reset needs 0.36.0;
         # local_address(), which binds the Enable SSH wizard's own telnet
@@ -895,6 +895,12 @@ class NetgearM4250M4350Driver(BaseDriver):
                 return
 
     def _bg(self, coro) -> None:
+        """A task of this connection: the platform ends it when the connection
+        closes (spawn_task); a platform without it holds the task as before."""
+        spawn_task = getattr(self, "spawn_task", None)
+        if spawn_task is not None:
+            spawn_task(coro)
+            return
         task = asyncio.create_task(coro)
         self._bg_tasks.add(task)
         task.add_done_callback(self._bg_tasks.discard)

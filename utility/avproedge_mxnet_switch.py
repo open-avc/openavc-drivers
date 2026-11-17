@@ -613,7 +613,7 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
         "name": "AVPro Edge MXnet Network Switch",
         "manufacturer": "AVPro Edge",
         "category": "utility",
-        "version": "1.3.1",
+        "version": "1.3.2",
         "author": "OpenAVC",
         # Above the computed floor (0.24.0, from `web_ui`) on purpose: SSH is
         # the default from 1.3.0, and 0.39.0 is the first platform with an SSH
@@ -1019,6 +1019,12 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
                 return
 
     def _bg(self, coro) -> None:
+        """A task of this connection: the platform ends it when the connection
+        closes (spawn_task); a platform without it holds the task as before."""
+        spawn_task = getattr(self, "spawn_task", None)
+        if spawn_task is not None:
+            spawn_task(coro)
+            return
         task = asyncio.create_task(coro)
         self._bg_tasks.add(task)
         task.add_done_callback(self._bg_tasks.discard)

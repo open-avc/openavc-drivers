@@ -83,7 +83,7 @@
       "name": "ETC Paradigm",
       "manufacturer": "ETC",
       "category": "lighting",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Controls ETC Paradigm architectural lighting processors (P-ACP-E Mk2, P-ACP-D Mk2) through the Paradigm Serial Access Protocol over UDP or RS-232. List the channels, groups, presets, sequences, spaces, walls, macros and overrides to control by their LightDesigner names; each one shows its level or state.",
@@ -91,7 +91,7 @@
       "file": "lighting/etc_paradigm.py",
       "format": "python",
       "files": {
-        "lighting/etc_paradigm.py": "81fdda428f5ab66c7c6b9e78574264eaea7ba799c11373ae9ad3d9c018fc99e9",
+        "lighting/etc_paradigm.py": "0df2d25a625968f3855d162434088a739f9c34706abe409ac087552582f23015",
         "lighting/etc_paradigm_sim.py": "15088855ebf2311f9efb5778ff670d609a0a6f0d2033488c9d6ddac6e612559c"
       },
       "ports": [

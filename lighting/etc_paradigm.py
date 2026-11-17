@@ -336,7 +336,7 @@ class EtcParadigmDriver(BaseDriver):
         "name": "ETC Paradigm",
         "manufacturer": "ETC",
         "category": "lighting",
-        "version": "1.1.0",
+        "version": "1.1.1",
         # Computed: commands.preset_record.confirm (0.36.0). Checked on the
         # v0.36.0 tag with its simulator: every hook the code calls is there.
         # The push block raises no floor for a Python driver: a release
@@ -1162,7 +1162,8 @@ class EtcParadigmDriver(BaseDriver):
         self._help_until = 0.0
         self._poll_cursor = 0
         self._received_count = 0
-        self._bg_tasks: set[asyncio.Task] = set()
+        # The fallback for a platform without spawn_task (_spawn).
+        self._own_tasks: set[asyncio.Task] = set()
 
     # ── Lifecycle ──
 
@@ -1218,9 +1219,11 @@ class EtcParadigmDriver(BaseDriver):
             self._inflight.future.set_exception(
                 ConnectionError(f"[{self.device_id}] Connection closed"))
         self._inflight = None
-        for task in list(self._bg_tasks):
+        # Only the driver's own: the platform's tasks are not this driver's
+        # to cancel, and the cleanup after a drop is one of them.
+        for task in list(self._own_tasks):
             task.cancel()
-        self._bg_tasks.clear()
+        self._own_tasks.clear()
 
     def _register_children(self) -> None:
         for obj in self._objects:
@@ -1498,9 +1501,15 @@ class EtcParadigmDriver(BaseDriver):
             "?", None, timeout=self.HEALTH_TIMEOUT_S - 0.5, help_list=True)
 
     def _spawn(self, coro: Any) -> None:
+        """A task of this connection, ended when it closes: by the platform
+        (spawn_task), or on a platform without it by _close_session."""
+        spawn_task = getattr(self, "spawn_task", None)
+        if spawn_task is not None:
+            spawn_task(coro)
+            return
         task = asyncio.ensure_future(coro)
-        self._bg_tasks.add(task)
-        task.add_done_callback(self._bg_tasks.discard)
+        self._own_tasks.add(task)
+        task.add_done_callback(self._own_tasks.discard)
 
     async def _read_later(
         self, delay: float, reads: list[tuple[ParadigmObject, bool]],

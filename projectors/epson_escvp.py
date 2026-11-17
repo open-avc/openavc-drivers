@@ -323,7 +323,7 @@ class EpsonEscVpDriver(BaseDriver):
         "name": "Epson Projector (ESC/VP21)",
         "manufacturer": "Epson",
         "category": "projector",
-        "version": "1.5.0",
+        "version": "1.5.1",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -1005,9 +1005,7 @@ class EpsonEscVpDriver(BaseDriver):
             self._power_on_sent_at = None
             if line == "":
                 # The lamp is lit: read the power state back now.
-                task = asyncio.ensure_future(self._read_power_after_power_on())
-                self._bg_tasks.add(task)
-                task.add_done_callback(self._bg_tasks.discard)
+                self._spawn(self._read_power_after_power_on())
         if not line:
             return
         if line == "ERR":
@@ -1016,6 +1014,17 @@ class EpsonEscVpDriver(BaseDriver):
             return
 
         self._dispatch_response(line)
+
+    def _spawn(self, coro) -> None:
+        """A task of this connection: the platform ends it when the connection
+        closes (spawn_task); a platform without it holds the task as before."""
+        spawn_task = getattr(self, "spawn_task", None)
+        if spawn_task is not None:
+            spawn_task(coro)
+            return
+        task = asyncio.ensure_future(coro)
+        self._bg_tasks.add(task)
+        task.add_done_callback(self._bg_tasks.discard)
 
     async def _read_power_after_power_on(self) -> None:
         try:

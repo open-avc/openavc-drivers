@@ -306,7 +306,7 @@ class ShureNetworkDriver(BaseDriver):
         "name": "Shure Networked Devices",
         "manufacturer": "Shure",
         "category": "audio",
-        "version": "2.2.1",
+        "version": "2.2.2",
         # learned_from on Channel Count and Model landed in 0.37.0.
         "min_platform_version": "0.37.0",
         "author": "OpenAVC",
@@ -1521,6 +1521,12 @@ class ShureNetworkDriver(BaseDriver):
                 self.deregister_child("channel", old)
 
     def _spawn(self, coro) -> None:
+        """A task of this connection: the platform ends it when the connection
+        closes (spawn_task); a platform without it holds the task as before."""
+        spawn_task = getattr(self, "spawn_task", None)
+        if spawn_task is not None:
+            spawn_task(coro)
+            return
         task = asyncio.ensure_future(coro)
         tasks = getattr(self, "_bg_tasks", None)
         if tasks is None:

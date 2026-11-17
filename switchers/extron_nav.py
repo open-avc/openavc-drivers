@@ -185,7 +185,7 @@ class ExtronNavDriver(BaseDriver):
         "name": "Extron NAV Pro AV-over-IP (NAVigator)",
         "manufacturer": "Extron",
         "category": "switcher",
-        "version": "1.1.3",
+        "version": "1.1.4",
         "author": "OpenAVC",
         # Computed by `python -m openavc.drivers.check` from restarts_device_for
         # (0.34.0). BaseDriver.child_fault() -- which this driver calls on every
@@ -982,6 +982,12 @@ class ExtronNavDriver(BaseDriver):
             ))
 
     def _bg(self, coro) -> None:
+        """A task of this connection: the platform ends it when the connection
+        closes (spawn_task); a platform without it holds the task as before."""
+        spawn_task = getattr(self, "spawn_task", None)
+        if spawn_task is not None:
+            spawn_task(coro)
+            return
         task = asyncio.create_task(coro)
         self._bg_tasks.add(task)
         task.add_done_callback(self._bg_tasks.discard)

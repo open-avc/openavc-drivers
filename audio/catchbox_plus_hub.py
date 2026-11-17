@@ -87,7 +87,7 @@ class CatchboxPlusHubDriver(BaseDriver):
         "name": "Catchbox Plus Hub",
         "manufacturer": "Catchbox",
         "category": "audio",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         "description": "Discover the Hub and its fitted microphone channels. Control input and mix output "
         "mute and monitor link, charging, battery and RF signal for each microphone.",
@@ -395,19 +395,27 @@ class CatchboxPlusHubDriver(BaseDriver):
         await self._send(packet(address))
 
     async def _refresh_radio(self, slot):
-        for key in TX_FIELDS:
-            if self._links.get(slot) not in ("Connected", "Charging"):
-                return
-            if key == "serial":
-                await self._send(packet(radio(slot, key)))
-            else:
-                await self._read_observed(radio(slot, key))
+        try:
+            for key in TX_FIELDS:
+                if self._links.get(slot) not in ("Connected", "Charging"):
+                    return
+                if key == "serial":
+                    await self._send(packet(radio(slot, key)))
+                else:
+                    await self._read_observed(radio(slot, key))
+        except (ConnectionError, OSError):
+            return  # the link went with the connection; the next one reads again
 
     def _queue_radio(self, slot):
         task = self._radio_tasks.get(slot)
         if task and not task.done():
             return
 
+        spawn_task = getattr(self, "spawn_task", None)
+        if spawn_task is not None:
+            # The platform ends it when the connection closes.
+            self._radio_tasks[slot] = spawn_task(self._refresh_radio(slot))
+            return
         task = asyncio.create_task(self._refresh_radio(slot))
         self._bg_tasks.add(task)
         task.add_done_callback(self._radio_finished)

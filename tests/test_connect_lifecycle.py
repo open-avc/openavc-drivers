@@ -11,6 +11,8 @@ equipment.
 
 For each driver it asserts the whole arc:
     connect  -> ``device.connected.<id>`` event + ``connected`` state True
+    a drop -> ``device.disconnected.<id>`` event + ``connected`` state False
+    connect again -> ``device.connected.<id>`` event
     one command (the first parameter-free one, if any) runs without raising
     disconnect -> ``device.disconnected.<id>`` event + ``connected`` state False
 
@@ -330,6 +332,31 @@ async def _run_smoke(driver_id: str, driver_rel: str) -> None:
         assert "device.connected.smoke" in seen, f"{driver_id}: no device.connected event"
         assert state.get("device.smoke.connected") is True, f"{driver_id}: connected state not True"
 
+        # A drop: the connection closes under the driver. This is what an
+        # unanswered liveness probe calls, and it runs the same cleanup a
+        # transport that saw the close runs, for a UDP driver too, whose
+        # transport never sees one. The cleanup ends with
+        # device.disconnected, the event that starts the reconnect, so a
+        # driver whose session close cuts it short leaves its device offline
+        # until someone presses Reconnect.
+        driver._force_disconnect()
+        for _ in range(50):
+            if "device.disconnected.smoke" in seen:
+                break
+            await asyncio.sleep(0.1)
+        assert "device.disconnected.smoke" in seen, (
+            f"{driver_id}: a drop emitted no device.disconnected, so no reconnect would start"
+        )
+        assert state.get("device.smoke.connected") is False, f"{driver_id}: connected state not False after a drop"
+
+        # Back up, as the reconnect would bring it. The drop comes before the
+        # command because a first command can restart the device (a display's
+        # power on, a player's reboot), which a reconnect straight after it
+        # would find away.
+        seen.clear()
+        await asyncio.wait_for(driver.connect(), timeout=_CONNECT_TIMEOUT)
+        assert "device.connected.smoke" in seen, f"{driver_id}: no device.connected event after a drop"
+
         commands = driver_cls.DRIVER_INFO.get("commands", {}) or {}
         param_free = [
             cid
@@ -361,8 +388,9 @@ async def _run_smoke(driver_id: str, driver_rel: str) -> None:
     ids=[c[0] for c in _CASES],
 )
 def test_connect_lifecycle(driver_id, driver_rel):
-    """Drive the real connect -> command -> disconnect arc against the driver's
-    own simulator and assert the platform lifecycle events + connected state."""
+    """Drive the real connect -> drop -> connect -> command -> disconnect arc
+    against the driver's own simulator and assert the platform lifecycle
+    events + connected state."""
     if driver_id in _KNOWN_GAPS:
         pytest.skip(_KNOWN_GAPS[driver_id])
     asyncio.run(_run_smoke(driver_id, driver_rel))

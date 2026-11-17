@@ -205,7 +205,7 @@ class ShureAxientDigitalDriver(BaseDriver):
         "name": "Shure Axient Digital Receivers",
         "manufacturer": "Shure",
         "category": "audio",
-        "version": "1.1.2",
+        "version": "1.1.3",
         "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (
@@ -1379,6 +1379,12 @@ class ShureAxientDigitalDriver(BaseDriver):
                 self.set_state("mac_address", tokens[5].upper())
 
     def _spawn(self, coro) -> None:
+        """A task of this connection: the platform ends it when the connection
+        closes (spawn_task); a platform without it holds the task as before."""
+        spawn_task = getattr(self, "spawn_task", None)
+        if spawn_task is not None:
+            spawn_task(coro)
+            return
         task = asyncio.ensure_future(coro)
         tasks = getattr(self, "_bg_tasks", None)
         if tasks is None:

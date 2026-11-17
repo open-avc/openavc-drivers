@@ -425,7 +425,7 @@ class SennheiserSlMcrDwDriver(BaseDriver):
         "name": "Sennheiser SpeechLine Multi-Channel Receiver DW",
         "manufacturer": "Sennheiser",
         "category": "audio",
-        "version": "1.0.0",
+        "version": "1.0.1",
         # learned_from (channel count, MAC address) landed in 0.37.0.
         "min_platform_version": "0.37.0",
         "author": "OpenAVC",
@@ -1295,7 +1295,8 @@ class SennheiserSlMcrDwDriver(BaseDriver):
         self._config_meter_ms = max(0, int(config.get("meter_interval_ms", 0) or 0))
         self._probe_fut: asyncio.Future[None] | None = None
         self._product_fut: asyncio.Future[None] | None = None
-        self._bg_tasks: set[asyncio.Task] = set()
+        # The fallback for a platform without spawn_task (_spawn).
+        self._own_tasks: set[asyncio.Task] = set()
         self._reset_session()
         super().__init__(device_id, config, state, events)
 
@@ -1353,14 +1354,21 @@ class SennheiserSlMcrDwDriver(BaseDriver):
         if self._meter_flush is not None:
             self._meter_flush.cancel()
             self._meter_flush = None
-        for task in list(self._bg_tasks):
+        # Only the driver's own: the platform's tasks are not this driver's
+        # to cancel, and the cleanup after a drop is one of them.
+        for task in list(self._own_tasks):
             task.cancel()
-        self._bg_tasks.clear()
+        self._own_tasks.clear()
 
     def _spawn(self, coro) -> asyncio.Task:
+        """A task of this connection, ended when it closes: by the platform
+        (spawn_task), or on a platform without it by _close_session."""
+        spawn_task = getattr(self, "spawn_task", None)
+        if spawn_task is not None:
+            return spawn_task(coro)
         task = asyncio.ensure_future(coro)
-        self._bg_tasks.add(task)
-        task.add_done_callback(self._bg_tasks.discard)
+        self._own_tasks.add(task)
+        task.add_done_callback(self._own_tasks.discard)
         return task
 
     async def _read_identity(self) -> None:

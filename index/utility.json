@@ -12,7 +12,7 @@
       "name": "AVPro Edge MXnet Network Switch",
       "manufacturer": "AVPro Edge",
       "category": "utility",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Monitor and control an AVPro Edge MXnet network switch over its CLI: per-port PoE power-cycling and draw, link state and error counters, IGMP/multicast group membership per port, the endpoint attached to each port, and system health (temperature, CPU, memory, PoE budget). Each physical port is a child entity. This is the switch that carries an MXnet system; video routing lives in the MXnet Control Box driver.",
@@ -20,7 +20,7 @@
       "file": "utility/avproedge_mxnet_switch.py",
       "format": "python",
       "files": {
-        "utility/avproedge_mxnet_switch.py": "37791852975623b905d7bb55243d508625aad0a20d1b53a97a4cb049eaa38679",
+        "utility/avproedge_mxnet_switch.py": "45581f24cb9481e5391666c1fbb9ca8c2bb5a04a1bd49d5e73e473cd55a60aed",
         "utility/avproedge_mxnet_switch_sim.py": "7adf7bb08490846416a1ea1e9151129f551036ed317d9aed620007d785dca3fd"
       },
       "ports": [
@@ -491,7 +491,7 @@
       "name": "NETGEAR M4250 / M4350 AV Line Switch",
       "manufacturer": "NETGEAR",
       "category": "utility",
-      "version": "1.4.11",
+      "version": "1.4.12",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Monitor and control NETGEAR M4250 and M4350 AV Line managed switches over their CLI: per-port PoE power-cycling and draw, link state, multicast/IGMP health, system health (temperature, fans, PSU, CPU), reboot, and config save. Each port is a child entity.",
@@ -499,7 +499,7 @@
       "file": "utility/netgear_m4250_m4350.py",
       "format": "python",
       "files": {
-        "utility/netgear_m4250_m4350.py": "6db29bc2c81b47215872f866e22dde584eebfef4f3b9f683cda5644cf881ee69",
+        "utility/netgear_m4250_m4350.py": "81c1573141534c07985ca615952c18539109f54d42cf9a56d33808164aed1d7e",
         "utility/netgear_m4250_m4350_sim.py": "903c955b16528ad958f5ba6f6e58d0b3785a0e9592552e358e385ca3bf53830c"
       },
       "ports": [

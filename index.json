@@ -2446,7 +2446,7 @@
       "name": "AVPro Edge MXnet Network Switch",
       "manufacturer": "AVPro Edge",
       "category": "utility",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Monitor and control an AVPro Edge MXnet network switch over its CLI: per-port PoE power-cycling and draw, link state and error counters, IGMP/multicast group membership per port, the endpoint attached to each port, and system health (temperature, CPU, memory, PoE budget). Each physical port is a child entity. This is the switch that carries an MXnet system; video routing lives in the MXnet Control Box driver.",
@@ -2454,7 +2454,7 @@
       "file": "utility/avproedge_mxnet_switch.py",
       "format": "python",
       "files": {
-        "utility/avproedge_mxnet_switch.py": "37791852975623b905d7bb55243d508625aad0a20d1b53a97a4cb049eaa38679",
+        "utility/avproedge_mxnet_switch.py": "45581f24cb9481e5391666c1fbb9ca8c2bb5a04a1bd49d5e73e473cd55a60aed",
         "utility/avproedge_mxnet_switch_sim.py": "7adf7bb08490846416a1ea1e9151129f551036ed317d9aed620007d785dca3fd"
       },
       "ports": [
@@ -4574,7 +4574,7 @@
       "name": "Catchbox Plus Hub",
       "manufacturer": "Catchbox",
       "category": "audio",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Discover the Hub and its fitted microphone channels. Control input and mix output mute and monitor link, charging, battery and RF signal for each microphone.",
@@ -4582,7 +4582,7 @@
       "file": "audio/catchbox_plus_hub.py",
       "format": "python",
       "files": {
-        "audio/catchbox_plus_hub.py": "c6db6e808383e66e9e774a66042f06eb4fd28f7a8bd599ade2f0cc1650f6e482",
+        "audio/catchbox_plus_hub.py": "5fae4dbacefe226d7b2b1374701c3070bb2953532e4bb0aa3d53e530d769f5ad",
         "audio/catchbox_plus_hub_sim.py": "b90f3752d33e39c9ca9bfec38a7c3aa674f0d57627b59d1830cc5b6924f87e3b"
       },
       "ports": [
@@ -5450,7 +5450,7 @@
       "name": "Epson Projector (ESC/VP21)",
       "manufacturer": "Epson",
       "category": "projector",
-      "version": "1.5.0",
+      "version": "1.5.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Epson business and installation projectors over ESC/VP21 wrapped in ESC/VP.net on TCP port 3629. Power, input, A/V mute, freeze, aspect ratio, color mode, lamp hours, and remote-key passthrough.",
@@ -5458,7 +5458,7 @@
       "file": "projectors/epson_escvp.py",
       "format": "python",
       "files": {
-        "projectors/epson_escvp.py": "18d695cec41e26d401124b8b33a3091f7242bf4299a46443d78b0768e46cda29",
+        "projectors/epson_escvp.py": "b1ec1b372eb769ed35f6a80d38e0b77f6b82eb5f8c19ce4db906b0f25b63d5f2",
         "projectors/epson_escvp_sim.py": "34ada5c7c11d03834772a94fdf0002ca20b042515c4291b1381e6094bff345b0"
       },
       "ports": [
@@ -5597,7 +5597,7 @@
       "name": "ETC Paradigm",
       "manufacturer": "ETC",
       "category": "lighting",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Controls ETC Paradigm architectural lighting processors (P-ACP-E Mk2, P-ACP-D Mk2) through the Paradigm Serial Access Protocol over UDP or RS-232. List the channels, groups, presets, sequences, spaces, walls, macros and overrides to control by their LightDesigner names; each one shows its level or state.",
@@ -5605,7 +5605,7 @@
       "file": "lighting/etc_paradigm.py",
       "format": "python",
       "files": {
-        "lighting/etc_paradigm.py": "81fdda428f5ab66c7c6b9e78574264eaea7ba799c11373ae9ad3d9c018fc99e9",
+        "lighting/etc_paradigm.py": "0df2d25a625968f3855d162434088a739f9c34706abe409ac087552582f23015",
         "lighting/etc_paradigm_sim.py": "15088855ebf2311f9efb5778ff670d609a0a6f0d2033488c9d6ddac6e612559c"
       },
       "ports": [
@@ -5953,7 +5953,7 @@
       "name": "Extron NAV Pro AV-over-IP (NAVigator)",
       "manufacturer": "Extron",
       "category": "switcher",
-      "version": "1.1.3",
+      "version": "1.1.4",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Route and monitor an Extron NAV Pro AV-over-IP system through its NAVigator System Manager: video, audio and USB ties, WindoWall video-wall presets and windows, KVM workstation presets, system alarms, and every managed encoder and decoder as a child entity. Requires the free LinkLicense for Third-Party Control on the NAVigator.",
@@ -5961,7 +5961,7 @@
       "file": "switchers/extron_nav.py",
       "format": "python",
       "files": {
-        "switchers/extron_nav.py": "67e62086411af4c8fe724a6722dda17dc3f5e8771da84c491dc188f15966f4f0",
+        "switchers/extron_nav.py": "5b30086e4a2e5d4d21e38047051df19a43eb239183af75693d6d05299060c950",
         "switchers/extron_nav_sim.py": "62f8618d94e8560234dc4c83df2b1dcdee3ad7e281d5dde604efce7d12fe6cc4"
       },
       "ports": [
@@ -9068,7 +9068,7 @@
       "name": "NETGEAR M4250 / M4350 AV Line Switch",
       "manufacturer": "NETGEAR",
       "category": "utility",
-      "version": "1.4.11",
+      "version": "1.4.12",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Monitor and control NETGEAR M4250 and M4350 AV Line managed switches over their CLI: per-port PoE power-cycling and draw, link state, multicast/IGMP health, system health (temperature, fans, PSU, CPU), reboot, and config save. Each port is a child entity.",
@@ -9076,7 +9076,7 @@
       "file": "utility/netgear_m4250_m4350.py",
       "format": "python",
       "files": {
-        "utility/netgear_m4250_m4350.py": "6db29bc2c81b47215872f866e22dde584eebfef4f3b9f683cda5644cf881ee69",
+        "utility/netgear_m4250_m4350.py": "81c1573141534c07985ca615952c18539109f54d42cf9a56d33808164aed1d7e",
         "utility/netgear_m4250_m4350_sim.py": "903c955b16528ad958f5ba6f6e58d0b3785a0e9592552e358e385ca3bf53830c"
       },
       "ports": [
@@ -11172,7 +11172,7 @@
       "name": "Sennheiser SpeechLine Multi-Channel Receiver DW",
       "manufacturer": "Sennheiser",
       "category": "audio",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Controls and monitors the Sennheiser SpeechLine Digital Wireless SL MCR 2 DW and SL MCR 4 DW multi-channel receivers over Sennheiser Sound Control (SSC) on UDP port 45. Each receiver channel is a child entity with mute, gain, EQ preset, low cut, mute mode, link state, pairing, walk test, RF quality and warnings, plus the linked transmitter's type, capsule, battery, charging, locks and LED, and opt-in audio meters. Every change is pushed through SSC subscriptions. Standby and Wake-on-LAN wake, Dante and analog output gain, names, LED brightness and restart are covered.",
@@ -11180,7 +11180,7 @@
       "file": "audio/sennheiser_sl_mcr_dw.py",
       "format": "python",
       "files": {
-        "audio/sennheiser_sl_mcr_dw.py": "a4ed046778e6431a6bd8924d26d78da5f8c0d9aa0fbe41c5b621ebceb288f287",
+        "audio/sennheiser_sl_mcr_dw.py": "df08aacc306b759cb2cc69fd99f09e3ed1dcbfb34d98771959da238555f37a1e",
         "audio/sennheiser_sl_mcr_dw_sim.py": "81e6e1bb6e6365db5f2c1d01397316818647f2a4640dd70fc20ea7f39e0cf51c"
       },
       "ports": [
@@ -11741,7 +11741,7 @@
       "name": "Shure Axient Digital Receivers",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls and monitors Shure Axient Digital AD4D and AD4Q wireless receivers over Shure's command strings on TCP port 2202. Each receiver channel is a child entity with mute, gain, frequency and group/channel preset, interference and encryption warnings, the decoded transmitter's battery, RF power, lock and mute switch, and opt-in audio and RF meters. Each of a channel's eight transmitter slots is a child entity; a linked ADX transmitter's RF mute, power mode, gain offset, polarity, input pad and name are remote-controllable. State pushes live as it changes.",
@@ -11749,7 +11749,7 @@
       "file": "audio/shure_axient_digital.py",
       "format": "python",
       "files": {
-        "audio/shure_axient_digital.py": "1ccbfee82b5136287ff510ea2b6db04d6acfbdd1495c30a312960df61034ad8c",
+        "audio/shure_axient_digital.py": "4d8e44ffeeec1f4f289ef0dfb50311d6b6b46e51efab747ee81a452862c267e9",
         "audio/shure_axient_digital_sim.py": "a3327e803887ea6e79d7de68e79fcef1cf91f32ff280a7a944ec309d9b453d7e"
       },
       "ports": [
@@ -11963,7 +11963,7 @@
       "name": "Shure Networked Devices",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "2.2.1",
+      "version": "2.2.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Shure networked audio devices over the command strings protocol on TCP port 2202: MXA910 / MXA920 / MXA925 / MXA710 ceiling and linear arrays, the MXA320 table array, the MXA902 ceiling array with loudspeaker, ANI interfaces, the P300 IntelliMix processor and the SCM820 automixer. Each audio channel or coverage area is a child entity with mute, gain, name, gate status and live metering; device mute, presets, the status LED, automatic coverage, talker positions and the MXA902's loudspeaker are controlled directly. State pushes live as it changes on the device or another controller.",
@@ -11971,7 +11971,7 @@
       "file": "audio/shure_network.py",
       "format": "python",
       "files": {
-        "audio/shure_network.py": "61721eb903c771f7bcc5089395dd98b9359c4bd2980f73ea0a0c638a1723484a",
+        "audio/shure_network.py": "5a5f575c8cd8e9d22267b937b11729791a1a0d3d609e4d2c8e1928cc85501bb1",
         "audio/shure_network_sim.py": "75d685fdfd1ea901698c7049b9106fa15a7211f86acd5d0a455ad956d967f940"
       },
       "ports": [

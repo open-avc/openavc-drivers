@@ -1963,7 +1963,7 @@
       "name": "Catchbox Plus Hub",
       "manufacturer": "Catchbox",
       "category": "audio",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Discover the Hub and its fitted microphone channels. Control input and mix output mute and monitor link, charging, battery and RF signal for each microphone.",
@@ -1971,7 +1971,7 @@
       "file": "audio/catchbox_plus_hub.py",
       "format": "python",
       "files": {
-        "audio/catchbox_plus_hub.py": "c6db6e808383e66e9e774a66042f06eb4fd28f7a8bd599ade2f0cc1650f6e482",
+        "audio/catchbox_plus_hub.py": "5fae4dbacefe226d7b2b1374701c3070bb2953532e4bb0aa3d53e530d769f5ad",
         "audio/catchbox_plus_hub_sim.py": "b90f3752d33e39c9ca9bfec38a7c3aa674f0d57627b59d1830cc5b6924f87e3b"
       },
       "ports": [
@@ -2810,7 +2810,7 @@
       "name": "Sennheiser SpeechLine Multi-Channel Receiver DW",
       "manufacturer": "Sennheiser",
       "category": "audio",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Controls and monitors the Sennheiser SpeechLine Digital Wireless SL MCR 2 DW and SL MCR 4 DW multi-channel receivers over Sennheiser Sound Control (SSC) on UDP port 45. Each receiver channel is a child entity with mute, gain, EQ preset, low cut, mute mode, link state, pairing, walk test, RF quality and warnings, plus the linked transmitter's type, capsule, battery, charging, locks and LED, and opt-in audio meters. Every change is pushed through SSC subscriptions. Standby and Wake-on-LAN wake, Dante and analog output gain, names, LED brightness and restart are covered.",
@@ -2818,7 +2818,7 @@
       "file": "audio/sennheiser_sl_mcr_dw.py",
       "format": "python",
       "files": {
-        "audio/sennheiser_sl_mcr_dw.py": "a4ed046778e6431a6bd8924d26d78da5f8c0d9aa0fbe41c5b621ebceb288f287",
+        "audio/sennheiser_sl_mcr_dw.py": "df08aacc306b759cb2cc69fd99f09e3ed1dcbfb34d98771959da238555f37a1e",
         "audio/sennheiser_sl_mcr_dw_sim.py": "81e6e1bb6e6365db5f2c1d01397316818647f2a4640dd70fc20ea7f39e0cf51c"
       },
       "ports": [
@@ -3087,7 +3087,7 @@
       "name": "Shure Axient Digital Receivers",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls and monitors Shure Axient Digital AD4D and AD4Q wireless receivers over Shure's command strings on TCP port 2202. Each receiver channel is a child entity with mute, gain, frequency and group/channel preset, interference and encryption warnings, the decoded transmitter's battery, RF power, lock and mute switch, and opt-in audio and RF meters. Each of a channel's eight transmitter slots is a child entity; a linked ADX transmitter's RF mute, power mode, gain offset, polarity, input pad and name are remote-controllable. State pushes live as it changes.",
@@ -3095,7 +3095,7 @@
       "file": "audio/shure_axient_digital.py",
       "format": "python",
       "files": {
-        "audio/shure_axient_digital.py": "1ccbfee82b5136287ff510ea2b6db04d6acfbdd1495c30a312960df61034ad8c",
+        "audio/shure_axient_digital.py": "4d8e44ffeeec1f4f289ef0dfb50311d6b6b46e51efab747ee81a452862c267e9",
         "audio/shure_axient_digital_sim.py": "a3327e803887ea6e79d7de68e79fcef1cf91f32ff280a7a944ec309d9b453d7e"
       },
       "ports": [
@@ -3309,7 +3309,7 @@
       "name": "Shure Networked Devices",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "2.2.1",
+      "version": "2.2.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Shure networked audio devices over the command strings protocol on TCP port 2202: MXA910 / MXA920 / MXA925 / MXA710 ceiling and linear arrays, the MXA320 table array, the MXA902 ceiling array with loudspeaker, ANI interfaces, the P300 IntelliMix processor and the SCM820 automixer. Each audio channel or coverage area is a child entity with mute, gain, name, gate status and live metering; device mute, presets, the status LED, automatic coverage, talker positions and the MXA902's loudspeaker are controlled directly. State pushes live as it changes on the device or another controller.",
@@ -3317,7 +3317,7 @@
       "file": "audio/shure_network.py",
       "format": "python",
       "files": {
-        "audio/shure_network.py": "61721eb903c771f7bcc5089395dd98b9359c4bd2980f73ea0a0c638a1723484a",
+        "audio/shure_network.py": "5a5f575c8cd8e9d22267b937b11729791a1a0d3d609e4d2c8e1928cc85501bb1",
         "audio/shure_network_sim.py": "75d685fdfd1ea901698c7049b9106fa15a7211f86acd5d0a455ad956d967f940"
       },
       "ports": [

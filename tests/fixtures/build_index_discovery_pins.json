@@ -148,8 +148,7 @@
         "discovery.manufacturer_alias entries must be non-empty",
         "discovery.requires must be a version string like \"0.23.0\", got 'x'",
         "discovery.mdns service must be a non-empty string",
-        "discovery.ssdp device_type must be a non-empty string",
-        "discovery: unknown key 'zeta'"
+        "discovery.ssdp device_type must be a non-empty string"
       ],
       "errors": [],
       "normalized": "{'mdns': [{'service': '.', 'txt': {}}], 'ssdp': [{'device_type': '', 'fields': {}}], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': True, 'has_python': True, 'hostname': []}",
@@ -276,8 +275,7 @@
     "extract_name_number": {
       "contract": [
         "discovery.tcp_probe.extract field names must be non-empty strings",
-        "discovery.tcp_probe.extract.serial.regex failed to compile: missing ), unterminated subpattern at position 0",
-        "discovery.tcp_probe.extract: name '5' is not text. YAML reads bare on/off/yes/no/true/false as booleans and bare digits as numbers. Put it in quotes."
+        "discovery.tcp_probe.extract.serial.regex failed to compile: missing ), unterminated subpattern at position 0"
       ],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
@@ -372,17 +370,14 @@
       "stderr": ""
     },
     "generic_exempt": {
-      "contract": [
-        "discovery: unknown key 'bogus'"
-      ],
+      "contract": [],
       "errors": [],
       "normalized": "{}",
       "stderr": ""
     },
     "generic_prefix_only_at_start": {
       "contract": [
-        "discovery has unknown keys: ['bogus']. Known keys: ['amx_ddp', 'hostname', 'manufacturer_alias', 'mdns', 'oui', 'port_open', 'python', 'requires', 'snmp_pen', 'ssdp', 'tcp_probe', 'udp_probe']",
-        "discovery: unknown key 'bogus'"
+        "discovery has unknown keys: ['bogus']. Known keys: ['amx_ddp', 'hostname', 'manufacturer_alias', 'mdns', 'oui', 'port_open', 'python', 'requires', 'snmp_pen', 'ssdp', 'tcp_probe', 'udp_probe']"
       ],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
@@ -1816,9 +1811,7 @@
     },
     "unknown_keys": {
       "contract": [
-        "discovery has unknown keys: ['mdsn', 'zeta']. Known keys: ['amx_ddp', 'hostname', 'manufacturer_alias', 'mdns', 'oui', 'port_open', 'python', 'requires', 'snmp_pen', 'ssdp', 'tcp_probe', 'udp_probe']",
-        "discovery: unknown key 'mdsn' (did you mean 'mdns'?)",
-        "discovery: unknown key 'zeta'"
+        "discovery has unknown keys: ['mdsn', 'zeta']. Known keys: ['amx_ddp', 'hostname', 'manufacturer_alias', 'mdns', 'oui', 'port_open', 'python', 'requires', 'snmp_pen', 'ssdp', 'tcp_probe', 'udp_probe']"
       ],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",

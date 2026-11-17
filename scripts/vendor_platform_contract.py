@@ -17,8 +17,9 @@ Two modes:
   python scripts/vendor_platform_contract.py --check
       Fetch the platform's current files from GitHub, apply the same
       transform, and fail if any committed copy differs. CI runs this on
-      every push and pull request, so a contract change on the platform
-      side hard-fails this repo's CI until the copies are regenerated.
+      every push and pull request and every night, so a contract change on
+      the platform side hard-fails this repo's CI, by the next morning at
+      the latest, until the copies are regenerated.
 
 The transform is deterministic: line endings are normalized to LF, the
 platform's absolute imports are rewritten to package-relative ones, and a

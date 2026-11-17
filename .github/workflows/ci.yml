@@ -5,6 +5,14 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Every job, every night, whatever changed. Both jobs compare this repo
+  # against the platform's current main: the vendored contract check below,
+  # and the platform job's run of the drivers. Without a nightly run, a
+  # platform change neither one has seen goes red first on the next
+  # contributor's driver change, for a reason that change did not cause.
+  schedule:
+    - cron: "41 7 * * *"
+  workflow_dispatch:
 
 # Nothing here writes to the repository: the catalog is committed by whoever
 # changes a driver, and CI's job is to refuse the change when it wasn't.

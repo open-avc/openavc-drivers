@@ -15,12 +15,9 @@ declare. The platform's runtime loader softens that one to a warning, so a
 driver written for a newer platform still runs; publishing does not get
 that latitude, because a misspelled key silently does nothing.
 
-One carve-out: the platform loader also validates the ``discovery:`` block
-through its discovery engine, which is not vendored here (the catalog runs
-its own deep discovery checks, in scripts/catalog_discovery.py and
-scripts/discovery_claims.py). Those loader-side
-messages all carry the ``discovery: `` prefix and are filtered from the
-expectations before comparing.
+The ``discovery:`` block is read by the platform's own discovery reader,
+vendored with the rest (``scripts/_vendor/discovery_block.py``), so its
+messages replay like every other rule's.
 """
 
 from __future__ import annotations
@@ -37,16 +34,8 @@ from _vendor.avcdriver_semantic import validate_driver_definition  # noqa: E402
 
 VENDOR_DIR = SCRIPT_DIR / "_vendor"
 
-_DISCOVERY_PREFIX = "discovery: "
-
-
 def _load(name: str):
     return json.loads((VENDOR_DIR / name).read_text(encoding="utf-8"))
-
-
-def _shared_rule_messages(messages: list[str]) -> list[str]:
-    """Drop the loader-side discovery-engine messages from an expectation."""
-    return [m for m in messages if not m.startswith(_DISCOVERY_PREFIX)]
 
 
 def test_replay_matches_platform_messages() -> None:
@@ -58,12 +47,7 @@ def test_replay_matches_platform_messages() -> None:
     )
     for name in sorted(cases):
         actual = validate_driver_definition(cases[name], strict=True)
-        stray = [m for m in actual if m.startswith(_DISCOVERY_PREFIX)]
-        assert stray == [], (
-            f"'{name}': the shared rules emitted discovery-engine messages; "
-            f"the filter in this test is no longer sound: {stray}"
-        )
-        want = _shared_rule_messages(expected[name])
+        want = expected[name]
         assert actual == want, (
             f"vendored validator disagrees with the platform for '{name}':\n"
             f"  platform: {want}\n"
@@ -72,14 +56,12 @@ def test_replay_matches_platform_messages() -> None:
 
 
 def test_every_case_is_rejected() -> None:
-    """Each case must trip a shared rule — or, for the loader-only discovery
-    cases, at least a platform-side rule — so no corpus entry goes dead."""
+    """Each case must trip a rule, so no corpus entry goes dead."""
     cases = _load("driver_validation_cases.json")
-    expected = _load("driver_validation_messages.json")
     dead = [
         name
         for name in sorted(cases)
-        if not validate_driver_definition(cases[name], strict=True) and not expected[name]
+        if not validate_driver_definition(cases[name], strict=True)
     ]
     assert dead == [], f"cases no rule rejects anywhere: {dead}"
 

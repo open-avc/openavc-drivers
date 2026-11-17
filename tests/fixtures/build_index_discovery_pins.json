@@ -1,1593 +1,1826 @@
 {
   "block": {
     "alias_entries_bad": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.manufacturer_alias entries must be strings, got 5",
-        "audio/acme_widget.avcdriver: discovery.manufacturer_alias entries must be non-empty",
-        "audio/acme_widget.avcdriver: discovery.manufacturer_alias entries must be non-empty"
+      "contract": [
+        "discovery.manufacturer_alias entries must be strings, got 5",
+        "discovery.manufacturer_alias entries must be non-empty",
+        "discovery.manufacturer_alias entries must be non-empty"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "alias_ok": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "alias_string": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.manufacturer_alias must be a list"
+      "contract": [
+        "discovery.manufacturer_alias must be a list"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "stderr": ""
     },
     "amx_cross_vendor_bad": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.amx_ddp.cross_vendor must be a bool"
+      "contract": [
+        "discovery.amx_ddp.cross_vendor must be a bool"
       ],
-      "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [{'make': 'Acme', 'model_pattern': '*'}], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "errors": [],
+      "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "amx_list": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.amx_ddp entries must be mappings"
+      "contract": [
+        "discovery.amx_ddp entry must be a mapping, got int"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [{'make': 'A', 'model_pattern': '*'}, {'make': 'B', 'model_pattern': 'X'}], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "amx_make_empty": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.amx_ddp.make is required"
+      "contract": [
+        "discovery.amx_ddp.make must be a non-empty string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "stderr": ""
     },
     "amx_no_make": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.amx_ddp.make is required"
+      "contract": [
+        "discovery.amx_ddp.make must be a non-empty string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "stderr": ""
     },
     "amx_ok_default_pattern": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [{'make': 'Acme', 'model_pattern': '*'}], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "amx_ok_pattern": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [{'make': 'Acme', 'model_pattern': 'W*'}], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "amx_pattern_none": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.amx_ddp.model_pattern must be a string"
+      "contract": [
+        "discovery.amx_ddp.model_pattern must be a string"
       ],
-      "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [{'make': 'Acme', 'model_pattern': '*'}], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "errors": [],
+      "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "amx_pattern_number": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.amx_ddp.model_pattern must be a string"
+      "contract": [
+        "discovery.amx_ddp.model_pattern must be a string"
       ],
-      "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [{'make': 'Acme', 'model_pattern': '*'}], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "errors": [],
+      "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "amx_string": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.amx_ddp entries must be mappings"
+      "contract": [
+        "discovery.amx_ddp entry must be a mapping, got str"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "stderr": ""
     },
     "amx_unknown": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.amx_ddp entry has unknown keys: ['sku']"
+      "contract": [
+        "discovery.amx_ddp entry has unknown keys: ['sku']"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [{'make': 'Acme', 'model_pattern': '*'}], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "block_empty": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
     },
     "block_false": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
     },
     "block_list": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery: must be a mapping"
+      "contract": [
+        "'discovery' must be a mapping, got list"
       ],
+      "errors": [],
       "normalized": "{}",
       "stderr": ""
     },
     "block_none": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
     },
     "block_string": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery: must be a mapping"
+      "contract": [
+        "'discovery' must be a mapping, got str"
       ],
+      "errors": [],
       "normalized": "{}",
       "stderr": ""
     },
     "every_section_wrong": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery has unknown keys: ['zeta']. Known keys: ['amx_ddp', 'hostname', 'manufacturer_alias', 'mdns', 'oui', 'port_open', 'python', 'requires', 'snmp_pen', 'ssdp', 'tcp_probe', 'udp_probe']",
-        "audio/acme_widget.avcdriver: discovery.requires must be a version string like \"0.23.0\", got 'x'",
-        "audio/acme_widget.avcdriver: discovery.mdns service must be a non-empty string",
-        "audio/acme_widget.avcdriver: discovery.ssdp device_type must be a non-empty string",
-        "audio/acme_widget.avcdriver: discovery.amx_ddp entries must be mappings",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe must be a mapping",
-        "audio/acme_widget.avcdriver: discovery.udp_probe must be a mapping",
-        "audio/acme_widget.avcdriver: discovery.python must be a string path or {file, cross_vendor} mapping",
-        "audio/acme_widget.avcdriver: discovery.snmp_pen must be a positive integer",
-        "audio/acme_widget.avcdriver: discovery.oui entries must be non-empty strings, got ''",
-        "audio/acme_widget.avcdriver: discovery.hostname entries must be non-empty strings, got ''",
-        "audio/acme_widget.avcdriver: discovery.port_open entry 80 is too generic \u2014 would match every web/SSH device. Disallowed: [22, 80, 443, 8000, 8080, 8443, 8888]",
-        "audio/acme_widget.avcdriver: discovery.manufacturer_alias entries must be non-empty"
+      "contract": [
+        "discovery has unknown keys: ['zeta']. Known keys: ['amx_ddp', 'hostname', 'manufacturer_alias', 'mdns', 'oui', 'port_open', 'python', 'requires', 'snmp_pen', 'ssdp', 'tcp_probe', 'udp_probe']",
+        "discovery.amx_ddp entry must be a mapping, got str",
+        "discovery.tcp_probe must be a mapping, got int",
+        "discovery.udp_probe must be a mapping, got int",
+        "discovery.python must be a path string or a {file, cross_vendor} mapping, got int",
+        "discovery.snmp_pen must be >= 1 (got 0)",
+        "discovery.oui entries must be non-empty strings",
+        "discovery.hostname entries must be non-empty strings",
+        "discovery.port_open entry 80 is too generic: it would match every web/SSH device. Disallowed: [22, 80, 443, 8000, 8080, 8443, 8888]",
+        "discovery.manufacturer_alias entries must be non-empty",
+        "discovery.requires must be a version string like \"0.23.0\", got 'x'",
+        "discovery.mdns service must be a non-empty string",
+        "discovery.ssdp device_type must be a non-empty string",
+        "discovery: unknown key 'zeta'"
       ],
-      "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': True, 'has_python': True, 'hostname': []}",
+      "errors": [],
+      "normalized": "{'mdns': [{'service': '.', 'txt': {}}], 'ssdp': [{'device_type': '', 'fields': {}}], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': True, 'has_python': True, 'hostname': []}",
       "stderr": ""
     },
     "extract_group_bool": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract.model.group must be a non-negative integer"
+      "contract": [
+        "discovery.tcp_probe.extract.model.group must be a non-negative integer"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_group_negative": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract.model.group must be a non-negative integer"
+      "contract": [
+        "discovery.tcp_probe.extract.model.group must be a non-negative integer"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_group_string": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract.model.group must be a non-negative integer"
+      "contract": [
+        "discovery.tcp_probe.extract.model.group must be a non-negative integer"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_group_zero": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_list": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract must be a mapping of field name to literal string or {regex, group} mapping"
+      "contract": [
+        "discovery.tcp_probe.extract must be a mapping"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_literal": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_many": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract.fw must be a literal string or a {regex, group} mapping"
+      "contract": [
+        "discovery.tcp_probe.extract.fw must be a literal string or a {regex, group} mapping"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_mfg_bad_and_collides": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract_manufacturer must be a non-empty string"
+      "contract": [
+        "discovery.tcp_probe.extract_manufacturer must be a non-empty string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_mfg_collides": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract_manufacturer collides with extract.manufacturer \u2014 pick one"
+      "contract": [
+        "discovery.tcp_probe.extract_manufacturer collides with extract.manufacturer; pick one"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_mfg_empty": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract_manufacturer must be a non-empty string"
+      "contract": [
+        "discovery.tcp_probe.extract_manufacturer must be a non-empty string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_mfg_none": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_mfg_number": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract_manufacturer must be a non-empty string"
+      "contract": [
+        "discovery.tcp_probe.extract_manufacturer must be a non-empty string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_mfg_ok": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_mfg_with_list_extract": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract must be a mapping of field name to literal string or {regex, group} mapping"
+      "contract": [
+        "discovery.tcp_probe.extract must be a mapping"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_mfg_with_other_extract": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_name_empty": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract field names must be non-empty strings"
+      "contract": [
+        "discovery.tcp_probe.extract field names must be non-empty strings"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_name_number": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract field names must be non-empty strings",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract.serial.regex failed to compile: missing ), unterminated subpattern at position 0"
+      "contract": [
+        "discovery.tcp_probe.extract field names must be non-empty strings",
+        "discovery.tcp_probe.extract.serial.regex failed to compile: missing ), unterminated subpattern at position 0",
+        "discovery.tcp_probe.extract: name '5' is not text. YAML reads bare on/off/yes/no/true/false as booleans and bare digits as numbers. Put it in quotes."
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_none": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_regex_bad": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract.model.regex failed to compile: missing ), unterminated subpattern at position 0"
+      "contract": [
+        "discovery.tcp_probe.extract.model.regex failed to compile: missing ), unterminated subpattern at position 0"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_regex_bad_and_group_bad": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract.model.regex failed to compile: unterminated character set at position 0",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract.model.group must be a non-negative integer"
+      "contract": [
+        "discovery.tcp_probe.extract.model.regex failed to compile: unterminated character set at position 0"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_regex_default_group": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_regex_empty": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract.model mapping requires a non-empty 'regex' string"
+      "contract": [
+        "discovery.tcp_probe.extract.model mapping requires a non-empty 'regex' string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_regex_missing": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract.model mapping requires a non-empty 'regex' string"
+      "contract": [
+        "discovery.tcp_probe.extract.model mapping requires a non-empty 'regex' string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_regex_number": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract.model mapping requires a non-empty 'regex' string"
+      "contract": [
+        "discovery.tcp_probe.extract.model mapping requires a non-empty 'regex' string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_regex_ok": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_spec_list": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract.model must be a literal string or a {regex, group} mapping"
+      "contract": [
+        "discovery.tcp_probe.extract.model must be a literal string or a {regex, group} mapping"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_spec_number": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract.model must be a literal string or a {regex, group} mapping"
+      "contract": [
+        "discovery.tcp_probe.extract.model must be a literal string or a {regex, group} mapping"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "extract_string": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract must be a mapping of field name to literal string or {regex, group} mapping"
+      "contract": [
+        "discovery.tcp_probe.extract must be a mapping"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "full_valid": {
+      "contract": [],
       "errors": [],
-      "normalized": "{'mdns': [{'service': '_acme._tcp', 'txt': {'model': 'W'}}], 'ssdp': [{'device_type': 'urn:acme', 'fields': {'model': 'W'}}], 'amx_ddp': [{'make': 'Acme', 'model_pattern': 'W*'}], 'has_tcp_probe': True, 'has_udp_probe': True, 'has_python': True, 'hostname': ['^acme']}",
+      "normalized": "{'mdns': [{'service': '_acme._tcp.', 'txt': {'model': 'W'}}], 'ssdp': [{'device_type': 'urn:acme', 'fields': {'model': 'W'}}], 'amx_ddp': [{'make': 'Acme', 'model_pattern': 'W*'}], 'has_tcp_probe': True, 'has_udp_probe': True, 'has_python': True, 'hostname': ['^acme']}",
       "stderr": ""
     },
     "generic_exempt": {
+      "contract": [
+        "discovery: unknown key 'bogus'"
+      ],
       "errors": [],
       "normalized": "{}",
       "stderr": ""
     },
     "generic_prefix_only_at_start": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery has unknown keys: ['bogus']. Known keys: ['amx_ddp', 'hostname', 'manufacturer_alias', 'mdns', 'oui', 'port_open', 'python', 'requires', 'snmp_pen', 'ssdp', 'tcp_probe', 'udp_probe']"
+      "contract": [
+        "discovery has unknown keys: ['bogus']. Known keys: ['amx_ddp', 'hostname', 'manufacturer_alias', 'mdns', 'oui', 'port_open', 'python', 'requires', 'snmp_pen', 'ssdp', 'tcp_probe', 'udp_probe']",
+        "discovery: unknown key 'bogus'"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "stderr": ""
     },
     "hostname_entries_bad": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.hostname entries must be non-empty strings, got ''",
-        "audio/acme_widget.avcdriver: discovery.hostname entries must be non-empty strings, got 5",
-        "audio/acme_widget.avcdriver: discovery.hostname entry '(' failed to compile: missing ), unterminated subpattern at position 0"
+      "contract": [
+        "discovery.hostname entries must be non-empty strings",
+        "discovery.hostname entries must be non-empty strings",
+        "discovery.hostname entry '(' failed to compile: missing ), unterminated subpattern at position 0"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': ['(', '^ok']}",
       "stderr": ""
     },
     "hostname_mapping": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.hostname must be a list"
+      "contract": [
+        "discovery.hostname must be a list"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "stderr": ""
     },
     "hostname_ok": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': ['^acme-', 'widget\\\\d+']}",
       "stderr": ""
     },
     "hostname_string": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.hostname must be a list"
+      "contract": [
+        "discovery.hostname must be a list"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "stderr": ""
     },
     "id_missing": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "id_number": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "mdns_cross_vendor_bad": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.mdns.cross_vendor must be a bool"
+      "contract": [
+        "discovery.mdns.cross_vendor must be a bool"
       ],
-      "normalized": "{'mdns': [{'service': '_a._tcp', 'txt': {}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "errors": [],
+      "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "mdns_cross_vendor_none": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.mdns.cross_vendor must be a bool"
-      ],
-      "normalized": "{'mdns': [{'service': '_a._tcp', 'txt': {}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "contract": [],
+      "errors": [],
+      "normalized": "{'mdns': [{'service': '_a._tcp.', 'txt': {}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "mdns_cross_vendor_ok": {
+      "contract": [],
       "errors": [],
-      "normalized": "{'mdns': [{'service': '_a._tcp', 'txt': {}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "normalized": "{'mdns': [{'service': '_a._tcp.', 'txt': {}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "mdns_empty_list": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
     },
     "mdns_empty_string": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.mdns service must be a non-empty string"
+      "contract": [
+        "discovery.mdns service must be a non-empty string"
       ],
-      "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "errors": [],
+      "normalized": "{'mdns': [{'service': '.', 'txt': {}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "stderr": ""
     },
     "mdns_list_mixed": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.mdns entries must be strings or {service, txt, cross_vendor} mappings",
-        "audio/acme_widget.avcdriver: discovery.mdns service must be a non-empty string"
+      "contract": [
+        "discovery.mdns entry must be a service-type string or a {service, txt, cross_vendor} mapping, got int",
+        "discovery.mdns service must be a non-empty string"
       ],
-      "normalized": "{'mdns': [{'service': '_a._tcp', 'txt': {}}, {'service': '_b._tcp', 'txt': {}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "errors": [],
+      "normalized": "{'mdns': [{'service': '_a._tcp.', 'txt': {}}, {'service': '_b._tcp.', 'txt': {}}, {'service': '.', 'txt': {}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "mdns_mapping_no_service": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.mdns.service must be a non-empty string"
+      "contract": [
+        "discovery.mdns.service must be a non-empty string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "stderr": ""
     },
     "mdns_mapping_service_empty": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.mdns.service must be a non-empty string"
+      "contract": [
+        "discovery.mdns.service must be a non-empty string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "stderr": ""
     },
     "mdns_mapping_service_number": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.mdns.service must be a non-empty string"
+      "contract": [
+        "discovery.mdns.service must be a non-empty string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "stderr": ""
     },
     "mdns_mapping_txt": {
+      "contract": [],
       "errors": [],
-      "normalized": "{'mdns': [{'service': '_a._tcp', 'txt': {'Model': 'X1', 'n': '2'}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "normalized": "{'mdns': [{'service': '_a._tcp.', 'txt': {'model': 'X1', 'n': '2'}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "mdns_mapping_txt_list": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.mdns.txt must be a mapping"
+      "contract": [
+        "discovery.mdns.txt must be a mapping"
       ],
-      "normalized": "{'mdns': [{'service': '_a._tcp', 'txt': {}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "errors": [],
+      "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "mdns_mapping_txt_none": {
+      "contract": [],
       "errors": [],
-      "normalized": "{'mdns': [{'service': '_a._tcp', 'txt': {}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "normalized": "{'mdns': [{'service': '_a._tcp.', 'txt': {}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "mdns_mapping_unknown": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.mdns entry has unknown keys: ['a', 'name']"
+      "contract": [
+        "discovery.mdns entry has unknown keys: ['a', 'name']"
       ],
-      "normalized": "{'mdns': [{'service': '_a._tcp', 'txt': {}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "errors": [],
+      "normalized": "{'mdns': [{'service': '_a._tcp.', 'txt': {}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "mdns_mapping_unknown_no_service": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.mdns entry has unknown keys: ['name']",
-        "audio/acme_widget.avcdriver: discovery.mdns.service must be a non-empty string"
+      "contract": [
+        "discovery.mdns.service must be a non-empty string",
+        "discovery.mdns entry has unknown keys: ['name']"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "stderr": ""
     },
     "mdns_none": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
     },
     "mdns_number": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.mdns entries must be strings or {service, txt, cross_vendor} mappings"
+      "contract": [
+        "discovery.mdns entry must be a service-type string or a {service, txt, cross_vendor} mapping, got int"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "stderr": ""
     },
     "mdns_string": {
+      "contract": [],
       "errors": [],
-      "normalized": "{'mdns': [{'service': '_acme._tcp', 'txt': {}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "normalized": "{'mdns': [{'service': '_acme._tcp.', 'txt': {}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "mdns_string_upper": {
+      "contract": [],
       "errors": [],
-      "normalized": "{'mdns': [{'service': '_ACME._tcp', 'txt': {}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "normalized": "{'mdns': [{'service': '_acme._tcp.', 'txt': {}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "no_block": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "stderr": ""
     },
     "oui_empty_list": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
     },
     "oui_entries_bad": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.oui entries must be non-empty strings, got ''",
-        "audio/acme_widget.avcdriver: discovery.oui entries must be non-empty strings, got 5",
-        "audio/acme_widget.avcdriver: discovery.oui entries must be non-empty strings, got None"
+      "contract": [
+        "discovery.oui entries must be non-empty strings",
+        "discovery.oui entries must be non-empty strings",
+        "discovery.oui entries must be non-empty strings"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "oui_none": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
     },
     "oui_ok": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "oui_string": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.oui must be a list"
+      "contract": [
+        "discovery.oui must be a list"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "stderr": ""
     },
     "port_open_each_disallowed": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.port_open entry 22 is too generic \u2014 would match every web/SSH device. Disallowed: [22, 80, 443, 8000, 8080, 8443, 8888]",
-        "audio/acme_widget.avcdriver: discovery.port_open entry 80 is too generic \u2014 would match every web/SSH device. Disallowed: [22, 80, 443, 8000, 8080, 8443, 8888]",
-        "audio/acme_widget.avcdriver: discovery.port_open entry 443 is too generic \u2014 would match every web/SSH device. Disallowed: [22, 80, 443, 8000, 8080, 8443, 8888]",
-        "audio/acme_widget.avcdriver: discovery.port_open entry 8000 is too generic \u2014 would match every web/SSH device. Disallowed: [22, 80, 443, 8000, 8080, 8443, 8888]",
-        "audio/acme_widget.avcdriver: discovery.port_open entry 8080 is too generic \u2014 would match every web/SSH device. Disallowed: [22, 80, 443, 8000, 8080, 8443, 8888]",
-        "audio/acme_widget.avcdriver: discovery.port_open entry 8443 is too generic \u2014 would match every web/SSH device. Disallowed: [22, 80, 443, 8000, 8080, 8443, 8888]"
+      "contract": [
+        "discovery.port_open entry 22 is too generic: it would match every web/SSH device. Disallowed: [22, 80, 443, 8000, 8080, 8443, 8888]",
+        "discovery.port_open entry 80 is too generic: it would match every web/SSH device. Disallowed: [22, 80, 443, 8000, 8080, 8443, 8888]",
+        "discovery.port_open entry 443 is too generic: it would match every web/SSH device. Disallowed: [22, 80, 443, 8000, 8080, 8443, 8888]",
+        "discovery.port_open entry 8000 is too generic: it would match every web/SSH device. Disallowed: [22, 80, 443, 8000, 8080, 8443, 8888]",
+        "discovery.port_open entry 8080 is too generic: it would match every web/SSH device. Disallowed: [22, 80, 443, 8000, 8080, 8443, 8888]",
+        "discovery.port_open entry 8443 is too generic: it would match every web/SSH device. Disallowed: [22, 80, 443, 8000, 8080, 8443, 8888]"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "port_open_entries_bad": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.port_open entries must be integers, got '5000'",
-        "audio/acme_widget.avcdriver: discovery.port_open entries must be integers, got True",
-        "audio/acme_widget.avcdriver: discovery.port_open entry 0 out of range [1, 65535]",
-        "audio/acme_widget.avcdriver: discovery.port_open entry 65536 out of range [1, 65535]",
-        "audio/acme_widget.avcdriver: discovery.port_open entry 80 is too generic \u2014 would match every web/SSH device. Disallowed: [22, 80, 443, 8000, 8080, 8443, 8888]",
-        "audio/acme_widget.avcdriver: discovery.port_open entry 8888 is too generic \u2014 would match every web/SSH device. Disallowed: [22, 80, 443, 8000, 8080, 8443, 8888]"
+      "contract": [
+        "discovery.port_open entries must be integers, got '5000'",
+        "discovery.port_open entries must be integers, got True",
+        "discovery.port_open entry 0 out of range [1, 65535]",
+        "discovery.port_open entry 65536 out of range [1, 65535]",
+        "discovery.port_open entry 80 is too generic: it would match every web/SSH device. Disallowed: [22, 80, 443, 8000, 8080, 8443, 8888]",
+        "discovery.port_open entry 8888 is too generic: it would match every web/SSH device. Disallowed: [22, 80, 443, 8000, 8080, 8443, 8888]"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "port_open_int": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.port_open must be a list"
+      "contract": [
+        "discovery.port_open must be a list"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "stderr": ""
     },
     "port_open_ok": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "python_companion_is_a_directory": {
+      "contract": [],
       "errors": [
-        "audio/acme_widget.avcdriver: discovery.python.file='.' but no such file exists at <dir> \u2014 drivers must ship the sibling _discovery.py companion alongside the .avcdriver"
+        "audio/acme_widget.avcdriver: discovery.python.file='.' but no such file exists at <dir>; drivers must ship the sibling _discovery.py companion alongside the .avcdriver"
       ],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': True, 'hostname': []}",
       "stderr": ""
     },
     "python_empty_with_dir": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.python path must be a non-empty string"
+      "contract": [
+        "discovery.python path must be a non-empty string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': True, 'hostname': []}",
       "stderr": ""
     },
     "python_list": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.python must be a string path or {file, cross_vendor} mapping"
+      "contract": [
+        "discovery.python must be a path string or a {file, cross_vendor} mapping, got list"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': True, 'hostname': []}",
       "stderr": ""
     },
     "python_mapping_bad_with_dir": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.python has unknown keys: ['x']",
-        "audio/acme_widget.avcdriver: discovery.python.file must be a non-empty string"
+      "contract": [
+        "discovery.python.file must be a non-empty string",
+        "discovery.python has unknown keys: ['x']"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': True, 'hostname': []}",
       "stderr": ""
     },
     "python_mapping_cross_vendor_bad": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.python.cross_vendor must be a bool"
+      "contract": [
+        "discovery.python.cross_vendor must be a bool"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': True, 'hostname': []}",
       "stderr": ""
     },
     "python_mapping_file_empty": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.python.file must be a non-empty string"
+      "contract": [
+        "discovery.python.file must be a non-empty string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': True, 'hostname': []}",
       "stderr": ""
     },
     "python_mapping_file_number": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.python.file must be a non-empty string"
+      "contract": [
+        "discovery.python.file must be a non-empty string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': True, 'hostname': []}",
       "stderr": ""
     },
     "python_mapping_missing_companion": {
+      "contract": [],
       "errors": [
-        "audio/acme_widget.avcdriver: discovery.python.file='missing.py' but no such file exists at <dir>/missing.py \u2014 drivers must ship the sibling _discovery.py companion alongside the .avcdriver"
+        "audio/acme_widget.avcdriver: discovery.python.file='missing.py' but no such file exists at <dir>/missing.py; drivers must ship the sibling _discovery.py companion alongside the .avcdriver"
       ],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': True, 'hostname': []}",
       "stderr": ""
     },
     "python_mapping_no_file": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.python.file must be a non-empty string"
+      "contract": [
+        "discovery.python.file must be a non-empty string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': True, 'hostname': []}",
       "stderr": ""
     },
     "python_mapping_ok": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': True, 'hostname': []}",
       "stderr": ""
     },
     "python_mapping_present_companion": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': True, 'hostname': []}",
       "stderr": ""
     },
     "python_mapping_unknown": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.python has unknown keys: ['module']"
+      "contract": [
+        "discovery.python has unknown keys: ['module']"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': True, 'hostname': []}",
       "stderr": ""
     },
     "python_none": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.python must be a string path or {file, cross_vendor} mapping"
+      "contract": [
+        "discovery.python must be a path string or a {file, cross_vendor} mapping, got NoneType"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': True, 'hostname': []}",
       "stderr": ""
     },
     "python_number": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.python must be a string path or {file, cross_vendor} mapping"
+      "contract": [
+        "discovery.python must be a path string or a {file, cross_vendor} mapping, got int"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': True, 'hostname': []}",
       "stderr": ""
     },
     "python_string": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': True, 'hostname': []}",
       "stderr": ""
     },
     "python_string_empty": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.python path must be a non-empty string"
+      "contract": [
+        "discovery.python path must be a non-empty string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': True, 'hostname': []}",
       "stderr": ""
     },
     "python_string_missing_companion": {
+      "contract": [],
       "errors": [
-        "audio/acme_widget.avcdriver: discovery.python.file='./missing_discovery.py' but no such file exists at <dir>/missing_discovery.py \u2014 drivers must ship the sibling _discovery.py companion alongside the .avcdriver"
+        "audio/acme_widget.avcdriver: discovery.python.file='./missing_discovery.py' but no such file exists at <dir>/missing_discovery.py; drivers must ship the sibling _discovery.py companion alongside the .avcdriver"
       ],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': True, 'hostname': []}",
       "stderr": ""
     },
     "python_string_present_companion": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': True, 'hostname': []}",
       "stderr": ""
     },
     "requires_empty": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.requires must be a version string like \"0.23.0\", got ''"
+      "contract": [
+        "discovery.requires must be a version string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "requires_number": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.requires must be a version string like \"0.23.0\", got 23"
+      "contract": [
+        "discovery.requires must be a version string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "requires_only": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
     },
     "requires_suffix": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "requires_valid": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "requires_word": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.requires must be a version string like \"0.23.0\", got 'latest'"
+      "contract": [
+        "discovery.requires must be a version string like \"0.23.0\", got 'latest'"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "signal_bad_amx_entry_only": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.amx_ddp entries must be mappings"
+      "contract": [
+        "discovery.amx_ddp entry must be a mapping, got str"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "stderr": ""
     },
     "signal_bad_lists_only": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.oui must be a list",
-        "audio/acme_widget.avcdriver: discovery.hostname must be a list",
-        "audio/acme_widget.avcdriver: discovery.port_open must be a list",
-        "audio/acme_widget.avcdriver: discovery.manufacturer_alias must be a list"
+      "contract": [
+        "discovery.oui must be a list",
+        "discovery.hostname must be a list",
+        "discovery.port_open must be a list",
+        "discovery.manufacturer_alias must be a list"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "stderr": ""
     },
     "signal_bad_mdns_entry_only": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.mdns entries must be strings or {service, txt, cross_vendor} mappings"
+      "contract": [
+        "discovery.mdns entry must be a service-type string or a {service, txt, cross_vendor} mapping, got int"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "stderr": ""
     },
     "signal_bad_ssdp_entry_only": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.ssdp.device_type must be a non-empty string"
+      "contract": [
+        "discovery.ssdp.device_type must be a non-empty string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "stderr": ""
     },
     "signal_only_alias": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "signal_only_amx": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [{'make': 'A', 'model_pattern': '*'}], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "signal_only_bad_hostname": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.hostname entries must be non-empty strings, got 5"
+      "contract": [
+        "discovery.hostname entries must be non-empty strings"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "signal_only_bad_port_open": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.port_open entries must be integers, got 'x'"
+      "contract": [
+        "discovery.port_open entries must be integers, got 'x'"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "signal_only_bad_python": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.python must be a string path or {file, cross_vendor} mapping"
+      "contract": [
+        "discovery.python must be a path string or a {file, cross_vendor} mapping, got int"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': True, 'hostname': []}",
       "stderr": ""
     },
     "signal_only_bad_snmp": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.snmp_pen must be a positive integer"
+      "contract": [
+        "discovery.snmp_pen must be an integer"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "signal_only_bad_tcp_probe": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe must be a mapping"
+      "contract": [
+        "discovery.tcp_probe must be a mapping, got int"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "signal_only_hostname": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': ['^a']}",
       "stderr": ""
     },
     "signal_only_mdns": {
+      "contract": [],
       "errors": [],
-      "normalized": "{'mdns': [{'service': '_a._tcp', 'txt': {}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "normalized": "{'mdns': [{'service': '_a._tcp.', 'txt': {}}], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "signal_only_oui": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "signal_only_port_open": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "signal_only_python": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': True, 'hostname': []}",
       "stderr": ""
     },
     "signal_only_snmp": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "signal_only_ssdp": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [{'device_type': 'urn:a', 'fields': {}}], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "signal_only_tcp_probe": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "signal_only_udp_probe": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': True, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "snmp_bool": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.snmp_pen must be a positive integer"
+      "contract": [
+        "discovery.snmp_pen must be an integer"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "snmp_none": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.snmp_pen must be a positive integer"
+      "contract": [
+        "discovery.snmp_pen must be an integer"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "snmp_ok": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "snmp_string": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.snmp_pen must be a positive integer"
+      "contract": [
+        "discovery.snmp_pen must be an integer"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "snmp_zero": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.snmp_pen must be a positive integer"
+      "contract": [
+        "discovery.snmp_pen must be >= 1 (got 0)"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "ssdp_cross_vendor_bad": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.ssdp.cross_vendor must be a bool"
+      "contract": [
+        "discovery.ssdp.cross_vendor must be a bool"
       ],
-      "normalized": "{'mdns': [], 'ssdp': [{'device_type': 'urn:x', 'fields': {}}], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "errors": [],
+      "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "ssdp_cross_vendor_ok": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [{'device_type': 'urn:x', 'fields': {}}], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "ssdp_device_type_number": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.ssdp.device_type must be a non-empty string"
+      "contract": [
+        "discovery.ssdp.device_type must be a non-empty string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "stderr": ""
     },
     "ssdp_empty_string": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.ssdp device_type must be a non-empty string"
+      "contract": [
+        "discovery.ssdp device_type must be a non-empty string"
       ],
-      "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "errors": [],
+      "normalized": "{'mdns': [], 'ssdp': [{'device_type': '', 'fields': {}}], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "stderr": ""
     },
     "ssdp_filter_empty": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.ssdp.model must be a non-empty string"
+      "contract": [
+        "discovery.ssdp.model must be a non-empty string"
       ],
-      "normalized": "{'mdns': [], 'ssdp': [{'device_type': 'urn:x', 'fields': {'manufacturer': 'A'}}], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "errors": [],
+      "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "ssdp_filter_none_skipped": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [{'device_type': 'urn:x', 'fields': {}}], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "ssdp_filter_number": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.ssdp.friendly_name must be a non-empty string"
+      "contract": [
+        "discovery.ssdp.friendly_name must be a non-empty string"
       ],
-      "normalized": "{'mdns': [], 'ssdp': [{'device_type': 'urn:x', 'fields': {}}], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "errors": [],
+      "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "ssdp_list_mixed": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.ssdp entries must be strings or {device_type, model, manufacturer, friendly_name, cross_vendor} mappings",
-        "audio/acme_widget.avcdriver: discovery.ssdp device_type must be a non-empty string"
+      "contract": [
+        "discovery.ssdp entry must be a device-type string or a {device_type, model, manufacturer, friendly_name, cross_vendor} mapping, got list",
+        "discovery.ssdp device_type must be a non-empty string"
       ],
-      "normalized": "{'mdns': [], 'ssdp': [{'device_type': 'urn:a', 'fields': {}}, {'device_type': 'urn:b', 'fields': {'model': 'M'}}], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "errors": [],
+      "normalized": "{'mdns': [], 'ssdp': [{'device_type': 'urn:a', 'fields': {}}, {'device_type': 'urn:b', 'fields': {'model': 'M'}}, {'device_type': '', 'fields': {}}], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "ssdp_mapping_filters": {
+      "contract": [],
       "errors": [],
-      "normalized": "{'mdns': [], 'ssdp': [{'device_type': 'urn:x', 'fields': {'model': 'W1', 'manufacturer': 'Acme', 'friendly_name': 'Widget'}}], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
+      "normalized": "{'mdns': [], 'ssdp': [{'device_type': 'urn:x', 'fields': {'friendly_name': 'Widget', 'manufacturer': 'Acme', 'model': 'W1'}}], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "ssdp_no_device_type": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.ssdp.device_type must be a non-empty string"
+      "contract": [
+        "discovery.ssdp.device_type must be a non-empty string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "stderr": ""
     },
     "ssdp_number": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.ssdp entries must be strings or {device_type, model, manufacturer, friendly_name, cross_vendor} mappings"
+      "contract": [
+        "discovery.ssdp entry must be a device-type string or a {device_type, model, manufacturer, friendly_name, cross_vendor} mapping, got int"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
-      "stderr": "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+      "stderr": ""
     },
     "ssdp_string": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [{'device_type': 'urn:acme:device:Widget:1', 'fields': {}}], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "ssdp_unknown": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.ssdp entry has unknown keys: ['serial']"
+      "contract": [
+        "discovery.ssdp entry has unknown keys: ['serial']"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [{'device_type': 'urn:x', 'fields': {}}], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_banner_ok": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_cert_subject_unchecked": {
+      "contract": [
+        "discovery.tcp_probe.cert_subject requires tls: true (the certificate is only read on a TLS probe)"
+      ],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_cross_vendor_bad": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.cross_vendor must be a bool"
+      "contract": [
+        "discovery.tcp_probe.cross_vendor must be a bool"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_cross_vendor_none": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.cross_vendor must be a bool"
-      ],
+      "contract": [],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_cross_vendor_ok": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_everything_wrong": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe has unknown keys: ['bogus']",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.port must be an integer in [1, 65535]",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe declares both send_hex and send_ascii \u2014 pick one",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.send_hex is not valid hex: non-hexadecimal number found in fromhex() arg at position 0",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.send_ascii must be a string",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe declares multiple matchers (expect, expect_regex, expect_hex) \u2014 pick exactly one of expect, expect_regex, or expect_hex",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.expect must be a non-empty string",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.expect_regex failed to compile: missing ), unterminated subpattern at position 0",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.expect_hex must be a string",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.timeout_ms must be a positive integer",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.cross_vendor must be a bool",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.tls must be a bool",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.reply_port is only valid on a udp_probe (a tcp_probe's answer comes back on its own connection)",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract.model.regex failed to compile: missing ), unterminated subpattern at position 0",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.extract_manufacturer must be a non-empty string",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.then must be a mapping"
+      "contract": [
+        "discovery.tcp_probe.port must be an integer",
+        "discovery.tcp_probe declares both send_hex and send_ascii; pick one",
+        "discovery.tcp_probe declares multiple matchers (expect, expect_regex, expect_hex); pick exactly one of expect, expect_regex, or expect_hex",
+        "discovery.tcp_probe.timeout_ms must be >= 1 (got 0)",
+        "discovery.tcp_probe.cross_vendor must be a bool",
+        "discovery.tcp_probe.tls must be a bool",
+        "discovery.tcp_probe.extract.model.regex failed to compile: missing ), unterminated subpattern at position 0",
+        "discovery.tcp_probe.extract_manufacturer must be a non-empty string",
+        "discovery.tcp_probe.then must be a mapping, got int",
+        "discovery.tcp_probe.reply_port is only valid on a udp_probe (a tcp_probe's answer comes back on its own connection)",
+        "discovery.tcp_probe has unknown keys: ['bogus']"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_expect_empty": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.expect must be a non-empty string"
+      "contract": [
+        "discovery.tcp_probe.expect must be a non-empty string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_expect_hex_bad": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.expect_hex is not valid hex: non-hexadecimal number found in fromhex() arg at position 1"
+      "contract": [
+        "discovery.tcp_probe.expect_hex is not valid hex: non-hexadecimal number found in fromhex() arg at position 1"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_expect_hex_empty": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_expect_hex_number": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.expect_hex must be a string"
+      "contract": [
+        "discovery.tcp_probe.expect_hex must be a string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_expect_hex_ok": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_expect_number": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.expect must be a non-empty string"
+      "contract": [
+        "discovery.tcp_probe.expect must be a non-empty string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_expect_regex_bad": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.expect_regex failed to compile: missing ), unterminated subpattern at position 0"
+      "contract": [
+        "discovery.tcp_probe.expect_regex failed to compile: missing ), unterminated subpattern at position 0"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_expect_regex_empty": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.expect_regex must be a non-empty string"
+      "contract": [
+        "discovery.tcp_probe.expect_regex must be a non-empty string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_expect_regex_number": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.expect_regex must be a non-empty string"
+      "contract": [
+        "discovery.tcp_probe.expect_regex must be a non-empty string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_expect_regex_ok": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_matcher_none_values": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe sends bytes but declares no matcher \u2014 add exactly one of expect, expect_regex, or expect_hex"
+      "contract": [
+        "discovery.tcp_probe sends bytes but declares no matcher; add expect, expect_regex, or expect_hex"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_matchers_three": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe declares multiple matchers (expect, expect_regex, expect_hex) \u2014 pick exactly one of expect, expect_regex, or expect_hex",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.expect_regex failed to compile: missing ), unterminated subpattern at position 0",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.expect_hex is not valid hex: non-hexadecimal number found in fromhex() arg at position 0"
+      "contract": [
+        "discovery.tcp_probe declares multiple matchers (expect, expect_regex, expect_hex); pick exactly one of expect, expect_regex, or expect_hex"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_matchers_two": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe declares multiple matchers (expect, expect_regex) \u2014 pick exactly one of expect, expect_regex, or expect_hex"
+      "contract": [
+        "discovery.tcp_probe declares multiple matchers (expect, expect_regex); pick exactly one of expect, expect_regex, or expect_hex"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_port_bool": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.port must be an integer in [1, 65535]"
+      "contract": [
+        "discovery.tcp_probe.port must be an integer"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_port_high": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.port must be an integer in [1, 65535]"
+      "contract": [
+        "discovery.tcp_probe.port must be <= 65535 (got 65536)"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_port_max": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_port_missing": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.port must be an integer in [1, 65535]"
+      "contract": [
+        "discovery.tcp_probe.port must be an integer"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_port_string": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.port must be an integer in [1, 65535]"
+      "contract": [
+        "discovery.tcp_probe.port must be an integer"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_port_zero": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.port must be an integer in [1, 65535]"
+      "contract": [
+        "discovery.tcp_probe.port must be >= 1 (got 0)"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_probe_none": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe must be a mapping"
+      "contract": [
+        "discovery.tcp_probe must be a mapping, got NoneType"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_probe_string": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe must be a mapping"
+      "contract": [
+        "discovery.tcp_probe must be a mapping, got str"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_reply_port": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.reply_port is only valid on a udp_probe (a tcp_probe's answer comes back on its own connection)"
+      "contract": [
+        "discovery.tcp_probe.reply_port is only valid on a udp_probe (a tcp_probe's answer comes back on its own connection)"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_reply_port_none": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_send_ascii_number": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.send_ascii must be a string"
+      "contract": [
+        "discovery.tcp_probe.send_ascii must be a string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_send_ascii_ok": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_send_both": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe declares both send_hex and send_ascii \u2014 pick one"
+      "contract": [
+        "discovery.tcp_probe declares both send_hex and send_ascii; pick one"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_send_both_bad": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe declares both send_hex and send_ascii \u2014 pick one",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.send_hex must be a string",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.send_ascii must be a string"
+      "contract": [
+        "discovery.tcp_probe declares both send_hex and send_ascii; pick one"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_send_empty_ascii": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_send_hex_bad": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.send_hex is not valid hex: non-hexadecimal number found in fromhex() arg at position 0"
+      "contract": [
+        "discovery.tcp_probe.send_hex is not valid hex: non-hexadecimal number found in fromhex() arg at position 0"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_send_hex_no_matcher": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe sends bytes but declares no matcher \u2014 add exactly one of expect, expect_regex, or expect_hex"
+      "contract": [
+        "discovery.tcp_probe sends bytes but declares no matcher; add expect, expect_regex, or expect_hex"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_send_hex_number": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.send_hex must be a string"
+      "contract": [
+        "discovery.tcp_probe.send_hex must be a string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_send_hex_odd": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.send_hex is not valid hex: non-hexadecimal number found in fromhex() arg at position 3"
+      "contract": [
+        "discovery.tcp_probe.send_hex is not valid hex: non-hexadecimal number found in fromhex() arg at position 3"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_send_hex_ok_spaced": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_send_no_matcher": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe sends bytes but declares no matcher \u2014 add exactly one of expect, expect_regex, or expect_hex"
+      "contract": [
+        "discovery.tcp_probe sends bytes but declares no matcher; add expect, expect_regex, or expect_hex"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_send_none_values": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_timeout_bool": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.timeout_ms must be a positive integer"
+      "contract": [
+        "discovery.tcp_probe.timeout_ms must be an integer"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_timeout_float": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.timeout_ms must be a positive integer"
+      "contract": [
+        "discovery.tcp_probe.timeout_ms must be an integer"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_timeout_negative": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.timeout_ms must be a positive integer"
+      "contract": [
+        "discovery.tcp_probe.timeout_ms must be >= 1 (got -5)"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_timeout_none": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_timeout_ok": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_timeout_over": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.timeout_ms exceeds the max of 10000 ms"
+      "contract": [
+        "discovery.tcp_probe.timeout_ms must be <= 10000 (got 10001)"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_timeout_zero": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.timeout_ms must be a positive integer"
+      "contract": [
+        "discovery.tcp_probe.timeout_ms must be >= 1 (got 0)"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_tls_bad": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.tls must be a bool"
+      "contract": [
+        "discovery.tcp_probe.tls must be a bool"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_tls_false": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_tls_none": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.tls must be a bool"
-      ],
+      "contract": [],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_tls_true": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "tcp_unknown_keys": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe has unknown keys: ['expect_text', 'sned']"
+      "contract": [
+        "discovery.tcp_probe has unknown keys: ['expect_text', 'sned']"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_both_sends": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.then declares both send_hex and send_ascii \u2014 pick one"
+      "contract": [
+        "discovery.tcp_probe.then declares both send_hex and send_ascii; pick one"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_contents_unchecked": {
+      "contract": [
+        "discovery.tcp_probe.then.send_hex is not valid hex: non-hexadecimal number found in fromhex() arg at position 0",
+        "discovery.tcp_probe.then declares multiple matchers (expect, expect_regex); pick exactly one of expect, expect_regex, or expect_hex"
+      ],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_empty": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.then must declare send_ascii or send_hex (a follow-up step has to ask something)",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.then declares no expectation \u2014 add expect_silence: true, or expect / expect_regex / expect_hex"
+      "contract": [
+        "discovery.tcp_probe.then must declare send_ascii or send_hex (a follow-up step has to ask something)",
+        "discovery.tcp_probe.then declares no expectation; add expect_silence: true, or expect / expect_regex / expect_hex"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_everything_wrong": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.then has unknown keys: ['bogus']",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.then must declare send_ascii or send_hex (a follow-up step has to ask something)",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.then.expect_silence must be a bool",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.then.timeout_ms must be a positive integer"
+      "contract": [
+        "discovery.tcp_probe.then must declare send_ascii or send_hex (a follow-up step has to ask something)",
+        "discovery.tcp_probe.then.expect_silence must be a bool",
+        "discovery.tcp_probe.then.timeout_ms must be >= 1 (got 0)",
+        "discovery.tcp_probe.then has unknown keys: ['bogus']"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_match_ok": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_none": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_on_udp": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.udp_probe.then is only valid on a tcp_probe"
+      "contract": [
+        "discovery.udp_probe.then is only valid on a tcp_probe"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': True, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_on_udp_not_mapping": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.udp_probe.then is only valid on a tcp_probe"
+      "contract": [
+        "discovery.udp_probe.then is only valid on a tcp_probe"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': True, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_send_none": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.then must declare send_ascii or send_hex (a follow-up step has to ask something)"
+      "contract": [
+        "discovery.tcp_probe.then must declare send_ascii or send_hex (a follow-up step has to ask something)"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_silence_and_match": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.then declares both expect_silence and a matcher \u2014 a step that expects no answer cannot also match one"
+      "contract": [
+        "discovery.tcp_probe.then declares both expect_silence and a matcher; a step that expects no answer cannot also match one"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_silence_bad": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.then.expect_silence must be a bool"
+      "contract": [
+        "discovery.tcp_probe.then.expect_silence must be a bool"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_silence_false_match": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_silence_false_no_match": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.then declares no expectation \u2014 add expect_silence: true, or expect / expect_regex / expect_hex"
+      "contract": [
+        "discovery.tcp_probe.then declares no expectation; add expect_silence: true, or expect / expect_regex / expect_hex"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_silence_none_match": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_silence_number_with_match": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.then.expect_silence must be a bool",
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.then declares both expect_silence and a matcher \u2014 a step that expects no answer cannot also match one"
+      "contract": [
+        "discovery.tcp_probe.then.expect_silence must be a bool"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_silence_ok": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_silence_zero_with_match": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.then.expect_silence must be a bool"
+      "contract": [
+        "discovery.tcp_probe.then.expect_silence must be a bool"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_string": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.then must be a mapping"
+      "contract": [
+        "discovery.tcp_probe.then must be a mapping, got str"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_timeout_bool": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.then.timeout_ms must be a positive integer"
+      "contract": [
+        "discovery.tcp_probe.then.timeout_ms must be an integer"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_timeout_ok": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_timeout_over": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.then.timeout_ms must not exceed 10000 ms"
+      "contract": [
+        "discovery.tcp_probe.then.timeout_ms must be <= 10000 (got 10001)"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_timeout_string": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.then.timeout_ms must be a positive integer"
+      "contract": [
+        "discovery.tcp_probe.then.timeout_ms must be an integer"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_timeout_true": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.then.timeout_ms must be a positive integer"
+      "contract": [
+        "discovery.tcp_probe.then.timeout_ms must be an integer"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_timeout_zero": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.then.timeout_ms must be a positive integer"
+      "contract": [
+        "discovery.tcp_probe.then.timeout_ms must be >= 1 (got 0)"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "then_unknown": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.tcp_probe.then has unknown keys: ['port', 'wait']"
+      "contract": [
+        "discovery.tcp_probe.then has unknown keys: ['port', 'wait']"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': True, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "udp_everything_wrong": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.udp_probe has unknown keys: ['bogus']",
-        "audio/acme_widget.avcdriver: discovery.udp_probe.port must be an integer in [1, 65535]",
-        "audio/acme_widget.avcdriver: discovery.udp_probe must declare send_ascii or send_hex (UDP probes need a query payload)",
-        "audio/acme_widget.avcdriver: discovery.udp_probe needs exactly one of expect, expect_regex, expect_hex",
-        "audio/acme_widget.avcdriver: discovery.udp_probe.timeout_ms exceeds the max of 10000 ms",
-        "audio/acme_widget.avcdriver: discovery.udp_probe.cross_vendor must be a bool",
-        "audio/acme_widget.avcdriver: discovery.udp_probe.tls is only valid on a tcp_probe",
-        "audio/acme_widget.avcdriver: discovery.udp_probe.reply_port must be an integer in [1, 65535]",
-        "audio/acme_widget.avcdriver: discovery.udp_probe.extract must be a mapping of field name to literal string or {regex, group} mapping",
-        "audio/acme_widget.avcdriver: discovery.udp_probe.then is only valid on a tcp_probe"
+      "contract": [
+        "discovery.udp_probe.port must be >= 1 (got 0)",
+        "discovery.udp_probe must declare send_ascii or send_hex (UDP probes need a query payload)",
+        "discovery.udp_probe.timeout_ms must be <= 10000 (got 99999)",
+        "discovery.udp_probe.cross_vendor must be a bool",
+        "discovery.udp_probe.tls is only valid on a tcp_probe",
+        "discovery.udp_probe.extract must be a mapping",
+        "discovery.udp_probe.then is only valid on a tcp_probe",
+        "discovery.udp_probe.reply_port must be an integer",
+        "discovery.udp_probe has unknown keys: ['bogus']"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': True, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "udp_expect_bad_is_still_a_matcher": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.udp_probe.expect must be a non-empty string"
+      "contract": [
+        "discovery.udp_probe.expect must be a non-empty string"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': True, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "udp_matchers_two": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.udp_probe declares multiple matchers (expect, expect_hex) \u2014 pick exactly one of expect, expect_regex, or expect_hex"
+      "contract": [
+        "discovery.udp_probe declares multiple matchers (expect, expect_hex); pick exactly one of expect, expect_regex, or expect_hex"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': True, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "udp_no_send": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.udp_probe must declare send_ascii or send_hex (UDP probes need a query payload)"
+      "contract": [
+        "discovery.udp_probe must declare send_ascii or send_hex (UDP probes need a query payload)"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': True, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "udp_no_send_no_matcher": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.udp_probe must declare send_ascii or send_hex (UDP probes need a query payload)",
-        "audio/acme_widget.avcdriver: discovery.udp_probe needs exactly one of expect, expect_regex, expect_hex"
+      "contract": [
+        "discovery.udp_probe must declare send_ascii or send_hex (UDP probes need a query payload)"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': True, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "udp_ok": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': True, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "udp_probe_list": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.udp_probe must be a mapping"
+      "contract": [
+        "discovery.udp_probe must be a mapping, got list"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': True, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "udp_reply_port_bool": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.udp_probe.reply_port must be an integer in [1, 65535]"
+      "contract": [
+        "discovery.udp_probe.reply_port must be an integer"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': True, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "udp_reply_port_high": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.udp_probe.reply_port must be an integer in [1, 65535]"
+      "contract": [
+        "discovery.udp_probe.reply_port must be <= 65535 (got 70000)"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': True, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "udp_reply_port_ok": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': True, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "udp_reply_port_string": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.udp_probe.reply_port must be an integer in [1, 65535]"
+      "contract": [
+        "discovery.udp_probe.reply_port must be an integer"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': True, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "udp_reply_port_zero": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.udp_probe.reply_port must be an integer in [1, 65535]"
+      "contract": [
+        "discovery.udp_probe.reply_port must be >= 1 (got 0)"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': True, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "udp_tls_bad": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.udp_probe.tls must be a bool"
+      "contract": [
+        "discovery.udp_probe.tls must be a bool"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': True, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "udp_tls_false": {
+      "contract": [],
       "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': True, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "udp_tls_true": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery.udp_probe.tls is only valid on a tcp_probe"
+      "contract": [
+        "discovery.udp_probe.tls is only valid on a tcp_probe"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': True, 'has_python': False, 'hostname': []}",
       "stderr": ""
     },
     "unknown_keys": {
-      "errors": [
-        "audio/acme_widget.avcdriver: discovery has unknown keys: ['mdsn', 'zeta']. Known keys: ['amx_ddp', 'hostname', 'manufacturer_alias', 'mdns', 'oui', 'port_open', 'python', 'requires', 'snmp_pen', 'ssdp', 'tcp_probe', 'udp_probe']"
+      "contract": [
+        "discovery has unknown keys: ['mdsn', 'zeta']. Known keys: ['amx_ddp', 'hostname', 'manufacturer_alias', 'mdns', 'oui', 'port_open', 'python', 'requires', 'snmp_pen', 'ssdp', 'tcp_probe', 'udp_probe']",
+        "discovery: unknown key 'mdsn' (did you mean 'mdns'?)",
+        "discovery: unknown key 'zeta'"
       ],
+      "errors": [],
       "normalized": "{'mdns': [], 'ssdp': [], 'amx_ddp': [], 'has_tcp_probe': False, 'has_udp_probe': False, 'has_python': False, 'hostname': []}",
       "stderr": ""
     }
@@ -1619,7 +1852,7 @@
     "generic_and_bad_blocks_skipped": {
       "collisions": [],
       "errors": [
-        "audio/driver_1.avcdriver: discovery: must be a mapping"
+        "audio/driver_1.avcdriver: 'discovery' must be a mapping, got list"
       ],
       "locator": [],
       "stderr": ""
@@ -1637,8 +1870,8 @@
     "host_bad_entries_skipped": {
       "collisions": [],
       "errors": [
-        "audio/driver_0.avcdriver: discovery.hostname entries must be non-empty strings, got ''",
-        "audio/driver_1.avcdriver: discovery.hostname entries must be non-empty strings, got ''"
+        "audio/driver_0.avcdriver: discovery.hostname entries must be non-empty strings",
+        "audio/driver_1.avcdriver: discovery.hostname entries must be non-empty strings"
       ],
       "locator": [],
       "stderr": ""
@@ -1646,9 +1879,9 @@
     "host_bad_fingerprints_do_not_count": {
       "collisions": [],
       "errors": [
-        "audio/driver_0.avcdriver: discovery.mdns entries must be strings or {service, txt, cross_vendor} mappings",
+        "audio/driver_0.avcdriver: discovery.mdns entry must be a service-type string or a {service, txt, cross_vendor} mapping, got int",
         "audio/driver_0.avcdriver: discovery.ssdp.device_type must be a non-empty string",
-        "audio/driver_0.avcdriver: discovery.amx_ddp entries must be mappings"
+        "audio/driver_0.avcdriver: discovery.amx_ddp entry must be a mapping, got str"
       ],
       "locator": [
         "Locator ambiguity: 'acme_one' (audio/driver_0.avcdriver) shares the hostname pattern '^a-' with ['acme_two'] but declares no pre-install fingerprint (tcp_probe / udp_probe / mdns / ssdp / amx_ddp). An uninstalled device matching that hostname can't be told apart from its siblings; a python: companion only runs once the driver is installed, so it can't disambiguate first. Add a declarative fingerprint (e.g. a tcp_probe matching this driver's banner token).",
@@ -1659,7 +1892,7 @@
     "host_bad_probe_still_counts": {
       "collisions": [],
       "errors": [
-        "audio/driver_0.avcdriver: discovery.tcp_probe must be a mapping"
+        "audio/driver_0.avcdriver: discovery.tcp_probe must be a mapping, got str"
       ],
       "locator": [
         "Locator ambiguity: 'acme_two' (audio/driver_1.avcdriver) shares the hostname pattern '^a-' with ['acme_one'] but declares no pre-install fingerprint (tcp_probe / udp_probe / mdns / ssdp / amx_ddp). An uninstalled device matching that hostname can't be told apart from its siblings; a python: companion only runs once the driver is installed, so it can't disambiguate first. Add a declarative fingerprint (e.g. a tcp_probe matching this driver's banner token)."

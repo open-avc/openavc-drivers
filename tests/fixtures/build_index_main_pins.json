@@ -999,10 +999,6 @@
       "rc": 1,
       "transcript": [
         [
-          "err",
-          "warning: audio/acme_amp.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: displays/acme_old.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
-        ],
-        [
           "out",
           "Validated 4 driver(s), 5 device(s).\n"
         ],
@@ -1275,10 +1271,6 @@
       "rc": 0,
       "transcript": [
         [
-          "err",
-          "warning: displays/acme_old.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
-        ],
-        [
           "out",
           "Validated 4 driver(s), 7 device(s).\nWrote index.json, devices.json, and 20 category shard files.\n"
         ]
@@ -1548,7 +1540,7 @@
       "transcript": [
         [
           "err",
-          "WARNING: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt), skipping schema validation.\nwarning: displays/acme_old.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+          "WARNING: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt), skipping schema validation.\n"
         ],
         [
           "out",
@@ -1562,10 +1554,6 @@
       "rc": 0,
       "transcript": [
         [
-          "err",
-          "warning: displays/acme_old.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
-        ],
-        [
           "out",
           "Validated 4 driver(s), 7 device(s).\nCatalog is up to date with the driver files.\n"
         ]
@@ -1576,10 +1564,6 @@
       "raised": null,
       "rc": 0,
       "transcript": [
-        [
-          "err",
-          "warning: audio/acme_amp.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: displays/acme_old.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
-        ],
         [
           "out",
           "Validated 4 driver(s), 5 device(s).\n"
@@ -1592,10 +1576,6 @@
       "rc": 0,
       "transcript": [
         [
-          "err",
-          "warning: displays/acme_old.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
-        ],
-        [
           "out",
           "Validated 4 driver(s), 7 device(s).\n"
         ]
@@ -1606,10 +1586,6 @@
       "raised": null,
       "rc": 1,
       "transcript": [
-        [
-          "err",
-          "warning: displays/acme_old.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
-        ],
         [
           "out",
           "Validated 4 driver(s), 7 device(s).\n"
@@ -1625,10 +1601,6 @@
       "raised": null,
       "rc": 1,
       "transcript": [
-        [
-          "err",
-          "warning: audio/acme_amp.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: displays/acme_old.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
-        ],
         [
           "out",
           "Validated 4 driver(s), 5 device(s).\n"
@@ -1657,7 +1629,7 @@
       "transcript": [
         [
           "err",
-          "WARNING: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt), skipping schema validation.\n\nFAILED: 12 validation error(s):\n\n  - audio/acme_c1.avcdriver: discovery.python has unknown keys: ['extra']\n  - audio/acme_c10.avcdriver: discovery.python must be a string path or {file, cross_vendor} mapping\n  - audio/acme_c2.avcdriver: discovery.python.file must be a non-empty string\n  - audio/acme_c3.avcdriver: discovery.python.file must be a non-empty string\n  - audio/acme_c4.avcdriver: discovery.python.file must be a non-empty string\n  - audio/acme_c5.avcdriver: discovery.python path must be a non-empty string\n  - audio/acme_c6.avcdriver: discovery.python.file='missing_discovery.py' but no such file exists at <root>/audio/missing_discovery.py \u2014 drivers must ship the sibling _discovery.py companion alongside the .avcdriver\n  - audio/acme_c7.avcdriver: discovery.python.file='a_dir_discovery.py' but no such file exists at <root>/audio/a_dir_discovery.py \u2014 drivers must ship the sibling _discovery.py companion alongside the .avcdriver\n  - audio/acme_c8.avcdriver: discovery.python must be a string path or {file, cross_vendor} mapping\n  - audio/acme_c9.avcdriver: discovery.python must be a string path or {file, cross_vendor} mapping\n  - audio/acme_cx.avcdriver: discovery: Input should be a valid dictionary\n  - audio/acme_cx.avcdriver: discovery: must be a mapping\n"
+          "WARNING: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt), skipping schema validation.\n\nFAILED: 12 validation error(s):\n\n  - audio/acme_c1.avcdriver: discovery.python has unknown keys: ['extra']\n  - audio/acme_c10.avcdriver: discovery.python must be a path string or a {file, cross_vendor} mapping, got int\n  - audio/acme_c2.avcdriver: discovery.python.file must be a non-empty string\n  - audio/acme_c3.avcdriver: discovery.python.file must be a non-empty string\n  - audio/acme_c4.avcdriver: discovery.python.file must be a non-empty string\n  - audio/acme_c5.avcdriver: discovery.python path must be a non-empty string\n  - audio/acme_c6.avcdriver: discovery.python.file='missing_discovery.py' but no such file exists at <root>/audio/missing_discovery.py; drivers must ship the sibling _discovery.py companion alongside the .avcdriver\n  - audio/acme_c7.avcdriver: discovery.python.file='a_dir_discovery.py' but no such file exists at <root>/audio/a_dir_discovery.py; drivers must ship the sibling _discovery.py companion alongside the .avcdriver\n  - audio/acme_c8.avcdriver: discovery.python must be a path string or a {file, cross_vendor} mapping, got list\n  - audio/acme_c9.avcdriver: discovery.python must be a path string or a {file, cross_vendor} mapping, got NoneType\n  - audio/acme_cx.avcdriver: discovery: Input should be a valid dictionary\n  - audio/acme_cx.avcdriver: 'discovery' must be a mapping, got list\n"
         ]
       ]
     },
@@ -1668,7 +1640,7 @@
       "transcript": [
         [
           "err",
-          "warning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n\nFAILED: 1 validation error(s):\n\n  - projectors/acme_py.py: <root>/projectors/acme_py_sim.py: file contains CRLF line endings, so its checksum would not match the bytes GitHub serves and the platform would refuse to install it.\n    Renormalize this checkout, then rebuild:\n        git add --renormalize .\n        git rm -r --cached . && git reset --hard\n        python scripts/build_index.py\n"
+          "\nFAILED: 1 validation error(s):\n\n  - projectors/acme_py.py: <root>/projectors/acme_py_sim.py: file contains CRLF line endings, so its checksum would not match the bytes GitHub serves and the platform would refuse to install it.\n    Renormalize this checkout, then rebuild:\n        git add --renormalize .\n        git rm -r --cached . && git reset --hard\n        python scripts/build_index.py\n"
         ]
       ]
     },
@@ -1679,7 +1651,7 @@
       "transcript": [
         [
           "err",
-          "warning: audio/acme_fine.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n\nFAILED: 3 validation error(s):\n\n  - audio/acme_widget.avcdriver: <root>/audio/acme_widget.avcdriver: file contains CRLF line endings, so its checksum would not match the bytes GitHub serves and the platform would refuse to install it.\n    Renormalize this checkout, then rebuild:\n        git add --renormalize .\n        git rm -r --cached . && git reset --hard\n        python scripts/build_index.py\n  - audio/acme_widget.avcdriver: Command 'go': must have 'send' (TCP/serial), 'path'/'method' (HTTP), 'address' (OSC), or 'udp' (a datagram beside the main transport)\n  - audio/acme_widget.avcdriver: commands.go: unknown key 'sned' (did you mean 'send'?)\n"
+          "\nFAILED: 3 validation error(s):\n\n  - audio/acme_widget.avcdriver: <root>/audio/acme_widget.avcdriver: file contains CRLF line endings, so its checksum would not match the bytes GitHub serves and the platform would refuse to install it.\n    Renormalize this checkout, then rebuild:\n        git add --renormalize .\n        git rm -r --cached . && git reset --hard\n        python scripts/build_index.py\n  - audio/acme_widget.avcdriver: Command 'go': must have 'send' (TCP/serial), 'path'/'method' (HTTP), 'address' (OSC), or 'udp' (a datagram beside the main transport)\n  - audio/acme_widget.avcdriver: commands.go: unknown key 'sned' (did you mean 'send'?)\n"
         ]
       ]
     },
@@ -1744,10 +1716,6 @@
       "raised": null,
       "rc": 0,
       "transcript": [
-        [
-          "err",
-          "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
-        ],
         [
           "out",
           "Validated 1 driver(s), 0 device(s).\nWrote index.json, devices.json, and 20 category shard files.\n"
@@ -1828,7 +1796,7 @@
       "transcript": [
         [
           "err",
-          "WARNING: JSON Schema file not found at <root>/avcdriver.schema.json, skipping schema validation.\nwarning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+          "WARNING: JSON Schema file not found at <root>/avcdriver.schema.json, skipping schema validation.\n"
         ],
         [
           "out",
@@ -1852,10 +1820,6 @@
       "raised": null,
       "rc": 1,
       "transcript": [
-        [
-          "err",
-          "warning: audio/acme_floor.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_low.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_serial.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_typo.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_computed.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_floor.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_push.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_refs.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_typo.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
-        ],
         [
           "out",
           "Note: 3 computed value(s) in 2 Python driver(s) could not be read; keys nested under them are unchecked.\nNote: 4 check group(s) in 2 Python driver(s) were not run; what they judge, or the set they resolve against, is computed at runtime.\n"
@@ -1890,7 +1854,7 @@
       "transcript": [
         [
           "err",
-          "warning: displays/acme_old.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nERROR building devices catalog: devices-extra.json: (Acme, AMP-1) is also produced from a driver's compatible_models. Move the entry into the driver.\n"
+          "ERROR building devices catalog: devices-extra.json: (Acme, AMP-1) is also produced from a driver's compatible_models. Move the entry into the driver.\n"
         ]
       ]
     },
@@ -1898,12 +1862,7 @@
       "catalog": "unchanged",
       "raised": "AttributeError: 'str' object has no attribute 'get'",
       "rc": null,
-      "transcript": [
-        [
-          "err",
-          "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
-        ]
-      ]
+      "transcript": []
     },
     "extra_entries_collide": {
       "catalog": "unchanged",
@@ -1912,7 +1871,7 @@
       "transcript": [
         [
           "err",
-          "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nERROR building devices catalog: devices-extra.json: (Other, Q) is also produced from a driver's compatible_models. Move the entry into the driver.\n"
+          "ERROR building devices catalog: devices-extra.json: (Other, Q) is also produced from a driver's compatible_models. Move the entry into the driver.\n"
         ]
       ]
     },
@@ -1920,12 +1879,7 @@
       "catalog": "unchanged",
       "raised": "KeyError: 'manufacturer'",
       "rc": null,
-      "transcript": [
-        [
-          "err",
-          "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
-        ]
-      ]
+      "transcript": []
     },
     "extra_not_a_dict": {
       "catalog": {
@@ -1988,10 +1942,6 @@
       "raised": null,
       "rc": 0,
       "transcript": [
-        [
-          "err",
-          "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
-        ],
         [
           "out",
           "Validated 1 driver(s), 0 device(s).\nWrote index.json, devices.json, and 20 category shard files.\n"
@@ -2155,7 +2105,7 @@
       "transcript": [
         [
           "err",
-          "WARNING: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt), skipping schema validation.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+          "WARNING: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt), skipping schema validation.\n"
         ],
         [
           "out",
@@ -2226,7 +2176,7 @@
       "transcript": [
         [
           "err",
-          "WARNING: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt), skipping schema validation.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+          "WARNING: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt), skipping schema validation.\n"
         ],
         [
           "out",
@@ -2263,7 +2213,7 @@
       "transcript": [
         [
           "err",
-          "WARNING: JSON Schema file not found at <root>/schemas/pythondriver.schema.json, skipping schema validation for Python drivers.\nwarning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n\nFAILED: 1 validation error(s):\n\n  - projectors/acme_py.py: polling: unknown key 'interval'\n"
+          "WARNING: JSON Schema file not found at <root>/schemas/pythondriver.schema.json, skipping schema validation for Python drivers.\n\nFAILED: 1 validation error(s):\n\n  - projectors/acme_py.py: polling: unknown key 'interval'\n"
         ]
       ]
     },
@@ -2285,7 +2235,7 @@
       "transcript": [
         [
           "err",
-          "warning: audio/acme_bad.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_ok.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n\nFAILED: 12 validation error(s):\n\n  - audio/acme_bad.avcdriver: id: Value error, id must be lowercase alphanumeric with underscores\n  - audio/acme_bad.avcdriver: category: Value error, must be one of ('projector', 'display', 'switcher', 'audio', 'camera', 'video', 'streaming', 'lighting', 'power', 'utility')\n  - audio/acme_bad.avcdriver: version: Value error, must be valid semver (e.g. 1.0.0)\n  - audio/acme_bad.avcdriver: source_url: Value error, must start with http:// or https://\n  - audio/acme_bad.avcdriver: category: must be 'projector', 'display', 'switcher', 'audio', 'camera', 'video', 'streaming', 'lighting', 'power' or 'utility', not 'nope'\n  - audio/acme_bad.avcdriver: Command 'go': must have 'send' (TCP/serial), 'path'/'method' (HTTP), 'address' (OSC), or 'udp' (a datagram beside the main transport)\n  - audio/acme_bad.avcdriver: commands.go: unknown key 'sned' (did you mean 'send'?)\n  - audio/acme_bad.avcdriver: discovery: unknown key 'nonsense'\n  - audio/acme_bad.avcdriver: discovery has unknown keys: ['nonsense']. Known keys: ['amx_ddp', 'hostname', 'manufacturer_alias', 'mdns', 'oui', 'port_open', 'python', 'requires', 'snmp_pen', 'ssdp', 'tcp_probe', 'udp_probe']\n  - audio/acme_bad.avcdriver: discovery.mdns service must be a non-empty string\n  - audio/acme_ok.avcdriver: Command 'go': must have 'send' (TCP/serial), 'path'/'method' (HTTP), 'address' (OSC), or 'udp' (a datagram beside the main transport)\n  - audio/acme_ok.avcdriver: commands.go: unknown key 'sned' (did you mean 'send'?)\n"
+          "\nFAILED: 12 validation error(s):\n\n  - audio/acme_bad.avcdriver: id: Value error, id must be lowercase alphanumeric with underscores\n  - audio/acme_bad.avcdriver: category: Value error, must be one of ('projector', 'display', 'switcher', 'audio', 'camera', 'video', 'streaming', 'lighting', 'power', 'utility')\n  - audio/acme_bad.avcdriver: version: Value error, must be valid semver (e.g. 1.0.0)\n  - audio/acme_bad.avcdriver: source_url: Value error, must start with http:// or https://\n  - audio/acme_bad.avcdriver: category: must be 'projector', 'display', 'switcher', 'audio', 'camera', 'video', 'streaming', 'lighting', 'power' or 'utility', not 'nope'\n  - audio/acme_bad.avcdriver: Command 'go': must have 'send' (TCP/serial), 'path'/'method' (HTTP), 'address' (OSC), or 'udp' (a datagram beside the main transport)\n  - audio/acme_bad.avcdriver: discovery has unknown keys: ['nonsense']. Known keys: ['amx_ddp', 'hostname', 'manufacturer_alias', 'mdns', 'oui', 'port_open', 'python', 'requires', 'snmp_pen', 'ssdp', 'tcp_probe', 'udp_probe']\n  - audio/acme_bad.avcdriver: discovery.mdns service must be a non-empty string\n  - audio/acme_bad.avcdriver: commands.go: unknown key 'sned' (did you mean 'send'?)\n  - audio/acme_bad.avcdriver: discovery: unknown key 'nonsense'\n  - audio/acme_ok.avcdriver: Command 'go': must have 'send' (TCP/serial), 'path'/'method' (HTTP), 'address' (OSC), or 'udp' (a datagram beside the main transport)\n  - audio/acme_ok.avcdriver: commands.go: unknown key 'sned' (did you mean 'send'?)\n"
         ]
       ]
     },
@@ -2296,7 +2246,7 @@
       "transcript": [
         [
           "err",
-          "WARNING: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt), skipping schema validation.\nwarning: audio/acme_bad.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_ok.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n\nFAILED: 12 validation error(s):\n\n  - audio/acme_bad.avcdriver: id: Value error, id must be lowercase alphanumeric with underscores\n  - audio/acme_bad.avcdriver: category: Value error, must be one of ('projector', 'display', 'switcher', 'audio', 'camera', 'video', 'streaming', 'lighting', 'power', 'utility')\n  - audio/acme_bad.avcdriver: version: Value error, must be valid semver (e.g. 1.0.0)\n  - audio/acme_bad.avcdriver: source_url: Value error, must start with http:// or https://\n  - audio/acme_bad.avcdriver: category: must be 'projector', 'display', 'switcher', 'audio', 'camera', 'video', 'streaming', 'lighting', 'power' or 'utility', not 'nope'\n  - audio/acme_bad.avcdriver: Command 'go': must have 'send' (TCP/serial), 'path'/'method' (HTTP), 'address' (OSC), or 'udp' (a datagram beside the main transport)\n  - audio/acme_bad.avcdriver: commands.go: unknown key 'sned' (did you mean 'send'?)\n  - audio/acme_bad.avcdriver: discovery: unknown key 'nonsense'\n  - audio/acme_bad.avcdriver: discovery has unknown keys: ['nonsense']. Known keys: ['amx_ddp', 'hostname', 'manufacturer_alias', 'mdns', 'oui', 'port_open', 'python', 'requires', 'snmp_pen', 'ssdp', 'tcp_probe', 'udp_probe']\n  - audio/acme_bad.avcdriver: discovery.mdns service must be a non-empty string\n  - audio/acme_ok.avcdriver: Command 'go': must have 'send' (TCP/serial), 'path'/'method' (HTTP), 'address' (OSC), or 'udp' (a datagram beside the main transport)\n  - audio/acme_ok.avcdriver: commands.go: unknown key 'sned' (did you mean 'send'?)\n"
+          "WARNING: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt), skipping schema validation.\n\nFAILED: 12 validation error(s):\n\n  - audio/acme_bad.avcdriver: id: Value error, id must be lowercase alphanumeric with underscores\n  - audio/acme_bad.avcdriver: category: Value error, must be one of ('projector', 'display', 'switcher', 'audio', 'camera', 'video', 'streaming', 'lighting', 'power', 'utility')\n  - audio/acme_bad.avcdriver: version: Value error, must be valid semver (e.g. 1.0.0)\n  - audio/acme_bad.avcdriver: source_url: Value error, must start with http:// or https://\n  - audio/acme_bad.avcdriver: category: must be 'projector', 'display', 'switcher', 'audio', 'camera', 'video', 'streaming', 'lighting', 'power' or 'utility', not 'nope'\n  - audio/acme_bad.avcdriver: Command 'go': must have 'send' (TCP/serial), 'path'/'method' (HTTP), 'address' (OSC), or 'udp' (a datagram beside the main transport)\n  - audio/acme_bad.avcdriver: discovery has unknown keys: ['nonsense']. Known keys: ['amx_ddp', 'hostname', 'manufacturer_alias', 'mdns', 'oui', 'port_open', 'python', 'requires', 'snmp_pen', 'ssdp', 'tcp_probe', 'udp_probe']\n  - audio/acme_bad.avcdriver: discovery.mdns service must be a non-empty string\n  - audio/acme_bad.avcdriver: commands.go: unknown key 'sned' (did you mean 'send'?)\n  - audio/acme_bad.avcdriver: discovery: unknown key 'nonsense'\n  - audio/acme_ok.avcdriver: Command 'go': must have 'send' (TCP/serial), 'path'/'method' (HTTP), 'address' (OSC), or 'udp' (a datagram beside the main transport)\n  - audio/acme_ok.avcdriver: commands.go: unknown key 'sned' (did you mean 'send'?)\n"
         ]
       ]
     },
@@ -2339,10 +2289,6 @@
       "rc": 1,
       "transcript": [
         [
-          "err",
-          "warning: projectors/acme_computed.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_floor.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_push.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_refs.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_typo.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
-        ],
-        [
           "out",
           "Note: 3 computed value(s) in 2 Python driver(s) could not be read; keys nested under them are unchecked.\nNote: 4 check group(s) in 2 Python driver(s) were not run; what they judge, or the set they resolve against, is computed at runtime.\n"
         ],
@@ -2370,7 +2316,7 @@
       "transcript": [
         [
           "err",
-          "WARNING: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt), skipping schema validation.\nwarning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n\nFAILED: 4 validation error(s):\n\n  - audio/acme_widget.avcdriver: 'int' object has no attribute 'strip'\n  - audio/acme_widget.avcdriver: discovery.requires must be a version string like \"0.23.0\", got 5\n  - audio/acme_widget.avcdriver: discovery.ssdp entry has unknown keys: ['st']\n  - audio/acme_widget.avcdriver: discovery.ssdp.device_type must be a non-empty string\n"
+          "WARNING: jsonschema-rs is not installed, so JSON Schema validation cannot run (pip install -r requirements-dev.txt), skipping schema validation.\n\nFAILED: 3 validation error(s):\n\n  - audio/acme_widget.avcdriver: discovery.requires must be a version string\n  - audio/acme_widget.avcdriver: discovery.ssdp.device_type must be a non-empty string\n  - audio/acme_widget.avcdriver: discovery.ssdp entry has unknown keys: ['st']\n"
         ]
       ]
     },
@@ -2381,7 +2327,7 @@
       "transcript": [
         [
           "err",
-          "warning: audio/acme_bad.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n\nFAILED: 5 validation error(s):\n\n  - audio/acme_bad.avcdriver: id: Value error, id must be lowercase alphanumeric with underscores\n  - audio/acme_bad.avcdriver: category: Value error, must be one of ('projector', 'display', 'switcher', 'audio', 'camera', 'video', 'streaming', 'lighting', 'power', 'utility')\n  - audio/acme_bad.avcdriver: category: must be 'projector', 'display', 'switcher', 'audio', 'camera', 'video', 'streaming', 'lighting', 'power' or 'utility', not 'nope'\n  - audio/acme_widget.avcdriver: verified: must be a boolean (true or false)\n  - audio/acme_widget.avcdriver: state_variables.p.label: must be a string; put it in quotes\n"
+          "\nFAILED: 5 validation error(s):\n\n  - audio/acme_bad.avcdriver: id: Value error, id must be lowercase alphanumeric with underscores\n  - audio/acme_bad.avcdriver: category: Value error, must be one of ('projector', 'display', 'switcher', 'audio', 'camera', 'video', 'streaming', 'lighting', 'power', 'utility')\n  - audio/acme_bad.avcdriver: category: must be 'projector', 'display', 'switcher', 'audio', 'camera', 'video', 'streaming', 'lighting', 'power' or 'utility', not 'nope'\n  - audio/acme_widget.avcdriver: verified: must be a boolean (true or false)\n  - audio/acme_widget.avcdriver: state_variables.p.label: must be a string; put it in quotes\n"
         ]
       ]
     },
@@ -2403,7 +2349,7 @@
       "transcript": [
         [
           "err",
-          "warning: audio/acme_cm.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n\nFAILED: 2 validation error(s):\n\n  - audio/acme_widget.avcdriver: verified: must be a boolean (true or false)\n  - audio/acme_widget.avcdriver: state_variables.p.label: must be a string; put it in quotes\n"
+          "\nFAILED: 2 validation error(s):\n\n  - audio/acme_widget.avcdriver: verified: must be a boolean (true or false)\n  - audio/acme_widget.avcdriver: state_variables.p.label: must be a string; put it in quotes\n"
         ]
       ]
     },
@@ -2412,10 +2358,6 @@
       "raised": null,
       "rc": 1,
       "transcript": [
-        [
-          "err",
-          "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_computed.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_floor.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_push.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_refs.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_typo.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
-        ],
         [
           "out",
           "Note: 3 computed value(s) in 2 Python driver(s) could not be read; keys nested under them are unchecked.\nNote: 4 check group(s) in 2 Python driver(s) were not run; what they judge, or the set they resolve against, is computed at runtime.\n"
@@ -2433,7 +2375,7 @@
       "transcript": [
         [
           "err",
-          "WARNING: JSON Schema file not found at <root>/schemas/pythondriver.schema.json, skipping schema validation for Python drivers.\nwarning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n\nFAILED: 2 validation error(s):\n\n  - audio/acme_widget.avcdriver: verified: must be a boolean (true or false)\n  - audio/acme_widget.avcdriver: state_variables.p.label: must be a string; put it in quotes\n"
+          "WARNING: JSON Schema file not found at <root>/schemas/pythondriver.schema.json, skipping schema validation for Python drivers.\n\nFAILED: 2 validation error(s):\n\n  - audio/acme_widget.avcdriver: verified: must be a boolean (true or false)\n  - audio/acme_widget.avcdriver: state_variables.p.label: must be a string; put it in quotes\n"
         ]
       ]
     },
@@ -2444,7 +2386,7 @@
       "transcript": [
         [
           "err",
-          "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n\nFAILED: 2 validation error(s):\n\n  - audio/acme_widget.avcdriver: verified: must be a boolean (true or false)\n  - audio/acme_widget.avcdriver: state_variables.p.label: must be a string; put it in quotes\n"
+          "\nFAILED: 2 validation error(s):\n\n  - audio/acme_widget.avcdriver: verified: must be a boolean (true or false)\n  - audio/acme_widget.avcdriver: state_variables.p.label: must be a string; put it in quotes\n"
         ]
       ]
     },
@@ -2455,7 +2397,7 @@
       "transcript": [
         [
           "err",
-          "warning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n\nFAILED: 2 validation error(s):\n\n  - audio/acme_widget.avcdriver: verified: must be a boolean (true or false)\n  - audio/acme_widget.avcdriver: state_variables.p.label: must be a string; put it in quotes\n"
+          "\nFAILED: 2 validation error(s):\n\n  - audio/acme_widget.avcdriver: verified: must be a boolean (true or false)\n  - audio/acme_widget.avcdriver: state_variables.p.label: must be a string; put it in quotes\n"
         ]
       ]
     },
@@ -2532,10 +2474,6 @@
       "rc": 0,
       "transcript": [
         [
-          "err",
-          "warning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
-        ],
-        [
           "out",
           "Validated 1 driver(s), 0 device(s).\nWrote index.json, devices.json, and 20 category shard files.\n"
         ]
@@ -2546,10 +2484,6 @@
       "raised": null,
       "rc": 0,
       "transcript": [
-        [
-          "err",
-          "warning: projectors/acme_py.py: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
-        ],
         [
           "out",
           "Validated 1 driver(s), 0 device(s).\n"
@@ -2619,7 +2553,7 @@
       "transcript": [
         [
           "err",
-          "WARNING: JSON Schema file not found at <root>/absent.schema.json, skipping schema validation.\nwarning: audio/acme_widget.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\n"
+          "WARNING: JSON Schema file not found at <root>/absent.schema.json, skipping schema validation.\n"
         ],
         [
           "out",
@@ -2656,7 +2590,7 @@
       "transcript": [
         [
           "err",
-          "warning: audio/acme_floor.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_low.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_serial.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_typo.avcdriver: discovery block declares no fingerprints or hints; this driver will never participate in matching.\nwarning: audio/acme_serial.avcdriver: Nothing notices if the device stops answering over serial: it sends no poll at its default config, and there is no liveness block, so the device reads connected for as long as the connection stays open. Add a liveness block that asks something the device answers in every state.\n\nFAILED: 3 validation error(s):\n\n  - audio/acme_floor.avcdriver: min_platform_version is not declared, but this driver uses push.type: udp_listener, which needs platform 0.40.0. Without it the driver installs on older releases that ignore that field. Add min_platform_version: \"0.40.0\".\n  - audio/acme_low.avcdriver: min_platform_version is \"0.1.0\", but this driver uses liveness, which needs platform 0.22.0. Raise it to \"0.22.0\", or drop that field if the driver has to keep installing on 0.1.0.\n  - audio/acme_typo.avcdriver: unknown key 'polling_interval'\n"
+          "warning: audio/acme_serial.avcdriver: Nothing notices if the device stops answering over serial: it sends no poll at its default config, and there is no liveness block, so the device reads connected for as long as the connection stays open. Add a liveness block that asks something the device answers in every state.\n\nFAILED: 3 validation error(s):\n\n  - audio/acme_floor.avcdriver: min_platform_version is not declared, but this driver uses push.type: udp_listener, which needs platform 0.40.0. Without it the driver installs on older releases that ignore that field. Add min_platform_version: \"0.40.0\".\n  - audio/acme_low.avcdriver: min_platform_version is \"0.1.0\", but this driver uses liveness, which needs platform 0.22.0. Raise it to \"0.22.0\", or drop that field if the driver has to keep installing on 0.1.0.\n  - audio/acme_typo.avcdriver: unknown key 'polling_interval'\n"
         ]
       ]
     }

@@ -541,8 +541,8 @@ def test_udp_reply_port_stamps_requires_on_catalog_entry(tmp_path: Path) -> None
 
 @pytest.mark.parametrize(("kind", "reply_port", "message"), [
     ("tcp", 40002, "discovery.tcp_probe.reply_port is only valid on a udp_probe"),
-    ("udp", 0, "discovery.udp_probe.reply_port must be an integer in [1, 65535]"),
-    ("udp", "40002", "discovery.udp_probe.reply_port must be an integer in [1, 65535]"),
+    ("udp", 0, "discovery.udp_probe.reply_port must be >= 1 (got 0)"),
+    ("udp", "40002", "discovery.udp_probe.reply_port must be an integer"),
 ])
 def test_reply_port_refused_where_the_platform_refuses_it(
     tmp_path: Path, kind: str, reply_port: object, message: str,
@@ -567,6 +567,70 @@ def test_unparseable_requires_rejected(tmp_path: Path) -> None:
     rc, _, err = _run(tmp_path)
     assert rc != 0
     assert "discovery.requires" in err
+
+
+# --- A discovery block is judged by the platform's own reader ----------------
+#
+# The catalog runs the platform's discovery reader (vendored with the driver
+# contract), so a block passes here exactly when the platform takes it.
+
+_FOLLOW_UP = {"port": 5000, "send_ascii": "Q", "expect": "A"}
+
+
+def test_a_cert_subject_without_tls_is_refused_as_the_platform_refuses_it(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    probe = {"port": 443, "cert_subject": "(", "expect": "x"}
+    _write_yaml_driver(tmp_path, overrides={"discovery": {"tcp_probe": probe}})
+    rc, _, err = _run(tmp_path)
+    assert rc != 0
+    assert "discovery.tcp_probe.cert_subject requires tls: true" in err
+
+
+def test_what_a_follow_up_step_sends_and_matches_is_checked(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    then = {"send_hex": "zz", "expect_regex": "(", "expect": "b"}
+    _write_yaml_driver(tmp_path, overrides={"discovery": {"tcp_probe": {**_FOLLOW_UP, "then": then}}})
+    rc, _, err = _run(tmp_path)
+    assert rc != 0
+    assert "discovery.tcp_probe.then.send_hex is not valid hex" in err
+    assert "discovery.tcp_probe.then declares multiple matchers" in err
+
+
+def test_a_driver_with_no_discovery_block_is_not_warned_about(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(tmp_path)
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+    assert "never participate in matching" not in err
+
+
+def test_a_declared_block_with_nothing_in_it_is_warned_about(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(tmp_path, overrides={"discovery": {}})
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+    assert "discovery block declares no fingerprints or hints" in err
+
+
+def test_a_requires_that_is_not_text_is_one_error_not_a_crash(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    then = {"send_ascii": "R", "expect_silence": True}
+    _write_yaml_driver(tmp_path, overrides={"discovery": {
+        "requires": 5, "tcp_probe": {**_FOLLOW_UP, "then": then},
+    }})
+    rc, _, err = _run(tmp_path)
+    assert rc != 0
+    assert "discovery.requires must be a version string" in err
+    assert "has no attribute" not in err
+
+
+def test_a_python_driver_s_block_is_judged_once_by_the_same_reader(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    probe = {"port": 443, "cert_subject": "(", "expect": "x"}
+    _write_python_driver(tmp_path, info_overrides={"discovery": {"tcp_probe": probe}})
+    rc, _, err = _run(tmp_path)
+    assert rc != 0
+    assert err.count("discovery.tcp_probe.cert_subject requires tls: true") == 1
 
 
 # --- Cross-driver validation -----------------------------------------------

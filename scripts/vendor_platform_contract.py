@@ -67,6 +67,28 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         (),
     ),
     (
+        "openavc/drivers/transport_choice.py",
+        "scripts/_vendor/transport_choice.py",
+        (),
+    ),
+    (
+        "openavc/drivers/discovery_hint.py",
+        "scripts/_vendor/discovery_hint.py",
+        (),
+    ),
+    (
+        "openavc/drivers/discovery_block.py",
+        "scripts/_vendor/discovery_block.py",
+        (
+            ("from openavc.drivers.discovery_hint import (", "from .discovery_hint import ("),
+            ("from openavc.drivers.spec import (", "from .spec import ("),
+            (
+                "from openavc.drivers.transport_choice import",
+                "from .transport_choice import",
+            ),
+        ),
+    ),
+    (
         "openavc/drivers/avcdriver_semantic.py",
         "scripts/_vendor/avcdriver_semantic.py",
         (
@@ -91,6 +113,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from .conversion_checks import (",
             ),
             ("from openavc.drivers.spec import (", "from .spec import ("),
+            (
+                "from openavc.drivers.discovery_block import",
+                "from .discovery_block import",
+            ),
             (
                 "from openavc.drivers.declared_names import",
                 "from .declared_names import",
@@ -423,6 +449,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
             (
                 "from openavc.drivers.declared_names import",
                 "from .declared_names import",
+            ),
+            (
+                "from openavc.drivers.discovery_block import",
+                "from .discovery_block import",
             ),
             (
                 "from openavc.drivers.param_aid_checks import",

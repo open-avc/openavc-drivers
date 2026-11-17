@@ -1,11 +1,13 @@
 """Pins for the catalog's discovery checks: every sentence, in order.
 
 Each case is a driver's ``discovery:`` block (or a small catalog of them) run
-through the same steps the catalog build takes: the per-driver block check,
-then the cross-driver claims (signal collisions, locator ambiguity) over the
-drivers whose blocks produced a normalised form, and the ``requires`` stamp an
-entry is written with. What is recorded is the result: the errors in order,
-the normalised form, anything written to stderr, the stamped block.
+through the same steps the catalog build takes: the contract check's verdict
+on the block (the platform's own discovery reader, vendored), the catalog's
+own rules on top of it, then the cross-driver claims (signal collisions,
+locator ambiguity) over the drivers whose blocks produced a normalised form,
+and the ``requires`` stamp an entry is written with. What is recorded is the
+result: the contract's messages and the catalog's errors in order, the
+normalised form, anything written to stderr, the stamped block.
 
 The expected results live in ``fixtures/build_index_discovery_pins.json``.
 They record what the checks say today, right or wrong; a sentence that should
@@ -29,6 +31,7 @@ import pytest
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "scripts"))
 
+from _vendor.avcdriver_semantic import validate_driver_issues  # noqa: E402
 from catalog_discovery import (  # noqa: E402
     validate_discovery_block as discovery_block_errors,
     with_discovery_requires,
@@ -575,6 +578,15 @@ def _norm_text(text: str, root: Path | None) -> str:
     return text
 
 
+def _contract_says(raw: dict) -> list[str]:
+    """What the contract check (strict, as the catalog runs it) says about
+    the block: every message placed in it."""
+    return [
+        issue["message"] for issue in validate_driver_issues(raw, strict=True)
+        if issue["severity"] == "error" and issue["path"].startswith("discovery")
+    ]
+
+
 def _run_block(raw: dict, with_dir: bool) -> dict:
     stderr = io.StringIO()
     with tempfile.TemporaryDirectory() as tmp:
@@ -584,6 +596,7 @@ def _run_block(raw: dict, with_dir: bool) -> dict:
         with contextlib.redirect_stderr(stderr):
             errors, normalized = discovery_block_errors(FILE, raw, yaml_dir=root)
         return {
+            "contract": _contract_says(raw),
             "errors": [_norm_text(e, root) for e in errors],
             "normalized": repr(normalized),
             "stderr": stderr.getvalue(),
@@ -597,6 +610,7 @@ def _run_catalog(drivers: list[dict]) -> dict:
     with contextlib.redirect_stderr(stderr):
         for i, raw in enumerate(drivers):
             rel = f"audio/driver_{i}.avcdriver"
+            errors.extend(f"{rel}: {m}" for m in _contract_says(raw))
             block_errors, normalized = discovery_block_errors(rel, raw, yaml_dir=None)
             errors.extend(block_errors)
             if normalized:

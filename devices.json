@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1400,
+    "total_devices": 1401,
     "shards": null
   },
   "devices": [
@@ -15292,6 +15292,18 @@
           "id": "toa_9000m2",
           "confidence": "untested",
           "notes": "Digital Matrix Mixer. 8 mic/line inputs x 8 outputs. RS-232C, D-sub 9-pin, 9600-57600 8N1, straight cable."
+        }
+      ]
+    },
+    {
+      "manufacturer": "TurtleAV",
+      "model": "4x4 Videowall",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "turtle_videowall_4x4",
+          "confidence": "untested",
+          "notes": "Exact-model control guide and simulator. Physical hardware qualification is open."
         }
       ]
     },

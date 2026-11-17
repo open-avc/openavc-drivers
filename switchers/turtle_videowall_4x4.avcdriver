@@ -1,0 +1,1692 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-avc/openavc-drivers/main/avcdriver.schema.json
+# Turtle AV 4x4 Videowall, user guide sections 9, 10, 12 and 13.
+# YAML fits each addressed reply. The manufacturer's request terminator is '!';
+# received lines are framed on LF (also accepts CRLF). Poll for local edits.
+# The model reply is an OEM description; use the Turtle AV manufacturer hint
+# and manual addressing rather than claiming that description identifies a brand.
+id: turtle_videowall_4x4
+
+name: Turtle AV 4×4 Videowall
+
+manufacturer: TurtleAV
+
+category: switcher
+
+version: 1.0.0
+
+author: OpenAVC
+
+min_platform_version: 0.37.0
+
+description: Controls the 4×4 HDMI processor in matrix, video wall and multiview modes. Reports HDMI routes, wall-group
+  and window assignments, output scaling, extracted audio and preset recalls.
+
+source_url: https://turtleav.com/download/285/4x4-videowall/28521/4x4-videowall-user-guide.pdf
+
+tags: [hdmi, matrix, video-wall, multiview, audio-de-embedding]
+
+verified: false
+
+simulated: true
+
+ports: [8000]
+
+compatible_models:
+  - manufacturer: TurtleAV
+    models: [4x4 Videowall]
+    confidence: untested
+    notes: Exact-model control guide and simulator. Physical hardware qualification is open.
+
+transport: tcp
+
+transports: [tcp, serial]
+
+delimiter: "\n"
+
+web_ui: http://{host}
+
+help:
+  overview: Select the operating mode first. Matrix routes four physical HDMI outputs. Video Wall routes groups
+    of displays. Multiview routes windows in one composition shared by all four outputs. Rename the numbered ports
+    and preset slots in the OpenAVC project.
+  setup: Enter the IP address and configured TCP control port (factory 8000), or choose serial at 115200 baud, 8
+    data bits, no parity and one stop bit. The IP address can be read from the front panel. The Web UI allows custom
+    window positioning and preset naming.
+  connection: A reconnect reads the operating mode, layout, assignments and audio settings. Regular queries pick
+    up front-panel and web edits. An empty route means the bank is inactive or the reading is unavailable. For custom
+    multiview, the API reports assigned sources but does not report which windows the installer hid.
+
+liveness:
+  send: r power!
+  expect: (?i)^power\s+(?:on|off)\s*$
+  interval: 30
+  timeout: 4
+  max_failures: 2
+
+discovery:
+  manufacturer_alias: [TurtleAV, Turtle AV]
+  oui: ['18:66:96:1']
+
+default_config: {host: '', port: 8000, baudrate: 115200, poll_interval: 10, inter_command_delay: 0.12}
+
+config_schema:
+  host: {type: string, label: Processor Address}
+  port: {type: integer, label: TCP Control Port, default: 8000, min: 1, max: 65535}
+  baudrate: {type: integer, label: Serial Baud Rate, default: 115200}
+  poll_interval: {type: integer, label: Feedback Interval (seconds), default: 10, min: 5, max: 300}
+
+device_settings:
+  front_panel_lock:
+    type: enum
+    label: Front Panel Buttons
+    help: Lock the local buttons on a publicly accessible processor, or unlock them for local operation.
+    state_key: front_panel_lock
+    default: '0'
+    setup: false
+    values:
+      - {value: '0', label: Unlocked}
+      - {value: '1', label: Locked}
+    write: {send: 's lock {value}!'}
+
+state_variables:
+  model: {type: string, label: Reported Model}
+  mcu_firmware: {type: string, label: MCU Firmware}
+  web_firmware: {type: string, label: Web Firmware}
+  power: {type: boolean, label: Power, control: true}
+  front_panel_lock:
+    type: enum
+    label: Front Panel Lock
+    values:
+      - {value: '0', label: Unlocked}
+      - {value: '1', label: Locked}
+  display_mode:
+    type: enum
+    label: Operating Mode
+    values: [Matrix, Video Wall, Multiview]
+    control: true
+    cloud_priority: high
+  wall_layout:
+    type: enum
+    label: Wall Layout
+    values: [2x2, 2x1, 2x1-2, 1x2, 1x2-2, 3x1, 4x1, 1x3, 1x4]
+    control: true
+    cloud_priority: high
+  multiview_layout:
+    type: enum
+    label: Multiview Layout
+    values: [Single, PiP, Dual, Triple, Quad, User]
+    control: true
+    cloud_priority: high
+  audio_mode:
+    type: enum
+    label: Extracted Audio Mode
+    values: [Bind to Input, Bind to Output, Independent Matrix]
+    control: true
+    cloud_priority: high
+  wall_resolution: {type: string, label: Wall Output Resolution, control: true}
+  multiview_resolution: {type: string, label: Multiview Output Resolution, control: true}
+  multiview_audio: {type: string, label: Multiview Audio Source, control: true}
+  pip_size: {type: string, label: PiP Size, control: true}
+  pip_position: {type: string, label: PiP Position, control: true}
+  horizontal_bezel: {type: integer, label: Horizontal Bezel, min: 0, max: 10, control: true}
+  vertical_bezel: {type: integer, label: Vertical Bezel, min: 0, max: 10, control: true}
+  triple_variant: {type: integer, label: Triple Layout Variant, min: 1, max: 3, control: true}
+  quad_variant: {type: integer, label: Quad Layout Variant, min: 1, max: 3, control: true}
+  user_variant: {type: integer, label: Custom Layout Slot, min: 1, max: 3, control: true}
+  last_recalled:
+    type: integer
+    label: Last Acknowledged Preset Recall
+    min: 1
+    max: 8
+    help: Last recall observed on this connection. The processor does not report a continuously active preset.
+
+child_entity_types:
+  input:
+    label: HDMI Input
+    label_plural: HDMI Inputs
+    id_format: {type: integer, min: 1, max: 4}
+    instances: {count: 4, label: 'HDMI Input {id}'}
+    state_variables:
+      edid: {type: string, label: EDID Setting}
+      audio_embedding: {type: string, label: Embedded Audio Selection}
+    summary_fields: [edid, audio_embedding]
+  output:
+    label: HDMI Output
+    label_plural: HDMI Outputs
+    id_format: {type: integer, min: 1, max: 4}
+    instances: {count: 4, label: 'HDMI Output {id}'}
+    state_variables:
+      matrix_input:
+        type: integer
+        label: Matrix Video Input
+        min: 1
+        max: 4
+        control: true
+        cloud_priority: high
+      audio_input:
+        type: integer
+        label: Independent Extracted Audio Input
+        min: 1
+        max: 4
+        control: true
+        cloud_priority: high
+      resolution: {type: string, label: Scaler Setting, control: true}
+      stream: {type: boolean, label: Video Output Enabled, control: true}
+      audio_enabled: {type: boolean, label: Extracted Audio Enabled, control: true}
+    summary_fields: [matrix_input, resolution, stream]
+  wall_group:
+    label: Wall Group
+    label_plural: Wall Groups
+    id_format: {type: integer, min: 1, max: 4}
+    instances: {count: 4, label: 'Wall Group {id}'}
+    state_variables:
+      input:
+        type: integer
+        label: Assigned HDMI Input
+        min: 1
+        max: 4
+        control: true
+        cloud_priority: high
+      in_layout:
+        type: boolean
+        label: Used in Current Layout
+        help: Empty when visibility is unknown. Custom window visibility is edited in the processor web interface.
+    summary_fields: [in_layout, input]
+  window:
+    label: Window
+    label_plural: Windows
+    id_format: {type: integer, min: 1, max: 4}
+    instances: {count: 4, label: 'Window {id}'}
+    state_variables:
+      input:
+        type: integer
+        label: Assigned HDMI Input
+        min: 1
+        max: 4
+        control: true
+        cloud_priority: high
+      in_layout:
+        type: boolean
+        label: Used in Current Layout
+        help: Empty when visibility is unknown. Custom window visibility is edited in the processor web interface.
+    summary_fields: [in_layout, input]
+  preset:
+    label: Preset
+    label_plural: Presets
+    id_format: {type: integer, min: 1, max: 8}
+    instances: {count: 8, label: 'Preset {id}'}
+    state_variables: {}
+    summary_fields: []
+
+routing:
+  planes:
+    - label: Matrix Video
+      destination_child_type: output
+      source_child_type: input
+      destination_param: output
+      source_param: input
+      command: route_video
+      route_property: matrix_input
+    - label: Wall Group
+      destination_child_type: wall_group
+      source_child_type: input
+      destination_param: wall_group
+      source_param: input
+      command: route_wall
+      route_property: input
+    - label: Multiview Window
+      destination_child_type: window
+      source_child_type: input
+      destination_param: window
+      source_param: input
+      command: route_window
+      route_property: input
+    - label: Extracted Audio
+      destination_child_type: output
+      source_child_type: input
+      destination_param: output
+      source_param: input
+      command: route_audio
+      route_property: audio_input
+
+commands:
+  read_firmware:
+    label: Read Firmware
+    send: r fw version!
+    help: Read the MCU and web firmware versions.
+    query_for: mcu_firmware
+  read_power:
+    label: Read Power
+    send: r power!
+    help: Read the processor power state.
+    query_for: power
+  read_front_panel_lock:
+    label: Read Front Panel Lock
+    send: r lock!
+    help: Read whether the buttons on the processor are locked.
+    query_for: front_panel_lock
+  read_display_mode:
+    label: Read Operating Mode
+    send: r display mode!
+    help: Read operating mode from the processor.
+    query_for: display_mode
+  set_display_mode:
+    label: Set Operating Mode
+    send: s display mode {value}!
+    help: Switch all outputs to matrix, video wall or multiview operation.
+    params:
+      value:
+        type: enum
+        label: Operating Mode
+        values: [Matrix, Video Wall, Multiview]
+        required: true
+        map: {Matrix: '0', Video Wall: '1', Multiview: '2'}
+    sets: {display_mode: '{value}'}
+    read_back: [r display mode!, r output exa mode!, r tw mode!, r multiview!, r output 0 in source!, r tw group
+        0 source!, r window 0 in!, r output 0 exa in source!, r mv output audio!]
+  read_wall_layout:
+    label: Read Wall Layout
+    send: r tw mode!
+    help: Read wall layout from the processor.
+    query_for: wall_layout
+  set_wall_layout:
+    label: Set Wall Layout
+    send: s tw mode {value}!
+    help: Choose the wall geometry in Video Wall mode. The wall-group readings show which groups the layout uses.
+    params:
+      value:
+        type: enum
+        label: Wall Layout
+        values:
+          - {value: 2x2, label: 2×2}
+          - {value: 2x1, label: 2×1}
+          - {value: 2x1-2, label: 2×1 (two groups)}
+          - {value: 1x2, label: 1×2}
+          - {value: 1x2-2, label: 1×2 (two groups)}
+          - {value: 3x1, label: 3×1}
+          - {value: 4x1, label: 4×1}
+          - {value: 1x3, label: 1×3}
+          - {value: 1x4, label: 1×4}
+        required: true
+        map:
+          2x2: '1'
+          2x1: '2'
+          2x1-2: '3'
+          1x2: '4'
+          1x2-2: '5'
+          3x1: '6'
+          4x1: '7'
+          1x3: '8'
+          1x4: '9'
+    sets: {wall_layout: '{value}'}
+    read_back: [r tw mode!, r tw group 0 source!]
+  read_multiview_layout:
+    label: Read Multiview Layout
+    send: r multiview!
+    help: Read multiview layout from the processor.
+    query_for: multiview_layout
+  set_multiview_layout:
+    label: Set Multiview Layout
+    send: s multiview {value}!
+    help: Choose the composition shared by all four HDMI outputs in Multiview mode.
+    params:
+      value:
+        type: enum
+        label: Multiview Layout
+        values: [Single, PiP, Dual, Triple, Quad, User]
+        required: true
+        map: {Single: '1', PiP: '2', Dual: '3', Triple: '4', Quad: '5', User: '6'}
+    sets: {multiview_layout: '{value}'}
+    read_back: [r multiview!, r window 0 in!, r mv output audio!, r pip size!, r pip position!, r triple mode!,
+      r quad mode!, r user mode!]
+  read_audio_mode:
+    label: Read Extracted Audio Mode
+    send: r output exa mode!
+    help: Read extracted audio mode from the processor.
+    query_for: audio_mode
+  set_audio_mode:
+    label: Set Extracted Audio Mode
+    send: s output exa mode {value}!
+    help: Bind each extracted audio port to its matching input or output, or route it independently.
+    params:
+      value:
+        type: enum
+        label: Extracted Audio Mode
+        values: [Bind to Input, Bind to Output, Independent Matrix]
+        required: true
+        map: {Bind to Input: '0', Bind to Output: '1', Independent Matrix: '2'}
+    sets: {audio_mode: '{value}'}
+    read_back: [r output exa mode!, r output 0 exa in source!]
+  read_multiview_audio:
+    label: Read Multiview Audio
+    send: r mv output audio!
+    help: Read multiview audio from the processor.
+    query_for: multiview_audio
+  set_multiview_audio:
+    label: Set Multiview Audio
+    send: s mv output audio {value}!
+    help: Choose the audio sent with the multiview composition.
+    params:
+      value:
+        type: enum
+        label: Multiview Audio
+        values: [Follow Window 1, HDMI 1, HDMI 2, HDMI 3, HDMI 4]
+        required: true
+        map: {Follow Window 1: '0', HDMI 1: '1', HDMI 2: '2', HDMI 3: '3', HDMI 4: '4'}
+    sets: {multiview_audio: '{value}'}
+    read_back: r mv output audio!
+  read_pip_size:
+    label: Read PiP Size
+    send: r pip size!
+    help: Read pip size from the processor.
+    query_for: pip_size
+  set_pip_size:
+    label: Set PiP Size
+    send: s pip size {value}!
+    help: Set the picture-in-picture inset size.
+    params:
+      value:
+        type: enum
+        label: PiP Size
+        values: [Small, Middle, Large]
+        required: true
+        map: {Small: '1', Middle: '2', Large: '3'}
+    sets: {pip_size: '{value}'}
+    read_back: r pip size!
+  read_pip_position:
+    label: Read PiP Position
+    send: r pip position!
+    help: Read pip position from the processor.
+    query_for: pip_position
+  set_pip_position:
+    label: Set PiP Position
+    send: s pip position{value}!
+    help: Move the picture-in-picture inset.
+    params:
+      value:
+        type: enum
+        label: PiP Position
+        values: [Upper Left, Lower Left, Upper Right, Lower Right]
+        required: true
+        map: {Upper Left: '1', Lower Left: '2', Upper Right: '3', Lower Right: '4'}
+    sets: {pip_position: '{value}'}
+    read_back: r pip position!
+  read_wall_resolution:
+    label: Read Wall Resolution
+    send: r tw res!
+    help: Read wall resolution from the processor.
+    query_for: wall_resolution
+  set_wall_resolution:
+    label: Set Wall Resolution
+    send: s tw res {value}!
+    help: Set the common output timing for this operating mode.
+    params:
+      value:
+        type: enum
+        label: Wall Resolution
+        values: [4096x2160p60, 4096x2160p50, 3840x2160p60, 3840x2160p50, 3840x2160p30, 1920x1080p60, 1920x1080p50,
+          1920x1080i60, 1920x1080i50, 1920x1200p60rb, 1360x768p60, 1280x800p60, 1280x720p60, 1280x720p50, 1024x768p60]
+        required: true
+        map:
+          4096x2160p60: '1'
+          4096x2160p50: '2'
+          3840x2160p60: '3'
+          3840x2160p50: '4'
+          3840x2160p30: '5'
+          1920x1080p60: '6'
+          1920x1080p50: '7'
+          1920x1080i60: '8'
+          1920x1080i50: '9'
+          1920x1200p60rb: '10'
+          1360x768p60: '11'
+          1280x800p60: '12'
+          1280x720p60: '13'
+          1280x720p50: '14'
+          1024x768p60: '15'
+    sets: {wall_resolution: '{value}'}
+    read_back: r tw res!
+  read_multiview_resolution:
+    label: Read Multiview Resolution
+    send: r mv res!
+    help: Read multiview resolution from the processor.
+    query_for: multiview_resolution
+  set_multiview_resolution:
+    label: Set Multiview Resolution
+    send: s mv res {value}!
+    help: Set the common output timing for this operating mode.
+    params:
+      value:
+        type: enum
+        label: Multiview Resolution
+        values: [4096x2160p60, 4096x2160p50, 3840x2160p60, 3840x2160p50, 3840x2160p30, 1920x1080p60, 1920x1080p50,
+          1920x1080i60, 1920x1080i50, 1920x1200p60rb, 1360x768p60, 1280x800p60, 1280x720p60, 1280x720p50, 1024x768p60]
+        required: true
+        map:
+          4096x2160p60: '1'
+          4096x2160p50: '2'
+          3840x2160p60: '3'
+          3840x2160p50: '4'
+          3840x2160p30: '5'
+          1920x1080p60: '6'
+          1920x1080p50: '7'
+          1920x1080i60: '8'
+          1920x1080i50: '9'
+          1920x1200p60rb: '10'
+          1360x768p60: '11'
+          1280x800p60: '12'
+          1280x720p60: '13'
+          1280x720p50: '14'
+          1024x768p60: '15'
+    sets: {multiview_resolution: '{value}'}
+    read_back: r mv res!
+  read_horizontal_bezel:
+    label: Read Horizontal Bezel
+    send: r tw h bezel!
+    help: Read the wall bezel compensation setting.
+    query_for: horizontal_bezel
+  set_horizontal_bezel:
+    label: Set Horizontal Bezel
+    send: s tw h bezel {value}!
+    help: Adjust wall bezel compensation on the processor scale from 0 to 10.
+    params:
+      value: {type: integer, label: Horizontal Bezel, min: 0, max: 10, required: true}
+    sets: {horizontal_bezel: '{value}'}
+    read_back: r tw h bezel!
+  read_vertical_bezel:
+    label: Read Vertical Bezel
+    send: r tw v bezel!
+    help: Read the wall bezel compensation setting.
+    query_for: vertical_bezel
+  set_vertical_bezel:
+    label: Set Vertical Bezel
+    send: s tw v bezel {value}!
+    help: Adjust wall bezel compensation on the processor scale from 0 to 10.
+    params:
+      value: {type: integer, label: Vertical Bezel, min: 0, max: 10, required: true}
+    sets: {vertical_bezel: '{value}'}
+    read_back: r tw v bezel!
+  read_triple_variant:
+    label: Read Triple Layout Variant
+    send: r triple mode!
+    help: Read the selected arrangement for this layout.
+    query_for: triple_variant
+  set_triple_variant:
+    label: Set Triple Layout Variant
+    send: s triple {value} mode!
+    help: Select one of the three arrangements for this multiview layout.
+    params:
+      value: {type: integer, label: Triple Layout Variant, min: 1, max: 3, required: true}
+    sets: {triple_variant: '{value}'}
+    read_back: r triple mode!
+  read_quad_variant:
+    label: Read Quad Layout Variant
+    send: r quad mode!
+    help: Read the selected arrangement for this layout.
+    query_for: quad_variant
+  set_quad_variant:
+    label: Set Quad Layout Variant
+    send: s quad {value} mode!
+    help: Select one of the three arrangements for this multiview layout.
+    params:
+      value: {type: integer, label: Quad Layout Variant, min: 1, max: 3, required: true}
+    sets: {quad_variant: '{value}'}
+    read_back: r quad mode!
+  read_user_variant:
+    label: Read Custom Layout Slot
+    send: r user mode!
+    help: Read the selected arrangement for this layout.
+    query_for: user_variant
+  set_user_variant:
+    label: Set Custom Layout Slot
+    send: s user {value} mode!
+    help: Select one of the three arrangements for this multiview layout.
+    params:
+      value: {type: integer, label: Custom Layout Slot, min: 1, max: 3, required: true}
+    sets: {user_variant: '{value}'}
+    read_back: r user mode!
+  route_video:
+    label: Route Matrix Video
+    send: s output {output} in source {input}!
+    help: Select an HDMI input for this destination in Matrix mode. Check its assignment against the processor reply.
+    params:
+      output: {type: child_id, label: HDMI Output, child_type: output, required: true}
+      input: {type: integer, label: HDMI Input (1–4), min: 1, max: 4, required: true}
+    sets: {matrix_input: '{input}'}
+    read_back: r output {output} in source!
+  read_route_video:
+    label: Read Matrix Video Route
+    send: r output {output} in source!
+    help: Read the selected destination’s assignment in Matrix mode.
+    params:
+      output: {type: child_id, label: HDMI Output, child_type: output, required: true}
+    query_for: matrix_input
+  route_wall:
+    label: Route Wall Group
+    send: s tw group {wall_group} input {input}!
+    help: Select an HDMI input for this destination in Video Wall mode. Check its assignment against the processor
+      reply.
+    params:
+      wall_group: {type: child_id, label: Wall Group, child_type: wall_group, required: true}
+      input: {type: integer, label: HDMI Input (1–4), min: 1, max: 4, required: true}
+    sets: {input: '{input}'}
+    read_back: r tw group {wall_group} source!
+  read_route_wall:
+    label: Read Wall Group Route
+    send: r tw group {wall_group} source!
+    help: Read the selected destination’s assignment in Video Wall mode.
+    params:
+      wall_group: {type: child_id, label: Wall Group, child_type: wall_group, required: true}
+    query_for: input
+  route_window:
+    label: Route Multiview Window
+    send: s window {window} in {input}!
+    help: Select an HDMI input for this destination in Multiview mode. Check its assignment against the processor
+      reply.
+    params:
+      window: {type: child_id, label: Multiview Window, child_type: window, required: true}
+      input: {type: integer, label: HDMI Input (1–4), min: 1, max: 4, required: true}
+    sets: {input: '{input}'}
+    read_back: r window {window} in!
+  read_route_window:
+    label: Read Multiview Window Route
+    send: r window {window} in!
+    help: Read the selected destination’s assignment in Multiview mode.
+    params:
+      window: {type: child_id, label: Multiview Window, child_type: window, required: true}
+    query_for: input
+  route_audio:
+    label: Route Extracted Audio
+    send: s output {output} exa in source {input}!
+    help: Select an HDMI input for this destination in Independent Matrix mode. Check its assignment against the
+      processor reply.
+    params:
+      output: {type: child_id, label: HDMI Output, child_type: output, required: true}
+      input: {type: integer, label: HDMI Input (1–4), min: 1, max: 4, required: true}
+    sets: {audio_input: '{input}'}
+    read_back: r output {output} exa in source!
+  read_route_audio:
+    label: Read Extracted Audio Route
+    send: r output {output} exa in source!
+    help: Read the selected destination’s assignment in Independent Matrix mode.
+    params:
+      output: {type: child_id, label: HDMI Output, child_type: output, required: true}
+    query_for: audio_input
+  read_stream:
+    label: Read Video Output Enable
+    send: r output {output} stream!
+    help: Read whether the selected output is enabled.
+    params:
+      output: {type: child_id, label: HDMI Output, child_type: output, required: true}
+    query_for: stream
+  set_stream:
+    label: Set Video Output Enable
+    send: s output {output} stream {value}!
+    help: Enable or disable the selected output.
+    params:
+      output: {type: child_id, label: HDMI Output, child_type: output, required: true}
+      value:
+        type: boolean
+        label: Enabled
+        required: true
+        map: {'true': '1', 'false': '0'}
+    sets: {stream: '{value}'}
+    read_back: r output {output} stream!
+  read_audio_enabled:
+    label: Read Extracted Audio Output Enable
+    send: r output {output} exa!
+    help: Read whether the selected output is enabled.
+    params:
+      output: {type: child_id, label: HDMI Output, child_type: output, required: true}
+    query_for: audio_enabled
+  set_audio_enabled:
+    label: Set Extracted Audio Output Enable
+    send: s output {output} exa {value}!
+    help: Enable or disable the selected output.
+    params:
+      output: {type: child_id, label: HDMI Output, child_type: output, required: true}
+      value:
+        type: boolean
+        label: Enabled
+        required: true
+        map: {'true': '1', 'false': '0'}
+    sets: {audio_enabled: '{value}'}
+    read_back: r output {output} exa!
+  read_resolution:
+    label: Read Output Resolution
+    send: r output {output} res!
+    help: Read output resolution for the selected port.
+    params:
+      output: {type: child_id, label: HDMI Output, child_type: output, required: true}
+    query_for: resolution
+  set_resolution:
+    label: Set Output Resolution
+    send: s output {output} res {value}!
+    help: Select the scaler timing for a physical output in Matrix mode.
+    params:
+      output: {type: child_id, label: HDMI Output, child_type: output, required: true}
+      value:
+        type: enum
+        label: Timing
+        values: [4096x2160p60, 4096x2160p50, 3840x2160p60, 3840x2160p50, 3840x2160p30, 1920x1080p60, 1920x1080p50,
+          1920x1080i60, 1920x1080i50, 1920x1200p60rb, 1360x768p60, 1280x800p60, 1280x720p60, 1280x720p50, 1024x768p60,
+          Auto]
+        required: true
+        map:
+          4096x2160p60: '1'
+          4096x2160p50: '2'
+          3840x2160p60: '3'
+          3840x2160p50: '4'
+          3840x2160p30: '5'
+          1920x1080p60: '6'
+          1920x1080p50: '7'
+          1920x1080i60: '8'
+          1920x1080i50: '9'
+          1920x1200p60rb: '10'
+          1360x768p60: '11'
+          1280x800p60: '12'
+          1280x720p60: '13'
+          1280x720p50: '14'
+          1024x768p60: '15'
+          Auto: '16'
+    sets: {resolution: '{value}'}
+    read_back: r output {output} res!
+  read_edid:
+    label: Read Input EDID
+    send: r input {input} edid!
+    help: Read input edid for the selected port.
+    params:
+      input: {type: child_id, label: HDMI Source, child_type: input, required: true}
+    query_for: edid
+  read_audio_embedding:
+    label: Read Input Audio Embedding
+    send: r input {input} as!
+    help: Read input audio embedding for the selected port.
+    params:
+      input: {type: child_id, label: HDMI Source, child_type: input, required: true}
+    query_for: audio_embedding
+  power_on:
+    label: Power On
+    send: s power 1!
+    help: Turn the processor on and read its power state.
+    sets: {power: true}
+    read_back: r power!
+  display_on:
+    label: Display Power On (CEC)
+    send: s cec hdmi out {output} on!
+    help: Send HDMI-CEC power on to the selected display. The API acknowledges transmission and does not report
+      display power.
+    params:
+      output: {type: child_id, label: HDMI Output, child_type: output, required: true}
+  power_off:
+    label: Power Off
+    send: s power 0!
+    help: Turn the processor off and read its power state.
+    sets: {power: false}
+    read_back: r power!
+  display_off:
+    label: Display Power Off (CEC)
+    send: s cec hdmi out {output} off!
+    help: Send HDMI-CEC power off to the selected display. The API acknowledges transmission and does not report
+      display power.
+    params:
+      output: {type: child_id, label: HDMI Output, child_type: output, required: true}
+  recall_preset:
+    label: Recall Preset
+    send: s recall preset {preset}!
+    help: Recall this saved slot and read the resulting operating mode, layout and routing.
+    params:
+      preset: {type: child_id, label: Preset Slot, child_type: preset, required: true}
+    read_back: [r display mode!, r output exa mode!, r tw mode!, r multiview!, r output 0 in source!, r tw group
+        0 source!, r window 0 in!, r output 0 exa in source!, r mv output audio!, r output 0 stream!, r output 0
+        exa!, r output 0 res!, r input 0 edid!, r input 0 as!, r tw res!, r tw h bezel!, r tw v bezel!, r mv res!,
+      r pip size!, r pip position!, r triple mode!, r quad mode!, r user mode!]
+  save_preset:
+    label: Save Preset
+    send: s save preset {preset}!
+    help: Store the current processor configuration in this slot.
+    params:
+      preset: {type: child_id, label: Preset Slot, child_type: preset, required: true}
+    confirm: Overwrite the selected processor preset?
+  clear_preset:
+    label: Clear Preset
+    send: s clear preset {preset}!
+    help: Erase the configuration stored in this slot.
+    params:
+      preset: {type: child_id, label: Preset Slot, child_type: preset, required: true}
+    confirm: Erase the selected processor preset?
+  refresh:
+    label: Refresh Processor Feedback
+    send: r display mode!
+    help: Read the current operating mode, layout and assignments. A full refresh also runs when the control connection
+      opens.
+    query_for: display_mode
+    read_back: [r output exa mode!, r tw mode!, r multiview!, r output 0 in source!, r tw group 0 source!, r window
+        0 in!, r output 0 exa in source!, r mv output audio!, r output 0 stream!, r output 0 exa!, r output 0 res!,
+      r input 0 edid!, r input 0 as!, r tw res!, r tw h bezel!, r tw v bezel!, r mv res!, r pip size!, r pip position!,
+      r triple mode!, r quad mode!, r user mode!]
+
+actions:
+  - {id: set_display_mode, icon: layout-grid}
+  - {id: recall_preset, icon: bookmark}
+  - id: route_video
+    icon: route
+    visible_when: {key: device.$id.display_mode, operator: equals, value: Matrix}
+  - id: route_wall
+    icon: route
+    visible_when: {key: device.$id.display_mode, operator: equals, value: Video Wall}
+  - id: route_window
+    icon: route
+    visible_when: {key: device.$id.display_mode, operator: equals, value: Multiview}
+  - id: route_audio
+    icon: route
+    visible_when: {key: device.$id.audio_mode, operator: equals, value: Independent Matrix}
+  - id: set_wall_layout
+    icon: layout-grid
+    visible_when: {key: device.$id.display_mode, operator: equals, value: Video Wall}
+  - id: set_multiview_layout
+    icon: layout-grid
+    visible_when: {key: device.$id.display_mode, operator: equals, value: Multiview}
+  - {id: refresh, icon: refresh-cw}
+
+# A model read starts a new snapshot. Clear prior-session readings before accepting fresh replies.
+responses:
+  - match: (?i)^(4\s*x\s*4\s+hdmi\s+seamless\s+matrix)\s*$
+    set:
+      model: $1
+      mcu_firmware: null
+      web_firmware: null
+      power: null
+      front_panel_lock: null
+      display_mode: null
+      wall_layout: null
+      multiview_layout: null
+      audio_mode: null
+      wall_resolution: null
+      multiview_resolution: null
+      multiview_audio: null
+      pip_size: null
+      pip_position: null
+      horizontal_bezel: null
+      vertical_bezel: null
+      triple_variant: null
+      quad_variant: null
+      user_variant: null
+      last_recalled: null
+    child_set:
+      - {type: input, id: 1, state: {edid: null, audio_embedding: null}}
+      - {type: input, id: 2, state: {edid: null, audio_embedding: null}}
+      - {type: input, id: 3, state: {edid: null, audio_embedding: null}}
+      - {type: input, id: 4, state: {edid: null, audio_embedding: null}}
+      - type: output
+        id: 1
+        state: {matrix_input: null, audio_input: null, resolution: null, stream: null, audio_enabled: null}
+      - type: output
+        id: 2
+        state: {matrix_input: null, audio_input: null, resolution: null, stream: null, audio_enabled: null}
+      - type: output
+        id: 3
+        state: {matrix_input: null, audio_input: null, resolution: null, stream: null, audio_enabled: null}
+      - type: output
+        id: 4
+        state: {matrix_input: null, audio_input: null, resolution: null, stream: null, audio_enabled: null}
+      - {type: wall_group, id: 1, state: {input: null, in_layout: null}}
+      - {type: wall_group, id: 2, state: {input: null, in_layout: null}}
+      - {type: wall_group, id: 3, state: {input: null, in_layout: null}}
+      - {type: wall_group, id: 4, state: {input: null, in_layout: null}}
+      - {type: window, id: 1, state: {input: null, in_layout: null}}
+      - {type: window, id: 2, state: {input: null, in_layout: null}}
+      - {type: window, id: 3, state: {input: null, in_layout: null}}
+      - {type: window, id: 4, state: {input: null, in_layout: null}}
+  - match: (?i)^mcu\s+fw\s*version\s*:\s*(\S+)\s*$
+    set: {mcu_firmware: $1}
+  - match: (?i)^web\s+gui\s*:\s*(\S+)\s*$
+    set: {web_firmware: $1}
+  - match: (?i)^power\s+on\s*$
+    set: {power: true}
+  - match: (?i)^power\s+off\s*$
+    set: {power: false}
+  - match: (?i)^recall\s+from\s+preset\s+([1-8])\s*$
+    set:
+      display_mode: null
+      audio_mode: null
+      wall_layout: null
+      horizontal_bezel: null
+      vertical_bezel: null
+      wall_resolution: null
+      multiview_layout: null
+      multiview_audio: null
+      multiview_resolution: null
+      pip_size: null
+      pip_position: null
+      triple_variant: null
+      quad_variant: null
+      user_variant: null
+      last_recalled: $1
+    child_set:
+      - {type: input, id: 1, state: {edid: null, audio_embedding: null}}
+      - {type: input, id: 2, state: {edid: null, audio_embedding: null}}
+      - {type: input, id: 3, state: {edid: null, audio_embedding: null}}
+      - {type: input, id: 4, state: {edid: null, audio_embedding: null}}
+      - type: output
+        id: 1
+        state: {matrix_input: null, audio_input: null, resolution: null, stream: null, audio_enabled: null}
+      - type: output
+        id: 2
+        state: {matrix_input: null, audio_input: null, resolution: null, stream: null, audio_enabled: null}
+      - type: output
+        id: 3
+        state: {matrix_input: null, audio_input: null, resolution: null, stream: null, audio_enabled: null}
+      - type: output
+        id: 4
+        state: {matrix_input: null, audio_input: null, resolution: null, stream: null, audio_enabled: null}
+      - {type: wall_group, id: 1, state: {input: null, in_layout: null}}
+      - {type: wall_group, id: 2, state: {input: null, in_layout: null}}
+      - {type: wall_group, id: 3, state: {input: null, in_layout: null}}
+      - {type: wall_group, id: 4, state: {input: null, in_layout: null}}
+      - {type: window, id: 1, state: {input: null, in_layout: null}}
+      - {type: window, id: 2, state: {input: null, in_layout: null}}
+      - {type: window, id: 3, state: {input: null, in_layout: null}}
+      - {type: window, id: 4, state: {input: null, in_layout: null}}
+  - match: (?i)^panel button lock\s+off\s*$
+    set: {front_panel_lock: '0'}
+  - match: (?i)^panel button lock\s+on\s*$
+    set: {front_panel_lock: '1'}
+  - match: (?i)^display\s+mode\s*:\s*matrix(?:\s+mode)?\s*$
+    set:
+      display_mode: Matrix
+      wall_layout: null
+      horizontal_bezel: null
+      vertical_bezel: null
+      wall_resolution: null
+      multiview_layout: null
+      multiview_audio: null
+      multiview_resolution: null
+      pip_size: null
+      pip_position: null
+      triple_variant: null
+      quad_variant: null
+      user_variant: null
+    child_set:
+      - {type: wall_group, id: 1, state: {input: null, in_layout: false}}
+      - {type: wall_group, id: 2, state: {input: null, in_layout: false}}
+      - {type: wall_group, id: 3, state: {input: null, in_layout: false}}
+      - {type: wall_group, id: 4, state: {input: null, in_layout: false}}
+      - {type: window, id: 1, state: {input: null, in_layout: false}}
+      - {type: window, id: 2, state: {input: null, in_layout: false}}
+      - {type: window, id: 3, state: {input: null, in_layout: false}}
+      - {type: window, id: 4, state: {input: null, in_layout: false}}
+  - match: (?i)^display\s+mode\s*:\s*(?:video|tv)[ -]*wall(?:\s+mode)?\s*$
+    set:
+      display_mode: Video Wall
+      multiview_layout: null
+      multiview_audio: null
+      multiview_resolution: null
+      pip_size: null
+      pip_position: null
+      triple_variant: null
+      quad_variant: null
+      user_variant: null
+    child_set:
+      - {type: output, id: 1, state: {matrix_input: null}}
+      - {type: output, id: 2, state: {matrix_input: null}}
+      - {type: output, id: 3, state: {matrix_input: null}}
+      - {type: output, id: 4, state: {matrix_input: null}}
+      - {type: window, id: 1, state: {input: null, in_layout: false}}
+      - {type: window, id: 2, state: {input: null, in_layout: false}}
+      - {type: window, id: 3, state: {input: null, in_layout: false}}
+      - {type: window, id: 4, state: {input: null, in_layout: false}}
+  - match: (?i)^display\s+mode\s*:\s*multi[ -]*view(?:er)?(?:\s+mode)?\s*$
+    set:
+      display_mode: Multiview
+      wall_layout: null
+      horizontal_bezel: null
+      vertical_bezel: null
+      wall_resolution: null
+    child_set:
+      - {type: output, id: 1, state: {matrix_input: null}}
+      - {type: output, id: 2, state: {matrix_input: null}}
+      - {type: output, id: 3, state: {matrix_input: null}}
+      - {type: output, id: 4, state: {matrix_input: null}}
+      - {type: wall_group, id: 1, state: {input: null, in_layout: false}}
+      - {type: wall_group, id: 2, state: {input: null, in_layout: false}}
+      - {type: wall_group, id: 3, state: {input: null, in_layout: false}}
+      - {type: wall_group, id: 4, state: {input: null, in_layout: false}}
+  - match: (?i)^display\s+mode\s*:\s*.+\s*$
+    set:
+      display_mode: null
+      wall_layout: null
+      horizontal_bezel: null
+      vertical_bezel: null
+      wall_resolution: null
+      multiview_layout: null
+      multiview_audio: null
+      multiview_resolution: null
+      pip_size: null
+      pip_position: null
+      triple_variant: null
+      quad_variant: null
+      user_variant: null
+    child_set:
+      - {type: output, id: 1, state: {matrix_input: null}}
+      - {type: output, id: 2, state: {matrix_input: null}}
+      - {type: output, id: 3, state: {matrix_input: null}}
+      - {type: output, id: 4, state: {matrix_input: null}}
+      - {type: wall_group, id: 1, state: {input: null, in_layout: null}}
+      - {type: wall_group, id: 2, state: {input: null, in_layout: null}}
+      - {type: wall_group, id: 3, state: {input: null, in_layout: null}}
+      - {type: wall_group, id: 4, state: {input: null, in_layout: null}}
+      - {type: window, id: 1, state: {input: null, in_layout: null}}
+      - {type: window, id: 2, state: {input: null, in_layout: null}}
+      - {type: window, id: 3, state: {input: null, in_layout: null}}
+      - {type: window, id: 4, state: {input: null, in_layout: null}}
+  - match: (?i)^output\s+ext\s*-\s*audio\s+mo(?:d)?e\s*:\s*bind\s+to\s+input\s*$
+    set: {audio_mode: Bind to Input}
+    child_set:
+      - {type: output, id: 1, state: {audio_input: null}}
+      - {type: output, id: 2, state: {audio_input: null}}
+      - {type: output, id: 3, state: {audio_input: null}}
+      - {type: output, id: 4, state: {audio_input: null}}
+  - match: (?i)^output\s+ext\s*-\s*audio\s+mo(?:d)?e\s*:\s*bind\s+to\s+output\s*$
+    set: {audio_mode: Bind to Output}
+    child_set:
+      - {type: output, id: 1, state: {audio_input: null}}
+      - {type: output, id: 2, state: {audio_input: null}}
+      - {type: output, id: 3, state: {audio_input: null}}
+      - {type: output, id: 4, state: {audio_input: null}}
+  - match: (?i)^output\s+ext\s*-\s*audio\s+mo(?:d)?e\s*:\s*(?:audio\s+)?matrix(?:\s+mode)?\s*$
+    set: {audio_mode: Independent Matrix}
+  - match: (?i)^output\s+ext\s*-\s*audio\s+mo(?:d)?e\s*:\s*.+\s*$
+    set: {audio_mode: null}
+    child_set:
+      - {type: output, id: 1, state: {audio_input: null}}
+      - {type: output, id: 2, state: {audio_input: null}}
+      - {type: output, id: 3, state: {audio_input: null}}
+      - {type: output, id: 4, state: {audio_input: null}}
+  - match: (?i)^tv\s+wall\s+mode\s*:\s*2x2(?:\s+mode)?\s*$
+    only_when: {key: display_mode, operator: equals, value: Video Wall}
+    set: {wall_layout: 2x2}
+    child_set:
+      - {type: wall_group, id: 1, state: {in_layout: true}}
+      - {type: wall_group, id: 2, state: {in_layout: false, input: null}}
+      - {type: wall_group, id: 3, state: {in_layout: false, input: null}}
+      - {type: wall_group, id: 4, state: {in_layout: false, input: null}}
+  - match: (?i)^tv\s+wall\s+mode\s*:\s*2x1(?:\s+mode)?\s*$
+    only_when: {key: display_mode, operator: equals, value: Video Wall}
+    set: {wall_layout: 2x1}
+    child_set:
+      - {type: wall_group, id: 1, state: {in_layout: true}}
+      - {type: wall_group, id: 2, state: {in_layout: true}}
+      - {type: wall_group, id: 3, state: {in_layout: true}}
+      - {type: wall_group, id: 4, state: {in_layout: false, input: null}}
+  - match: (?i)^tv\s+wall\s+mode\s*:\s*2x1\s*-\s*2(?:\s+mode)?\s*$
+    only_when: {key: display_mode, operator: equals, value: Video Wall}
+    set: {wall_layout: 2x1-2}
+    child_set:
+      - {type: wall_group, id: 1, state: {in_layout: true}}
+      - {type: wall_group, id: 2, state: {in_layout: true}}
+      - {type: wall_group, id: 3, state: {in_layout: false, input: null}}
+      - {type: wall_group, id: 4, state: {in_layout: false, input: null}}
+  - match: (?i)^tv\s+wall\s+mode\s*:\s*1x2(?:\s+mode)?\s*$
+    only_when: {key: display_mode, operator: equals, value: Video Wall}
+    set: {wall_layout: 1x2}
+    child_set:
+      - {type: wall_group, id: 1, state: {in_layout: true}}
+      - {type: wall_group, id: 2, state: {in_layout: true}}
+      - {type: wall_group, id: 3, state: {in_layout: true}}
+      - {type: wall_group, id: 4, state: {in_layout: false, input: null}}
+  - match: (?i)^tv\s+wall\s+mode\s*:\s*1x2\s*-\s*2(?:\s+mode)?\s*$
+    only_when: {key: display_mode, operator: equals, value: Video Wall}
+    set: {wall_layout: 1x2-2}
+    child_set:
+      - {type: wall_group, id: 1, state: {in_layout: true}}
+      - {type: wall_group, id: 2, state: {in_layout: true}}
+      - {type: wall_group, id: 3, state: {in_layout: false, input: null}}
+      - {type: wall_group, id: 4, state: {in_layout: false, input: null}}
+  - match: (?i)^tv\s+wall\s+mode\s*:\s*3x1(?:\s+mode)?\s*$
+    only_when: {key: display_mode, operator: equals, value: Video Wall}
+    set: {wall_layout: 3x1}
+    child_set:
+      - {type: wall_group, id: 1, state: {in_layout: true}}
+      - {type: wall_group, id: 2, state: {in_layout: true}}
+      - {type: wall_group, id: 3, state: {in_layout: false, input: null}}
+      - {type: wall_group, id: 4, state: {in_layout: false, input: null}}
+  - match: (?i)^tv\s+wall\s+mode\s*:\s*4x1(?:\s+mode)?\s*$
+    only_when: {key: display_mode, operator: equals, value: Video Wall}
+    set: {wall_layout: 4x1}
+    child_set:
+      - {type: wall_group, id: 1, state: {in_layout: true}}
+      - {type: wall_group, id: 2, state: {in_layout: false, input: null}}
+      - {type: wall_group, id: 3, state: {in_layout: false, input: null}}
+      - {type: wall_group, id: 4, state: {in_layout: false, input: null}}
+  - match: (?i)^tv\s+wall\s+mode\s*:\s*1x3(?:\s+mode)?\s*$
+    only_when: {key: display_mode, operator: equals, value: Video Wall}
+    set: {wall_layout: 1x3}
+    child_set:
+      - {type: wall_group, id: 1, state: {in_layout: true}}
+      - {type: wall_group, id: 2, state: {in_layout: true}}
+      - {type: wall_group, id: 3, state: {in_layout: false, input: null}}
+      - {type: wall_group, id: 4, state: {in_layout: false, input: null}}
+  - match: (?i)^tv\s+wall\s+mode\s*:\s*1x4(?:\s+mode)?\s*$
+    only_when: {key: display_mode, operator: equals, value: Video Wall}
+    set: {wall_layout: 1x4}
+    child_set:
+      - {type: wall_group, id: 1, state: {in_layout: true}}
+      - {type: wall_group, id: 2, state: {in_layout: false, input: null}}
+      - {type: wall_group, id: 3, state: {in_layout: false, input: null}}
+      - {type: wall_group, id: 4, state: {in_layout: false, input: null}}
+  - match: (?i)^(?:multi[ -]*view(?:er)?(?:\s+mode)?\s*:\s*)?single(?:\s+screen|\s+mode)?\s*$
+    only_when: {key: display_mode, operator: equals, value: Multiview}
+    set:
+      multiview_layout: Single
+      pip_position: null
+      pip_size: null
+      triple_variant: null
+      quad_variant: null
+      user_variant: null
+    child_set:
+      - {type: window, id: 1, state: {in_layout: true}}
+      - {type: window, id: 2, state: {in_layout: false, input: null}}
+      - {type: window, id: 3, state: {in_layout: false, input: null}}
+      - {type: window, id: 4, state: {in_layout: false, input: null}}
+  - match: (?i)^(?:multi[ -]*view(?:er)?(?:\s+mode)?\s*:\s*)?pip(?:\s+screen|\s+mode)?\s*$
+    only_when: {key: display_mode, operator: equals, value: Multiview}
+    set: {multiview_layout: PiP, triple_variant: null, quad_variant: null, user_variant: null}
+    child_set:
+      - {type: window, id: 1, state: {in_layout: true}}
+      - {type: window, id: 2, state: {in_layout: true}}
+      - {type: window, id: 3, state: {in_layout: false, input: null}}
+      - {type: window, id: 4, state: {in_layout: false, input: null}}
+  - match: (?i)^(?:multi[ -]*view(?:er)?(?:\s+mode)?\s*:\s*)?dual(?:\s+screen|\s+mode)?\s*$
+    only_when: {key: display_mode, operator: equals, value: Multiview}
+    set:
+      multiview_layout: Dual
+      pip_position: null
+      pip_size: null
+      triple_variant: null
+      quad_variant: null
+      user_variant: null
+    child_set:
+      - {type: window, id: 1, state: {in_layout: true}}
+      - {type: window, id: 2, state: {in_layout: true}}
+      - {type: window, id: 3, state: {in_layout: false, input: null}}
+      - {type: window, id: 4, state: {in_layout: false, input: null}}
+  - match: (?i)^(?:multi[ -]*view(?:er)?(?:\s+mode)?\s*:\s*)?triple(?:\s+screen|\s+mode)?\s*$
+    only_when: {key: display_mode, operator: equals, value: Multiview}
+    set:
+      multiview_layout: Triple
+      pip_position: null
+      pip_size: null
+      quad_variant: null
+      user_variant: null
+    child_set:
+      - {type: window, id: 1, state: {in_layout: true}}
+      - {type: window, id: 2, state: {in_layout: true}}
+      - {type: window, id: 3, state: {in_layout: true}}
+      - {type: window, id: 4, state: {in_layout: false, input: null}}
+  - match: (?i)^(?:multi[ -]*view(?:er)?(?:\s+mode)?\s*:\s*)?quad(?:\s+screen|\s+mode)?\s*$
+    only_when: {key: display_mode, operator: equals, value: Multiview}
+    set:
+      multiview_layout: Quad
+      pip_position: null
+      pip_size: null
+      triple_variant: null
+      user_variant: null
+    child_set:
+      - {type: window, id: 1, state: {in_layout: true}}
+      - {type: window, id: 2, state: {in_layout: true}}
+      - {type: window, id: 3, state: {in_layout: true}}
+      - {type: window, id: 4, state: {in_layout: true}}
+  - match: (?i)^(?:multi[ -]*view(?:er)?(?:\s+mode)?\s*:\s*)?user(?:\s+screen|\s+mode)?\s*$
+    only_when: {key: display_mode, operator: equals, value: Multiview}
+    set:
+      multiview_layout: User
+      pip_position: null
+      pip_size: null
+      triple_variant: null
+      quad_variant: null
+    child_set:
+      - {type: window, id: 1, state: {in_layout: null}}
+      - {type: window, id: 2, state: {in_layout: null}}
+      - {type: window, id: 3, state: {in_layout: null}}
+      - {type: window, id: 4, state: {in_layout: null}}
+  - match: (?i)^tv\s+wall\s+mode\s*:\s*.+\s*$
+    only_when: {key: display_mode, operator: equals, value: Video Wall}
+    set: {wall_layout: null}
+    child_set:
+      - {type: wall_group, id: 1, state: {input: null, in_layout: null}}
+      - {type: wall_group, id: 2, state: {input: null, in_layout: null}}
+      - {type: wall_group, id: 3, state: {input: null, in_layout: null}}
+      - {type: wall_group, id: 4, state: {input: null, in_layout: null}}
+  - match: (?i)^multi[ -]*view(?:er)?(?:\s+mode)?\s*:\s*.+\s*$
+    only_when: {key: display_mode, operator: equals, value: Multiview}
+    set: {multiview_layout: null}
+    child_set:
+      - {type: window, id: 1, state: {input: null, in_layout: null}}
+      - {type: window, id: 2, state: {input: null, in_layout: null}}
+      - {type: window, id: 3, state: {input: null, in_layout: null}}
+      - {type: window, id: 4, state: {input: null, in_layout: null}}
+  - match: (?i)^output\s*([1-4])\s*[-]\s*>\s*input\s*([1-4])\s*$
+    only_when: {key: display_mode, operator: equals, value: Matrix}
+    child_set:
+      - {type: output, id: $1, state: {matrix_input: $2}}
+  - match: (?i)^output\s*([1-4])\s+ext\s*-\s*audio\s*-\s*>\s*input\s*([1-4])\s*$
+    only_when: {key: audio_mode, operator: equals, value: Independent Matrix}
+    child_set:
+      - {type: output, id: $1, state: {audio_input: $2}}
+  - match: (?i)^window\s*1\s+select\s+hdmi\s*([1-4])\s*$
+    only_when:
+      any:
+        - {key: device.$id.window.1.in_layout, operator: equals, value: true}
+        - {key: multiview_layout, operator: equals, value: User}
+    child_set:
+      - {type: window, id: 1, state: {input: $1}}
+  - match: (?i)^window\s*2\s+select\s+hdmi\s*([1-4])\s*$
+    only_when:
+      any:
+        - {key: device.$id.window.2.in_layout, operator: equals, value: true}
+        - {key: multiview_layout, operator: equals, value: User}
+    child_set:
+      - {type: window, id: 2, state: {input: $1}}
+  - match: (?i)^window\s*3\s+select\s+hdmi\s*([1-4])\s*$
+    only_when:
+      any:
+        - {key: device.$id.window.3.in_layout, operator: equals, value: true}
+        - {key: multiview_layout, operator: equals, value: User}
+    child_set:
+      - {type: window, id: 3, state: {input: $1}}
+  - match: (?i)^window\s*4\s+select\s+hdmi\s*([1-4])\s*$
+    only_when:
+      any:
+        - {key: device.$id.window.4.in_layout, operator: equals, value: true}
+        - {key: multiview_layout, operator: equals, value: User}
+    child_set:
+      - {type: window, id: 4, state: {input: $1}}
+  - match: (?i)^tv\s+wall\s+group\s*1\s+input\s*:\s*hdmi\s+input\s*([1-4])\s*$
+    only_when: {key: device.$id.wall_group.1.in_layout, operator: equals, value: true}
+    child_set:
+      - {type: wall_group, id: 1, state: {input: $1}}
+  - match: (?i)^tv\s+wall\s+group\s*2\s+input\s*:\s*hdmi\s+input\s*([1-4])\s*$
+    only_when: {key: device.$id.wall_group.2.in_layout, operator: equals, value: true}
+    child_set:
+      - {type: wall_group, id: 2, state: {input: $1}}
+  - match: (?i)^tv\s+wall\s+group\s*3\s+input\s*:\s*hdmi\s+input\s*([1-4])\s*$
+    only_when: {key: device.$id.wall_group.3.in_layout, operator: equals, value: true}
+    child_set:
+      - {type: wall_group, id: 3, state: {input: $1}}
+  - match: (?i)^tv\s+wall\s+group\s*4\s+input\s*:\s*hdmi\s+input\s*([1-4])\s*$
+    only_when: {key: device.$id.wall_group.4.in_layout, operator: equals, value: true}
+    child_set:
+      - {type: wall_group, id: 4, state: {input: $1}}
+  - match: (?i)^output\s*([1-4])\s+stream\s*:\s*enabled?\s*$
+    child_set:
+      - {type: output, id: $1, state: {stream: true}}
+  - match: (?i)^output\s*([1-4])\s+stream\s*:\s*disabled?\s*$
+    child_set:
+      - {type: output, id: $1, state: {stream: false}}
+  - match: (?i)^output\s*([1-4])\s+ext\s*-\s*audio\s*:\s*enabled?\s*$
+    child_set:
+      - {type: output, id: $1, state: {audio_enabled: true}}
+  - match: (?i)^output\s*([1-4])\s+ext\s*-\s*audio\s*:\s*disabled?\s*$
+    child_set:
+      - {type: output, id: $1, state: {audio_enabled: false}}
+  - match: (?i)^output\s*([1-4])\s+resolution\s*:\s*(auto|\d{3,4}x\d{3,4}[pi]\d{2}(?:rb)?)\s*$
+    child_set:
+      - {type: output, id: $1, state: {resolution: $2}}
+  - match: (?i)^input\s*([1-4])\s+edid\s*:\s*(.+?)\s*$
+    child_set:
+      - {type: input, id: $1, state: {edid: $2}}
+  - match: (?i)^input\s*([1-4])\s+select\s+hdmi\s+original\s+audio\s*$
+    child_set:
+      - {type: input, id: $1, state: {audio_embedding: HDMI Original}}
+  - match: (?i)^input\s*([1-4])\s+select\s+embed(?:ded)?\s+analog\s+audio\s*$
+    child_set:
+      - {type: input, id: $1, state: {audio_embedding: Embedded Analog}}
+  - match: (?i)^tv wall\s+resolution\s*:\s*(\d{3,4}x\d{3,4}[pi]\d{2}(?:rb)?)\s*$
+    only_when: {key: display_mode, operator: equals, value: Video Wall}
+    set: {wall_resolution: $1}
+  - match: (?i)^multi[ -]*view(?:er)?\s+resolution\s*:\s*(\d{3,4}x\d{3,4}[pi]\d{2}(?:rb)?)\s*$
+    only_when: {key: display_mode, operator: equals, value: Multiview}
+    set: {multiview_resolution: $1}
+  - match: (?i)^tv\s+wall\s+horizontal\s+bezel\s*:\s*(10|[0-9])\s*$
+    only_when: {key: display_mode, operator: equals, value: Video Wall}
+    set: {horizontal_bezel: $1}
+  - match: (?i)^tv\s+wall\s+vertical\s+bezel\s*:\s*(10|[0-9])\s*$
+    only_when: {key: display_mode, operator: equals, value: Video Wall}
+    set: {vertical_bezel: $1}
+  - match: (?i)^triple\s*([1-3])\s+mode\s*$
+    only_when: {key: multiview_layout, operator: equals, value: Triple}
+    set: {triple_variant: $1}
+  - match: (?i)^quad\s*([1-3])\s+mode\s*$
+    only_when: {key: multiview_layout, operator: equals, value: Quad}
+    set: {quad_variant: $1}
+  - match: (?i)^user\s*([1-3])\s+mode\s*$
+    only_when: {key: multiview_layout, operator: equals, value: User}
+    set: {user_variant: $1}
+  - match: (?i)^pip on upper left\s*$
+    only_when: {key: multiview_layout, operator: equals, value: PiP}
+    set: {pip_position: Upper Left}
+  - match: (?i)^pip on lower left\s*$
+    only_when: {key: multiview_layout, operator: equals, value: PiP}
+    set: {pip_position: Lower Left}
+  - match: (?i)^pip on upper right\s*$
+    only_when: {key: multiview_layout, operator: equals, value: PiP}
+    set: {pip_position: Upper Right}
+  - match: (?i)^pip on lower right\s*$
+    only_when: {key: multiview_layout, operator: equals, value: PiP}
+    set: {pip_position: Lower Right}
+  - match: (?i)^pip size\s*:\s*small\s*$
+    only_when: {key: multiview_layout, operator: equals, value: PiP}
+    set: {pip_size: Small}
+  - match: (?i)^pip size\s*:\s*middle\s*$
+    only_when: {key: multiview_layout, operator: equals, value: PiP}
+    set: {pip_size: Middle}
+  - match: (?i)^pip size\s*:\s*large\s*$
+    only_when: {key: multiview_layout, operator: equals, value: PiP}
+    set: {pip_size: Large}
+  - match: (?i)^output audio\s*:\s*follow\s*window\s*1\s+selected\s+source\s*$
+    only_when: {key: display_mode, operator: equals, value: Multiview}
+    set: {multiview_audio: Follow Window 1}
+  - match: (?i)^output audio\s*:\s*select\s+input\s*1\s+audio\s*$
+    only_when: {key: display_mode, operator: equals, value: Multiview}
+    set: {multiview_audio: HDMI 1}
+  - match: (?i)^output audio\s*:\s*select\s+input\s*2\s+audio\s*$
+    only_when: {key: display_mode, operator: equals, value: Multiview}
+    set: {multiview_audio: HDMI 2}
+  - match: (?i)^output audio\s*:\s*select\s+input\s*3\s+audio\s*$
+    only_when: {key: display_mode, operator: equals, value: Multiview}
+    set: {multiview_audio: HDMI 3}
+  - match: (?i)^output audio\s*:\s*select\s+input\s*4\s+audio\s*$
+    only_when: {key: display_mode, operator: equals, value: Multiview}
+    set: {multiview_audio: HDMI 4}
+
+on_connect:
+  - r type!
+  - read_firmware
+  - read_power
+  - read_front_panel_lock
+  - read_display_mode
+  - read_audio_mode
+  - r output 0 stream!
+  - r output 0 exa!
+  - r output 0 res!
+  - r input 0 edid!
+  - r input 0 as!
+  - send: r tw mode!
+    when_state: {display_mode: Video Wall}
+  - send: r tw group 0 source!
+    when_state: {display_mode: Video Wall}
+  - send: r tw h bezel!
+    when_state: {display_mode: Video Wall}
+  - send: r tw v bezel!
+    when_state: {display_mode: Video Wall}
+  - send: r tw res!
+    when_state: {display_mode: Video Wall}
+  - send: r multiview!
+    when_state: {display_mode: Multiview}
+  - send: r window 0 in!
+    when_state: {display_mode: Multiview}
+  - send: r mv output audio!
+    when_state: {display_mode: Multiview}
+  - send: r mv res!
+    when_state: {display_mode: Multiview}
+  - send: r output 0 in source!
+    when_state: {display_mode: Matrix}
+  - send: r output 0 exa in source!
+    when_state: {audio_mode: Independent Matrix}
+  - send: r pip size!
+    when_state: {multiview_layout: PiP}
+  - send: r pip position!
+    when_state: {multiview_layout: PiP}
+  - send: r triple mode!
+    when_state: {multiview_layout: Triple}
+  - send: r quad mode!
+    when_state: {multiview_layout: Quad}
+  - send: r user mode!
+    when_state: {multiview_layout: User}
+
+# Read the mode before its banks. Audio extraction has its own mode.
+polling:
+  queries:
+    - read_power
+    - read_front_panel_lock
+    - read_display_mode
+    - read_audio_mode
+    - r output 0 stream!
+    - r output 0 exa!
+    - r output 0 res!
+    - r input 0 edid!
+    - r input 0 as!
+    - send: r tw mode!
+      when_state: {display_mode: Video Wall}
+    - send: r tw group 0 source!
+      when_state: {display_mode: Video Wall}
+    - send: r tw h bezel!
+      when_state: {display_mode: Video Wall}
+    - send: r tw v bezel!
+      when_state: {display_mode: Video Wall}
+    - send: r tw res!
+      when_state: {display_mode: Video Wall}
+    - send: r multiview!
+      when_state: {display_mode: Multiview}
+    - send: r window 0 in!
+      when_state: {display_mode: Multiview}
+    - send: r mv output audio!
+      when_state: {display_mode: Multiview}
+    - send: r mv res!
+      when_state: {display_mode: Multiview}
+    - send: r output 0 in source!
+      when_state: {display_mode: Matrix}
+    - send: r output 0 exa in source!
+      when_state: {audio_mode: Independent Matrix}
+    - send: r pip size!
+      when_state: {multiview_layout: PiP}
+    - send: r pip position!
+      when_state: {multiview_layout: PiP}
+    - send: r triple mode!
+      when_state: {multiview_layout: Triple}
+    - send: r quad mode!
+      when_state: {multiview_layout: Quad}
+    - send: r user mode!
+      when_state: {multiview_layout: User}
+
+# The simulated front panel and saved presets persist across a control reconnect.
+simulator:
+  push_state: false
+  initial_state:
+    model: 4x4 hdmi seamless matrix
+    mcu_firmware: '1.00'
+    web_firmware: '1.01'
+    last_recalled: null
+    front_panel_lock: '0'
+    display_mode: Matrix
+    wall_layout: 2x2
+    multiview_layout: Quad
+    audio_mode: Bind to Output
+    power: true
+    wall_resolution: 3840x2160p60
+    multiview_resolution: 3840x2160p60
+    multiview_audio: Follow Window 1
+    pip_position: Upper Right
+    pip_size: Large
+    horizontal_bezel: 0
+    vertical_bezel: 0
+    triple_variant: 1
+    quad_variant: 1
+    user_variant: 1
+    matrix_1: 1
+    matrix_2: 2
+    matrix_3: 3
+    matrix_4: 4
+    wall_1: 1
+    wall_2: 2
+    wall_3: 3
+    wall_4: 4
+    window_1: 1
+    window_2: 2
+    window_3: 3
+    window_4: 4
+    extract_1: 1
+    extract_2: 2
+    extract_3: 3
+    extract_4: 4
+    res_1: Auto
+    res_2: Auto
+    res_3: Auto
+    res_4: Auto
+    stream_1: true
+    stream_2: true
+    stream_3: true
+    stream_4: true
+    exa_1: true
+    exa_2: true
+    exa_3: true
+    exa_4: true
+    edid_1: 4k60,2.0ch
+    edid_2: 4k60,2.0ch
+    edid_3: 4k60,2.0ch
+    edid_4: 4k60,2.0ch
+    embed_1: hdmi original
+    embed_2: hdmi original
+    embed_3: hdmi original
+    embed_4: hdmi original
+  controls:
+    - key: display_mode
+      label: Operating Mode
+      type: select
+      options: [Matrix, Video Wall, Multiview]
+    - key: wall_layout
+      label: Wall Layout
+      type: select
+      options: [2x2, 2x1, 2x1-2, 1x2, 1x2-2, 3x1, 4x1, 1x3, 1x4]
+    - key: multiview_layout
+      label: Multiview Layout
+      type: select
+      options: [Single, PiP, Dual, Triple, Quad, User]
+    - key: audio_mode
+      label: Extracted Audio Mode
+      type: select
+      options: [Bind to Input, Bind to Output, Independent Matrix]
+    - {key: matrix_1, label: Output 1 Matrix Source, type: slider, min: 1, max: 4, step: 1}
+    - {key: wall_1, label: Wall Group 1 Source, type: slider, min: 1, max: 4, step: 1}
+    - {key: window_1, label: Window 1 Source, type: slider, min: 1, max: 4, step: 1}
+    - key: extract_1
+      label: Audio Output 1 Matrix Source
+      type: slider
+      min: 1
+      max: 4
+      step: 1
+  command_handlers:
+    - receive: r type!
+      respond: "4x4 hdmi seamless matrix\r\n"
+    - receive: r fw version!
+      respond: "mcu fw version: 1.00\r\nweb gui: 1.01\r\n"
+    - match: '(r|s) power(?: ([01]))?!'
+      handler: |
+        if match.group(2) is not None:
+            state["power"] = match.group(2) == "1"
+        respond(("power on" if state["power"] else "power off") + "\r\n")
+    - match: '(r|s) lock(?: ([01]))?!'
+      handler: |
+        if match.group(2) is not None:
+            state["front_panel_lock"] = match.group(2)
+        respond("panel button lock " + ("on" if state["front_panel_lock"] == "1" else "off") + "\r\n")
+    - match: '(r|s) display mode(?: ([0-2]))?!'
+      handler: |
+        value = match.group(2)
+        if match.group(1) == "s" and value is not None:
+            state["display_mode"] = ['Matrix', 'Video Wall', 'Multiview'][int(value) - 0]
+        value = state["display_mode"]
+        value = {'Matrix':'matrix','Video Wall':'video wall','Multiview':'multi-viewer'}[value]
+        respond('display mode: {}\r\n'.format(value))
+    - match: '(r|s) output exa mode(?: ([0-2]))?!'
+      handler: |
+        value = match.group(2)
+        if match.group(1) == "s" and value is not None:
+            state["audio_mode"] = ['Bind to Input', 'Bind to Output', 'Independent Matrix'][int(value) - 0]
+        value = state["audio_mode"]
+        value = 'matrix' if value == 'Independent Matrix' else value.lower()
+        respond('output ext-audio mode: {}\r\n'.format(value))
+    - match: '(r|s) tw mode(?: ([1-9]))?!'
+      handler: |
+        value = match.group(2)
+        if match.group(1) == "s" and value is not None:
+            state["wall_layout"] = ['2x2', '2x1', '2x1-2', '1x2', '1x2-2', '3x1', '4x1', '1x3', '1x4'][int(value) - 1]
+        value = state["wall_layout"]
+        respond('tv wall mode: {}\r\n'.format(value))
+    - match: '(r|s) multiview(?: ([1-6]))?!'
+      handler: |
+        value = match.group(2)
+        if match.group(1) == "s" and value is not None:
+            state["multiview_layout"] = ['Single', 'PiP', 'Dual', 'Triple', 'Quad', 'User'][int(value) - 1]
+        value = state["multiview_layout"]
+        value = value.lower()
+        respond('{} screen\r\n'.format(value))
+    - match: '(r|s) mv output audio(?: ([0-4]))?!'
+      handler: |
+        value = match.group(2)
+        if match.group(1) == "s" and value is not None:
+            state["multiview_audio"] = ['Follow Window 1', 'HDMI 1', 'HDMI 2', 'HDMI 3', 'HDMI 4'][int(value) - 0]
+        value = state["multiview_audio"]
+        value = 'follow window 1 selected source' if value == 'Follow Window 1' else 'select input '+value[-1]+' audio'
+        respond('output audio: {}\r\n'.format(value))
+    - match: '(r|s) pip size(?: ([1-3]))?!'
+      handler: |
+        value = match.group(2)
+        if match.group(1) == "s" and value is not None:
+            state["pip_size"] = ['Small', 'Middle', 'Large'][int(value) - 1]
+        value = state["pip_size"]
+        value = value.lower()
+        respond('pip size: {}\r\n'.format(value))
+    - match: (r|s) pip position\s*([1-4])?!
+      handler: |
+        value = match.group(2)
+        if match.group(1) == "s" and value is not None:
+            state["pip_position"] = ['Upper Left', 'Lower Left', 'Upper Right', 'Lower Right'][int(value) - 1]
+        value = state["pip_position"]
+        value = value.lower()
+        respond('pip on {}\r\n'.format(value))
+    - match: '(r|s) tw res(?: (1[0-5]|[1-9]))?!'
+      handler: |
+        value = match.group(2)
+        if match.group(1) == "s" and value is not None:
+            state["wall_resolution"] = ['4096x2160p60', '4096x2160p50', '3840x2160p60', '3840x2160p50', '3840x2160p30', '1920x1080p60', '1920x1080p50', '1920x1080i60', '1920x1080i50', '1920x1200p60rb', '1360x768p60', '1280x800p60', '1280x720p60', '1280x720p50', '1024x768p60'][int(value) - 1]
+        value = state["wall_resolution"]
+        respond('tv wall resolution: {}\r\n'.format(value))
+    - match: '(r|s) mv res(?: (1[0-5]|[1-9]))?!'
+      handler: |
+        value = match.group(2)
+        if match.group(1) == "s" and value is not None:
+            state["multiview_resolution"] = ['4096x2160p60', '4096x2160p50', '3840x2160p60', '3840x2160p50', '3840x2160p30', '1920x1080p60', '1920x1080p50', '1920x1080i60', '1920x1080i50', '1920x1200p60rb', '1360x768p60', '1280x800p60', '1280x720p60', '1280x720p50', '1024x768p60'][int(value) - 1]
+        value = state["multiview_resolution"]
+        respond('multi-viewer resolution: {}\r\n'.format(value))
+    - match: '(r|s) tw (h|v) bezel(?: (10|[0-9]))?!'
+      handler: |
+        axis = "horizontal" if match.group(2) == "h" else "vertical"
+        key = axis + "_bezel"
+        if match.group(3) is not None:
+            state[key] = int(match.group(3))
+        respond(f"tv wall {axis} bezel: {state[key]}\r\n")
+    - match: '(r|s) (triple|quad|user)(?: ([1-3]))? mode!'
+      handler: |
+        family = match.group(2)
+        key = family + "_variant"
+        if match.group(3) is not None:
+            state[key] = int(match.group(3))
+        respond(f"{family} {state[key]} mode\r\n")
+    - match: '(r|s) output ([0-4]) in source(?: ([1-4]))?!'
+      handler: |
+        address = int(match.group(2))
+        rows = []
+        for i in (range(1, 5) if address == 0 else [address]):
+            key = "matrix_" + str(i)
+            if match.group(1) == "s" and match.group(3) is not None:
+                state[key] = int(match.group(3))
+            value = state[key]
+            rows.append('output{}->input{}'.format(i, value))
+        respond("\r\n".join(rows) + "\r\n")
+    - match: '(r|s) output ([0-4]) exa in source(?: ([1-4]))?!'
+      handler: |
+        address = int(match.group(2))
+        rows = []
+        for i in (range(1, 5) if address == 0 else [address]):
+            key = "extract_" + str(i)
+            if match.group(1) == "s" and match.group(3) is not None:
+                state[key] = int(match.group(3))
+            value = state[key]
+            rows.append('output {} ext-audio->input {}'.format(i, value))
+        respond("\r\n".join(rows) + "\r\n")
+    - match: (r|s) tw group ([0-4]) (?:source|input ([1-4]))!
+      handler: |
+        address = int(match.group(2))
+        rows = []
+        for i in (range(1, 5) if address == 0 else [address]):
+            key = "wall_" + str(i)
+            if match.group(1) == "s" and match.group(3) is not None:
+                state[key] = int(match.group(3))
+            value = state[key]
+            rows.append('tv wall group {} input: hdmi input {}'.format(i, value))
+        respond("\r\n".join(rows) + "\r\n")
+    - match: '(r|s) window ([0-4]) in(?: ([1-4]))?!'
+      handler: |
+        address = int(match.group(2))
+        rows = []
+        for i in (range(1, 5) if address == 0 else [address]):
+            key = "window_" + str(i)
+            if match.group(1) == "s" and match.group(3) is not None:
+                state[key] = int(match.group(3))
+            value = state[key]
+            rows.append('window {} select hdmi {}'.format(i, value))
+        respond("\r\n".join(rows) + "\r\n")
+    - match: '(r|s) output ([0-4]) res(?: (1[0-6]|[1-9]))?!'
+      handler: |
+        address = int(match.group(2))
+        rows = []
+        for i in (range(1, 5) if address == 0 else [address]):
+            key = "res_" + str(i)
+            if match.group(1) == "s" and match.group(3) is not None:
+                state[key] = ['4096x2160p60', '4096x2160p50', '3840x2160p60', '3840x2160p50', '3840x2160p30', '1920x1080p60', '1920x1080p50', '1920x1080i60', '1920x1080i50', '1920x1200p60rb', '1360x768p60', '1280x800p60', '1280x720p60', '1280x720p50', '1024x768p60', 'Auto'][int(match.group(3))-1]
+            value = state[key]
+            rows.append('output {} resolution: {}'.format(i, value))
+        respond("\r\n".join(rows) + "\r\n")
+    - match: '(r|s) output ([0-4]) stream(?: ([01]))?!'
+      handler: |
+        address = int(match.group(2))
+        rows = []
+        for i in (range(1, 5) if address == 0 else [address]):
+            key = "stream_" + str(i)
+            if match.group(1) == "s" and match.group(3) is not None:
+                state[key] = match.group(3) == "1"
+            value = state[key]
+            rows.append('output {} stream: {}'.format(i, "enable" if value else "disable"))
+        respond("\r\n".join(rows) + "\r\n")
+    - match: '(r|s) output ([0-4]) exa(?: ([01]))?!'
+      handler: |
+        address = int(match.group(2))
+        rows = []
+        for i in (range(1, 5) if address == 0 else [address]):
+            key = "exa_" + str(i)
+            if match.group(1) == "s" and match.group(3) is not None:
+                state[key] = match.group(3) == "1"
+            value = state[key]
+            rows.append('output {} ext-audio: {}'.format(i, "enable" if value else "disable"))
+        respond("\r\n".join(rows) + "\r\n")
+    - match: (r) input ([0-4]) edid!
+      handler: |
+        address = int(match.group(2))
+        rows = []
+        for i in (range(1, 5) if address == 0 else [address]):
+            key = "edid_" + str(i)
+            value = state[key]
+            rows.append('input {} edid:{}'.format(i, value))
+        respond("\r\n".join(rows) + "\r\n")
+    - match: (r) input ([0-4]) as!
+      handler: |
+        address = int(match.group(2))
+        rows = []
+        for i in (range(1, 5) if address == 0 else [address]):
+            key = "embed_" + str(i)
+            value = state[key]
+            rows.append('input {} select {} audio'.format(i, value))
+        respond("\r\n".join(rows) + "\r\n")
+    - match: s cec hdmi out ([1-4]) (on|off)!
+      handler: |
+        respond("hdmi output " + match.group(1) + " power " + match.group(2) + "\r\n")
+    - match: s (save|recall|clear) preset ([1-8])!
+      handler: |
+        op, slot = match.groups()
+        key = "preset_" + state["display_mode"] + "_" + slot
+        base = ["display_mode", "audio_mode", "wall_layout", "multiview_layout", "wall_resolution",
+                "multiview_resolution", "multiview_audio", "pip_size", "pip_position",
+                "horizontal_bezel", "vertical_bezel", "triple_variant", "quad_variant", "user_variant"]
+        for prefix in ["matrix", "wall", "window", "extract", "res", "stream", "exa", "embed", "edid"]:
+            base.extend(prefix + "_" + str(i) for i in range(1, 5))
+        if op == "save":
+            state[key] = {field: state[field] for field in base}
+            respond("save to preset " + slot + "\r\n")
+        elif op == "clear":
+            state[key] = {}
+            respond("clear preset " + slot + "\r\n")
+        elif state.get(key):
+            for field, value in state[key].items():
+                state[field] = value
+            respond("recall from preset " + slot + "\r\n")

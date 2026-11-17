@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 41,
+    "total_drivers": 42,
     "shards": null,
     "category": "switcher"
   },
@@ -2222,6 +2222,58 @@
           },
           "timeout_ms": 2000
         }
+      }
+    },
+    {
+      "id": "turtle_videowall_4x4",
+      "name": "Turtle AV 4\u00d74 Videowall",
+      "manufacturer": "TurtleAV",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls the 4\u00d74 HDMI processor in matrix, video wall and multiview modes. Reports HDMI routes, wall-group and window assignments, output scaling, extracted audio and preset recalls.",
+      "source_url": "https://turtleav.com/download/285/4x4-videowall/28521/4x4-videowall-user-guide.pdf",
+      "file": "switchers/turtle_videowall_4x4.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "switchers/turtle_videowall_4x4.avcdriver": "7002464681b131cd44503c5fd9123f2c6258037b0db33a77ee93fbab5bf3ebbd"
+      },
+      "ports": [
+        8000
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "hdmi",
+        "matrix",
+        "video-wall",
+        "multiview",
+        "audio-de-embedding"
+      ],
+      "help": {
+        "overview": "Select the operating mode first. Matrix routes four physical HDMI outputs. Video Wall routes groups of displays. Multiview routes windows in one composition shared by all four outputs. Rename the numbered ports and preset slots in the OpenAVC project.",
+        "setup": "Enter the IP address and configured TCP control port (factory 8000), or choose serial at 115200 baud, 8 data bits, no parity and one stop bit. The IP address can be read from the front panel. The Web UI allows custom window positioning and preset naming.",
+        "connection": "A reconnect reads the operating mode, layout, assignments and audio settings. Regular queries pick up front-panel and web edits. An empty route means the bank is inactive or the reading is unavailable. For custom multiview, the API reports assigned sources but does not report which windows the installer hid."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "TurtleAV",
+          "models": [
+            "4x4 Videowall"
+          ],
+          "confidence": "untested",
+          "notes": "Exact-model control guide and simulator. Physical hardware qualification is open."
+        }
+      ],
+      "discovery": {
+        "manufacturer_alias": [
+          "TurtleAV",
+          "Turtle AV"
+        ],
+        "oui": [
+          "18:66:96:1"
+        ]
       }
     },
     {

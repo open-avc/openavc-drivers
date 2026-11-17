@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 154,
+    "total_devices": 155,
     "shards": null,
     "category": "switcher"
   },
@@ -1533,6 +1533,18 @@
           "id": "muxlab_500532",
           "confidence": "untested",
           "notes": "Exact transmitter and included HDBaseT receiver kit, manual 94-001072-A. Simulator tested."
+        }
+      ]
+    },
+    {
+      "manufacturer": "TurtleAV",
+      "model": "4x4 Videowall",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "turtle_videowall_4x4",
+          "confidence": "untested",
+          "notes": "Exact-model control guide and simulator. Physical hardware qualification is open."
         }
       ]
     },

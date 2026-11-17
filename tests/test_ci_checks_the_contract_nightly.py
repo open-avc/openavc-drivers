@@ -67,3 +67,18 @@ def test_the_contract_check_runs_on_every_trigger() -> None:
             f"the contract check in job {job_id!r} has an `if:`, so the "
             "nightly run may skip it"
         )
+
+
+def test_the_contract_check_is_given_the_runs_token() -> None:
+    """The check resolves the platform's main to a commit through GitHub's API
+    before fetching (see test_vendor_contract_fetch.py). Without a token that
+    call shares the runner's unauthenticated rate limit, and once the limit is
+    spent it falls back to the CDN-cached branch URL, which can report drift
+    that is not there in the minutes after a platform change lands."""
+    found = _jobs_running_the_check(_workflow())
+    assert found, f"no step in ci.yml runs {CHECK!r}"
+    for job_id, _job, step in found:
+        token = (step.get("env") or {}).get("GITHUB_TOKEN", "")
+        assert "github.token" in token or "secrets.GITHUB_TOKEN" in token, (
+            f"the contract check in job {job_id!r} is not given GITHUB_TOKEN"
+        )

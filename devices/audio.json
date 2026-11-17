@@ -3653,7 +3653,7 @@
         {
           "id": "turtle_jef",
           "confidence": "untested",
-          "notes": "Built from the Mineola Dante Bridge command list, which TurtleAV says the JEF shares. Not yet run against a JEF.\n"
+          "notes": "Built from the command list a JEF prints (firmware Web V1.10.04) and the reply form of the Mineola Dante Bridge, which TurtleAV says the JEF shares. Not yet run against a JEF.\n"
         }
       ]
     },

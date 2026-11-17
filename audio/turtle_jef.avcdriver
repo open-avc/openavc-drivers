@@ -3,47 +3,45 @@
 # Controls the Turtle AV JEF, a one-input Dante microphone preamp, over its
 # ASCII command port (default TCP 8000).
 #
-# Source. TurtleAV's JEF user guide (June 2026) covers the Web GUI only: it
-# names a "Web GUI and TCP/IP control port" and a settable TCP Port and
-# Telnet Port, but prints no command list. TurtleAV told us in writing
-# (2026-11-16) that the JEF's API is the same as the Mineola Dante
-# Bridge's, so the commands and replies here are the
-# "7. API Control Command" chapter of the Mineola 2x2 user guide (the 4x4,
-# 8x8 and 16x16 guides print the same list), taken only where the JEF guide
-# shows the JEF has the feature:
-#   - Input 1 gain, mute, 48V phantom power, sensitivity (read only, below).
-#   - Master Out volume and mute (the JEF Web GUI has both).
-#   - The input's 8-band parametric EQ.
-#   - Presets (save / recall / clear).
-#   - Model, firmware, reboot, and the command list (`help`).
-# Not taken: the outputs, master output members and output EQ (the JEF has no
-# analog outputs); power and standby (the JEF's System page has neither);
-# EQ presets, EQ stereo and EQ copy (one channel, and no Flat/Custom buttons
-# on the JEF's DSP page); factory reset (it waits for a typed "Yes"); the
-# network and password blocks (commissioning, as in turtle_bt_wallplate).
-# `raw_command` reaches all of them.
+# Sources.
+#   - Commands, parameters and ranges: the JEF's own command list, printed by
+#     the unit in answer to `help` (header "Help Info TAV-JEF Audio Bridge",
+#     firmware Web V1.10.04, MCU V2.0.0, DEP V1.3.3.5_20260115). TurtleAV
+#     sent it on 2026-11-16, because the JEF user guide covers only the Web
+#     GUI.
+#   - How the unit answers: TurtleAV says the JEF's API is the same as the
+#     Mineola Dante Bridge's, whose user guide ("7. API Control Command",
+#     `source_url`) gives the reply form "<channel> <field>: <value>"
+#     ("XLR IN1 gain: 10dB", "XLR IN1 mute: on"). The JEF's list prints no
+#     replies, so every rule matches the field ("gain:", "mute:") and never the
+#     channel name, which the JEF lets you change. The only JEF replies on
+#     record are the two header lines of its command list, read below.
 #
-# Where the JEF differs from the Mineola document, and what this driver does:
-#   - Sensitivity: the JEF has five levels (-40/-30/-20/-10/0 dBu); the
-#     Mineola command takes a code 1-6 that means +24 dBu to -35 dBV there.
-#     Which code picks which JEF level is not documented, so the driver reads
-#     the level the unit reports (as its own words) and offers no write.
-#   - Expander, compressor and the input level meter: the JEF has them, the
-#     Mineola API has no commands for them. Not in the driver.
-#   - Presets: the JEF holds 8 (its guide), the Mineola API says 1-5. The
-#     driver takes 1-8; a narrower bound would refuse presets the JEF has.
-#   - Reply wording: the Mineola names its channel in each reply
-#     ("XLR IN1 gain: 10dB"). The JEF may name its one input differently, so
-#     every rule matches the field ("gain:", "mute:") and not the channel name.
-#   - Model: every Mineola guide prints "XLR22" for `get type`; the JEF's
-#     answer is not documented, so there is no discovery probe on it.
+# Covered: input gain (-60 to +12 dB), gain steps, mute, 48V phantom power,
+# sensitivity (five levels), input name; the 8-band parametric EQ (each band,
+# EQ on/off, clear); the expander and the compressor (on/off, settings,
+# clear); presets 1-8 (save, recall, clear, name); model, firmware, reboot,
+# and the unit's command list and status report.
+# Not covered: factory reset (`reset`, `reset all` wait for a typed "Yes");
+# the network and password blocks (commissioning, as in turtle_bt_wallplate).
+# `raw_command` reaches them.
 #
-# Push vs poll: POLL. The document describes request/response only.
+# Inferred, to confirm against a unit:
+#   - The on/off replies for EQ, expander and compressor ("... EQ active: on",
+#     "... expander active: on", "... compressor active: on") follow the
+#     Mineola form. If the JEF words them otherwise, those three readings stay
+#     empty and a Device Audit shows the reply unread.
+#   - The answers to a settings read (`get input exp setting` and the like)
+#     carry several values each and are not parsed.
+#   - The gain step answer ("Increase ... gain: 5dB") prints the step in the
+#     Mineola document's examples, not the level, so the level is read back.
 #
-# Line ending: the document does not state it. CRLF is what the Dante
-# Bluetooth Wallplate (same TurtleAV firmware family: MCU/Web/DEP versions,
-# TCP and Telnet ports, the same command grammar) takes on the bench; replies
-# are framed on LF and trimmed, so a CRLF or LF reply reads the same.
+# Push vs poll: POLL. Request/response only.
+#
+# Line ending: not stated. CRLF is what the Dante Bluetooth Wallplate (same
+# TurtleAV firmware family: MCU/Web/DEP versions, TCP and Telnet ports, the
+# same command grammar) takes on the bench; replies are framed on LF and
+# trimmed, so a CRLF or LF reply reads the same.
 #
 # Format: YAML. One channel, text request/response, one reply line per value:
 # nothing here needs Python.
@@ -52,17 +50,16 @@ id: turtle_jef
 name: Turtle AV JEF Dante Mic Preamp
 manufacturer: TurtleAV
 category: audio
-version: 1.0.1
+version: 2.0.0
 author: OpenAVC
 min_platform_version: "0.36.0"
 description: >
   Controls the Turtle AV JEF Dante Enabled Mic Preamp over its TCP control
-  port. Input gain, mute and 48V phantom power, the reported input
-  sensitivity, Master Out volume and mute, the input's 8-band parametric EQ,
-  presets, and reboot.
+  port. Input gain, mute, 48V phantom power and sensitivity; the 8-band
+  parametric EQ, expander and compressor; presets 1-8 with names; and reboot.
 
 source_url: https://turtleav.com/download/262/mineola-2x2/28704/mineola-2x2-user-guide.pdf
-tags: [dante, microphone, preamp, audio, mic]
+tags: [dante, microphone, preamp, audio, mic, dsp]
 verified: false
 simulated: true
 ports: [8000]
@@ -71,8 +68,9 @@ compatible_models:
     models: [JEF]
     confidence: untested
     notes: >
-      Built from the Mineola Dante Bridge command list, which TurtleAV says
-      the JEF shares. Not yet run against a JEF.
+      Built from the command list a JEF prints (firmware Web V1.10.04) and
+      the reply form of the Mineola Dante Bridge, which TurtleAV says the JEF
+      shares. Not yet run against a JEF.
 
 transport: tcp
 delimiter: "\n"
@@ -80,10 +78,10 @@ delimiter: "\n"
 help:
   overview: >
     Controls the Turtle AV JEF, a Dante microphone preamp with one XLR input.
-    Use it to set the input gain, mute the microphone, switch 48V phantom
-    power, set the Master Out volume and mute, adjust the input's 8-band EQ,
-    and save or recall presets. Dante routing, sample rate and latency are set
-    in Dante Controller.
+    Use it to set the input gain and sensitivity, mute the microphone, switch
+    48V phantom power, adjust the 8-band EQ, expander and compressor, and
+    save, recall and name presets. Dante routing, sample rate and latency are
+    set in Dante Controller.
   setup: >
     1. Connect the JEF's Dante PRIMARY (PoE) port to a PoE network switch.
     2. Find the JEF's IP address in Dante Controller (Device Info tab). The
@@ -92,15 +90,24 @@ help:
        changed on the JEF's Network page.
     4. No password is needed for control. The Admin and User logins protect
        the JEF's web page only.
-    5. Set the input sensitivity, expander and compressor on the JEF's web
-       page. This driver shows the sensitivity the JEF reports.
 
 discovery:
+  # Active identify probe: the JEF answers `help` with its command list,
+  # whose first line is "Help Info TAV-JEF Audio Bridge" (TurtleAV's capture,
+  # firmware Web V1.10.04). Matched anywhere in the reply, not as a prefix.
   # Hostname: the JEF guide gives its IP Hostname as "TAV-JEF-XXXXX.local"
-  # (e.g. TAV-JEF-0046F), changeable on its Network page, so this is a soft
-  # hint. OUI: TurtleAV's IEEE block is the MA-M 18:66:96:1 (the /24 around it
-  # is split among other companies); whether a JEF's MAC is in it is not
-  # documented. No tcp_probe: the JEF's answer to `get type` is not documented.
+  # (e.g. TAV-JEF-0046F), changeable on its Network page, so a soft hint.
+  # OUI: TurtleAV's IEEE block is the MA-M 18:66:96:1 (the /24 around it is
+  # split among other companies); whether a JEF's MAC is in it is not known.
+  tcp_probe:
+    port: 8000
+    send_ascii: "help\r\n"
+    expect_regex: "Info TAV-JEF\\b"
+    timeout_ms: 2000
+    extract:
+      model:
+        regex: 'Info (TAV-JEF[\w-]*)'
+        group: 1
   hostname:
     - "^TAV-JEF-"
     - "^tav-jef-"
@@ -140,7 +147,7 @@ state_variables:
   model:
     type: string
     label: Model
-    help: "What the JEF answers to 'get type'."
+    help: "The model name the JEF reports."
   firmware_web:
     type: string
     label: Web Firmware
@@ -155,12 +162,12 @@ state_variables:
   gain:
     type: number
     label: Input Gain
-    min: -12
+    min: -60
     max: 12
     step: 0.1
     unit: dB
     control: true
-    help: "Microphone input gain, -12 to +12 dB."
+    help: "Microphone input gain, -60 to +12 dB."
   mute:
     type: boolean
     label: Input Mute
@@ -176,22 +183,22 @@ state_variables:
   sensitivity:
     type: string
     label: Input Sensitivity
-    help: >
-      The input sensitivity the JEF reports, in its own words (for example
-      -20dBu). Set it on the JEF's web page.
-  master_volume:
-    type: integer
-    label: Master Volume
-    min: 0
-    max: 100
-    control: true
-    help: "Master Out volume, 0 to 100."
-  master_mute:
+    help: "The input sensitivity the JEF reports, in its own words (for example -20dBu)."
+  eq_active:
     type: boolean
-    label: Master Mute
+    label: EQ On
     control: true
-    cloud_priority: high
-    help: "True when Master Out is muted."
+    help: "True when the input's parametric EQ is on."
+  expander_active:
+    type: boolean
+    label: Expander On
+    control: true
+    help: "True when the input's expander is on."
+  compressor_active:
+    type: boolean
+    label: Compressor On
+    control: true
+    help: "True when the input's compressor is on."
 
 commands:
   # ── Status queries (the poll and start-up run these by name) ──
@@ -209,40 +216,47 @@ commands:
 
   query_input_gain:
     label: Query Input Gain
-    send: 'get input 1 gain\r\n'
+    send: 'get input gain\r\n'
     query_for: gain
     help: "Reads the microphone input gain."
 
   query_input_mute:
     label: Query Input Mute
-    send: 'get input 1 mute\r\n'
+    send: 'get input mute\r\n'
     query_for: mute
     help: "Reads whether the microphone input is muted."
 
   query_phantom_power:
     label: Query Phantom Power
-    send: 'get input 1 phantom power\r\n'
+    send: 'get input phantom power\r\n'
     query_for: phantom_power
     help: "Reads whether 48V phantom power is on."
 
   query_sensitivity:
     label: Query Input Sensitivity
-    send: 'get input 1 sensitivity\r\n'
+    send: 'get input sensitivity\r\n'
     query_for: sensitivity
     help: "Reads the input sensitivity the JEF is set to."
 
-  query_master_volume:
-    label: Query Master Volume
-    send: 'get master vol\r\n'
-    query_for: master_volume
-    help: "Reads the Master Out volume."
+  query_eq_active:
+    label: Query EQ On
+    send: 'get input eq active\r\n'
+    query_for: eq_active
+    help: "Reads whether the input's EQ is on."
 
-  query_master_mute:
-    label: Query Master Mute
-    send: 'get master mute\r\n'
-    query_for: master_mute
-    help: "Reads whether Master Out is muted."
+  query_expander_active:
+    label: Query Expander On
+    send: 'get input exp active\r\n'
+    query_for: expander_active
+    help: "Reads whether the input's expander is on."
 
+  query_compressor_active:
+    label: Query Compressor On
+    send: 'get input comp active\r\n'
+    query_for: compressor_active
+    help: "Reads whether the input's compressor is on."
+
+  # ── The unit's own reports ──
   list_commands:
     label: List API Commands
     send: 'help\r\n'
@@ -250,100 +264,108 @@ commands:
       Asks the JEF to list every command it takes. The list shows in the
       device's traffic log and in a Device Audit report.
 
-  # ── Input (the JEF has one: input 1) ──
+  read_status:
+    label: Read Full Status
+    send: 'status\r\n'
+    help: >
+      Asks the JEF for its full status report. The report shows in the
+      device's traffic log and in a Device Audit report.
+
+  # ── Input ──
   set_input_gain:
     label: Set Input Gain
-    send: 'set input 1 gain {value}\r\n'
+    send: 'set input gain {value}\r\n'
     sets: { gain: "{value}" }
-    help: "Set the microphone input gain, -12 to +12 dB in 0.1 dB steps."
+    help: "Set the microphone input gain, -60 to +12 dB in 0.1 dB steps."
     params:
       value:
         type: number
         required: true
         label: Gain (dB)
-        min: -12
+        min: -60
         max: 12
 
-  # The answer to gain+ / gain- is "Increase ... gain: 1dB" (the document's
-  # examples print the step), not the new level, so the level is read back.
   input_gain_up:
     label: Input Gain Up
-    send: 'set input 1 gain+\r\n'
-    read_back: 'get input 1 gain\r\n'
+    send: 'set input gain+\r\n'
+    read_back: query_input_gain
     help: "Raise the input gain by 1 dB."
 
   input_gain_down:
     label: Input Gain Down
-    send: 'set input 1 gain-\r\n'
-    read_back: 'get input 1 gain\r\n'
+    send: 'set input gain-\r\n'
+    read_back: query_input_gain
     help: "Lower the input gain by 1 dB."
 
   mute_on:
     label: Mute Input
-    send: 'set input 1 mute on\r\n'
+    send: 'set input mute on\r\n'
     sets: { mute: true }
     help: "Mute the microphone input."
 
   mute_off:
     label: Unmute Input
-    send: 'set input 1 mute off\r\n'
+    send: 'set input mute off\r\n'
     sets: { mute: false }
     help: "Unmute the microphone input."
 
   phantom_power_on:
     label: Phantom Power On
-    send: 'set input 1 phantom power on\r\n'
+    send: 'set input phantom power on\r\n'
     sets: { phantom_power: true }
     help: "Turn on 48V phantom power at the XLR input. The 48V LED on the JEF lights."
 
   phantom_power_off:
     label: Phantom Power Off
-    send: 'set input 1 phantom power off\r\n'
+    send: 'set input phantom power off\r\n'
     sets: { phantom_power: false }
     help: "Turn off 48V phantom power at the XLR input. The 48V LED on the JEF goes out."
 
-  # ── Master Out ──
-  set_master_volume:
-    label: Set Master Volume
-    send: 'set master vol {value}\r\n'
-    sets: { master_volume: "{value}" }
-    help: "Set the Master Out volume, 0 to 100."
+  set_input_sensitivity:
+    label: Set Input Sensitivity
+    send: 'set input sensitivity {level}\r\n'
+    read_back: query_sensitivity
+    help: "Set the input sensitivity. Use 0 dBu for line level and -40 dBu for the quietest microphones."
     params:
-      value:
-        type: integer
+      level:
+        type: enum
         required: true
-        label: Volume
-        min: 0
-        max: 100
+        label: Sensitivity
+        values:
+          - { value: "1", label: "0 dBu" }
+          - { value: "2", label: "-10 dBu" }
+          - { value: "3", label: "-20 dBu" }
+          - { value: "4", label: "-30 dBu" }
+          - { value: "5", label: "-40 dBu" }
 
-  # The answer to vol+ / vol- carries the new volume
-  # ("Increase master volume: 51" from 50), so no read-back.
-  master_volume_up:
-    label: Master Volume Up
-    send: 'set master vol+\r\n'
-    help: "Raise the Master Out volume by 1."
+  set_input_name:
+    label: Set Input Name
+    send: 'set input name {name}\r\n'
+    help: "Name the input channel: up to 32 characters, with no spaces."
+    params:
+      name:
+        type: string
+        required: true
+        label: Name
+        # The JEF's list shows the name as one word (`set input name y`).
+        pattern: '[^ ]{1,32}'
 
-  master_volume_down:
-    label: Master Volume Down
-    send: 'set master vol-\r\n'
-    help: "Lower the Master Out volume by 1."
+  # ── Parametric EQ (band 0 = all bands) ──
+  eq_on:
+    label: EQ On
+    send: 'set input eq active on\r\n'
+    sets: { eq_active: true }
+    help: "Turn the input's parametric EQ on."
 
-  master_mute_on:
-    label: Mute Master
-    send: 'set master mute on\r\n'
-    sets: { master_mute: true }
-    help: "Mute Master Out."
+  eq_off:
+    label: EQ Off
+    send: 'set input eq active off\r\n'
+    sets: { eq_active: false }
+    help: "Turn the input's parametric EQ off."
 
-  master_mute_off:
-    label: Unmute Master
-    send: 'set master mute off\r\n'
-    sets: { master_mute: false }
-    help: "Unmute Master Out."
-
-  # ── Input parametric EQ (band 0 = all bands) ──
   eq_band_on:
     label: EQ Band On
-    send: 'set input 1 eq {band} on\r\n'
+    send: 'set input eq {band} on\r\n'
     help: "Turn on one EQ band, or all of them."
     params:
       band:
@@ -363,7 +385,7 @@ commands:
 
   eq_band_off:
     label: EQ Band Off
-    send: 'set input 1 eq {band} off\r\n'
+    send: 'set input eq {band} off\r\n'
     help: "Turn off one EQ band, or all of them."
     params:
       band:
@@ -383,14 +405,23 @@ commands:
 
   set_eq_band:
     label: Set EQ Band
-    send: 'set input 1 eq {band} typ {type} frq {freq} val {gain} q {q}\r\n'
-    help: "Set one EQ band's filter type, frequency, gain and Q."
+    send: 'set input eq {band} typ {type} frq {freq} val {gain} q {q}\r\n'
+    help: "Set one EQ band's filter type, frequency, gain and Q, or all bands at once."
     params:
       band:
         type: enum
         required: true
         label: Band
-        values: ["1", "2", "3", "4", "5", "6", "7", "8"]
+        values:
+          - { value: "0", label: "All bands" }
+          - "1"
+          - "2"
+          - "3"
+          - "4"
+          - "5"
+          - "6"
+          - "7"
+          - "8"
       type:
         type: enum
         required: true
@@ -402,11 +433,11 @@ commands:
           - { value: "4", label: "Low Shelf" }
           - { value: "5", label: "High Shelf" }
       freq:
-        type: number
+        type: integer
         required: true
         label: Frequency (Hz)
         min: 20
-        max: 20000
+        max: 80000
       gain:
         type: number
         required: true
@@ -423,22 +454,121 @@ commands:
   eq_clear:
     label: Clear EQ
     confirm: "Sets every EQ band on the input back to flat, losing its settings."
-    send: 'set input 1 eq clear\r\n'
+    send: 'set input eq clear\r\n'
     help: "Clear the input's EQ settings."
 
-  # ── Presets (the JEF holds 8) ──
+  # ── Expander ──
+  expander_on:
+    label: Expander On
+    send: 'set input exp active on\r\n'
+    sets: { expander_active: true }
+    help: "Turn the input's expander on."
+
+  expander_off:
+    label: Expander Off
+    send: 'set input exp active off\r\n'
+    sets: { expander_active: false }
+    help: "Turn the input's expander off."
+
+  set_expander:
+    label: Set Expander
+    send: 'set input exp thr {threshold} r {ratio} ht {hold} dec {decay}\r\n'
+    help: "Set the expander's threshold, ratio, hold time and decay."
+    params:
+      threshold:
+        type: number
+        required: true
+        label: Threshold (dB)
+        min: -60
+        max: 0
+      ratio:
+        type: number
+        required: true
+        label: Ratio
+        min: 1
+        max: 20
+      hold:
+        type: integer
+        required: true
+        label: Hold Time (ms)
+        min: 1
+        max: 2000
+      decay:
+        type: integer
+        required: true
+        label: Decay (dB/s)
+        min: 1
+        max: 120
+
+  expander_clear:
+    label: Clear Expander
+    confirm: "Puts the expander's threshold, ratio, hold time and decay back to their defaults."
+    send: 'set input exp clear\r\n'
+    help: "Clear the expander's settings."
+
+  # ── Compressor ──
+  compressor_on:
+    label: Compressor On
+    send: 'set input comp active on\r\n'
+    sets: { compressor_active: true }
+    help: "Turn the input's compressor on."
+
+  compressor_off:
+    label: Compressor Off
+    send: 'set input comp active off\r\n'
+    sets: { compressor_active: false }
+    help: "Turn the input's compressor off."
+
+  set_compressor:
+    label: Set Compressor
+    send: 'set input comp thr {threshold} r {ratio} att {attack} re {release}\r\n'
+    help: "Set the compressor's threshold, ratio, attack time and release time."
+    params:
+      threshold:
+        type: number
+        required: true
+        label: Threshold (dB)
+        min: -60
+        max: 0
+      ratio:
+        type: number
+        required: true
+        label: Ratio
+        min: 1
+        max: 20
+      attack:
+        type: integer
+        required: true
+        label: Attack (ms)
+        min: 1
+        max: 500
+      release:
+        type: integer
+        required: true
+        label: Release (ms)
+        min: 1
+        max: 2000
+
+  compressor_clear:
+    label: Clear Compressor
+    confirm: "Puts the compressor's threshold, ratio, attack and release back to their defaults."
+    send: 'set input comp clear\r\n'
+    help: "Clear the compressor's settings."
+
+  # ── Presets (1-8) ──
   preset_recall:
     label: Recall Preset
     send: 'set preset recall {preset}\r\n'
     # A recall changes everything but the network settings, and its answer
     # carries none of the new values.
     read_back:
-      - 'get input 1 gain\r\n'
-      - 'get input 1 mute\r\n'
-      - 'get input 1 phantom power\r\n'
-      - 'get input 1 sensitivity\r\n'
-      - 'get master vol\r\n'
-      - 'get master mute\r\n'
+      - query_input_gain
+      - query_input_mute
+      - query_phantom_power
+      - query_sensitivity
+      - query_eq_active
+      - query_expander_active
+      - query_compressor_active
     help: "Recall a saved preset. Everything but the network settings changes."
     params:
       preset:
@@ -474,10 +604,28 @@ commands:
         min: 1
         max: 8
 
+  set_preset_name:
+    label: Set Preset Name
+    send: 'set preset {preset} name {name}\r\n'
+    help: "Name a preset: up to 16 characters, with no spaces."
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Preset
+        min: 1
+        max: 8
+      name:
+        type: string
+        required: true
+        label: Name
+        # The JEF's list shows the name as one word (`set preset x name y`).
+        pattern: '[^ ]{1,16}'
+
   # ── System ──
   reboot:
     label: Reboot
-    send: 'set reboot\r\n'
+    send: 'reboot\r\n'
     help: "Reboot the JEF. Audio stops until it has started again."
 
   raw_command:
@@ -497,44 +645,30 @@ commands:
 device_settings:
   gain:
     type: number
-    min: -12
+    min: -60
     max: 12
     label: Input Gain (dB)
-    help: "Microphone input gain, -12 to +12 dB."
+    help: "Microphone input gain, -60 to +12 dB."
     state_key: gain
     default: 0
     setup: false
     write:
-      send: 'set input 1 gain {value}\r\n'
+      send: 'set input gain {value}\r\n'
 
 actions:
   - id: mute_on
     icon: mic-off
   - id: mute_off
     icon: mic
-  - id: master_mute_on
-    icon: volume-x
-  - id: master_mute_off
-    icon: volume-2
 
 responses:
   # First match wins, so the order matters.
-  # gain+ / gain- answer with the step ("Increase XLR IN1 gain: 5dB"), not
-  # the level: read but not stored. The command reads the level back.
+  # gain+ / gain- answer with the step ("Increase ... gain: 5dB"), not the
+  # level: read but not stored. The command reads the level back.
   - match: '^(?:Increase|Decrease)\b.*\bgain:'
     set: {}
   - match: '\bgain:\s*(-?\d+(?:\.\d+)?)\s*dB'
     set: { gain: "$1" }
-
-  # Master Out ("Master volume: 50"; vol+ / vol- answer the new volume,
-  # "Increase master volume: 51"). Before the input's mute rule, which would
-  # otherwise read "Master mute:".
-  - match: '[Mm]aster volume:\s*(\d+)'
-    set: { master_volume: "$1" }
-  - match: '[Mm]aster mute:\s*on\b'
-    set: { master_mute: "true" }
-  - match: '[Mm]aster mute:\s*off\b'
-    set: { master_mute: "false" }
 
   - match: 'phantom power:\s*on\b'
     set: { phantom_power: "true" }
@@ -547,7 +681,30 @@ responses:
   - match: 'sensitivity:\s*(\S+)'
     set: { sensitivity: "$1" }
 
-  # Firmware (`get fw version`, and the start-up lines after a reboot).
+  # EQ, expander and compressor on/off: the wording is inferred from the
+  # Mineola form (see the header). Ahead of the EQ acknowledgement below.
+  - match: '\bEQ [Aa]ctive:\s*on\b'
+    set: { eq_active: "true" }
+  - match: '\bEQ [Aa]ctive:\s*off\b'
+    set: { eq_active: "false" }
+  - match: '\b[Ee]xp(?:ander)? [Aa]ctive:\s*on\b'
+    set: { expander_active: "true" }
+  - match: '\b[Ee]xp(?:ander)? [Aa]ctive:\s*off\b'
+    set: { expander_active: "false" }
+  - match: '\b[Cc]omp(?:ressor)? [Aa]ctive:\s*on\b'
+    set: { compressor_active: "true" }
+  - match: '\b[Cc]omp(?:ressor)? [Aa]ctive:\s*off\b'
+    set: { compressor_active: "false" }
+
+  # The first two lines of the JEF's command list (and, in the Mineola form,
+  # its status report): "Help Info TAV-JEF Audio Bridge" and
+  # "Web V1.10.04 MCU V2.0.0 DEP V1.3.3.5_20260115".
+  - match: '^(?:Help|Status) Info (\S+)'
+    set: { model: "$1" }
+  - match: '^Web ([Vv]\S+)\s+MCU ([Vv]\S+)\s+DEP ([Vv]\S+)'
+    set: { firmware_web: "$1", firmware_mcu: "$2", firmware_dep: "$3" }
+
+  # `get fw version`, in the Mineola form ("Web: V1.00.02").
   - match: '\b(?:Web|WEB):\s*(V\S+)'
     set: { firmware_web: "$1" }
   - match: '\bMCU:\s*(V\S+)'
@@ -555,25 +712,29 @@ responses:
   - match: '\bDEP:\s*(V\S+)'
     set: { firmware_dep: "$1" }
 
-  # Acknowledgements that carry no value: EQ, presets, reboot.
+  # Acknowledgements that carry no value: EQ, expander, compressor, names,
+  # presets, reboot.
   - match: '\bEQ\b'
     set: {}
   - match: 'Type:\s*\d+,\s*Frequency:'
+    set: {}
+  - match: '\b(?:[Ee]xpander|[Cc]ompressor)\b'
+    set: {}
+  - match: '^Set .* name to '
     set: {}
   - match: '^(?:Save to|Recall|Clear) preset \d+'
     set: {}
   - match: '^(?:Reboot|System Initializing|Initialization Finished)'
     set: {}
 
-  # The command list (`help`, `?`): in the Mineola document each line starts
-  # with the command code. Read but not stored.
-  - match: '^(?:\?|help|get|set)\s'
+  # A line of the command list: a command code, two or more spaces, and its
+  # description. A refusal that echoes a command does not have that shape.
+  - match: '^(?:\?|(?:help|get|set|status|reboot|reset)\b).*?\s{2,}[A-Z][a-z]'
     set: {}
 
-  # `get type` answers a bare model token on its own line ("XLR22" on a
-  # Mineola; the JEF's hostname stem is TAV-JEF). The token must hold a digit
-  # or a hyphen, so a bare word such as an error reply is not read as a
-  # model. Last, so no other reply is read as a model.
+  # `get type` answers a bare model token on its own line (the JEF's list
+  # header names it TAV-JEF). The token must hold a digit or a hyphen, so a
+  # bare word such as an error reply is not read as a model. Last.
   - match: '^([A-Z][A-Z0-9]*[0-9-][A-Z0-9-]*)$'
     set: { model: "$1" }
 
@@ -583,25 +744,27 @@ polling:
     - query_input_mute
     - query_phantom_power
     - query_sensitivity
-    - query_master_volume
-    - query_master_mute
+    - query_eq_active
+    - query_expander_active
+    - query_compressor_active
 
 # ── SIMULATOR ──
-# Answers in the Mineola document's reply forms ("XLR IN1 ..."). The model
-# string is the JEF hostname stem from its guide; the real answer is not
-# documented. The sensitivity words are the JEF guide's five levels.
+# Sends the JEF's wire forms and answers in the Mineola reply form, with
+# "Input" as the channel name. The command list opens with the two header
+# lines the JEF prints; the rest of each answer is inferred (see the header).
 simulator:
   initial_state:
     model: "TAV-JEF"
-    firmware_web: "V1.00.02"
+    firmware_web: "V1.10.04"
     firmware_mcu: "V2.0.0"
-    firmware_dep: "V1.3.3.5_20250519"
+    firmware_dep: "V1.3.3.5_20260115"
     gain: 0
     mute: false
     phantom_power: false
     sensitivity: "-20dBu"
-    master_volume: 50
-    master_mute: false
+    eq_active: false
+    expander_active: false
+    compressor_active: false
 
   delays:
     command_response: 0.02
@@ -610,7 +773,7 @@ simulator:
     - type: slider
       key: gain
       label: Input Gain
-      min: -12
+      min: -60
       max: 12
       step: 1
     - type: toggle
@@ -622,16 +785,16 @@ simulator:
     - type: select
       key: sensitivity
       label: Input Sensitivity
-      options: ["-40dBu", "-30dBu", "-20dBu", "-10dBu", "0dBu"]
-    - type: slider
-      key: master_volume
-      label: Master Volume
-      min: 0
-      max: 100
-      step: 1
+      options: ["0dBu", "-10dBu", "-20dBu", "-30dBu", "-40dBu"]
     - type: toggle
-      key: master_mute
-      label: Master Mute
+      key: eq_active
+      label: EQ On
+    - type: toggle
+      key: expander_active
+      label: Expander On
+    - type: toggle
+      key: compressor_active
+      label: Compressor On
 
   command_handlers:
     # ── System ──
@@ -647,56 +810,61 @@ simulator:
             f'DEP: {state["firmware_dep"]}\r\n'
         )
 
-    # The command list, one command code and its description per line, as
-    # the Mineola document's table prints them (the commands this driver uses).
+    # The command list: the JEF's two header lines, then a few of its lines.
     - match: '(?:help|\?) ?'
       handler: |
         respond(
-            'get type          Get device model\r\n'
-            'get fw version    Get Firmware version\r\n'
-            'set reboot        Reboot the device\r\n'
-            'set input x gain y    Set input:x gain to y\r\n'
-            'get input x gain      Get input:x gain value\r\n'
-            'get input x sensitivity    Get input:x sensitivity\r\n'
-            'set input x phantom power on/off    Set input:x 48V phantom power on/off\r\n'
-            'get input x phantom power    Get input:x 48V phantom power status\r\n'
-            'set input x mute on/off    Set input:x mute on/off\r\n'
-            'get input x mute      Get input:x mute on/off\r\n'
-            'set master vol x      Set master output volume to x\r\n'
-            'get master vol        Get master output volume\r\n'
-            'set master mute on/off    Set master output mute on/off\r\n'
-            'get master mute       Get master output mute on/off\r\n'
-            'set preset recall x   Recall preset:x into unit\r\n'
+            f'Help Info {state["model"]} Audio Bridge\r\n'
+            f'Web {state["firmware_web"]} MCU {state["firmware_mcu"]} DEP {state["firmware_dep"]}\r\n'
+            'get type                             Get device model\r\n'
+            'status                               Get device current status\r\n'
+            'get fw version                       Get firmware version\r\n'
+            'reboot                               Reboot the device\r\n'
+            'set input gain x                     Set input gain to x\r\n'
+            'get input gain                       Get input gain value\r\n'
+            'set input mute on/off                Set input mute on/off\r\n'
+            'get input mute                       Get input mute on/off\r\n'
         )
 
-    - match: 'set reboot ?'
+    - match: 'status ?'
+      handler: |
+        def _run():
+            onoff = lambda key: 'on' if state[key] else 'off'
+            respond(
+                f'Status Info {state["model"]} Audio Bridge\r\n'
+                f'Web {state["firmware_web"]} MCU {state["firmware_mcu"]} DEP {state["firmware_dep"]}\r\n'
+                f'Input gain: {state["gain"]}dB\r\n'
+                f'Input mute: {onoff("mute")}\r\n'
+                f'Input phantom power: {onoff("phantom_power")}\r\n'
+                f'Input sensitivity: {state["sensitivity"]}\r\n'
+            )
+        _run()
+
+    - match: 'reboot ?'
       handler: |
         respond(
             'Reboot...\r\n'
             'System Initializing...\r\n'
             'Initialization Finished!\r\n'
-            f'Web: {state["firmware_web"]}\r\n'
-            f'MCU: {state["firmware_mcu"]}\r\n'
-            f'DEP: {state["firmware_dep"]}\r\n'
         )
 
-    # ── Input gain ──
-    - match: 'get input [01] gain ?'
+    # ── Input ──
+    - match: 'get input gain ?'
       handler: |
-        respond(f'XLR IN1 gain: {state["gain"]}dB\r\n')
+        respond(f'Input gain: {state["gain"]}dB\r\n')
 
-    - match: 'set input [01] gain (-?[\d.]+) ?'
+    - match: 'set input gain (-?[\d.]+) ?'
       handler: |
         def _run():
-            val = max(-12.0, min(12.0, float(match.group(1))))
+            val = round(max(-60.0, min(12.0, float(match.group(1)))), 1)
             if val == int(val):
                 val = int(val)
             state['gain'] = val
-            respond(f'XLR IN1 gain: {val}dB\r\n')
+            respond(f'Input gain: {val}dB\r\n')
         _run()
 
-    # The document's examples answer a step with the step itself.
-    - match: 'set input [01] gain([+-])([\d.]*) ?'
+    # The Mineola document's examples answer a step with the step itself.
+    - match: 'set input gain([+-])([\d.]*) ?'
       handler: |
         def _run():
             step = float(match.group(2)) if match.group(2) else 1.0
@@ -704,84 +872,116 @@ simulator:
                 step = int(step)
             up = match.group(1) == '+'
             new = state['gain'] + (step if up else -step)
-            new = round(max(-12.0, min(12.0, new)), 1)
+            new = round(max(-60.0, min(12.0, new)), 1)
             if new == int(new):
                 new = int(new)
             state['gain'] = new
             word = 'Increase' if up else 'Decrease'
             shown = step if up else -step
-            respond(f'{word} XLR IN1 gain: {shown}dB\r\n')
+            respond(f'{word} input gain: {shown}dB\r\n')
         _run()
 
-    # ── Input mute / phantom power / sensitivity ──
-    - match: 'get input [01] mute ?'
+    - match: 'get input mute ?'
       handler: |
-        respond(f'XLR IN1 mute: {"on" if state["mute"] else "off"}\r\n')
+        respond(f'Input mute: {"on" if state["mute"] else "off"}\r\n')
 
-    - match: 'set input [01] mute (on|off) ?'
+    - match: 'set input mute (on|off) ?'
       handler: |
         state['mute'] = match.group(1) == 'on'
-        respond(f'XLR IN1 mute: {match.group(1)}\r\n')
+        respond(f'Input mute: {match.group(1)}\r\n')
 
-    - match: 'get input [01] phantom power ?'
+    - match: 'get input phantom power ?'
       handler: |
-        respond(f'XLR IN1 phantom power: {"on" if state["phantom_power"] else "off"}\r\n')
+        respond(f'Input phantom power: {"on" if state["phantom_power"] else "off"}\r\n')
 
-    - match: 'set input [01] phantom power (on|off) ?'
+    - match: 'set input phantom power (on|off) ?'
       handler: |
         state['phantom_power'] = match.group(1) == 'on'
-        respond(f'XLR IN1 phantom power: {match.group(1)}\r\n')
+        respond(f'Input phantom power: {match.group(1)}\r\n')
 
-    - match: 'get input [01] sensitivity ?'
+    - match: 'get input sensitivity ?'
       handler: |
-        respond(f'XLR IN1 sensitivity: {state["sensitivity"]}\r\n')
+        respond(f'Input sensitivity: {state["sensitivity"]}\r\n')
 
-    # ── Master Out ──
-    - match: 'get (?:master )?vol ?'
+    # The JEF list: 1:0dBu, 2:-10dBu, 3:-20dBu, 4:-30dBu, 5:-40dBu.
+    - match: 'set input sensitivity ([1-5]) ?'
       handler: |
-        respond(f'Master volume: {state["master_volume"]}\r\n')
+        words = {'1': '0dBu', '2': '-10dBu', '3': '-20dBu', '4': '-30dBu', '5': '-40dBu'}
+        state['sensitivity'] = words[match.group(1)]
+        respond(f'Input sensitivity: {state["sensitivity"]}\r\n')
 
-    - match: 'set (?:master )?vol (\d+) ?'
+    - match: 'set input name (.+?) ?'
       handler: |
-        state['master_volume'] = max(0, min(100, int(match.group(1))))
-        respond(f'Master volume: {state["master_volume"]}\r\n')
+        respond(f'Set input channel name to {match.group(1)}\r\n')
 
-    - match: 'set (?:master )?vol([+-])(\d*) ?'
+    # ── EQ ──
+    - match: 'get input eq active ?'
       handler: |
-        def _run():
-            step = int(match.group(2)) if match.group(2) else 1
-            up = match.group(1) == '+'
-            state['master_volume'] = max(0, min(100, state['master_volume'] + (step if up else -step)))
-            word = 'Increase' if up else 'Decrease'
-            respond(f'{word} master volume: {state["master_volume"]}\r\n')
-        _run()
+        respond(f'Input EQ active: {"on" if state["eq_active"] else "off"}\r\n')
 
-    - match: 'get (?:master )?mute ?'
+    - match: 'set input eq active (on|off) ?'
       handler: |
-        respond(f'Master mute: {"on" if state["master_mute"] else "off"}\r\n')
+        state['eq_active'] = match.group(1) == 'on'
+        respond(f'Input EQ active: {match.group(1)}\r\n')
 
-    - match: 'set (?:master )?mute (on|off) ?'
-      handler: |
-        state['master_mute'] = match.group(1) == 'on'
-        respond(f'Master mute: {match.group(1)}\r\n')
-
-    # ── EQ (acknowledged, not modelled) ──
-    - match: 'set input [01] eq (\d) (on|off) ?'
+    - match: 'set input eq (\d) (on|off) ?'
       handler: |
         band = 'all' if match.group(1) == '0' else match.group(1)
-        respond(f'XLR IN1 EQ {band}: {match.group(2)}\r\n')
+        respond(f'Input EQ {band}: {match.group(2)}\r\n')
 
-    - match: 'set input [01] eq (\d) typ (\S+) frq (\S+) val (\S+) q (\S+) ?'
+    - match: 'set input eq (\d) typ (\S+) frq (\S+) val (\S+) q (\S+) ?'
       handler: |
         respond(
-            'XLR IN1 EQ :\r\n'
+            'Input EQ :\r\n'
             f'Type: {match.group(2)}, Frequency: {match.group(3)}Hz, '
             f'Value: {match.group(4)}dB, Q: {match.group(5)}\r\n'
         )
 
-    - match: 'set input [01] eq clear ?'
+    - match: 'set input eq clear ?'
       handler: |
-        respond('Clear XLR IN1 EQ\r\n')
+        respond('Clear input EQ\r\n')
+
+    # ── Expander ──
+    - match: 'get input exp active ?'
+      handler: |
+        respond(f'Input expander active: {"on" if state["expander_active"] else "off"}\r\n')
+
+    - match: 'set input exp active (on|off) ?'
+      handler: |
+        state['expander_active'] = match.group(1) == 'on'
+        respond(f'Input expander active: {match.group(1)}\r\n')
+
+    - match: 'set input exp thr (\S+) r (\S+) ht (\S+) dec (\S+) ?'
+      handler: |
+        respond(
+            f'Input expander threshold: {match.group(1)}dB, ratio: {match.group(2)}, '
+            f'hold time: {match.group(3)}ms, decay: {match.group(4)}dB/s\r\n'
+        )
+
+    - match: 'set input exp clear ?'
+      handler: |
+        respond('Clear input expander\r\n')
+
+    # ── Compressor ──
+    - match: 'get input comp active ?'
+      handler: |
+        respond(f'Input compressor active: {"on" if state["compressor_active"] else "off"}\r\n')
+
+    - match: 'set input comp active (on|off) ?'
+      handler: |
+        state['compressor_active'] = match.group(1) == 'on'
+        respond(f'Input compressor active: {match.group(1)}\r\n')
+
+    - match: 'set input comp thr (\S+) r (\S+) att (\S+) re (\S+) ?'
+      handler: |
+        respond(
+            f'Input compressor threshold: {match.group(1)}dB, ratio: {match.group(2)}, '
+            f'attack time: {match.group(3)}ms, release time: {match.group(4)}ms\r\n'
+        )
+
+    - match: 'set input comp clear ?'
+      handler: |
+        respond('Clear input compressor\r\n')
 
     # ── Presets (acknowledged, not modelled) ──
     - match: 'set preset save (\d) ?'
@@ -795,6 +995,10 @@ simulator:
     - match: 'set preset clear (\d) ?'
       handler: |
         respond(f'Clear preset {match.group(1)}\r\n')
+
+    - match: 'set preset (\d) name (.+?) ?'
+      handler: |
+        respond(f'Set preset {match.group(1)} name to {match.group(2)}\r\n')
 
   error_modes:
     communication_timeout:

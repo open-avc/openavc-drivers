@@ -11,10 +11,10 @@ One fixture per driver, named by driver id:
   `.gitattributes`, which keeps these byte-exact).
 
 `tests/test_discovery_probe_fixtures.py` reads each driver's probe block from
-`index.json` and, **for every driver that has a fixture here**, replays it
-through a small stdlib matcher (mirroring openavc's
-`openavc/discovery/probe_runner`) to confirm the declaration matches the capture
-and each extract rule pulls a value. It also replays the capture through every
+`index.json` with the platform's own discovery reader and, **for every driver
+that has a fixture here**, replays it through the platform's own matcher (both
+vendored with the driver contract under `scripts/_vendor/`) to confirm the
+declaration matches the capture and each extract rule pulls a value. It also replays the capture through every
 other driver whose probe sends the same bytes to the same port: none of them
 may match it, or a scan of that device would offer those drivers as well.
 Drivers that are meant to share a device are listed in `INTENDED_OVERLAPS` in

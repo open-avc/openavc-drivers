@@ -13464,7 +13464,7 @@
       "name": "Turtle AV 4\u00d74 Videowall",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the 4\u00d74 HDMI processor in matrix, video wall and multiview modes. Reports HDMI routes, wall-group and window assignments, output scaling, extracted audio and preset recalls.",
@@ -13472,7 +13472,7 @@
       "file": "switchers/turtle_videowall_4x4.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/turtle_videowall_4x4.avcdriver": "7002464681b131cd44503c5fd9123f2c6258037b0db33a77ee93fbab5bf3ebbd"
+        "switchers/turtle_videowall_4x4.avcdriver": "e73b8d70d729eef8ea9dc21cd99949181fad3b25a2c5306adb7aaf82800808c6"
       },
       "ports": [
         8000

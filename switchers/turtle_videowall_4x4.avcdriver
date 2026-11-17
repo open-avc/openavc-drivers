@@ -12,7 +12,7 @@ manufacturer: TurtleAV
 
 category: switcher
 
-version: 1.0.0
+version: 1.0.1
 
 author: OpenAVC
 
@@ -1333,16 +1333,17 @@ on_connect:
     when_state: {display_mode: Matrix}
   - send: r output 0 exa in source!
     when_state: {audio_mode: Independent Matrix}
+  # The layout reads wait for Multiview too (the poll below says why).
   - send: r pip size!
-    when_state: {multiview_layout: PiP}
+    when_state: {display_mode: Multiview, multiview_layout: PiP}
   - send: r pip position!
-    when_state: {multiview_layout: PiP}
+    when_state: {display_mode: Multiview, multiview_layout: PiP}
   - send: r triple mode!
-    when_state: {multiview_layout: Triple}
+    when_state: {display_mode: Multiview, multiview_layout: Triple}
   - send: r quad mode!
-    when_state: {multiview_layout: Quad}
+    when_state: {display_mode: Multiview, multiview_layout: Quad}
   - send: r user mode!
-    when_state: {multiview_layout: User}
+    when_state: {display_mode: Multiview, multiview_layout: User}
 
 # Read the mode before its banks. Audio extraction has its own mode.
 polling:
@@ -1378,16 +1379,18 @@ polling:
       when_state: {display_mode: Matrix}
     - send: r output 0 exa in source!
       when_state: {audio_mode: Independent Matrix}
+    # The layout reads wait for Multiview too: outside it the layout is never
+    # reported, so a gate on the layout alone would stay open and ask every poll.
     - send: r pip size!
-      when_state: {multiview_layout: PiP}
+      when_state: {display_mode: Multiview, multiview_layout: PiP}
     - send: r pip position!
-      when_state: {multiview_layout: PiP}
+      when_state: {display_mode: Multiview, multiview_layout: PiP}
     - send: r triple mode!
-      when_state: {multiview_layout: Triple}
+      when_state: {display_mode: Multiview, multiview_layout: Triple}
     - send: r quad mode!
-      when_state: {multiview_layout: Quad}
+      when_state: {display_mode: Multiview, multiview_layout: Quad}
     - send: r user mode!
-      when_state: {multiview_layout: User}
+      when_state: {display_mode: Multiview, multiview_layout: User}
 
 # The simulated front panel and saved presets persist across a control reconnect.
 simulator:

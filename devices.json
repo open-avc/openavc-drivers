@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1396,
+    "total_devices": 1400,
     "shards": null
   },
   "devices": [
@@ -15340,6 +15340,54 @@
           "id": "turtle_jef",
           "confidence": "untested",
           "notes": "Built from the command list a JEF prints (firmware Web V1.10.04) and the reply form of the Mineola Dante Bridge, which TurtleAV says the JEF shares. Not yet run against a JEF.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "TurtleAV",
+      "model": "Mineola 16x16",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "turtle_mineola",
+          "confidence": "untested",
+          "notes": "Each XLR model has a public TCP command chapter. All four guides show the same two-channel status example. Larger layouts are exercised in simulation. Hardware qualification pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "TurtleAV",
+      "model": "Mineola 2x2",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "turtle_mineola",
+          "confidence": "untested",
+          "notes": "Each XLR model has a public TCP command chapter. All four guides show the same two-channel status example. Larger layouts are exercised in simulation. Hardware qualification pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "TurtleAV",
+      "model": "Mineola 4x4",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "turtle_mineola",
+          "confidence": "untested",
+          "notes": "Each XLR model has a public TCP command chapter. All four guides show the same two-channel status example. Larger layouts are exercised in simulation. Hardware qualification pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "TurtleAV",
+      "model": "Mineola 8x8",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "turtle_mineola",
+          "confidence": "untested",
+          "notes": "Each XLR model has a public TCP command chapter. All four guides show the same two-channel status example. Larger layouts are exercised in simulation. Hardware qualification pending."
         }
       ]
     },

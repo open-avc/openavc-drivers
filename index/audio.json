@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 58,
+    "total_drivers": 59,
     "shards": null,
     "category": "audio"
   },
@@ -4129,6 +4129,65 @@
           "turtle av",
           "turtle"
         ]
+      }
+    },
+    {
+      "id": "turtle_mineola",
+      "name": "Turtle AV Mineola Dante Audio Bridges",
+      "manufacturer": "TurtleAV",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Analog input and output control for the four Mineola XLR bridges. Discovers channel names and counts, controls master and channel levels, and recalls scenes and eight-band EQ settings.",
+      "source_url": "https://turtleav.com/download/262/mineola-2x2/28704/mineola-2x2-user-guide.pdf",
+      "file": "audio/turtle_mineola.py",
+      "format": "python",
+      "files": {
+        "audio/turtle_mineola.py": "f0c1eedc7ac3cca2d75dce22b77eb474f2fef1ce73db58298e67fc9c0b4c5ee5",
+        "audio/turtle_mineola_sim.py": "3932ece5cf89850ddeb6fe62c8fae1befec4c299fda8f227d6519590241491b3"
+      },
+      "ports": [
+        8000
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "dante",
+        "audio",
+        "dsp",
+        "preamp",
+        "equalizer"
+      ],
+      "help": {
+        "overview": "Bind faders and mute buttons to named analog channels. Select a scene to recall its saved audio settings. Read a channel\u2019s EQ to see its eight bands and enable or edit a filter. Configure Dante subscriptions in Dante Controller.",
+        "setup": "Connect the bridge to the control network and enter its IP address and TCP control port. The first complete status report supplies the input and output pickers. Projects can label the five scene slots to match the installation. The TCP guide provides scene numbers only.",
+        "connection": "Channel status and master controls refresh after connection, after a write, and at the feedback interval. EQ details load on request. Previously opened EQ channels refresh in rotation. Missing or incomplete readings show as unknown."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "TurtleAV",
+          "models": [
+            "Mineola 2x2",
+            "Mineola 4x4",
+            "Mineola 8x8",
+            "Mineola 16x16"
+          ],
+          "confidence": "untested",
+          "notes": "Each XLR model has a public TCP command chapter. All four guides show the same two-channel status example. Larger layouts are exercised in simulation. Hardware qualification pending."
+        }
+      ],
+      "discovery": {
+        "manufacturer_alias": [
+          "TurtleAV",
+          "Turtle AV"
+        ],
+        "tcp_probe": {
+          "port": 8000,
+          "send_ascii": "get status\r\n",
+          "expect_regex": "(?i)Status Info\\s+(?:XLR[0-9]+|(?:TAV-)?MINEOLA[\\w-]*)\\s+Audio Bridge",
+          "timeout_ms": 2200
+        }
       }
     },
     {

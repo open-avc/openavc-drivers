@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 8,
+    "total_drivers": 9,
     "shards": null,
     "category": "lighting"
   },
@@ -445,6 +445,78 @@
           "e1.31",
           "streaming acn"
         ]
+      }
+    },
+    {
+      "id": "lunatone_dali_iot",
+      "name": "Lunatone DALI-2 IoT",
+      "manufacturer": "Lunatone",
+      "category": "lighting",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Control named DALI lights, zones and stored sequences through a Lunatone DALI-2 IoT or IoT4 gateway. Imports registered lights automatically, follows live lighting updates, and provides named scene selections.",
+      "source_url": "https://www.lunatone.com/wp-content/uploads/2021/08/89453886_DALI2_IOT_API_Dokumentation_EN_M0023.pdf",
+      "file": "lighting/lunatone_dali_iot.py",
+      "format": "python",
+      "files": {
+        "lighting/lunatone_dali_iot.py": "5007ec6b76ebbcda4f6e29441afd22ae28d98c2ec41775467f1d13614e186540",
+        "lighting/lunatone_dali_iot_sim.py": "2d441469c12bb5998f21c2cf55417c6dfdcc7696ec6feb0b45335b9314f701b9"
+      },
+      "ports": [
+        80
+      ],
+      "protocols": [
+        "lunatone_dali_iot"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.1",
+      "tags": [
+        "dali",
+        "dali-2",
+        "lighting",
+        "scenes",
+        "tunable-white"
+      ],
+      "help": {
+        "overview": "The gateway\u2019s registered lights, zones and sequences appear automatically. Each light offers only the features reported by the gateway. Status is what the gateway reports; registering a light does not prove the physical gear is responding. DALI scenes use numbers 0\u201315. Give those numbers meaningful names in Scene Names; recalling a scene does not create it or report it as active.",
+        "setup": "1. Commission the DALI installation in Lunatone\u2019s tools and enable its local API. Enter the gateway IP address and HTTP port. No other controller software needs to remain running.\n2. Registered lights load automatically. If the list is empty, use Scan Addressed Lights to register already addressed gear without changing its addresses. Do initial addressing or installation resets in Lunatone\u2019s tools.\n3. Use Scene Names to label the 0\u201315 scene numbers already programmed into your lights. Names are saved in this OpenAVC project.\n4. Use configured Zones for grouped lighting, especially across IoT4 lines. Individual lights retain their own brightness and color readings.\n5. Keep Poll Interval above zero for periodic list reconciliation. Live updates reconnect automatically and re-read all lists. Refresh from Device also reloads them.\n6. The documented API uses local HTTP and WebSocket access. Keep access to that network restricted to trusted controllers."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Lunatone",
+          "models": [
+            "DALI-2 IoT (89453886)",
+            "DALI-2 IoT Node-RED (89453886-NR)",
+            "DALI-2 IoT EM (89453886-EM)"
+          ],
+          "confidence": "untested",
+          "notes": "Routine lighting control through the documented REST/WebSocket API. Emergency-test scheduling and Node-RED administration are not included."
+        },
+        {
+          "manufacturer": "Lunatone",
+          "models": [
+            "DALI-2 IoT4 (22176625)",
+            "DALI-2 IoT4 PS (22176625-PS)",
+            "DALI-2 IoT4 Node-RED (22176625-NR)",
+            "DALI-2 IoT4 PS Node-RED (22176625-PS-NR)",
+            "DALI-2 IoT4 EM (22176625-EM)",
+            "DALI-2 IoT4 PS EM (22176625-PS-EM)"
+          ],
+          "confidence": "untested",
+          "notes": "Lights on all four lines use the gateway\u2019s unique device IDs. Configured zones may span lines. Emergency-test scheduling is not included."
+        }
+      ],
+      "discovery": {
+        "manufacturer_alias": [
+          "Lunatone"
+        ],
+        "udp_probe": {
+          "port": 5555,
+          "send_ascii": "discovery",
+          "expect_regex": "\"type\"\\s*:\\s*\"dali-2-iot\"",
+          "timeout_ms": 1200
+        }
       }
     },
     {

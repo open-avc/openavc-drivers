@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 62,
+    "total_devices": 71,
     "shards": null,
     "category": "lighting"
   },
@@ -602,6 +602,114 @@
           "id": "sacn_e131",
           "confidence": "untested",
           "notes": "sACN is the ANSI E1.31 public standard maintained by ESTA. This driver sends E1.31 Data Packets and works with any conforming sACN receiver. Brand entries below name major node / gateway / fixture vendors confirmed by their published product literature."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lunatone",
+      "model": "DALI-2 IoT (89453886)",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "lunatone_dali_iot",
+          "confidence": "untested",
+          "notes": "Routine lighting control through the documented REST/WebSocket API. Emergency-test scheduling and Node-RED administration are not included."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lunatone",
+      "model": "DALI-2 IoT EM (89453886-EM)",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "lunatone_dali_iot",
+          "confidence": "untested",
+          "notes": "Routine lighting control through the documented REST/WebSocket API. Emergency-test scheduling and Node-RED administration are not included."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lunatone",
+      "model": "DALI-2 IoT Node-RED (89453886-NR)",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "lunatone_dali_iot",
+          "confidence": "untested",
+          "notes": "Routine lighting control through the documented REST/WebSocket API. Emergency-test scheduling and Node-RED administration are not included."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lunatone",
+      "model": "DALI-2 IoT4 (22176625)",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "lunatone_dali_iot",
+          "confidence": "untested",
+          "notes": "Lights on all four lines use the gateway\u2019s unique device IDs. Configured zones may span lines. Emergency-test scheduling is not included."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lunatone",
+      "model": "DALI-2 IoT4 EM (22176625-EM)",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "lunatone_dali_iot",
+          "confidence": "untested",
+          "notes": "Lights on all four lines use the gateway\u2019s unique device IDs. Configured zones may span lines. Emergency-test scheduling is not included."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lunatone",
+      "model": "DALI-2 IoT4 Node-RED (22176625-NR)",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "lunatone_dali_iot",
+          "confidence": "untested",
+          "notes": "Lights on all four lines use the gateway\u2019s unique device IDs. Configured zones may span lines. Emergency-test scheduling is not included."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lunatone",
+      "model": "DALI-2 IoT4 PS (22176625-PS)",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "lunatone_dali_iot",
+          "confidence": "untested",
+          "notes": "Lights on all four lines use the gateway\u2019s unique device IDs. Configured zones may span lines. Emergency-test scheduling is not included."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lunatone",
+      "model": "DALI-2 IoT4 PS EM (22176625-PS-EM)",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "lunatone_dali_iot",
+          "confidence": "untested",
+          "notes": "Lights on all four lines use the gateway\u2019s unique device IDs. Configured zones may span lines. Emergency-test scheduling is not included."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lunatone",
+      "model": "DALI-2 IoT4 PS Node-RED (22176625-PS-NR)",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "lunatone_dali_iot",
+          "confidence": "untested",
+          "notes": "Lights on all four lines use the gateway\u2019s unique device IDs. Configured zones may span lines. Emergency-test scheduling is not included."
         }
       ]
     },

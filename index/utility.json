@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 12,
+    "total_drivers": 13,
     "shards": null,
     "category": "utility"
   },
@@ -87,6 +87,51 @@
           "avpro edge",
           "avproglobal"
         ]
+      }
+    },
+    {
+      "id": "bacnet_ip",
+      "name": "BACnet/IP",
+      "manufacturer": "Generic",
+      "category": "utility",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "udp",
+      "description": "Named building automation points with live feedback, opt-in writes and priority release.",
+      "source_url": "https://bacpypes3.readthedocs.io/en/latest/gettingstarted/running.html",
+      "file": "utility/bacnet_ip.py",
+      "format": "python",
+      "files": {
+        "utility/bacnet_ip.py": "706f1549aeffc468fc8cb3ca27c6f491724f4d8ffb34a7111affab0099d68dca",
+        "utility/bacnet_ip_sim.py": "10fdff28c133604d79f4b7388aaa47ca0d770450191cfa5aaf9ee7ec2cc0b92c"
+      },
+      "ports": [
+        47808
+      ],
+      "protocols": [
+        "bacnet-ip"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.40.1",
+      "tags": [
+        "bacnet",
+        "bms",
+        "hvac",
+        "occupancy",
+        "building-automation"
+      ],
+      "help": {
+        "overview": "Read analog, binary and multistate BACnet/IP points. Import names from the controller, then bind point values and status to controls, macros or triggers. Writes are disabled until enabled per point. Values always come from the controller, including when a higher priority overrides a write.",
+        "setup": "Enter the controller's IPv4 address and UDP port (usually 47808). Use Import Points to add read-only points by name, or enter the facilities team's object list in Points. Enable writes only for approved outputs or values and agree a priority with facilities. Priority 16 is the lowest; 6 is reserved. Release Point releases only the configured priority. Writes remain on the controller after OpenAVC disconnects until released or changed there. The controller must allow replies and COV notifications to OpenAVC's outgoing UDP port. Direct IPv4 only: no MS/TP router addressing, BBMD registration or BACnet/SC. BACnet/IP provides no encrypted login; use the building's approved controls network."
+      },
+      "discovery": {
+        "udp_probe": {
+          "port": 47808,
+          "send_hex": "81 0b 00 08 01 00 10 08",
+          "cross_vendor": true,
+          "expect_regex": "(?s)^\\x81\\x0a..\\x01[\\x00\\x04]\\x10\\x00\\xc4\\x02.{3}(?:\\x21.|\\x22..|\\x24....)\\x91[\\x00-\\x03](?:\\x21.|\\x22..)$",
+          "timeout_ms": 1500
+        }
       }
     },
     {

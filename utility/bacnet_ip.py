@@ -23,6 +23,7 @@ import copy
 import ipaddress
 import math
 import time
+from dataclasses import dataclass
 
 from bacpypes3.app import Application
 from bacpypes3.appservice import ABORTED, ApplicationServiceAccessPoint
@@ -48,6 +49,9 @@ COV_RENEW = 210
 RECONCILE = 300
 COV_RETRY = 600
 TIMEOUT = 4.0
+IMPORT_BATCH_SIZE = 32
+IMPORT_TIME_BUDGET = 20.0
+IMPORT_OBJECT_BUDGET = 2048
 CHILD_STATUS = {
     "object_id": {"type": "string", "label": "BACnet object", "control": False},
     "description": {"type": "string", "label": "Description", "control": False},
@@ -148,6 +152,48 @@ def error_text(value):
     return str(code if code is not None else value)
 
 
+@dataclass
+class PointImport:
+    """One resumable search; committed cursor and point config advance together.
+
+    The cursor lives with this driver instance, including ordinary reconnects.
+    A new instance starts a fresh search and preserves already imported rows.
+    """
+    target: tuple
+    name_filter: str
+    index: int = 1
+    total: int = -1
+    unreadable: int = 0
+
+    @property
+    def more(self):
+        return self.total < 0 or self.index <= self.total
+
+    def can_resume(self, target):
+        return self.more and self.target == target
+
+    def progress(self, added):
+        return f"Checked {self.index - 1} of {self.total} objects; {added} new matching points found."
+
+    def summary(self, added, configured):
+        parts = [f"Imported {added} new read-only points. {configured} points configured.",
+                 f"Checked {self.index - 1} of {max(0, self.total)} objects.",
+                 "Existing points, display names and write permissions were kept."]
+        if self.unreadable:
+            parts.append(f"Skipped {self.unreadable} objects that could not be read.")
+        if self.more and configured >= MAX_POINTS:
+            parts.append("The 128-point limit was reached before the scan finished. Remove unused points or narrow the search before importing again.")
+        elif self.more:
+            parts.append("Choose Continue Import to resume the same search.")
+        else:
+            parts.append("Search complete.")
+        if added:
+            # The shared config-table editor retains its mounted rows after
+            # a setup update; a page reload reads the newly saved table.
+            parts.append("Reload the browser page before editing the Points table.")
+        return " ".join(parts)
+
+
 class DatagramLink(Server):
     """Carry the library's BVLC frames on OpenAVC's already-open transport."""
     def __init__(self, transport):
@@ -204,7 +250,7 @@ class BACnetClient(Application):
 class BACnetIPDriver(BaseDriver):
     DRIVER_INFO = {
         "id": "bacnet_ip", "name": "BACnet/IP", "manufacturer": "Generic",
-        "category": "utility", "version": "1.0.0", "author": "OpenAVC",
+        "category": "utility", "version": "1.1.0", "author": "OpenAVC",
         "transport": "udp", "ports": [47808], "protocols": ["bacnet-ip"],
         "simulated": True, "verified": False, "min_platform_version": "0.40.1",
         "description": "Named building automation points with live feedback, opt-in writes and priority release.",
@@ -249,6 +295,9 @@ class BACnetIPDriver(BaseDriver):
             "firmware": {"type": "string", "label": "Firmware"},
             "point_count": {"type": "integer", "label": "Configured points"},
             "cov_count": {"type": "integer", "label": "Points using change notifications"},
+            "import_pending": {"type": "boolean", "label": "Import can continue"},
+            "import_filter": {"type": "string", "label": "Import name filter"},
+            "import_status": {"type": "string", "label": "Last import result"},
         },
         "child_entity_types": {
             "point": {"label": "Point", "label_plural": "Points", "id_format": {"type": "string"},
@@ -268,13 +317,15 @@ class BACnetIPDriver(BaseDriver):
                               "params": {"point": {"type": "child_id", "child_type": "point", "label": "Point", "required": True}}},
         },
         "quick_actions": ["set_point", "release_point", "refresh"],
-        "actions": [{"id": "import_points", "kind": "setup", "label": "Import Points", "icon": "search", "availability": "online",
-                     "params": {
-                         "name_filter": {"type": "string", "label": "Name contains", "help": "Optional room name or prefix. Empty includes all supported points. Existing entries and their permissions are kept."},
-                         "start_index": {"type": "integer", "label": "Start at object", "default": 1, "min": 1, "max": 1000000,
-                                         "help": "For large controllers, continue from the next index shown by the previous import."},
-                         "limit": {"type": "integer", "label": "Maximum new points", "default": 32, "min": 1, "max": 128},
-                     }}],
+        "actions": [
+            {"id": "import_points", "kind": "setup", "label": "Import Points", "icon": "search", "availability": "online",
+             "confirm": "Search this controller and add matching read-only points. Existing points, names and permissions are kept. A new search replaces any unfinished scan.",
+             "params": {"name_filter": {"type": "string", "label": "Name contains",
+                        "help": "Optional room name or prefix. Empty includes all supported points, up to 128 configured points. Batches are handled automatically."}}},
+            {"id": "continue_import", "kind": "setup", "label": "Continue Import", "icon": "search", "availability": "online",
+             "confirm": "Continue the previous search using its remembered name filter. Existing points, names and permissions are kept.",
+             "visible_when": {"key": "device.$id.import_pending", "operator": "truthy"}, "params": {}},
+        ],
     }
     HEALTH_TIMEOUT_S = 5.0
     HEALTH_FAULT_MESSAGE = "The BACnet controller stopped answering device queries."
@@ -290,6 +341,7 @@ class BACnetIPDriver(BaseDriver):
         self._poll_lock = asyncio.Lock()
         self._subscriptions = {}
         self._priority_pending = set()
+        self._import_scan = None
 
     async def _pre_connect(self):
         try:
@@ -328,6 +380,7 @@ class BACnetIPDriver(BaseDriver):
         for key, point in self._points.items():
             self._register_point(key, point)
         self.set_state("point_count", len(self._points))
+        self._restore_import_status()
         # Identity has proved the connection. A large point list must not
         # consume the platform's connection deadline; readings populate next.
         self.spawn_task(self.poll())
@@ -585,48 +638,118 @@ class BACnetIPDriver(BaseDriver):
         await self._refresh_point(key, point)
 
     async def run_setup_action(self, action_id, params, progress):
-        if action_id != "import_points":
+        if action_id not in ("import_points", "continue_import"):
             raise ValueError(f"Unknown setup action: {action_id}")
         if not self.connected:
             return {"success": False, "message": "Connect to the controller before importing points."}
-        async with self._point_lock:
-            rows, next_index, count = await self._import_rows(params, progress)
-        added = len(rows) - len(self.config.get("points", []))
+        if len(self.config.get("points", [])) >= MAX_POINTS:
+            return {"success": False, "message": "The 128-point table is full. Remove unused points before importing more."}
+        scan = self._begin_import(action_id, params)
+        rows, failure = await self._scan_import(scan, progress)
+        added = await self._save_import(scan, rows)
+        message = scan.summary(added, len(self.config.get("points", [])))
+        if failure:
+            message = f"{failure} {message}"
+        self.set_state("import_status", message)
         if added:
-            await self.request_config_update({"points": rows})
             await self.request_reconnect()
-        more = f" Continue at object {next_index} to read more." if next_index <= count else ""
-        return {"success": True, "message": f"Imported {added} read-only points. Existing points and permissions were kept.{more}"}
+        return {"success": not failure, "message": message}
 
-    async def _import_rows(self, params, progress):
+    def _import_target(self):
+        return (str(self.config.get("host", "")), int(self.config.get("port", 47808)), str(self._device))
+
+    def _restore_import_status(self):
+        scan = self._import_scan
+        if scan and scan.target != self._import_target():
+            self._import_scan = None
+            self.set_state("import_status", "The controller changed. Start a new import.")
+        self._publish_import_cursor()
+
+    def _publish_import_cursor(self):
+        scan = self._import_scan
+        available = bool(scan and scan.more and len(self.config.get("points", [])) < MAX_POINTS)
+        self.set_state("import_pending", available)
+        self.set_state("import_filter", scan.name_filter if scan else "")
+
+    def _begin_import(self, action_id, params):
+        if action_id == "import_points":
+            self._import_scan = PointImport(self._import_target(), str(params.get("name_filter", "")).strip())
+        scan = self._import_scan
+        if not scan or not scan.can_resume(self._import_target()):
+            raise ValueError("No unfinished search is available for this controller. Choose Import Points to start a new search.")
+        self._publish_import_cursor()
+        # Do not advance the remembered cursor until new rows are saved. If
+        # saving fails, Continue retries this slice instead of losing points.
+        return copy.deepcopy(scan)
+
+    async def _scan_import(self, scan, progress):
+        rows = []
+        known = set(point_rows(self.config.get("points", [])))
+        try:
+            await self._read_import_count(scan, progress)
+            await self._read_import_batches(scan, known, rows, progress)
+        except asyncio.TimeoutError:
+            return rows, "The controller stopped answering during import."
+        except (ConnectionError, CommandRefusedError) as exc:
+            return rows, f"The scan stopped: {exc}."
+        return rows, ""
+
+    async def _read_import_count(self, scan, progress):
+        count = int(await self._read(self._device, "object-list", 0))
+        if count < 0:
+            raise ValueError("The controller returned an invalid object count.")
+        if scan.total >= 0 and scan.total != count:
+            scan.index, scan.unreadable = 1, 0
+            await progress("The controller's object list changed. Restarting the search; existing points are kept.")
+        scan.total = count
+        scope = f'Names containing "{scan.name_filter}"' if scan.name_filter else "All supported points"
+        await progress(f"{scope}. {count} objects on this controller.", 0)
+
+    async def _read_import_batches(self, scan, known, rows, progress):
+        deadline = time.monotonic() + IMPORT_TIME_BUDGET
+        end = min(scan.total + 1, scan.index + IMPORT_OBJECT_BUDGET)
+        last_report = time.monotonic()
+        while scan.index < end and len(known) < MAX_POINTS:
+            if time.monotonic() >= deadline:
+                break
+            async with self._point_lock:
+                await self._read_import_point(scan, known, rows)
+            scan.index += 1
+            if (scan.index - 1) % IMPORT_BATCH_SIZE == 0 or time.monotonic() - last_report >= 1:
+                await progress(scan.progress(len(rows)), min(99, (scan.index - 1) * 100 // max(1, scan.total)))
+                last_report = time.monotonic()
+        await progress(scan.progress(len(rows)), min(99, (scan.index - 1) * 100 // max(1, scan.total)))
+
+    async def _read_import_point(self, scan, known, rows):
+        try:
+            obj = await self._read(self._device, "object-list", scan.index)
+            if not importable_point(obj, known):
+                return
+            name = str(await self._read(obj, "object-name"))
+        except CommandRefusedError:
+            scan.unreadable += 1
+            return
+        if scan.name_filter.casefold() not in name.casefold():
+            return
+        rows.append({"object": str(obj), "label": name, "writable": False,
+                     "write_mode": "priority", "priority": 16})
+        known.add(point_key(obj))
+
+    async def _save_import(self, scan, found):
+        if scan.target != self._import_target():
+            raise ValueError("The controller changed during import. Start a new import for the selected controller.")
+        # Merge against the current config, preserving edits made while this
+        # scan was awaiting replies, rather than replacing an earlier copy.
         rows = copy.deepcopy(self.config.get("points", []))
         known = set(point_rows(rows))
-        limit = min(int(params.get("limit", 32)), MAX_POINTS - len(rows))
-        start = int(params.get("start_index", 1))
-        if limit <= 0:
-            raise ValueError("The Points table is full. Remove unused points before importing more.")
-        count = int(await self._read(self._device, "object-list", 0))
-        text = str(params.get("name_filter", "")).strip().casefold()
-        added = 0
-        index = start
-        # Indexed reads work when Object_List exceeds a device's APDU capacity.
-        # Bound each wizard run; its result gives the next index, never truncates silently.
-        end = min(count, start + 511)
-        while index <= end:
-            if added >= limit:
-                break
-            obj = await self._read(self._device, "object-list", index)
-            index += 1
-            if not importable_point(obj, known):
-                continue
-            name = str(await self._read(obj, "object-name"))
-            if text and text not in name.casefold():
-                continue
-            rows.append({"object": str(obj), "label": name, "writable": False, "priority": 16})
-            known.add(point_key(obj))
-            added += 1
-            await progress(f"{name} ({obj})", min(95, added * 95 // limit))
-        return rows, index, count
+        additions = [row for row in found if point_key(parse_point(row)["obj"]) not in known]
+        if len(rows) + len(additions) > MAX_POINTS:
+            raise ValueError("The Points table changed during import and is now full. Review it before continuing.")
+        if additions:
+            await self.request_config_update({"points": rows + additions})
+        self._import_scan = scan
+        self._publish_import_cursor()
+        return len(additions)
 
 
 def usable(value):

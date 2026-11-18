@@ -17,9 +17,10 @@ is required on supported releases.
    manufacturer, model, firmware and BACnet device instance appear when it answers.
 3. Run **Import Points**. Enter a room name or prefix under **Name contains** to
    narrow the import. New points are read-only. Existing entries, labels and
-   write permissions stay as they are. For a large controller, use the next
-   object index shown by the result to continue.
-4. Review **Points** in Edit Device. Remove points the room does not need, or
+   write permissions stay as they are. The driver handles batches automatically.
+   A long or interrupted search offers **Continue Import**, which remembers the
+   filter and where to resume. No object index or batch size is required.
+4. Reload the browser page, then review **Points** on the device page. Remove points the room does not need, or
    add approved objects manually, such as `analog-value,1`. Up to 128 points
    can be configured. An empty display name uses the controller's current name.
 5. Bind the point's **Value** and status fields to the room's controls or
@@ -27,6 +28,23 @@ is required on supported releases.
    the appropriate number, Yes/No or named-state input. A point's numeric unit,
    range and step come from the controller when available. **Refresh from
    Device** re-reads names and metadata for the configured points.
+
+The result reports checked objects, newly imported points and the configured
+total. An unreadable object is counted and skipped; a connection interruption
+saves points already found and leaves the unanswered object for the next pass.
+The 128-point limit is explicit, never presented as a completed scan.
+
+**Continue Import** keeps its place through browser reloads and ordinary device
+reconnects. Starting **Import Points** again starts a new search and keeps the
+existing table. Restarting OpenAVC or replacing/reconfiguring the device also
+requires a new search; already saved points are kept. If the controller's object
+count changes between passes, the search restarts automatically without adding
+duplicates. Start a new search if its point list was rearranged without changing
+the count, or to retry objects that refused a read.
+
+Reload the browser page before editing the table after an import. The live
+point list updates immediately, but an already-open table editor may still
+show the earlier rows until the page is reopened.
 
 The client does not reserve or advertise a BACnet device instance of its own.
 Multiple configured controllers can run together. Direct IP communication can
@@ -88,4 +106,6 @@ The included simulator has temperature, setpoint, occupancy, occupied-mode and
 named HVAC-mode points. Its controls generate actual BACnet changes. The
 facilities override demonstrates a higher priority taking control; error modes
 exercise refused writes, unavailable COV, individual-property reads and silence.
+**Additional import points** adds 40 points to try a multi-batch import, or 140
+to exercise the capacity limit.
 Simulator testing is complete; physical controller verification remains pending.

@@ -83,7 +83,7 @@ class BACnetIPSimulator(BaseSimulator):
     SIMULATOR_INFO = {
         "driver_id": "bacnet_ip", "name": "BACnet/IP Controller", "category": "utility", "transport": "udp",
         "initial_state": {"temperature": 22.5, "setpoint": 21.0, "occupancy": False,
-                          "occupied_mode": False, "mode": 1, "higher_priority": False},
+                          "occupied_mode": False, "mode": 1, "higher_priority": False, "extra_points": 0},
         "controls": [
             {"key": "temperature", "type": "slider", "label": "Room temperature", "min": 10, "max": 35, "step": 0.5},
             {"key": "setpoint", "type": "slider", "label": "Setpoint at priority 16", "min": 10, "max": 35, "step": 0.5},
@@ -91,6 +91,8 @@ class BACnetIPSimulator(BaseSimulator):
             {"key": "occupied_mode", "type": "toggle", "label": "Occupied mode"},
             {"key": "mode", "type": "select", "label": "HVAC mode", "options": [1, 2, 3], "labels": {"1": "Auto", "2": "Heating", "3": "Cooling"}},
             {"key": "higher_priority", "type": "toggle", "label": "Facilities override: 19 C at priority 8"},
+            {"key": "extra_points", "type": "select", "label": "Additional import points", "options": [0, 40, 140],
+             "labels": {"0": "None", "40": "40 points (multiple batches)", "140": "140 points (exceeds import capacity)"}},
         ],
         "error_modes": {
             "cov_unavailable": {"description": "Controller refuses COV subscriptions"},
@@ -103,6 +105,7 @@ class BACnetIPSimulator(BaseSimulator):
         super().__init__(*args, **kwargs)
         self.app = None
         self.objects = {}
+        self._extra_points = []
 
     async def start(self, port):
         self.objects = make_objects()
@@ -112,6 +115,8 @@ class BACnetIPSimulator(BaseSimulator):
         network = NetworkPortObject(f"127.0.0.1:{port}", objectIdentifier=("network-port", 1), objectName="Loopback")
         self.app = Controller.from_object_list([device, network, *self.objects.values()])
         self.app.owner = self
+        self._extra_points = []
+        self._resize_import_points(int(self.state.get("extra_points", 0)))
         layer = next(iter(self.app.link_layers.values()))
         await asyncio.wait_for(asyncio.gather(*layer.server._transport_tasks), 3)
         self._port = layer.server.local_transport.get_extra_info("sockname")[1]
@@ -127,6 +132,9 @@ class BACnetIPSimulator(BaseSimulator):
 
     def set_state(self, key, value):
         super().set_state(key, value)
+        if key == "extra_points":
+            self._resize_import_points(int(value))
+            return
         if key == "higher_priority":
             self._set_override(value)
             return
@@ -136,6 +144,19 @@ class BACnetIPSimulator(BaseSimulator):
         if key in ("occupancy", "occupied_mode"):
             value = "active" if value else "inactive"
         obj.presentValue = value
+
+    def _resize_import_points(self, count):
+        if not self.app or count not in (0, 40, 140):
+            return
+        for obj in self._extra_points:
+            self.app.delete_object(obj)
+        self._extra_points = []
+        for i in range(count):
+            obj = AnalogInputObject(objectIdentifier=("analog-input", 100 + i),
+                                    objectName=f"Extra Room Temperature {i + 1:03d}",
+                                    presentValue=22.0, units="degrees-celsius", covIncrement=0.1)
+            self.app.add_object(obj)
+            self._extra_points.append(obj)
 
     def _set_override(self, enabled):
         if not self.objects:

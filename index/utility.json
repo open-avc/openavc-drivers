@@ -204,7 +204,7 @@
       "name": "KNX/IP",
       "manufacturer": "Generic",
       "category": "utility",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Named KNX lights, shades, scenes and sensors, ETS project import and secure tunnelling.",
@@ -212,7 +212,7 @@
       "file": "utility/knx_ip.py",
       "format": "python",
       "files": {
-        "utility/knx_ip.py": "a58e434dd9e445d5acc0bfc8484f59f291e20ce99ce13dc54270d6dcb24f7388",
+        "utility/knx_ip.py": "63c58f2f682a75943d03617d86a5021f484fa41b8fe764113495528ae15bfbed",
         "utility/knx_ip_sim.py": "16b2acfc37c69f7bd5bfa775d76f1d5779859abe47492c0a0224f4607ed3b11f"
       },
       "ports": [

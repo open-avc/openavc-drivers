@@ -713,7 +713,7 @@ class KNXIPDriver(BaseDriver):
      'name': 'KNX/IP',
      'manufacturer': 'Generic',
      'category': 'utility',
-     'version': '1.0.0',
+     'version': '1.0.1',
      'author': 'OpenAVC',
      'transport': 'tcp',
      'ports': [3671],
@@ -1270,6 +1270,7 @@ class KNXIPDriver(BaseDriver):
             raw = await self._cemi_queue.get()
             try:
                 await self._knx.cemi_handler.receive(raw)
+                self.set_state("security_errors", self._knx.connection_manager.undecoded_data_secure)
             except (OSError, sqlite3.Error, ValueError, CommunicationError, CouldNotParseTelegram):
                 self._force_disconnect(code="invalid_config", message="KNX secure traffic could not be processed or its replay history saved. Check storage and the ETS key export.")
                 return
@@ -1344,12 +1345,14 @@ class KNXIPDriver(BaseDriver):
 
     async def _initial_sync(self):
         self._invalidate()
+        self.set_state("security_errors", self._knx.connection_manager.undecoded_data_secure)
         self._start_refresh()
         self.spawn_task(self._reconcile())
 
     async def _close_session(self):
         self._closing = True
         self._invalidate()
+        self.set_state("security_errors", None)
         knx, self._knx = self._knx, None
         self._refresh_task = None
         if knx:

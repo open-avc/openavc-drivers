@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1403,
+    "total_devices": 1404,
     "shards": null
   },
   "devices": [
@@ -7696,6 +7696,18 @@
           "id": "gude_epc8291",
           "confidence": "untested",
           "notes": "17 switched DC ports (5 V, and 12 V or 24 V per bank) behind eFuses, 4 switched AC ports. Its per-port DC metering appears as meter children named after the ports."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Haivision",
+      "model": "Makito X4 Decoder",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "haivision_makito_x4_decoder",
+          "confidence": "untested",
+          "notes": "Appliance and blade packaging; REST API firmware 1.7+. SDI output assignment; ST 2110 output provisioning remains in the device web interface. Hardware verification pending."
         }
       ]
     },

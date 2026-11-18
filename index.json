@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 211,
+    "total_drivers": 212,
     "shards": null
   },
   "drivers": [
@@ -7283,6 +7283,53 @@
           "gude systems gmbh"
         ]
       }
+    },
+    {
+      "id": "haivision_makito_x4_decoder",
+      "name": "Haivision Makito X4 Decoder",
+      "manufacturer": "Haivision",
+      "category": "streaming",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Routes named streams to Makito X4 decoder channels, with SDI assignment, signal, fallback image, audio and SRT feedback.",
+      "source_url": "https://mx4d.demo.haivision.com/apidoc/",
+      "file": "streaming/haivision_makito_x4_decoder.py",
+      "format": "python",
+      "files": {
+        "streaming/haivision_makito_x4_decoder.py": "f9ee6d1f75956a3a28279e8e59aff96d7c272efba4f642385440ad86fa7f1aa2",
+        "streaming/haivision_makito_x4_decoder_sim.py": "ae366c5864ea9cd771e1c3ebc64f579ac39bb07e74668ecf67292afdc7175edb"
+      },
+      "ports": [
+        443
+      ],
+      "protocols": [
+        "https"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.1",
+      "tags": [
+        "decoder",
+        "srt",
+        "streaming",
+        "hevc",
+        "h264",
+        "sdi"
+      ],
+      "help": {
+        "overview": "Select device-configured streams by name and route them to decoder channels. Video and audio travel together. Selected source, received source, decoding, and fallback image are separate readings. Channels can feed multiple SDI outputs. Configure stream addresses, encryption and ST 2110 outputs in the device web interface.",
+        "setup": "Use firmware 1.7 or later, HTTPS and an account with control rights. Refresh Status discovers channels, streams and presets. Routing preserves whether a decoder is started or stopped; use Start Decoder when needed. A stream already assigned to another channel must first be unassigned there. Decoder 0 has highest resource priority. Presets may change several channels at once. Verify the certificate when it is trusted by this computer."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Haivision",
+          "models": [
+            "Makito X4 Decoder"
+          ],
+          "confidence": "untested",
+          "notes": "Appliance and blade packaging; REST API firmware 1.7+. SDI output assignment; ST 2110 output provisioning remains in the device web interface. Hardware verification pending."
+        }
+      ]
     },
     {
       "id": "haivision_makito_x4_encoder",

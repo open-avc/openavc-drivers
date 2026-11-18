@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 125,
+    "total_devices": 126,
     "shards": null,
     "category": "streaming"
   },
@@ -928,6 +928,18 @@
           "id": "extron_smp_352",
           "confidence": "untested",
           "notes": "Standard and 3G-SDI 400 GB models. Both exercised in simulation using the SMP 300 Series User Guide, revision R."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Haivision",
+      "model": "Makito X4 Decoder",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "haivision_makito_x4_decoder",
+          "confidence": "untested",
+          "notes": "Appliance and blade packaging; REST API firmware 1.7+. SDI output assignment; ST 2110 output provisioning remains in the device web interface. Hardware verification pending."
         }
       ]
     },

@@ -713,7 +713,7 @@ class KNXIPDriver(BaseDriver):
      'name': 'KNX/IP',
      'manufacturer': 'Generic',
      'category': 'utility',
-     'version': '1.0.1',
+     'version': '1.0.2',
      'author': 'OpenAVC',
      'transport': 'tcp',
      'ports': [3671],

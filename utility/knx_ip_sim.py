@@ -345,16 +345,21 @@ class KNXIPSimulator(TCPSimulator):
     def handle_command(self, packet):
         service, body = split_frame(packet)
         if service == 0x0951:
-            interface = self._groups.interface
-            self._secure = Session(interface.decrypted_authentication if interface else str(self.config.get("device_password") or "sim-device"),
-                                   interface.decrypted_password if interface else str(self.config.get("user_password") or "sim-user"),
-                                   interface.user_id if interface else int(self.config.get("user_id", 2)))
+            self._secure = self.new_session()
             return self._secure.response(body)
         if service == 0x0950:
             return self._secure_command(packet)
         if self._secure is not None:
             return None  # no plaintext commands after secure session setup
         return self._plain(service, body, tcp=True)
+
+    def new_session(self):
+        interface = self._groups.interface
+        if interface and not self.config.get("user_password"):
+            return Session(interface.decrypted_authentication, interface.decrypted_password, interface.user_id)
+        return Session(str(self.config.get("device_password") or "sim-device"),
+                       str(self.config.get("user_password") or "sim-user"),
+                       int(self.config.get("user_id", 2)))
 
     def _secure_command(self, packet):
         if self._secure is None:

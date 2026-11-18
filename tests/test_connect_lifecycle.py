@@ -50,6 +50,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # with a self-signed cert instead (``"tls": True`` in SIMULATOR_INFO), so the
 # driver only needs verification turned off, exactly as against real hardware.
 _CONFIG: dict[str, dict] = {
+    "haivision_makito_x4_encoder": {"username": "operator", "password": "smokepw", "verify_ssl": False},
     "spinetix_ibx440": {"verify_ssl": False},  # Simulator serves a self-signed certificate.
     "visionary_5_series_encoder": {"username": "admin", "password": "smokepw"},
     "visionary_5_series_decoder": {"username": "admin", "password": "smokepw"},

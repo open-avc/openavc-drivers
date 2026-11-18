@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 17,
+    "total_drivers": 18,
     "shards": null,
     "category": "streaming"
   },
@@ -630,6 +630,54 @@
           "extron"
         ]
       }
+    },
+    {
+      "id": "haivision_makito_x4_encoder",
+      "name": "Haivision Makito X4 Encoder",
+      "manufacturer": "Haivision",
+      "category": "streaming",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Makito X4 streams, video and audio encoders, named presets and configured recordings, with input signal and SRT link feedback.",
+      "source_url": "https://mx4e.demo.haivision.com/apidoc/",
+      "file": "streaming/haivision_makito_x4_encoder.py",
+      "format": "python",
+      "files": {
+        "streaming/haivision_makito_x4_encoder.py": "46ea84fd6643ca3c39d44e4bf4235e7e7ebce2f124b12df98fc64a1b952c692f",
+        "streaming/haivision_makito_x4_encoder_sim.py": "3517cf0ff88653bc1d37ab79fdb3186168d106cc5bd2b232f0ccecf23e01ad86"
+      },
+      "ports": [
+        443
+      ],
+      "protocols": [
+        "https"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.1",
+      "tags": [
+        "encoder",
+        "srt",
+        "streaming",
+        "recording",
+        "hevc",
+        "h264"
+      ],
+      "help": {
+        "overview": "Controls configured streams and recordings independently, recalls actual saved presets, and reports input signals, encoder state and both SRT paths. Configure stream destinations and encoding profiles in the encoder web interface.",
+        "setup": "Enter the encoder address and an account permitted to control it. HTTPS is required. Use firmware 1.7 or later; configured recording controls require firmware 1.10 and on-device storage. Refresh Status updates the available objects and presets. A stopped encoder or stream remains listed. Certificate verification requires a certificate trusted by this computer."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Haivision",
+          "models": [
+            "Makito X4 Encoder Single",
+            "Makito X4 Encoder Quad"
+          ],
+          "confidence": "untested",
+          "notes": "REST API on firmware 1.7 or later. Recording requires storage-equipped hardware and firmware 1.10. Hardware testing is pending."
+        }
+      ]
     },
     {
       "id": "magewell_pro_convert_encoder",

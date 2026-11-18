@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 123,
+    "total_devices": 125,
     "shards": null,
     "category": "streaming"
   },
@@ -928,6 +928,30 @@
           "id": "extron_smp_352",
           "confidence": "untested",
           "notes": "Standard and 3G-SDI 400 GB models. Both exercised in simulation using the SMP 300 Series User Guide, revision R."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Haivision",
+      "model": "Makito X4 Encoder Quad",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "haivision_makito_x4_encoder",
+          "confidence": "untested",
+          "notes": "REST API on firmware 1.7 or later. Recording requires storage-equipped hardware and firmware 1.10. Hardware testing is pending."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Haivision",
+      "model": "Makito X4 Encoder Single",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "haivision_makito_x4_encoder",
+          "confidence": "untested",
+          "notes": "REST API on firmware 1.7 or later. Recording requires storage-equipped hardware and firmware 1.10. Hardware testing is pending."
         }
       ]
     },

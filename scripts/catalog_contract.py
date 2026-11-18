@@ -45,6 +45,7 @@ from _vendor.avcdriver_semantic import (
     validate_driver_definition,
     validate_driver_warnings,
 )
+from _vendor.driver_id import id_refusals
 from _vendor.simulator_info import check_simulator_file, companion_simulator, read_simulator_info
 from _vendor.spec import DEFS, FIELDS, NULL_AS_ABSENT, NULL_AS_ABSENT_WITHIN
 from _vendor.python_info import (
@@ -109,7 +110,9 @@ class ContractReport:
             full_info, opaque_spots = extract_python_driver_info_full(filepath)
         except ExtractError as e:
             return [str(e)]
-        errors = [f"{rel}: {err}" for err in unknown_key_errors(full_info)]
+        # The id's pattern, which the YAML half gets from the strict verdict.
+        said = unknown_key_errors(full_info) + id_refusals(full_info.get("id"))
+        errors = [f"{rel}: {err}" for err in said]
         errors += [
             f"{rel}: {err}"
             for err in _with_catalog_platform_floor(

@@ -64,7 +64,6 @@ from _vendor.python_info import (  # noqa: E402
 from _vendor.spec import (  # noqa: E402
     CATEGORIES,
     CONFIDENCE_LEVELS,
-    DRIVER_ID_PATTERN,
     PYTHON_ONLY_TRANSPORTS,
     SEMVER_PATTERN,
     TAG_PATTERN,
@@ -113,7 +112,6 @@ DRIVER_DIRS = (
 # Shape patterns from the vendored contract tables (URL_PATTERN encodes
 # its case-insensitivity in character classes).
 SEMVER_RE = re.compile(SEMVER_PATTERN)
-ID_RE = re.compile(DRIVER_ID_PATTERN)
 TAG_RE = re.compile(TAG_PATTERN)
 URL_RE = re.compile(URL_PATTERN)
 
@@ -199,13 +197,6 @@ class DriverEntry(BaseModel):
     # through to index.json so on-device discovery can match catalog
     # entries before they're installed — that's discovery's whole job.
     discovery: dict[str, Any] | None = None
-
-    @field_validator("id")
-    @classmethod
-    def _id(cls, v: str) -> str:
-        if not ID_RE.fullmatch(v):
-            raise ValueError("id must be lowercase alphanumeric with underscores")
-        return v
 
     @field_validator("category")
     @classmethod

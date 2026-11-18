@@ -119,6 +119,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from .discovery_block import",
             ),
             (
+                "from openavc.drivers.driver_id import",
+                "from .driver_id import",
+            ),
+            (
                 "from openavc.drivers.declared_names import",
                 "from .declared_names import",
             ),
@@ -181,6 +185,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
             (
                 "from openavc.drivers.substitution_checks import (",
                 "from .substitution_checks import (",
+            ),
+            (
+                "from openavc.drivers.tagged_errors import",
+                "from .tagged_errors import",
             ),
         ),
     ),
@@ -367,6 +375,16 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         (("from openavc.drivers.spec import", "from .spec import"),),
     ),
     (
+        "openavc/drivers/driver_id.py",
+        "scripts/_vendor/driver_id.py",
+        (("from openavc.drivers.spec import", "from .spec import"),),
+    ),
+    (
+        "openavc/drivers/tagged_errors.py",
+        "scripts/_vendor/tagged_errors.py",
+        (),
+    ),
+    (
         "openavc/drivers/sign_in_checks.py",
         "scripts/_vendor/sign_in_checks.py",
         (
@@ -444,6 +462,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         "openavc/drivers/python_info.py",
         "scripts/_vendor/python_info.py",
         (
+            ("from openavc.drivers.driver_id import", "from .driver_id import"),
             (
                 "from openavc.drivers.avcdriver_semantic import (",
                 "from .avcdriver_semantic import (",

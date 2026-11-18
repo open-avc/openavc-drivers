@@ -295,7 +295,7 @@ def test_check_fails_when_a_driver_changed_without_a_rebuild(tmp_path: Path) -> 
 @pytest.mark.parametrize(
     "field,bad_value,expected_substring",
     [
-        ("id", "My_Driver", "lowercase alphanumeric"),
+        ("id", "My_Driver", "can use only lowercase letters, digits and underscores"),
         ("category", "phasers", "must be one of"),
         ("transport", "bluetooth", "must be one of"),
         ("version", "1.0", "valid semver"),
@@ -313,6 +313,14 @@ def test_field_validation_rejects_bad_values(
         assert "JSON Schema validation error" in err, err
     else:
         assert expected_substring in err, err
+
+
+def test_a_python_driver_id_outside_the_pattern_fails_the_build(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_python_driver(tmp_path, info_overrides={"id": "test-py-driver"})
+    rc, _, err = _run(tmp_path, json_schema_only=False)
+    assert rc != 0
+    assert "id: 'test-py-driver' can use only lowercase letters, digits and underscores" in err, err
 
 
 def test_required_field_missing_fails(tmp_path: Path, json_schema: bool) -> None:

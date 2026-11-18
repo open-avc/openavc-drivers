@@ -44,6 +44,7 @@ PLATFORM_PACKAGES = frozenset({
     "cryptography", "yaml", "serial", "serial_asyncio", "gmqtt", "croniter",
     "ifaddr", "psutil", "pydantic", "packaging", "certifi", "tzdata",
     "bacpypes3",  # Core dependency from the release after 0.40.0.
+    "xknx", "pyzipper", "Cryptodome",  # Bundled with setup imports from 0.40.1.
 })
 
 # Standard-library modules a driver cannot rely on:

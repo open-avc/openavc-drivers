@@ -189,6 +189,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         "scripts/_vendor/action_checks.py",
         (
             (
+                "from openavc.drivers.command_checks import",
+                "from .command_checks import",
+            ),
+            (
                 "from openavc.drivers.condition_checks import",
                 "from .condition_checks import",
             ),

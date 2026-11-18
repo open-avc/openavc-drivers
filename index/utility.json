@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 13,
+    "total_drivers": 14,
     "shards": null,
     "category": "utility"
   },
@@ -197,6 +197,52 @@
       "help": {
         "overview": "Control any device with an HTTP or REST API. Add the device, then define its commands, responses, and state variables right on the device page (Commands & Responses) \u2014 no driver file needed. Many modern AV devices expose REST APIs alongside traditional serial or TCP protocols.\n",
         "setup": "1. Enter the device's IP address and HTTP port. 2. Configure authentication if the device requires it (basic, bearer,\n   API key, or digest).\n3. Enable HTTPS if the device uses TLS. Turn off certificate verification\n   only for self-signed certs (common on AV equipment).\n4. Open Commands & Responses on the device page to add commands, status\n   polling, and state variables for your specific device.\n"
+      }
+    },
+    {
+      "id": "knx_ip",
+      "name": "KNX/IP",
+      "manufacturer": "Generic",
+      "category": "utility",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Named KNX lights, shades, scenes and sensors, ETS project import and secure tunnelling.",
+      "source_url": "https://support.knx.org/hc/en-us/articles/360000040999-KNX-Specifications",
+      "file": "utility/knx_ip.py",
+      "format": "python",
+      "files": {
+        "utility/knx_ip.py": "a58e434dd9e445d5acc0bfc8484f59f291e20ce99ce13dc54270d6dcb24f7388",
+        "utility/knx_ip_sim.py": "16b2acfc37c69f7bd5bfa775d76f1d5779859abe47492c0a0224f4607ed3b11f"
+      },
+      "ports": [
+        3671
+      ],
+      "protocols": [
+        "knx-ip"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.40.1",
+      "tags": [
+        "knx",
+        "lighting",
+        "shades",
+        "sensors",
+        "building-automation"
+      ],
+      "help": {
+        "overview": "Import the ETS project to use its room names, functions and explicit status mappings. Controls expose actual received status; an accepted command never invents a light level or shade position. KNX/IP Secure protects the interface connection, and KNX Data Secure protects configured group traffic.",
+        "setup": "Add the KNX/IP interface by address, or use Find Interfaces and Select Interface. Import an ETS .knxproj project or group-address XML export. Project functions create supported controls automatically; use Add Light, Shade, Sensor or Scene for remaining mappings. For secure installations, import the ETS .knxkeys export with its export password. The project password and key-export password may differ. Choose the named controls in UI bindings, macros and triggers. This driver uses tunnelling; it does not program KNX devices or change their ETS configuration.",
+        "connection": "Allow KNXnet/IP on port 3671 between OpenAVC and the interface. A secure interface needs a free tunnel slot and its matching credentials. Status objects must be configured in ETS to transmit changes and answer group reads. A silent status address remains unknown after reconnect."
+      },
+      "discovery": {
+        "udp_probe": {
+          "port": 3671,
+          "send_hex": "06 10 02 03 00 0e 08 01 00 00 00 00 00 00",
+          "expect_regex": "(?s)^\\x06\\x10\\x02\\x04..\\x36\\x01.{52}[\\x04-\\xfe]\\x02(?:[\\x02-\\x09][\\x01-\\x02])*\\x04[\\x01-\\x02].*$",
+          "timeout_ms": 1500,
+          "cross_vendor": true
+        }
       }
     },
     {

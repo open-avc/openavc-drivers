@@ -297,7 +297,7 @@ class LunatoneDaliIotDriver(BaseDriver):
                                                            'max': 100,
                                                            'required': True,
                                                            'unit': '%'}},
-                                      'sets': {'level': '$level'}},
+                                      'sets': {'level': '{level}'}},
                   'recall_light_scene': {'label': 'Recall Light Scene',
                                          'help': 'Recalls the scene stored in the selected light. Scene '
                                                  'names are configured in OpenAVC; scene values must '
@@ -367,7 +367,7 @@ class LunatoneDaliIotDriver(BaseDriver):
                                                                   'max': 20000,
                                                                   'required': True,
                                                                   'unit': 'K'}},
-                                            'sets': {'color_temperature': '$kelvin'}},
+                                            'sets': {'color_temperature': '{kelvin}'}},
                   'set_light_rgb': {'label': 'Set Light RGB Color',
                                     'help': 'Sets the selected light’s RGB color components. Available only '
                                             'when the gateway reports that color feature.',
@@ -557,13 +557,12 @@ class LunatoneDaliIotDriver(BaseDriver):
     async def _call(self, method, path, body=None):
         if self._client is None:
             raise ConnectionError('The gateway connection is closed.')
-        text = f'{method} {path}' + (' ' + json.dumps(body) if body is not None else '')
-        self.record_traffic('tx', text, meta={'protocol': 'lunatone_http'})
+        # The platform instruments driver-owned httpx clients, including audit
+        # capture. Only our separate WebSocket needs explicit record_traffic.
         try:
             response = await self._client.request(method, path, json=body)
         except httpx.TransportError as exc:
             raise ConnectionError('The Lunatone gateway stopped answering HTTP requests.') from exc
-        self.record_traffic('rx', response.content, meta={'http_status': response.status_code, 'path': path})
         return self._decode_reply(response, method, path)
 
     @staticmethod

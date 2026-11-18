@@ -8646,7 +8646,7 @@
       "file": "lighting/lunatone_dali_iot.py",
       "format": "python",
       "files": {
-        "lighting/lunatone_dali_iot.py": "5007ec6b76ebbcda4f6e29441afd22ae28d98c2ec41775467f1d13614e186540",
+        "lighting/lunatone_dali_iot.py": "1aac4bed0ff9fff58d7b79d778c9bb233780b795759f75f1f83f5fdeadc2648e",
         "lighting/lunatone_dali_iot_sim.py": "2d441469c12bb5998f21c2cf55417c6dfdcc7696ec6feb0b45335b9314f701b9"
       },
       "ports": [

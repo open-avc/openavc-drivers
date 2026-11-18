@@ -13,7 +13,8 @@ without changing Present_Value; priority feedback distinguishes that case.
 Sources: https://bacpypes3.readthedocs.io/en/latest/gettingstarted/running.html
 https://bacnet.org/wp-content/uploads/sites/4/2022/08/Add-135-2008w.pdf
 Coverage: direct IPv4 endpoints, analog/binary/multistate input/output/value.
-No BACnet/SC, MS/TP routing, broadcast discovery, schedules or proprietary objects.
+The catalog probe supplies local broadcast discovery. No BACnet/SC, MS/TP
+routing, foreign-device registration, schedules or proprietary objects.
 """
 from __future__ import annotations
 

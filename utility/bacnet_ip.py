@@ -187,10 +187,6 @@ class PointImport:
             parts.append("Choose Continue Import to resume the same search.")
         else:
             parts.append("Search complete.")
-        if added:
-            # The shared config-table editor retains its mounted rows after
-            # a setup update; a page reload reads the newly saved table.
-            parts.append("Reload the browser page before editing the Points table.")
         return " ".join(parts)
 
 
@@ -250,7 +246,7 @@ class BACnetClient(Application):
 class BACnetIPDriver(BaseDriver):
     DRIVER_INFO = {
         "id": "bacnet_ip", "name": "BACnet/IP", "manufacturer": "Generic",
-        "category": "utility", "version": "1.1.0", "author": "OpenAVC",
+        "category": "utility", "version": "1.1.1", "author": "OpenAVC",
         "transport": "udp", "ports": [47808], "protocols": ["bacnet-ip"],
         "simulated": True, "verified": False, "min_platform_version": "0.40.1",
         "description": "Named building automation points with live feedback, opt-in writes and priority release.",

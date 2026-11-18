@@ -20,7 +20,7 @@ is required on supported releases.
    write permissions stay as they are. The driver handles batches automatically.
    A long or interrupted search offers **Continue Import**, which remembers the
    filter and where to resume. No object index or batch size is required.
-4. Reload the browser page, then review **Points** on the device page. Remove points the room does not need, or
+4. Review **Points** on the device page. Remove points the room does not need, or
    add approved objects manually, such as `analog-value,1`. Up to 128 points
    can be configured. An empty display name uses the controller's current name.
 5. Bind the point's **Value** and status fields to the room's controls or
@@ -42,9 +42,9 @@ count changes between passes, the search restarts automatically without adding
 duplicates. Start a new search if its point list was rearranged without changing
 the count, or to retry objects that refused a read.
 
-Reload the browser page before editing the table after an import. The live
-point list updates immediately, but an already-open table editor may still
-show the earlier rows until the page is reopened.
+Imported points appear in the **Points** table automatically. If you had unsaved
+table edits before the import, the editor keeps them visible and asks you to
+load the updated rows before saving. Copy any edits you want to keep first.
 
 The client does not reserve or advertise a BACnet device instance of its own.
 Multiple configured controllers can run together. Direct IP communication can

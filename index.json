@@ -6442,7 +6442,7 @@
       "name": "BACnet/IP",
       "manufacturer": "Generic",
       "category": "utility",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Named building automation points with live feedback, opt-in writes and priority release.",
@@ -6450,7 +6450,7 @@
       "file": "utility/bacnet_ip.py",
       "format": "python",
       "files": {
-        "utility/bacnet_ip.py": "620f15695df4e08a107946c0a1494e8daeed63fa3374c6a7ce9a35642b7aaa3d",
+        "utility/bacnet_ip.py": "a0885688f45813df2926c21c9d0c66bd202d07a9879f3f3ba3324eb65d5d0b62",
         "utility/bacnet_ip_sim.py": "36a41772b58119116e312ff54e96ba4a04c4e6cef80da0552e60a295d99925c9"
       },
       "ports": [

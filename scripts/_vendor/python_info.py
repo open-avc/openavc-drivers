@@ -60,6 +60,7 @@ from .declared_names import DeclaredSections
 from .discovery_block import discovery_refusals
 from .param_aid_checks import one_param_aid_errors, sibling_refs
 from .push_block_checks import push_block_errors
+from .python_driver_class import driver_class_info
 from .python_source import SourceDecodeError, python_source
 from .serial_line import SERIAL_LINE_SETTINGS, line_setting_errors
 from .spec import CONFIG_FIELD_SOURCES
@@ -155,7 +156,7 @@ def driver_info_ast(filepath: Path) -> ast.Dict:
     Only a class attribute counts, because that is what the runtime loads: it
     looks for a ``BaseDriver`` subclass and reads ``DRIVER_INFO`` off the
     class, so a module-level dict of that name would leave the driver
-    unregistered.
+    unregistered. Which class is THE rule ``python_driver_class`` keeps.
 
     An annotated assignment (``DRIVER_INFO: dict[str, Any] = {...}``) counts
     too. The runtime cannot tell the difference — an annotation is not part of
@@ -176,32 +177,13 @@ def _driver_info_node(source: str, filename: str) -> ast.Dict:
         tree = ast.parse(source)
     except SyntaxError as e:
         raise ExtractError(f"{filename} has a syntax error: {e}")
-    for node in ast.walk(tree):
-        found = _class_driver_info(node) if isinstance(node, ast.ClassDef) else None
-        if found is not None:
-            return found
+    found = driver_class_info(tree)
+    if found is not None:
+        return found
     raise ExtractError(
         f"{filename}: no DRIVER_INFO class attribute found. "
         "Python drivers must define `DRIVER_INFO = {...}` inside a class body."
     )
-
-
-def _class_driver_info(node: ast.ClassDef) -> ast.Dict | None:
-    """The dict a class body assigns ``DRIVER_INFO``, plainly or annotated."""
-    for item in node.body:
-        if _assigns_driver_info(item) and isinstance(item.value, ast.Dict):
-            return item.value
-    return None
-
-
-def _assigns_driver_info(item: ast.stmt) -> bool:
-    if isinstance(item, ast.Assign):
-        targets = item.targets
-    elif isinstance(item, ast.AnnAssign):
-        targets = [item.target]
-    else:
-        return False
-    return len(targets) == 1 and isinstance(targets[0], ast.Name) and targets[0].id == "DRIVER_INFO"
 
 
 def declares_driver_info(filepath: Path) -> bool:

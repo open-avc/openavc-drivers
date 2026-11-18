@@ -432,6 +432,11 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         ),
     ),
     (
+        "openavc/drivers/python_driver_class.py",
+        "scripts/_vendor/python_driver_class.py",
+        (),
+    ),
+    (
         "openavc/drivers/python_info.py",
         "scripts/_vendor/python_info.py",
         (
@@ -462,6 +467,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
             (
                 "from openavc.drivers.push_block_checks import",
                 "from .push_block_checks import",
+            ),
+            (
+                "from openavc.drivers.python_driver_class import",
+                "from .python_driver_class import",
             ),
             (
                 "from openavc.drivers.python_source import",

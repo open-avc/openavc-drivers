@@ -125,6 +125,8 @@ _CONFIG: dict[str, dict] = {
     # Same again: the Parlé VBC 2800's Network API is served over SSH as user
     # control, and its simulator stands in for the session after the login.
     "biamp_parle_vbc2800": {"transport": "tcp"},
+    # The MPX simulator serves the interactive shell after SSH sign-in.
+    "biamp_mpx250": {"transport": "tcp"},
     # The TCC M refuses to send a login it knows cannot succeed (no password
     # is auth_failed before any request); its sim accepts anything but
     # "invalid" and serves HTTPS with its own certificate.

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 1413,
+    "total_devices": 1414,
     "shards": null
   },
   "devices": [
@@ -3218,6 +3218,18 @@
           "id": "benq_display",
           "confidence": "untested",
           "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "EasyConnect MPX 250",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "biamp_mpx250",
+          "confidence": "untested",
+          "notes": "SSH API, firmware 1.3 or later. One hub\u2019s four front inputs. Expansion and daisy-chain addressing are not qualified."
         }
       ]
     },

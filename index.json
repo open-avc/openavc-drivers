@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 215,
+    "total_drivers": 216,
     "shards": null
   },
   "drivers": [
@@ -3154,6 +3154,50 @@
           "benq corporation"
         ]
       }
+    },
+    {
+      "id": "biamp_mpx250",
+      "name": "Biamp EasyConnect MPX 250",
+      "manufacturer": "Biamp",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "ssh",
+      "description": "Select a USB-C laptop or room-system mode, read connection status and configure the hub\u2019s switching policies.",
+      "source_url": "https://support.biamp.com/Other_products/EasyConnect/MPX_250/MPX_250s_FAQ/MPX_250_API_Reference_Guide",
+      "file": "switchers/biamp_mpx250.py",
+      "format": "python",
+      "files": {
+        "switchers/biamp_mpx250.py": "71b6094658e8d8a324793b03a205156f105d3960090f8fbec7d240653ce54529",
+        "switchers/biamp_mpx250_sim.py": "0e3431ee1387b42b4ffb8c87065c6933eefe0e9894748e21cea2ea24ce150b3c"
+      },
+      "ports": [
+        22
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "usb",
+        "usb-c",
+        "byom",
+        "conferencing",
+        "hdmi"
+      ],
+      "help": {
+        "overview": "Switch video and USB between four named laptop inputs, or choose room-system mode. Connection indicators report attached devices, not an active video signal or call.",
+        "setup": "Update to firmware 1.3 or later, enable SSH in MPX Management Console and configure the hub\u2019s network and UC cabling. Enter its address and current password, then name the four USB-C inputs for the installation. The initial password is the last six characters of the Hardware ID under Device Info in Workplace Tools. OpenAVC talks directly to the hub; the setup application can be closed.",
+        "connection": "Enable SSH in MPX Management Console, use firmware 1.3 or later and enter the current admin password. SSH uses port 22."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Biamp",
+          "models": [
+            "EasyConnect MPX 250"
+          ],
+          "confidence": "untested",
+          "notes": "SSH API, firmware 1.3 or later. One hub\u2019s four front inputs. Expansion and daisy-chain addressing are not qualified."
+        }
+      ]
     },
     {
       "id": "biamp_parle_vbc2800",

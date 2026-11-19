@@ -134,6 +134,7 @@ from .state_variable_checks import (
     state_variable_errors,
 )
 from .substitution_checks import (
+    authored_send_issues,
     substitution_issues,
     validate_substitutions as validate_substitutions,
 )
@@ -483,11 +484,12 @@ class _DefinitionWalk:
             errors.extend(child_fault_code_errors(i, rule))
 
     def model_problems(self) -> None:
-        """What the driver model reads but the author's doors refuse
-        (``driver_model``), each said at its place."""
+        """What the driver model reads and what a send carries that only the
+        author's doors refuse (``driver_model``, ``authored_send_issues``)."""
         errors = self.authored
         for problem in self.model.problems:
             errors.at(problem.place, f"{problem.place}: {problem.words}")
+        errors.at_each(authored_send_issues(self.driver_def))
 
     def line_settings(self) -> None:
         """Each serial line setting default_config holds, read by the

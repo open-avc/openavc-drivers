@@ -257,6 +257,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from openavc.drivers.param_aid_checks import",
                 "from .param_aid_checks import",
             ),
+            (
+                "from openavc.drivers.send_shape import",
+                "from .send_shape import",
+            ),
             ("from openavc.drivers.spec import (", "from .spec import ("),
         ),
     ),
@@ -322,7 +326,17 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from .declared_names import (",
             ),
             ("from openavc.drivers.driver_model import", "from .driver_model import"),
+            ("from openavc.drivers.send_shape import (", "from .send_shape import ("),
             ("from openavc.drivers.spec import", "from .spec import"),
+        ),
+    ),
+    (
+        "openavc/drivers/send_shape.py",
+        "scripts/_vendor/send_shape.py",
+        (
+            ("from openavc.drivers.driver_model import", "from .driver_model import"),
+            ("from openavc.drivers.query_entry import", "from .query_entry import"),
+            ("from openavc.drivers.spec import (", "from .spec import ("),
         ),
     ),
     (
@@ -359,12 +373,12 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         "scripts/_vendor/setting_checks.py",
         (
             (
-                "from openavc.drivers.command_checks import",
-                "from .command_checks import",
-            ),
-            (
                 "from openavc.drivers.declared_names import",
                 "from .declared_names import",
+            ),
+            (
+                "from openavc.drivers.send_shape import",
+                "from .send_shape import",
             ),
             ("from openavc.drivers.spec import", "from .spec import"),
         ),

@@ -570,6 +570,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from .declared_names import",
             ),
             (
+                "from openavc.drivers.python_driver_class import",
+                "from .python_driver_class import",
+            ),
+            (
                 "from openavc.drivers.python_info import",
                 "from .python_info import",
             ),

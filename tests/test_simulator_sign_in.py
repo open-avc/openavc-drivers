@@ -31,6 +31,8 @@ from pathlib import Path
 
 import pytest
 
+from catalog_files import simulator_files
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 _PASSWORD_PROMPT = re.compile(rb"password\s*:\s*$", re.I)
@@ -43,9 +45,7 @@ _ANSWER_WINDOW = 3.0
 def _discover() -> list[Path]:
     """Every simulator whose source carries a password prompt."""
     out: list[Path] = []
-    for sim_path in sorted(REPO_ROOT.rglob("*_sim.py")):
-        if "tests" in sim_path.parts or "_vendor" in sim_path.parts:
-            continue
+    for sim_path in simulator_files(REPO_ROOT):
         if re.search(rb"[Pp]assword\s*:", sim_path.read_bytes()):
             out.append(sim_path)
     return out

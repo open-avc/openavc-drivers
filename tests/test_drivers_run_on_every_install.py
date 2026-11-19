@@ -29,12 +29,10 @@ from pathlib import Path
 
 import pytest
 
+from catalog_files import category_files
+
 ROOT = Path(__file__).resolve().parent.parent
-CATEGORIES = (
-    "projectors", "displays", "switchers", "audio", "cameras",
-    "video", "lighting", "power", "streaming", "utility",
-)
-FILES = sorted(p for c in CATEGORIES for p in (ROOT / c).glob("*.py"))
+FILES = [path for path in category_files(ROOT) if path.suffix == ".py"]
 
 # Import names of the packages the platform installs on every install type
 # (openavc's requirements.txt). A driver needing anything else needs the

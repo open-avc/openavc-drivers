@@ -25,11 +25,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 from _vendor.avcdriver_semantic import validate_driver_warnings  # noqa: E402
-
-CATEGORIES = (
-    "projectors", "displays", "switchers", "audio", "cameras", "video",
-    "lighting", "power", "streaming", "utility",
-)
+from catalog_files import driver_files  # noqa: E402
 
 # driver id -> why its poll can outlast its interval today.
 POLL_OUTLASTS_INTERVAL: dict[str, str] = {
@@ -46,11 +42,7 @@ POLL_OUTLASTS_INTERVAL: dict[str, str] = {
 
 
 def _yaml_drivers() -> list[Path]:
-    return [
-        path
-        for category in CATEGORIES
-        for path in sorted((REPO_ROOT / category).glob("*.avcdriver"))
-    ]
+    return [path for path in driver_files(REPO_ROOT) if path.suffix == ".avcdriver"]
 
 
 def _poll_warnings(path: Path) -> list[str]:

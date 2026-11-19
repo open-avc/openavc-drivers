@@ -26,22 +26,14 @@ from pathlib import Path
 
 import pytest
 
+from catalog_files import category_files
+
 REPO = Path(__file__).resolve().parent.parent
-CATEGORY_DIRS = (
-    "projectors", "displays", "switchers", "audio", "cameras",
-    "video", "lighting", "power", "streaming", "utility",
-)
 
 
 def _driver_files() -> list[Path]:
-    out: list[Path] = []
-    for name in CATEGORY_DIRS:
-        d = REPO / name
-        if not d.is_dir():
-            continue
-        out.extend(sorted(p for p in d.rglob("*.avcdriver") if p.is_file()))
-        out.extend(sorted(p for p in d.rglob("*.py") if p.is_file()))
-    return out
+    """Every file an install can fetch: the drivers and their companions."""
+    return [path for path in category_files(REPO) if path.suffix in (".avcdriver", ".py")]
 
 
 def test_no_driver_file_has_crlf_line_endings() -> None:

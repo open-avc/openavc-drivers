@@ -37,11 +37,11 @@ import yaml
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 from _platform_probe import (  # noqa: E402
-    CATEGORIES,
     REPO_ROOT,
     driver_info,
     python_drivers,
 )
+from catalog_files import driver_files  # noqa: E402
 
 
 def _disagreements(name: str, info: dict) -> list[str]:
@@ -68,7 +68,7 @@ _REMEDY = (
 
 
 def test_no_yaml_driver_declares_two_different_defaults_for_one_field():
-    files = [f for c in CATEGORIES for f in sorted((REPO_ROOT / c).glob("*.avcdriver"))]
+    files = [f for f in driver_files(REPO_ROOT) if f.suffix == ".avcdriver"]
     assert files, "found no .avcdriver files"
     found: list[str] = []
     for path in files:

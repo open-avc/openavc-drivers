@@ -15,15 +15,19 @@ Guide for contributing device drivers to the OpenAVC community library.
 
 4. **Run it** against real hardware or the [OpenAVC Simulator](https://github.com/open-avc/openavc) (included in the main repo at `openavc/simulator/`). You do not need to write tests: CI checks every driver the same way (see [What CI checks](#what-ci-checks))
 
-5. **Fork this repo** and add your driver to the appropriate category folder:
+5. **Fork this repo** and add your driver directly to the folder for its `category`:
    - `projectors/` — Projectors
    - `displays/` — Commercial displays
    - `switchers/` — Matrix switchers, presentation switchers, scalers
    - `audio/` — DSPs, mixers, amplifiers, microphones
    - `video/` — Video production software (vMix, OBS, etc.)
+   - `streaming/` — Encoders, decoders, media players, wireless presentation
    - `cameras/` — PTZ cameras
    - `lighting/` — DMX, Art-Net, sACN
+   - `power/` — PDUs, power sequencers
    - `utility/` — Wake-on-LAN, relays, bridges
+
+   A driver in a sub-folder, or in any other folder, is left out of the catalog, and CI fails naming the folder to move it to.
 
 6. **Add metadata fields to your driver file** (NOT `index.json` — see below)
 

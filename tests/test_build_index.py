@@ -1546,3 +1546,117 @@ def test_a_simulator_whose_driver_id_is_built_in_code_is_refused(tmp_path: Path)
         "projectors/test_driver_sim.py: SIMULATOR_INFO's driver_id is built in code, "
         "so the catalog cannot tell which driver it simulates"
     ) in err
+
+
+# --- where a driver file sits ------------------------------------------------
+
+
+def _outside_message(rel: str, folder: str, category: str) -> str:
+    return (
+        f"{rel}: this driver is not in one of the ten category folders, so it is "
+        f"left out of the catalog. Move it to {folder}/, the folder for its "
+        f"category '{category}'."
+    )
+
+
+def test_a_driver_outside_the_ten_folders_is_refused_naming_its_folder(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(tmp_path)
+    _write_yaml_driver(
+        tmp_path, category="projectors/epson", filename="nested.avcdriver",
+        overrides={"id": "nested", "category": "projector"},
+    )
+    _write_python_driver(
+        tmp_path, category="misc", filename="stray.py", info_overrides={"id": "stray"},
+    )
+    rc, _, err = _run(tmp_path)
+    assert rc == 1
+    assert _outside_message("projectors/epson/nested.avcdriver", "projectors", "projector") in err
+    assert _outside_message("misc/stray.py", "projectors", "projector") in err
+
+
+def test_a_driver_in_the_catalog_s_output_folders_or_the_root_is_refused(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(tmp_path)
+    _write_yaml_driver(
+        tmp_path, category="devices", filename="shard_like.avcdriver",
+        overrides={"id": "shard_like", "category": "camera"},
+    )
+    (tmp_path / "at_root.avcdriver").write_text(
+        'id: "at_root"\ncategory: "display"\n', encoding="utf-8",
+    )
+    rc, _, err = _run(tmp_path)
+    assert rc == 1
+    assert _outside_message("devices/shard_like.avcdriver", "cameras", "camera") in err
+    assert _outside_message("at_root.avcdriver", "displays", "display") in err
+
+
+def test_a_stray_driver_whose_category_names_no_folder_is_refused_naming_all_ten(
+    tmp_path: Path,
+) -> None:
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(tmp_path)
+    extras = tmp_path / "extras"
+    extras.mkdir()
+    (extras / "unknown.avcdriver").write_text('id: "unknown"\ncategory: "misc"\n', encoding="utf-8")
+    (extras / "broken.avcdriver").write_text("id: [unclosed\n", encoding="utf-8")
+    rc, _, err = _run(tmp_path)
+    assert rc == 1
+    for rel in ("extras/unknown.avcdriver", "extras/broken.avcdriver"):
+        assert (
+            f"{rel}: this driver is not in one of the ten category folders, so it is "
+            "left out of the catalog. Move it to the folder for its category: audio/, "
+            "cameras/, displays/, lighting/, power/, projectors/, streaming/, "
+            "switchers/, utility/ or video/."
+        ) in err
+
+
+def test_the_repo_s_own_tests_scripts_and_hidden_folders_hold_no_drivers(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(tmp_path)
+    _write_python_driver(
+        tmp_path, category="tests/fixtures", filename="fixture.py", info_overrides={"id": "fixture"},
+    )
+    _write_python_driver(
+        tmp_path, category="scripts/_vendor", filename="vendored.py", info_overrides={"id": "vendored"},
+    )
+    _write_yaml_driver(
+        tmp_path, category=".venv/lib", filename="hidden.avcdriver", overrides={"id": "hidden"},
+    )
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "helper.py").write_text("print('not a driver')\n", encoding="utf-8")
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+
+
+def test_every_contract_category_has_exactly_one_folder() -> None:
+    import catalog_files
+    from _vendor.spec import CATEGORIES
+
+    assert set(catalog_files.CATEGORY_FOLDERS) == set(CATEGORIES)
+    assert len(set(catalog_files.CATEGORY_FOLDERS.values())) == len(CATEGORIES)
+    assert catalog_files.DRIVER_DIRS == tuple(sorted(catalog_files.CATEGORY_FOLDERS.values()))
+    assert build_index.DRIVER_DIRS == catalog_files.DRIVER_DIRS
+
+
+def test_the_catalog_s_files_are_the_top_level_of_the_ten_folders(tmp_path: Path) -> None:
+    import catalog_files
+
+    yaml_driver = _write_yaml_driver(tmp_path)
+    py_driver = _write_python_driver(tmp_path)
+    sim = _write_simulator(tmp_path, "test_driver", _sim_class("TestSimulator"))
+    probe = tmp_path / "projectors" / "test_driver_discovery.py"
+    probe.write_text("", encoding="utf-8")
+    (tmp_path / "projectors" / "sub").mkdir()
+    _write_yaml_driver(tmp_path, category="projectors/sub", filename="nested.avcdriver")
+    (tmp_path / "audio" / "notes.txt").write_text("", encoding="utf-8")
+
+    assert catalog_files.driver_files(tmp_path) == [yaml_driver, py_driver]
+    assert catalog_files.simulator_files(tmp_path) == [sim]
+    assert catalog_files.category_files(tmp_path) == [
+        tmp_path / "audio" / "notes.txt", yaml_driver, py_driver, probe, sim,
+    ]
+    assert [p.name for p, _ in build_index.collect_drivers(tmp_path)] == [
+        "test_driver.avcdriver", "test_driver.py",
+    ]

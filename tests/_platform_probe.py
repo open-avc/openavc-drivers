@@ -113,20 +113,11 @@ def platform_on_path():
         sys.path[:] = path_before
 
 
-CATEGORIES = (
-    "projectors", "displays", "switchers", "audio", "cameras", "video",
-    "lighting", "power", "streaming", "utility",
-)
-
-
 def python_driver_files() -> list[Path]:
     """Every Python driver in the catalog's folders (not simulators or companions)."""
-    files = []
-    for category in CATEGORIES:
-        for path in sorted((REPO_ROOT / category).glob("*.py")):
-            if not path.stem.startswith("_") and not path.stem.endswith(("_sim", "_discovery")):
-                files.append(path)
-    return files
+    from catalog_files import driver_files
+
+    return [path for path in driver_files(REPO_ROOT) if path.suffix == ".py"]
 
 
 def _import_file(path: Path, name: str) -> ModuleType:

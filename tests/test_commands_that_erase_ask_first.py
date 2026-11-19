@@ -33,11 +33,7 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 from _platform_probe import driver_info, python_drivers  # noqa: E402
 from _vendor.python_info import extract_python_driver_info_full  # noqa: E402
-
-CATEGORIES = (
-    "projectors", "displays", "switchers", "audio", "cameras", "video",
-    "lighting", "power", "streaming", "utility",
-)
+from catalog_files import driver_files  # noqa: E402
 
 _ERASES = re.compile(
     r"factory|erase|wipe|delete|\bremove\b"
@@ -69,18 +65,7 @@ SENDS_WITHOUT_ASKING: dict[tuple[str, str], str] = {
 
 
 def _driver_files() -> list[Path]:
-    files = []
-    for category in CATEGORIES:
-        for path in sorted((REPO_ROOT / category).glob("*")):
-            if path.suffix == ".avcdriver":
-                files.append(path)
-            elif (
-                path.suffix == ".py"
-                and not path.stem.startswith("_")
-                and not path.stem.endswith(("_sim", "_discovery"))
-            ):
-                files.append(path)
-    return files
+    return driver_files(REPO_ROOT)
 
 
 def _unasked(driver_id: str, commands: object) -> list[str]:

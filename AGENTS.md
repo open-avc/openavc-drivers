@@ -170,12 +170,13 @@ openavc-drivers/
 └── AGENTS.md            # This file
 ```
 
-**A driver only counts if it sits in one of the ten category directories above.**
-`build_index.py` scans exactly those, so a driver file anywhere else — including
-`devices/`, which holds generated shards — is skipped without a word: the
-catalog builds clean, CI passes, and the driver never appears in Browse
-Drivers. There is no "miscellaneous" directory; gear that fits nowhere else
-goes in `utility/`.
+**A driver sits directly in one of the ten category directories above.**
+`build_index.py` reads exactly those (`scripts/catalog_files.py` is the rule),
+and `--check` refuses a driver file anywhere else (a sub-folder, `devices/`, a
+new folder, the repository root), naming the folder its own `category` belongs
+in. There is no "miscellaneous" directory; gear that fits nowhere else goes in
+`utility/`. A new category is one line in `catalog_files.py`'s
+`CATEGORY_FOLDERS`, and every check reads it from there.
 
 ### Naming Conventions
 

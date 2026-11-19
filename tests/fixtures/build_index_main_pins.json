@@ -2581,6 +2581,17 @@
         ]
       ]
     },
+    "stray_drivers": {
+      "catalog": "unchanged",
+      "raised": null,
+      "rc": 1,
+      "transcript": [
+        [
+          "err",
+          "\nFAILED: 3 validation error(s):\n\n  - audio/nested/stray3.avcdriver: this driver is not in one of the ten category folders, so it is left out of the catalog. Move it to audio/, the folder for its category 'audio'.\n  - devices/stray.avcdriver: this driver is not in one of the ten category folders, so it is left out of the catalog. Move it to audio/, the folder for its category 'audio'.\n  - misc/stray2.avcdriver: this driver is not in one of the ten category folders, so it is left out of the catalog. Move it to audio/, the folder for its category 'audio'.\n"
+        ]
+      ]
+    },
     "yaml_not_a_mapping": {
       "catalog": "unchanged",
       "raised": null,

@@ -23,7 +23,8 @@ from pathlib import Path
 
 import pytest
 
-from _platform_probe import CATEGORIES, REPO_ROOT, platform_on_path, platform_required
+from _platform_probe import REPO_ROOT, platform_on_path, platform_required
+from catalog_files import DRIVER_DIRS, simulator_files
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
@@ -31,7 +32,7 @@ from _vendor.simulator_info import claim_conflicts, simulator_claims  # noqa: E4
 
 
 def _simulator_files() -> list[Path]:
-    return [path for category in CATEGORIES for path in sorted((REPO_ROOT / category).glob("*_sim.py"))]
+    return simulator_files(REPO_ROOT)
 
 
 def _platform():
@@ -79,7 +80,7 @@ def test_the_source_reading_names_the_classes_the_import_serves(loaded) -> None:
 def test_each_entry_is_simulated_exactly_when_the_simulator_serves_it(loaded) -> None:
     _, manager_class = _platform()
     manager = manager_class()
-    manager.discover([str(REPO_ROOT / category) for category in CATEGORIES])
+    manager.discover([str(REPO_ROOT / folder) for folder in DRIVER_DIRS])
     index = json.loads((REPO_ROOT / "index.json").read_text(encoding="utf-8"))
     wrong = {}
     for entry in index["drivers"]:

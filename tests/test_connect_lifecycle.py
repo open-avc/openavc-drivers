@@ -36,6 +36,8 @@ from pathlib import Path
 
 import pytest
 
+from catalog_files import simulator_files
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -185,9 +187,7 @@ def _discover() -> list[tuple[str, str]]:
     the OS removes the collision with the product, with a parallel test run,
     and with anything else on the box."""
     out: list[tuple[str, str]] = []
-    for sim_path in sorted(REPO_ROOT.rglob("*_sim.py")):
-        if "tests" in sim_path.parts or "_vendor" in sim_path.parts:
-            continue
+    for sim_path in simulator_files(REPO_ROOT):
         driver_id = sim_path.name[: -len("_sim.py")]
         driver_path = sim_path.with_name(driver_id + ".py")
         if not driver_path.exists():

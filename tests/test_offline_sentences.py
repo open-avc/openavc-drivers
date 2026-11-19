@@ -14,23 +14,17 @@ import ast
 import re
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+from catalog_files import category_files
 
-CATEGORIES = (
-    "projectors", "displays", "switchers", "audio", "cameras", "video",
-    "lighting", "power", "streaming", "utility",
-)
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # A string literal (plain, f-string or raw) whose text opens with the word.
 OPENS_WITH_CONNECTED = re.compile(r"""(?<![\w"'])[fFrRbB]{0,2}["']Connected,? but""")
 
 
 def _driver_files() -> list[Path]:
-    files: list[Path] = []
-    for category in CATEGORIES:
-        files.extend(sorted((REPO_ROOT / category).glob("*.py")))
-        files.extend(sorted((REPO_ROOT / category).glob("*.avcdriver")))
-    return files
+    """Every driver and every companion: a sentence can sit in either."""
+    return [path for path in category_files(REPO_ROOT) if path.suffix in (".py", ".avcdriver")]
 
 
 def test_the_corpus_is_found() -> None:

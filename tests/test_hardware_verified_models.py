@@ -23,11 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 from _vendor.python_info import extract_python_driver_info_full  # noqa: E402
-
-CATEGORIES = (
-    "projectors", "displays", "switchers", "audio", "cameras", "video",
-    "lighting", "power", "streaming", "utility",
-)
+from catalog_files import driver_files  # noqa: E402
 
 # (driver file, model) -> the unit it was run against.
 RUN_ON_HARDWARE = {
@@ -46,16 +42,7 @@ def _info(path: Path) -> dict:
 
 
 def _driver_files() -> list[Path]:
-    files = []
-    for category in CATEGORIES:
-        for path in sorted((REPO_ROOT / category).glob("*")):
-            if path.suffix == ".avcdriver" or (
-                path.suffix == ".py"
-                and not path.stem.startswith("_")
-                and not path.stem.endswith(("_sim", "_discovery"))
-            ):
-                files.append(path)
-    return files
+    return driver_files(REPO_ROOT)
 
 
 @pytest.mark.parametrize("rel, model", sorted(RUN_ON_HARDWARE))

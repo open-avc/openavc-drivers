@@ -151,12 +151,18 @@ def valid_tree(root: Path) -> None:
     _text(root, "projectors/acme_py_discovery.py", "# discovery companion\n")
     _text(root, "projectors/README.md", "not a driver\n")
     _text(root, "projectors/notes.json", "{}\n")
-    _yaml(root, "devices/stray.avcdriver", id="stray")  # not a category dir
-    _yaml(root, "misc/stray2.avcdriver", id="stray2")
     _extra(root, {"devices": [
         {"manufacturer": "Other", "model": "Zeta-9", "category": "switcher", "drivers": [], "status": "no_driver"},
         {"manufacturer": "acme", "model": "aaa", "category": "audio", "drivers": []},
     ]})
+
+
+def stray_drivers(root: Path) -> None:
+    """Driver files outside the category folders, beside a valid one."""
+    one_yaml(root)
+    _yaml(root, "devices/stray.avcdriver", id="stray")
+    _yaml(root, "misc/stray2.avcdriver", id="stray2")
+    _yaml(root, "audio/nested/stray3.avcdriver", id="stray3")
 
 
 def one_yaml(root: Path) -> None:
@@ -386,6 +392,7 @@ MAIN_CASES: list[tuple[str, Callable[[Path], None], list[str], str]] = [
     ("extra_collides_with_driver", _then(valid_tree, lambda r: _extra(r, {"devices": [
         {"manufacturer": "Acme", "model": "AMP-1"}]})), [], "repo"),
     ("no_driver_files", no_driver_files, [], "repo"),
+    ("stray_drivers", stray_drivers, ["--check"], "repo"),
     ("bad_yaml", _then(lambda r: _manufacturers(r), bad_yaml), [], "repo"),
     ("yaml_not_a_mapping", lambda r: (_manufacturers(r), _text(r, "audio/list.avcdriver", "- 1\n- 2\n")), [], "repo"),
     ("python_syntax_error", lambda r: (_manufacturers(r), _text(r, "projectors/bad.py", "class X(:\n")), [], "repo"),

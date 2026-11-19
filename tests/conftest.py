@@ -13,5 +13,11 @@ line still wins.
 """
 
 import os
+import sys
+from pathlib import Path
 
 os.environ.setdefault("OPENAVC_STRICT_DRIVER_STATE", "1")
+
+# The catalog's own modules, imported by name across the suite: which files are
+# the catalog's drivers is catalog_files' rule.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))

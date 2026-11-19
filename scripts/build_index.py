@@ -27,7 +27,7 @@ import re
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Callable, Iterator, NamedTuple
+from typing import Any, Iterator, NamedTuple
 
 import yaml
 from pydantic import (
@@ -48,6 +48,14 @@ if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
 from catalog_contract import ContractReport  # noqa: E402
+from catalog_files import (  # noqa: E402  (driver_files and DRIVER_DIRS are read from here)
+    DRIVER_DIRS,
+    PYTHON_COMPANION_SUFFIXES,
+    driver_files,
+    files_outside_folders,
+    folder_for,
+    simulator_files,
+)
 from catalog_simulators import is_simulated, simulator_errors  # noqa: E402
 from catalog_discovery import (  # noqa: E402
     declared_companion,
@@ -60,6 +68,7 @@ from discovery_claims import (  # noqa: E402
 )
 from _vendor.python_info import (  # noqa: E402
     ExtractError,
+    declares_driver_info,
     driver_info_ast,
 )
 from _vendor.spec import (  # noqa: E402
@@ -105,11 +114,6 @@ SCHEMA_VERSION = "1"
 DRIVER_CATEGORIES = CATEGORIES
 DRIVER_TRANSPORTS = (*YAML_TRANSPORTS, *PYTHON_ONLY_TRANSPORTS)
 CONFIDENCE_VALUES = CONFIDENCE_LEVELS
-
-DRIVER_DIRS = (
-    "audio", "cameras", "displays", "lighting", "power",
-    "projectors", "streaming", "switchers", "utility", "video",
-)
 
 # Shape patterns from the vendored contract tables (URL_PATTERN encodes
 # its case-insensitivity in character classes).
@@ -385,42 +389,54 @@ def extract_yaml_driver_info(filepath: Path) -> dict[str, Any]:
 # --- Collection -------------------------------------------------------------
 
 
-# A Python driver's companions sit beside it, named for it: its discovery
-# probe and its simulator. They are not drivers, so the walk skips them, and an
-# install of the driver fetches them (``_installed_file_set``), in this order.
-PYTHON_COMPANION_SUFFIXES = ("_discovery.py", "_sim.py")
+# Which files are drivers is catalog_files' rule (``driver_files``); a Python
+# driver's companions, which an install fetches with it (``_installed_file_set``),
+# are named there too.
 
 
 def collect_drivers(repo_root: Path) -> list[tuple[Path, dict[str, Any]]]:
-    """Walk driver dirs and extract raw metadata. Does not validate."""
-    raw: list[tuple[Path, dict[str, Any]]] = []
-    for filepath in _category_files(repo_root):
-        reader = _driver_reader(filepath)
-        if reader is not None:
-            raw.append((filepath, reader(filepath)))
-    return raw
+    """Read the raw metadata of every driver file. Does not validate."""
+    return [(filepath, _read_driver(filepath)) for filepath in driver_files(repo_root)]
 
 
-def _category_files(repo_root: Path) -> Iterator[Path]:
-    """Every entry in the category directories, a directory at a time, sorted."""
-    for dir_name in DRIVER_DIRS:
-        dir_path = repo_root / dir_name
-        if dir_path.exists():
-            yield from sorted(dir_path.iterdir())
-
-
-def _simulator_files(repo_root: Path) -> list[Path]:
-    """Every simulator file in the category directories."""
-    return [path for path in _category_files(repo_root) if path.name.endswith("_sim.py")]
-
-
-def _driver_reader(filepath: Path) -> Callable[[Path], dict[str, Any]] | None:
-    """How to read a file in a category directory, or None when it is not a driver."""
+def _read_driver(filepath: Path) -> dict[str, Any]:
+    """A driver file's metadata, read by its format."""
     if filepath.suffix == ".avcdriver":
-        return extract_yaml_driver_info
-    if filepath.suffix == ".py" and not filepath.name.endswith(PYTHON_COMPANION_SUFFIXES):
-        return extract_python_driver_info
-    return None
+        return extract_yaml_driver_info(filepath)
+    return extract_python_driver_info(filepath)
+
+
+def outside_folder_errors(repo_root: Path) -> list[str]:
+    """One error for each driver file that is not directly in a category folder.
+
+    Each names the folder the driver's own category belongs in, or all ten when
+    its category cannot be read or names none. A ``.py`` file counts when it is
+    trying to be a driver (the platform's ``declares_driver_info``).
+    """
+    errors: list[str] = []
+    for filepath in files_outside_folders(repo_root):
+        if filepath.suffix == ".py" and not declares_driver_info(filepath):
+            continue
+        rel = filepath.relative_to(repo_root).as_posix()
+        errors.append(f"{rel}: {_outside_folder_remedy(filepath)}")
+    return errors
+
+
+def _outside_folder_remedy(filepath: Path) -> str:
+    """What to do with a driver file outside the category folders."""
+    try:
+        category = _read_driver(filepath).get("category")
+    except ExtractError:
+        category = None
+    folder = folder_for(category)
+    lead = "this driver is not in one of the ten category folders, so it is left out of the catalog."
+    if folder is not None:
+        return f"{lead} Move it to {folder}/, the folder for its category '{category}'."
+    folders = [f"{name}/" for name in DRIVER_DIRS]
+    return (
+        f"{lead} Move it to the folder for its category: "
+        f"{', '.join(folders[:-1])} or {folders[-1]}."
+    )
 
 
 # --- JSON Schema ------------------------------------------------------------
@@ -1134,7 +1150,8 @@ def _check_drivers(
 
     if entries:
         errors.extend(cross_validate(entries, inputs.manufacturers))
-    errors.extend(simulator_errors(_simulator_files(repo_root), repo_root))
+    errors.extend(simulator_errors(simulator_files(repo_root), repo_root))
+    errors.extend(outside_folder_errors(repo_root))
     errors.extend(validate_no_signal_collisions(discovery_per_driver))
     errors.extend(validate_locator_disambiguation(discovery_per_driver))
     return entries, errors

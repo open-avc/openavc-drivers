@@ -95,6 +95,17 @@ _ABANDONED_MAX = 32
 # notification can arrive glued in front of the echo.
 _BODY_STARTS = ("====", "[SUCCESS]", "[ERROR]")
 
+# After a change is seen (another client's, or this driver's own), what it
+# touched is read again this long after the last change in a burst.
+REFRESH_SETTLE_S = 0.3
+
+# A change that is not one endpoint's own setting: the roster, walls and the
+# rest are read again.
+ROSTER = "roster"
+
+# Commands that change nothing.
+_READ_VERBS = frozenset({"GET", "HELP", "?", "SEARCH", "NO"})
+
 # Telnet IAC bytes.
 _IAC = 0xFF
 _SB = 0xFA
@@ -459,6 +470,8 @@ class DarwinControlDriver(BaseDriver):
         self._abandoned: list[str] = []
         self._echo_seen = False
         self._others_seen = False
+        self._refresh_targets: set[tuple[str, int] | str] = set()
+        self._refresh_task: asyncio.Task | None = None
         self._cmd_lock = asyncio.Lock()
         self._poll_count = 0
         super().__init__(device_id, config, state, events)
@@ -537,6 +550,10 @@ class DarwinControlDriver(BaseDriver):
         self._abandoned.clear()
         self._echo_seen = False
         self._others_seen = False
+        self._refresh_targets.clear()
+        if self._refresh_task is not None and not self._refresh_task.done():
+            self._refresh_task.cancel()
+        self._refresh_task = None
         pending, self._pending = self._pending, None
         if pending is not None and not pending[1].done():
             pending[1].set_exception(
@@ -662,7 +679,10 @@ class DarwinControlDriver(BaseDriver):
 
     def _note_unclaimed(self, lines: list[str]) -> None:
         """A unit no request asked for: another client's command and reply, or
-        a notification. Never read as an answer."""
+        a notification. Never read as an answer, but it says what changed: a
+        rename or route made in the controller's web page arrives here the
+        moment it is made, so what it touched is read again at once instead
+        of at the next detail poll."""
         first = _first_line(lines)
         if not first:
             return
@@ -675,6 +695,57 @@ class DarwinControlDriver(BaseDriver):
             )
         else:
             log.debug(f"[{self.device_id}] Set aside: {first!r}")
+        text = "\n".join(lines)
+        if "[SUCCESS]" in text:
+            self._schedule_refresh(_change_target(first))
+        elif "[ERROR]" not in text and "====" not in text:
+            # Neither a reply nor a report: a notification, so re-read the
+            # roster (link, signal and display state live there).
+            self._schedule_refresh(ROSTER)
+
+    # ── Re-reading what just changed ──
+
+    def _schedule_refresh(self, target: tuple[str, int] | str | None) -> None:
+        """Queue a re-read of one endpoint, or of the roster, soon. Only reads
+        are sent, so two systems watching one controller never set each other
+        off."""
+        if target is None:
+            return
+        self._refresh_targets.add(target)
+        if self._refresh_task is None or self._refresh_task.done():
+            self._refresh_task = asyncio.get_running_loop().create_task(
+                self._run_refreshes()
+            )
+
+    async def _run_refreshes(self) -> None:
+        while self._refresh_targets:
+            # Let a burst of changes (a page applying several settings) settle
+            # into one read each.
+            await asyncio.sleep(REFRESH_SETTLE_S)
+            targets, self._refresh_targets = self._refresh_targets, set()
+            try:
+                await self._refresh(targets)
+            except Exception:
+                log.debug(f"[{self.device_id}] Change re-read failed", exc_info=True)
+                return
+
+    async def _refresh(self, targets: set[tuple[str, int] | str]) -> None:
+        endpoints = {t for t in targets if t != ROSTER}
+        if ROSTER in targets:
+            before = {ct: set(self.list_children(ct)) for ct in ("encoder", "decoder")}
+            await self._poll_status()
+            await self._reconcile_walls()
+            # A newly added endpoint gets its name now, not at the next poll.
+            for ct, known in before.items():
+                endpoints.update((ct, cid) for cid in set(self.list_children(ct)) - known)
+        for ctype, cid in sorted(endpoints):
+            fetch = (
+                self._fetch_encoder_detail if ctype == "encoder"
+                else self._fetch_decoder_detail
+            )
+            found = await fetch([cid])
+            if cid in found and self.is_child_registered(ctype, cid):
+                self.set_child_state_batch(ctype, cid, found[cid])
 
     async def _send_request(
         self, wire: str, timeout: float = REQUEST_TIMEOUT_S
@@ -742,14 +813,15 @@ class DarwinControlDriver(BaseDriver):
             return await self._do_search()
         if command == "add_auto_all":
             resp = await self._send_set("ADD AUTO ALL")
-            await self._poll_status()
+            # The roster, and the names of the endpoints just added.
+            await self._refresh({ROSTER})
             return resp
         if command in ("add_dev_enc", "add_dev_dec"):
             # The ADD ack names only the search IP, and id 0 auto-assigns an id
             # the client can't know, so re-read the roster to register the new
             # child immediately under its controller-assigned id.
             resp = await self._send_set(_COMMAND_TEMPLATES[command].format(**params))
-            await self._poll_status()
+            await self._refresh({ROSTER})
             return resp
         if command == "exit_guest":
             return await self._send_request("EXITGUEST")
@@ -761,6 +833,8 @@ class DarwinControlDriver(BaseDriver):
         wire = template.format(**params)
         result = await self._send_set(wire)
         self._writethrough(command, params)
+        # Read back what the command changed (a rename shows at once).
+        self._schedule_refresh(_change_target(wire))
         return result
 
     def _coerce_child_ids(self, command: str, params: dict[str, Any]) -> None:
@@ -803,6 +877,7 @@ class DarwinControlDriver(BaseDriver):
         spec = _LIFECYCLE_COMMANDS[command]
         wire = spec["template"].format(**params)
         resp = await self._send_set(wire)
+        self._schedule_refresh(_change_target(wire))
         ctype = spec["child_type"]
         action = spec["action"]
         if action == "register":
@@ -923,9 +998,24 @@ class DarwinControlDriver(BaseDriver):
             if cid not in current:
                 self.register_child(ctype, cid, initial_state=clean)
             else:
+                if online_from_net:
+                    self._note_link(ctype, cid, props)
                 self.set_child_state_batch(ctype, cid, clean)
         for cid in current - seen:
             self.deregister_child(ctype, cid)
+
+    def _note_link(self, ctype: str, cid: int, props: dict[str, Any]) -> None:
+        """An endpoint whose link has just come up is read again at once.
+
+        Right after an endpoint is added, rebooted or plugged back in, the
+        controller reports it with a blank name until it has heard from it
+        (Control Pro FW 1.10.11: a decoder deleted and added back read blank,
+        then "Main Display" seconds later). Its link coming up is when the
+        real values are there to read, rather than at the next detail poll.
+        """
+        was_up = bool(self.get_child_state(ctype, cid).get("net"))
+        if props.get("net") and not was_up:
+            self._schedule_refresh((ctype, cid))
 
     def _reconcile_roster(
         self, ctype: str, parsed_map: dict[int, dict[str, Any]]
@@ -1250,6 +1340,21 @@ def _detail_is_for(text: str, kind: str, want_id: int) -> bool:
         return False
     rid = _split_columns(header, data).get(col, "")
     return rid.isdigit() and int(rid) == want_id
+
+
+def _change_target(command: str) -> tuple[str, int] | str | None:
+    """What a successful command line changed: ``("encoder"|"decoder", id)``
+    for one endpoint's own setting (its name, route, output ...), ``ROSTER``
+    for anything else, None for a read."""
+    words = command.upper().split()
+    if not words or words[0] in _READ_VERBS:
+        return None
+    if (
+        len(words) >= 4 and words[0] == "SET" and words[1] in ("ENC", "DEC")
+        and words[2].isdigit() and words[3] not in ("ID", "DELETE")
+    ):
+        return ("encoder" if words[1] == "ENC" else "decoder", int(words[2]))
+    return ROSTER
 
 
 def _unit_lines(text: str) -> list[str]:

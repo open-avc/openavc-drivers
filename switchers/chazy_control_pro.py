@@ -123,6 +123,8 @@ ROSTER = "roster"
 # Commands that change nothing.
 _READ_VERBS = frozenset({"GET", "HELP", "?", "SEARCH", "NO"})
 
+_ENDPOINT_WORDS = {"ENC": "encoder", "DEC": "decoder"}
+
 # End-of-response marker the controller prints after every reply (and after
 # the connect banner). No trailing newline.
 PROMPT = b"CONTROLLER> "
@@ -809,22 +811,31 @@ class ChazyControlProDriver(BaseDriver):
         if pending is None or pending[1].done():
             return False
         echo, fut = pending
-        at = -1
-        if echo is not None and by_echo:
-            found = _echo_index(lines, echo)
-            if found is None:
-                return False
-            at = found
-            self._echo_seen = True
-            if _first_line(lines[:at]):
-                self._note_unclaimed(lines[:at])
-        elif echo is not None and (
-            self._echo_seen or not _first_line(lines).startswith(_BODY_STARTS)
-        ):
+        at = self._answer_start(lines, echo, by_echo)
+        if at is None:
             return False
         fut.set_result("\n".join(lines[at + 1:]).strip("\n"))
         self._pending = None
         return True
+
+    def _answer_start(
+        self, lines: list[str], echo: str | None, by_echo: bool
+    ) -> int | None:
+        """The line the answer follows (-1: the whole unit), or None when this
+        unit is not the answer."""
+        if echo is None:
+            return -1  # the connect banner answers no command
+        if not by_echo:
+            return -1 if self._may_take_unechoed(lines) else None
+        at = _echo_index(lines, echo)
+        if at is not None:
+            self._echo_seen = True
+            if _first_line(lines[:at]):
+                self._note_unclaimed(lines[:at])
+        return at
+
+    def _may_take_unechoed(self, lines: list[str]) -> bool:
+        return not self._echo_seen and _first_line(lines).startswith(_BODY_STARTS)
 
     def _take_abandoned(self, first: str) -> bool:
         for i, cmd in enumerate(self._abandoned):
@@ -892,20 +903,29 @@ class ChazyControlProDriver(BaseDriver):
     async def _refresh(self, targets: set[tuple[str, int] | str]) -> None:
         endpoints = {t for t in targets if t != ROSTER}
         if ROSTER in targets:
-            before = {ct: set(self.list_children(ct)) for ct in ("encoder", "decoder")}
-            await self._poll_status()
-            await self._reconcile_config_children()
-            # A newly added endpoint gets its name now, not at the next poll.
-            for ct, known in before.items():
-                endpoints.update((ct, cid) for cid in set(self.list_children(ct)) - known)
+            endpoints |= await self._refresh_roster()
         for ctype, cid in sorted(endpoints):
-            fetch = (
-                self._fetch_encoder_detail if ctype == "encoder"
-                else self._fetch_decoder_detail
-            )
-            found = await fetch([cid])
-            if cid in found and self.is_child_registered(ctype, cid):
-                self.set_child_state_batch(ctype, cid, found[cid])
+            await self._refresh_endpoint(ctype, cid)
+
+    async def _refresh_roster(self) -> set[tuple[str, int]]:
+        """Read the roster and lists again; return the endpoints it added, so
+        a newly added endpoint gets its name now, not at the next poll."""
+        before = {ct: set(self.list_children(ct)) for ct in ("encoder", "decoder")}
+        await self._poll_status()
+        await self._reconcile_config_children()
+        return {
+            (ct, cid) for ct, known in before.items()
+            for cid in set(self.list_children(ct)) - known
+        }
+
+    async def _refresh_endpoint(self, ctype: str, cid: int) -> None:
+        fetch = (
+            self._fetch_encoder_detail if ctype == "encoder"
+            else self._fetch_decoder_detail
+        )
+        found = await fetch([cid])
+        if cid in found and self.is_child_registered(ctype, cid):
+            self.set_child_state_batch(ctype, cid, found[cid])
 
     async def _send_request(
         self, wire: str, timeout: float = REQUEST_TIMEOUT_S
@@ -1242,13 +1262,14 @@ class ChazyControlProDriver(BaseDriver):
             if cid not in current:
                 self.register_child(ctype, cid, initial_state=clean)
             else:
-                if online_from_net:
-                    self._note_link(ctype, cid, props)
+                self._note_link(ctype, cid, props, online_from_net)
                 self.set_child_state_batch(ctype, cid, clean)
         for cid in current - seen:
             self.deregister_child(ctype, cid)
 
-    def _note_link(self, ctype: str, cid: int, props: dict[str, Any]) -> None:
+    def _note_link(
+        self, ctype: str, cid: int, props: dict[str, Any], has_link: bool
+    ) -> None:
         """An endpoint whose link has just come up is read again at once.
 
         Right after an endpoint is added, rebooted or plugged back in, the
@@ -1257,6 +1278,8 @@ class ChazyControlProDriver(BaseDriver):
         then "Main Display" seconds later). Its link coming up is when the
         real values are there to read, rather than at the next detail poll.
         """
+        if not has_link:
+            return
         was_up = bool(self.get_child_state(ctype, cid).get("net"))
         if props.get("net") and not was_up:
             self._schedule_refresh((ctype, cid))
@@ -1745,12 +1768,21 @@ def _change_target(command: str) -> tuple[str, int] | str | None:
     words = command.upper().split()
     if not words or words[0] in _READ_VERBS:
         return None
-    if (
-        len(words) >= 4 and words[0] == "SET" and words[1] in ("ENC", "DEC")
-        and words[2].isdigit() and words[3] not in ("ID", "DELETE")
-    ):
-        return ("encoder" if words[1] == "ENC" else "decoder", int(words[2]))
-    return ROSTER
+    return _endpoint_setting(words) or ROSTER
+
+
+def _endpoint_setting(words: list[str]) -> tuple[str, int] | None:
+    """The endpoint whose own setting ``SET ENC|DEC <id> <setting> ...``
+    changes; None for anything else (a renumber or delete changes the
+    roster)."""
+    if len(words) < 4 or words[0] != "SET":
+        return None
+    kind = _ENDPOINT_WORDS.get(words[1])
+    if kind is None or not words[2].isdigit():
+        return None
+    if words[3] in ("ID", "DELETE"):
+        return None
+    return kind, int(words[2])
 
 
 def _unit_lines(text: str) -> list[str]:

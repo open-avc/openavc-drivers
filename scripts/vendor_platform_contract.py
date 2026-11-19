@@ -63,6 +63,11 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         (),
     ),
     (
+        "openavc/utils/version_rule.py",
+        "scripts/_vendor/version_rule.py",
+        (),
+    ),
+    (
         "openavc/drivers/child_ids.py",
         "scripts/_vendor/child_ids.py",
         (),
@@ -87,6 +92,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from openavc.drivers.transport_choice import",
                 "from .transport_choice import",
             ),
+            ("from openavc.utils.version_rule import", "from .version_rule import"),
         ),
     ),
     (
@@ -386,7 +392,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
     (
         "openavc/drivers/platform_floor_checks.py",
         "scripts/_vendor/platform_floor_checks.py",
-        (("from openavc.drivers.spec import", "from .spec import"),),
+        (
+            ("from openavc.drivers.spec import", "from .spec import"),
+            ("from openavc.utils.version_rule import", "from .version_rule import"),
+        ),
     ),
     (
         "openavc/drivers/shape_checks.py",

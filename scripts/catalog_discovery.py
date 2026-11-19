@@ -27,7 +27,7 @@ from typing import Any
 
 from _vendor.discovery_block import read_discovery_block
 from _vendor.discovery_hint import DiscoveryHint
-from _vendor.spec import parse_version
+from _vendor.version_rule import read_version
 
 
 # --- One driver's block --------------------------------------------------------
@@ -181,7 +181,9 @@ def with_discovery_requires(discovery: dict[str, Any]) -> dict[str, Any]:
 def _newer(version: str, than: Any) -> bool:
     """Whether a gate's ``version`` is newer than the ``requires`` so far
     (none yet counts as older; so does one that is not a version), read by
-    the contract's one version parser."""
+    the platform's version rule, as its ``requires:`` gate reads it: a
+    release candidate is older than its release."""
     if than is None:
         return True
-    return (parse_version(version) or ()) > (parse_version(than) or ())
+    so_far = read_version(than)
+    return so_far is None or read_version(version) > so_far

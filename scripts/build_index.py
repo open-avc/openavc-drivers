@@ -64,6 +64,7 @@ from _vendor.python_info import (  # noqa: E402
 from _vendor.spec import (  # noqa: E402
     CATEGORIES,
     CONFIDENCE_LEVELS,
+    PLATFORM_VERSION_PATTERN,
     PYTHON_ONLY_TRANSPORTS,
     SEMVER_PATTERN,
     TAG_PATTERN,
@@ -112,6 +113,7 @@ DRIVER_DIRS = (
 # Shape patterns from the vendored contract tables (URL_PATTERN encodes
 # its case-insensitivity in character classes).
 SEMVER_RE = re.compile(SEMVER_PATTERN)
+PLATFORM_VERSION_RE = re.compile(PLATFORM_VERSION_PATTERN)
 TAG_RE = re.compile(TAG_PATTERN)
 URL_RE = re.compile(URL_PATTERN)
 
@@ -222,8 +224,8 @@ class DriverEntry(BaseModel):
     @field_validator("min_platform_version")
     @classmethod
     def _min_platform_version(cls, v: str | None) -> str | None:
-        if v is not None and not SEMVER_RE.match(v):
-            raise ValueError("must be valid semver if present")
+        if v is not None and not PLATFORM_VERSION_RE.match(v):
+            raise ValueError("must be a release (e.g. 0.40.0) or a pre-release of one (e.g. 0.40.0-rc1) if present")
         return v
 
     @field_validator("source_url")

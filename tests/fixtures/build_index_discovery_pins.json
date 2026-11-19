@@ -2178,8 +2178,8 @@
     },
     "hand_newer_suffix": {
       "input_unchanged": true,
-      "result": "{'requires': '0.33.0+x', 'tcp_probe': {'then': {}}}",
-      "same_object": true
+      "result": "{'requires': '0.32.0', 'tcp_probe': {'then': {}}}",
+      "same_object": false
     },
     "hand_none_gated": {
       "input_unchanged": true,
@@ -2208,8 +2208,8 @@
     },
     "hand_suffix_compared": {
       "input_unchanged": true,
-      "result": "{'requires': '0.32.0-rc1', 'tcp_probe': {'then': {}}}",
-      "same_object": true
+      "result": "{'requires': '0.32.0', 'tcp_probe': {'then': {}}}",
+      "same_object": false
     },
     "hand_unparsable_replaced": {
       "input_unchanged": true,

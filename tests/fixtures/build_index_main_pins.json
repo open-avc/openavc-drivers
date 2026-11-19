@@ -556,7 +556,7 @@
     },
     "min_platform_bad": {
       "errors": [
-        "f: min_platform_version: Value error, must be valid semver if present"
+        "f: min_platform_version: Value error, must be a release (e.g. 0.40.0) or a pre-release of one (e.g. 0.40.0-rc1) if present"
       ]
     },
     "min_platform_ok": {

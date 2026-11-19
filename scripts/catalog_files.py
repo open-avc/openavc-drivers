@@ -6,11 +6,10 @@ simulator), sitting directly in one of the ten category folders. A file in a
 sub-folder, in a new folder or at the repository root is not in the catalog,
 and the build refuses it (``files_outside_folders`` lists the candidates).
 
-The build, this repository's tests, the platform's corpus sweeps and the
-workspace's golden master all read the library through these functions, so a
-new category folder is one line in ``CATEGORY_FOLDERS``. Standard library
-only: a reader in another repository loads this file by its path without the
-build's dependencies.
+The build, this repository's tests and the platform's corpus sweeps all read
+the library through these functions, so a new category folder is one line in
+``CATEGORY_FOLDERS``. Standard library only: a reader in another repository
+loads this file by its path without the build's dependencies.
 """
 
 from __future__ import annotations

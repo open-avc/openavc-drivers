@@ -34,6 +34,21 @@ Transport / protocol (confirmed against live hardware, FW 1.50.02, telnet 23):
   (``Controller(h)`` on 1.50.02, ``DARWIN CONTROL`` on 2.03.19) so parsers key
   off row layout, never the brand. Numeric fields are zero-padded on the wire
   (IP ``169.254.020.001``); the driver normalises IPs back to ``169.254.20.1``.
+* Every reply starts with the echo of the command it answers, and the
+  controller copies every session's commands and replies to every other open
+  telnet session (seen on the Chazy Control Pro, which shares this firmware
+  lineage; a rename made in its web page arrives the same way). So the driver
+  takes as the answer only the reply whose echo is the command it sent.
+  Another client's traffic, a notification, and a reply that turns up after
+  the driver stopped waiting for it are set aside, never read as the answer to
+  the next question: reading them in order once put an encoder's name and
+  address on a decoder, and shifted every name after it. Until a session has
+  seen its own echo the next reply is taken as before, so a controller that
+  does not echo still works.
+* A reply is checked before it is applied: a detail reply must be for the kind
+  of endpoint (``In`` / ``Out``) and the ID asked about, and a list (the status
+  roster, video walls) must carry its own title. Anything else changes
+  nothing, so a stray reply can never rename an endpoint or empty a list.
 
 Child enumeration on connect: encoders and decoders are read from ``GET
 STATUS`` and reconciled into the platform child registry; video walls are read
@@ -67,6 +82,18 @@ PROMPT = b"CONTROLLER> "
 # How long to wait for the controller's connect banner before giving up on
 # the session.
 BANNER_TIMEOUT_S = 8.0
+
+# How long to wait for the reply to one command.
+REQUEST_TIMEOUT_S = 6.0
+
+# Commands this session stopped waiting for. A reply that arrives later is
+# recognised by its echo and set aside. Bounded: a reply that never comes
+# leaves its entry behind.
+_ABANDONED_MAX = 32
+
+# Lines that begin a reply body. A command's echo comes before them; a
+# notification can arrive glued in front of the echo.
+_BODY_STARTS = ("====", "[SUCCESS]", "[ERROR]")
 
 # Telnet IAC bytes.
 _IAC = 0xFF
@@ -208,7 +235,7 @@ class DarwinControlDriver(BaseDriver):
         "name": "TurtleAV Darwin Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.2.5",
+        "version": "1.2.6",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # the routing: block below needs 0.27.0.
@@ -426,7 +453,12 @@ class DarwinControlDriver(BaseDriver):
     ) -> None:
         self._rx_buffer = b""
         self._iac_state = "normal"
-        self._responses: asyncio.Queue[str] = asyncio.Queue()
+        # The one request waiting for its reply: (the command as sent, or None
+        # for the connect banner; the future its reply resolves).
+        self._pending: tuple[str | None, asyncio.Future[str]] | None = None
+        self._abandoned: list[str] = []
+        self._echo_seen = False
+        self._others_seen = False
         self._cmd_lock = asyncio.Lock()
         self._poll_count = 0
         super().__init__(device_id, config, state, events)
@@ -436,13 +468,10 @@ class DarwinControlDriver(BaseDriver):
     async def _pre_connect(self) -> None:
         # The controller speaks first — Telnet negotiation and the welcome
         # banner arrive the instant the socket opens — so the receive
-        # machinery must be ready before the transport exists: empty byte
-        # buffer, IAC filter at rest, no leftover responses from an earlier
-        # session.
-        self._rx_buffer = b""
-        self._iac_state = "normal"
-        while not self._responses.empty():
-            self._responses.get_nowait()
+        # machinery must be ready before the transport exists: a clean
+        # session, and the banner already expected.
+        self._reset_session()
+        self._pending = (None, self._new_future())
 
     def _transport_kwargs(
         self, transport_type: str, kwargs: dict[str, Any]
@@ -457,38 +486,69 @@ class DarwinControlDriver(BaseDriver):
         # device reports connected.
         host = self.config.get("host", "")
         port = int(self.config.get("port", 23))
+        pending = self._pending
         try:
-            await asyncio.wait_for(self._responses.get(), timeout=BANNER_TIMEOUT_S)
-        except asyncio.TimeoutError:
+            if pending is None:
+                raise asyncio.TimeoutError
+            await asyncio.wait_for(pending[1], timeout=BANNER_TIMEOUT_S)
+        except (asyncio.TimeoutError, ConnectionError):
             raise ConnectionError(
                 f"[{self.device_id}] No banner/prompt from controller at "
                 f"{host}:{port}"
             )
+        finally:
+            if self._pending is pending:
+                self._pending = None
 
     async def _initial_sync(self) -> None:
         # Prime full state + child roster before steady-state polling. Each
         # step is best-effort: a controller that answers the banner but
         # stumbles on a status read still comes up, and the next poll cycle
         # retries.
+        # Each step is independent, so decoders are still read when an
+        # encoder read fails.
+        await self._best_effort(self._poll_status(), "Initial enumeration")
+        await self._best_effort(
+            self.poll_children("encoder", self._fetch_encoder_detail),
+            "Initial encoder detail read",
+        )
+        await self._best_effort(
+            self.poll_children("decoder", self._fetch_decoder_detail),
+            "Initial decoder detail read",
+        )
+        await self._best_effort(self._reconcile_walls(), "Initial video wall read")
+
+    async def _best_effort(self, step, what: str) -> None:
         try:
-            await self._poll_status()
+            await step
         except Exception:
-            log.exception(f"[{self.device_id}] Initial enumeration failed")
-        try:
-            await self.poll_children("encoder", self._fetch_encoder_detail)
-            await self.poll_children("decoder", self._fetch_decoder_detail)
-            await self._reconcile_walls()
-        except Exception:
-            log.exception(f"[{self.device_id}] Initial detail poll failed")
+            log.exception(f"[{self.device_id}] {what} failed")
 
     async def _close_session(self) -> None:
-        # Runs on every teardown path: drop partial receive bytes, settle the
-        # IAC filter, and discard unclaimed responses so the next session
-        # starts clean.
+        # Runs on every teardown path, so the next session starts clean.
+        self._reset_session()
+
+    def _reset_session(self) -> None:
+        """Forget the last session's conversation: partial bytes, the IAC
+        filter, abandoned commands, and any request still waiting (it fails
+        with ConnectionError rather than waiting out its timeout)."""
         self._rx_buffer = b""
         self._iac_state = "normal"
-        while not self._responses.empty():
-            self._responses.get_nowait()
+        self._abandoned.clear()
+        self._echo_seen = False
+        self._others_seen = False
+        pending, self._pending = self._pending, None
+        if pending is not None and not pending[1].done():
+            pending[1].set_exception(
+                ConnectionError(f"[{self.device_id}] Connection closed")
+            )
+
+    def _new_future(self) -> asyncio.Future[str]:
+        fut: asyncio.Future[str] = asyncio.get_running_loop().create_future()
+        # A session torn down mid-request fails the future; read the outcome
+        # here so one nobody awaits never logs "exception was never retrieved".
+        fut.add_done_callback(lambda f: f.cancelled() or f.exception())
+        return fut
 
     # ── Telnet framing ──
 
@@ -535,36 +595,113 @@ class DarwinControlDriver(BaseDriver):
                 break
             unit = self._rx_buffer[:idx]
             self._rx_buffer = self._rx_buffer[idx + len(PROMPT):]
-            text = unit.decode("latin-1", errors="replace")
-            self._responses.put_nowait(text)
+            self._route_unit(unit.decode("latin-1", errors="replace"))
 
-    @staticmethod
-    def _strip_echo(response: str, sent: str) -> str:
-        """Drop the leading echoed command line the controller prepends."""
-        lines = response.replace("\r\n", "\n").replace("\r", "\n").split("\n")
-        if lines and lines[0].strip() == sent.strip():
-            lines = lines[1:]
-        return "\n".join(lines).strip("\n")
+    # ── Matching a reply to its command ──
 
-    async def _send_request(self, wire: str, timeout: float = 6.0) -> str:
-        """Send one command line and return the controller's response text
-        (echo stripped, prompt removed). Serialised so responses correlate.
+    def _route_unit(self, text: str) -> None:
+        """Hand one prompt-delimited unit to the request it answers, or set it
+        aside (see the module docstring for why order alone is not enough)."""
+        lines = _unit_lines(text)
+        if self._answer_pending(lines, by_echo=True):
+            return
+        first = _first_line(lines)
+        if self._take_abandoned(first):
+            log.warning(
+                f"[{self.device_id}] The reply to {first!r} arrived after the "
+                f"driver stopped waiting for it; set aside so it is not read "
+                f"as the answer to a later command"
+            )
+            return
+        if self._answer_pending(lines, by_echo=False):
+            return
+        self._note_unclaimed(lines)
+
+    def _answer_pending(self, lines: list[str], *, by_echo: bool) -> bool:
+        """Resolve the waiting request with this unit if it is the answer.
+
+        ``by_echo``: the unit carries the echo of the command sent (anything
+        glued in front of the echo is a notification, set aside). Otherwise
+        the unit is taken whole: the connect banner, or, in a session that has
+        never seen its own echo, a unit that opens with a reply body. Another
+        client's reply opens with that client's command line, so it is never
+        taken this way (with another client busy from the first second, taking
+        any unit once read its replies as this session's).
+        """
+        pending = self._pending
+        if pending is None or pending[1].done():
+            return False
+        echo, fut = pending
+        at = -1
+        if echo is not None and by_echo:
+            found = _echo_index(lines, echo)
+            if found is None:
+                return False
+            at = found
+            self._echo_seen = True
+            if _first_line(lines[:at]):
+                self._note_unclaimed(lines[:at])
+        elif echo is not None and (
+            self._echo_seen or not _first_line(lines).startswith(_BODY_STARTS)
+        ):
+            return False
+        fut.set_result("\n".join(lines[at + 1:]).strip("\n"))
+        self._pending = None
+        return True
+
+    def _take_abandoned(self, first: str) -> bool:
+        for i, cmd in enumerate(self._abandoned):
+            if _same_command(cmd, first):
+                del self._abandoned[i]
+                return True
+        return False
+
+    def _abandon(self, echo: str) -> None:
+        self._abandoned.append(echo)
+        del self._abandoned[:-_ABANDONED_MAX]
+
+    def _note_unclaimed(self, lines: list[str]) -> None:
+        """A unit no request asked for: another client's command and reply, or
+        a notification. Never read as an answer."""
+        first = _first_line(lines)
+        if not first:
+            return
+        if not self._others_seen:
+            self._others_seen = True
+            log.info(
+                f"[{self.device_id}] Another client is also sending commands "
+                f"to this controller (seen: {first!r}); its replies are set "
+                f"aside"
+            )
+        else:
+            log.debug(f"[{self.device_id}] Set aside: {first!r}")
+
+    async def _send_request(
+        self, wire: str, timeout: float = REQUEST_TIMEOUT_S
+    ) -> str:
+        """Send one command line and return the reply to THAT command (echo
+        stripped, prompt removed). Serialised: one request waits at a time.
         """
         if not self.transport or not self.transport.connected:
             raise ConnectionError(f"[{self.device_id}] Not connected")
         async with self._cmd_lock:
-            while not self._responses.empty():
-                self._responses.get_nowait()
-            await self.transport.send(wire.encode("ascii", errors="replace") + b"\r\n")
+            payload = wire.encode("ascii", errors="replace")
+            echo = payload.decode("ascii")
+            fut = self._new_future()
+            self._pending = (echo, fut)
             try:
-                raw = await asyncio.wait_for(self._responses.get(), timeout=timeout)
+                await self.transport.send(payload + b"\r\n")
+                return await asyncio.wait_for(fut, timeout=timeout)
             except asyncio.TimeoutError as e:
+                self._abandon(echo)
                 raise TimeoutError(
                     f"[{self.device_id}] No response to {wire!r}"
                 ) from e
-            return self._strip_echo(raw, wire)
+            finally:
+                if self._pending is not None and self._pending[1] is fut:
+                    self._pending = None
 
-    async def _send_set(self, wire: str, timeout: float = 6.0) -> str:
+    async def _send_set(self, wire: str, timeout: float = REQUEST_TIMEOUT_S) -> str:
         """Send a command expected to ack with [SUCCESS]/[ERROR]. Raises on
         [ERROR] (a deterministic protocol rejection — not retried).
         """
@@ -709,7 +846,13 @@ class DarwinControlDriver(BaseDriver):
         question = await self._send_request(base)
         if "confirm" not in question.lower() and '"Yes"' not in question:
             return question  # no confirmation requested; nothing more to send
-        return await self._send_set("Yes")
+        try:
+            return await self._send_set("Yes")
+        except (TimeoutError, ConnectionError):
+            # A confirmed reset answers "[SUCCESS]System will reset ..." with
+            # no prompt after it and closes every session as the controller
+            # restarts (Control Pro FW 1.10.11), so that reply never completes.
+            return "The controller is resetting and will restart."
 
     # ── refresh_children (IDE "Refresh from Device") ──
 
@@ -732,6 +875,14 @@ class DarwinControlDriver(BaseDriver):
         refreshes the controller's own GPIO state.
         """
         resp = await self._send_request("GET STATUS")
+        if "Status Info" not in resp:
+            # Not the status report, so it says nothing about which endpoints
+            # exist; reconciling against it would deregister every one.
+            log.warning(
+                f"[{self.device_id}] GET STATUS answered without the status "
+                f"report; the encoder/decoder list is left as it was"
+            )
+            return
         parsed = _parse_status(resp)
 
         declared = self.DRIVER_INFO["state_variables"]
@@ -788,9 +939,12 @@ class DarwinControlDriver(BaseDriver):
         """
         try:
             resp = await self._send_request("GET WALL STATUS")
-            self._reconcile_children(
-                "video_wall", _parse_wall_status(resp), online_from_net=False
-            )
+            # Only the wall report itself says which walls exist; any other
+            # reply leaves them as they were.
+            if "Video Wall Info" in resp:
+                self._reconcile_children(
+                    "video_wall", _parse_wall_status(resp), online_from_net=False
+                )
         except Exception:
             log.debug(f"[{self.device_id}] wall enumeration failed", exc_info=True)
 
@@ -800,11 +954,8 @@ class DarwinControlDriver(BaseDriver):
         out: dict[int, dict[str, Any]] = {}
         schema = self.get_child_entity_types()["encoder"]["state_variables"]
         for eid in ids:
-            resp = await self._send_request(f"GET ENC {eid} STATUS")
-            if "not exist" in resp or resp.lstrip().startswith("[ERROR]"):
-                continue
-            props = _parse_encoder_detail(resp)
-            clean = {k: v for k, v in props.items() if k in schema}
+            props = await self._read_endpoint("encoder", eid)
+            clean = {k: v for k, v in (props or {}).items() if k in schema}
             if clean:
                 clean["online"] = bool(props.get("net", False))
                 out[eid] = clean
@@ -816,15 +967,40 @@ class DarwinControlDriver(BaseDriver):
         out: dict[int, dict[str, Any]] = {}
         schema = self.get_child_entity_types()["decoder"]["state_variables"]
         for did in ids:
-            resp = await self._send_request(f"GET DEC {did} STATUS")
-            if "not exist" in resp or resp.lstrip().startswith("[ERROR]"):
-                continue
-            props = _parse_decoder_detail(resp)
-            clean = {k: v for k, v in props.items() if k in schema}
+            props = await self._read_endpoint("decoder", did)
+            clean = {k: v for k, v in (props or {}).items() if k in schema}
             if clean:
                 clean["online"] = bool(props.get("net", False))
                 out[did] = clean
         return out
+
+    async def _read_endpoint(self, kind: str, cid: int) -> dict[str, Any] | None:
+        """One endpoint's detail, or None to keep its last known values.
+
+        One endpoint that does not answer costs only itself: the endpoints
+        already read in the sweep keep their results and the rest are still
+        asked (a timeout once discarded the whole sweep and skipped decoders).
+        """
+        word = "ENC" if kind == "encoder" else "DEC"
+        try:
+            resp = await self._send_request(f"GET {word} {cid} STATUS")
+        except TimeoutError:
+            log.warning(
+                f"[{self.device_id}] {kind.capitalize()} {cid} did not answer "
+                f"in time; its last known values are kept"
+            )
+            return None
+        if "not exist" in resp or resp.lstrip().startswith("[ERROR]"):
+            return None
+        if not _detail_is_for(resp, kind, cid):
+            log.warning(
+                f"[{self.device_id}] The reply to GET {word} {cid} STATUS was "
+                f"not that {kind}'s report; nothing was changed"
+            )
+            return None
+        if kind == "encoder":
+            return _parse_encoder_detail(resp)
+        return _parse_decoder_detail(resp)
 
 
 # ── Banner parsers ──
@@ -1060,6 +1236,45 @@ def _detail_sections(text: str) -> tuple[str | None, str, list[str]]:
             body = [b for b in lines[i + 2:] if "====" not in b]
             return ln, data, body
     return None, "", []
+
+
+def _detail_is_for(text: str, kind: str, want_id: int) -> bool:
+    """Whether a GET ENC/DEC [n] STATUS reply is the report of that endpoint:
+    an encoder's header opens with ``In``, a decoder's with ``Out``, and the
+    data row carries the ID asked about."""
+    header, data, _ = _detail_sections(text)
+    if not header or not data:
+        return False
+    col = "In" if kind == "encoder" else "Out"
+    if header.split()[:1] != [col]:
+        return False
+    rid = _split_columns(header, data).get(col, "")
+    return rid.isdigit() and int(rid) == want_id
+
+
+def _unit_lines(text: str) -> list[str]:
+    return text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+
+
+def _first_line(lines: list[str]) -> str:
+    return next((ln.strip() for ln in lines if ln.strip()), "")
+
+
+def _same_command(a: str, b: str) -> bool:
+    """One command line against another, ignoring spacing (the controller
+    trims an argument's leading and trailing spaces)."""
+    return a.split() == b.split()
+
+
+def _echo_index(lines: list[str], echo: str) -> int | None:
+    """Where this unit echoes ``echo``: looked for ahead of the reply body
+    only, since a notification can arrive glued in front of the echo."""
+    for i, ln in enumerate(lines):
+        if _same_command(ln, echo):
+            return i
+        if ln.strip().startswith(_BODY_STARTS):
+            return None
+    return None
 
 
 def _detail_blocks(body: list[str]) -> list[tuple[str, list[str]]]:

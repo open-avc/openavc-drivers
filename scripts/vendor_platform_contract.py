@@ -123,6 +123,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from .driver_id import",
             ),
             (
+                "from openavc.drivers.driver_model import",
+                "from .driver_model import",
+            ),
+            (
                 "from openavc.drivers.declared_names import",
                 "from .declared_names import",
             ),
@@ -421,6 +425,25 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
             (
                 "from openavc.drivers.declared_names import",
                 "from .declared_names import",
+            ),
+            (
+                "from openavc.drivers.query_entry import",
+                "from .query_entry import",
+            ),
+        ),
+    ),
+    (
+        "openavc/drivers/query_entry.py",
+        "scripts/_vendor/query_entry.py",
+        (("from openavc.drivers.spec import", "from .spec import"),),
+    ),
+    (
+        "openavc/drivers/driver_model.py",
+        "scripts/_vendor/driver_model.py",
+        (
+            (
+                "from openavc.drivers.query_entry import",
+                "from .query_entry import",
             ),
         ),
     ),

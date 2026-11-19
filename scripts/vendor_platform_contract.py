@@ -321,6 +321,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from openavc.drivers.declared_names import (",
                 "from .declared_names import (",
             ),
+            ("from openavc.drivers.driver_model import", "from .driver_model import"),
             ("from openavc.drivers.spec import", "from .spec import"),
         ),
     ),

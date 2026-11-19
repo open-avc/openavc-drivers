@@ -48,6 +48,7 @@ if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
 from catalog_contract import ContractReport  # noqa: E402
+from catalog_simulators import is_simulated, simulator_errors  # noqa: E402
 from catalog_discovery import (  # noqa: E402
     declared_companion,
     validate_discovery_block,
@@ -408,6 +409,11 @@ def _category_files(repo_root: Path) -> Iterator[Path]:
             yield from sorted(dir_path.iterdir())
 
 
+def _simulator_files(repo_root: Path) -> list[Path]:
+    """Every simulator file in the category directories."""
+    return [path for path in _category_files(repo_root) if path.name.endswith("_sim.py")]
+
+
 def _driver_reader(filepath: Path) -> Callable[[Path], dict[str, Any]] | None:
     """How to read a file in a category directory, or None when it is not a driver."""
     if filepath.suffix == ".avcdriver":
@@ -557,11 +563,12 @@ def _report_schema_errors(errors: list[str]) -> bool:
 
 # The driver file may carry many fields the runtime needs (transport config,
 # commands, state_variables, default_config, config_schema, discovery, etc.).
-# Only these go into index.json.
+# Only these go into index.json. `simulated` is worked out from the files
+# (catalog_simulators.is_simulated), never copied from the driver's own word.
 INDEX_FIELDS = frozenset({
     "id", "name", "manufacturer", "category", "version", "author",
     "transport", "description", "source_url",
-    "ports", "protocols", "simulated", "verified", "min_platform_version",
+    "ports", "protocols", "verified", "min_platform_version",
     "tags", "help", "deprecated", "replacement_id", "compatible_models",
     "discovery",
 })
@@ -687,6 +694,7 @@ def build_entry(filepath: Path, raw: dict[str, Any], repo_root: Path) -> DriverE
     subset["file"] = filepath.relative_to(repo_root).as_posix()
     subset["format"] = "avcdriver" if filepath.suffix == ".avcdriver" else "python"
     subset["files"] = _artifact_hashes(filepath, raw, repo_root)
+    subset["simulated"] = is_simulated(filepath, raw)
     return DriverEntry(**subset)
 
 
@@ -1126,6 +1134,7 @@ def _check_drivers(
 
     if entries:
         errors.extend(cross_validate(entries, inputs.manufacturers))
+    errors.extend(simulator_errors(_simulator_files(repo_root), repo_root))
     errors.extend(validate_no_signal_collisions(discovery_per_driver))
     errors.extend(validate_locator_disambiguation(discovery_per_driver))
     return entries, errors

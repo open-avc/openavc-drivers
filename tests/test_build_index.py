@@ -1437,3 +1437,112 @@ def test_a_python_driver_is_held_to_the_same_floor(tmp_path: Path) -> None:
 
     assert rc == 1
     assert "min_platform_version" in err and "0.23.0" in err, err
+
+
+# --- simulated, worked out from the files -----------------------------------
+
+
+def _write_simulator(root: Path, name: str, body: str, category: str = "projectors") -> Path:
+    path = root / category / f"{name}_sim.py"
+    path.write_text(
+        "from openavc.simulator.tcp_simulator import TCPSimulator\n" + body,
+        encoding="utf-8",
+    )
+    return path
+
+
+def _sim_class(name: str, driver_id: str = "test_py_driver") -> str:
+    return (
+        f"class {name}(TCPSimulator):\n"
+        f'    SIMULATOR_INFO = {{"driver_id": "{driver_id}", "name": "Test", "initial_state": {{}}}}\n'
+    )
+
+
+def test_a_python_driver_with_its_simulator_is_simulated_without_saying_so(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_python_driver(tmp_path)
+    _write_simulator(tmp_path, "test_driver", _sim_class("TestSimulator"))
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+    assert _entry_by_id(tmp_path, "test_py_driver")["simulated"] is True
+
+
+def test_a_python_driver_saying_simulated_with_no_simulator_is_not(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_python_driver(tmp_path, info_overrides={"simulated": True})
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+    assert "simulated" not in _entry_by_id(tmp_path, "test_py_driver")
+
+
+def test_a_simulator_naming_another_driver_does_not_simulate_this_one(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_python_driver(tmp_path)
+    _write_simulator(tmp_path, "test_driver", _sim_class("TestSimulator", "acme_other"))
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+    assert "simulated" not in _entry_by_id(tmp_path, "test_py_driver")
+
+
+def test_a_yaml_driver_is_simulated_without_saying_so(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(tmp_path)
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+    assert _entry_by_id(tmp_path, "test_driver")["simulated"] is True
+
+
+def test_a_simulator_class_under_a_second_name_passes(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_python_driver(tmp_path)
+    _write_simulator(
+        tmp_path, "test_driver", _sim_class("TestSimulator") + "SIMULATOR_CLASS = TestSimulator\n",
+    )
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+    assert _entry_by_id(tmp_path, "test_py_driver")["simulated"] is True
+
+
+def test_two_simulator_classes_naming_one_driver_id_are_refused(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_python_driver(tmp_path)
+    _write_simulator(tmp_path, "test_driver", _sim_class("AlphaSimulator") + _sim_class("ZetaSimulator"))
+    rc, _, err = _run(tmp_path)
+    assert rc == 1
+    assert (
+        "projectors/test_driver_sim.py: AlphaSimulator and ZetaSimulator each name "
+        "driver id 'test_py_driver' in SIMULATOR_INFO"
+    ) in err
+
+
+def test_two_simulator_files_naming_one_driver_id_are_refused(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_python_driver(tmp_path)
+    _write_simulator(tmp_path, "test_driver", _sim_class("TestSimulator"))
+    _write_python_driver(
+        tmp_path, filename="other_driver.py", info_overrides={"id": "other_driver"},
+    )
+    _write_simulator(tmp_path, "other_driver", _sim_class("OtherSimulator"))
+    rc, _, err = _run(tmp_path)
+    assert rc == 1
+    assert (
+        "OtherSimulator in projectors/other_driver_sim.py and TestSimulator in "
+        "projectors/test_driver_sim.py each name driver id 'test_py_driver'"
+    ) in err
+
+
+def test_a_simulator_whose_driver_id_is_built_in_code_is_refused(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_python_driver(tmp_path)
+    _write_simulator(
+        tmp_path, "test_driver",
+        'ID = "test_py_driver"\n'
+        "class TestSimulator(TCPSimulator):\n"
+        '    SIMULATOR_INFO = {"driver_id": ID, "name": "Test", "initial_state": {}}\n',
+    )
+    rc, _, err = _run(tmp_path)
+    assert rc == 1
+    assert (
+        "projectors/test_driver_sim.py: SIMULATOR_INFO's driver_id is built in code, "
+        "so the catalog cannot tell which driver it simulates"
+    ) in err

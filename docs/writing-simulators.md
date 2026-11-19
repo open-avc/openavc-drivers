@@ -928,6 +928,7 @@ A value changed in the Simulator UI does not go through `write_oid`: the UI call
 - Place them alongside the driver file in the same directory
 - The file name should match: `my_driver.py` becomes `my_driver_sim.py`
 - The simulator's `SIMULATOR_INFO["driver_id"]` must match the driver's `DRIVER_INFO["id"]`
+- One class per driver id: the simulator uses the class your file defines whose `SIMULATOR_INFO` names the driver's id. Listing it under a second name (`SIMULATOR_CLASS = MySimulator`) is fine. Two different classes naming one id (two written out, a subclass that inherits the id from a class in the same file, or classes in two `_sim.py` files) means neither is used. The catalog build refuses it, and `python -m openavc.drivers.check` refuses two in one file. A class another builds on can leave `driver_id` out.
 
 ```
 openavc-drivers/
@@ -1197,27 +1198,22 @@ telnet 127.0.0.1 19000
 
 ## Rebuilding the catalog
 
-When your simulator is working, the driver's catalog entry needs to say so —
-`simulated` is what puts the simulation badge in the Browse Drivers view.
-**Declare it in the driver file, not in `index.json`:**
-
-```python
-DRIVER_INFO = {
-    "id": "your_driver_id",
-    # ...
-    "simulated": True,          # in a .avcdriver, `simulated: true`
-}
-```
-
-Then regenerate the catalog from the repo root, which copies the flag across
-along with everything else:
+The catalog's `simulated` flag, which puts the simulation badge in the Browse
+Drivers view, is worked out from the files: every YAML driver has it, and a
+Python driver has it when the `<driver>_sim.py` beside it has a class naming
+the driver's id. There is nothing to declare; a `simulated` value written in
+the driver file is not used. When your simulator is working, regenerate the
+catalog from the repo root:
 
 ```bash
 python scripts/build_index.py
 ```
 
 Then commit the regenerated `index.json`, `devices.json` and the `index/` +
-`devices/` shards along with your simulator, in the same commit.
+`devices/` shards along with your simulator, in the same commit. The build
+refuses a simulator whose `driver_id` is built in code (write it as text, so
+the catalog can tell which driver it simulates) and two classes naming one
+driver id.
 
 This is not tidiness. Every catalog entry also carries a `files` map of
 SHA-256 hashes covering the driver and its companions, and OpenAVC hashes what

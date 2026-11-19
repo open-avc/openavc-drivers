@@ -233,7 +233,7 @@ Each generated entry also carries a `files` map — repo-relative path to SHA-25
 |-------|------|-------|
 | `ports` | list[int] | Default network ports the device listens on (1-65535). |
 | `protocols` | list[string] | Protocol family identifiers (e.g., `["pjlink"]`). |
-| `simulated` | bool | `true` if a simulator covers this driver. |
+| `simulated` | bool | Set by `build_index.py` from the files (every YAML driver; a Python driver whose `<driver>_sim.py` names its id); a value written here is not used. |
 | `verified` | bool | `true` only after testing on real hardware. |
 | `min_platform_version` | string | Minimum OpenAVC version (semver). Omit only when the driver uses no field that carries a floor — the build computes the floor and rejects a driver declaring less than it, or nothing at all. Don't guess it; see section 8. |
 | `tags` | list[string] | Lowercase, hyphen-separated keywords for Browse Drivers search. Examples: `["ndi", "ptz"]`, `["ceiling-mic"]`. |

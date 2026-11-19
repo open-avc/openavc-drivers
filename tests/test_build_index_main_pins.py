@@ -348,7 +348,8 @@ def no_driver_files(root: Path) -> None:
 
 # A companion simulator the catalog's check of a SIMULATOR_INFO can read.
 _SIMULATOR = (
-    "class AcmePySimulator:\n"
+    "from openavc.simulator.tcp_simulator import TCPSimulator\n"
+    "class AcmePySimulator(TCPSimulator):\n"
     '    SIMULATOR_INFO = {"driver_id": "acme_py", "name": "Acme Py", "initial_state": {}}\n'
 )
 

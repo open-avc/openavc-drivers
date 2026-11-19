@@ -1179,6 +1179,7 @@
               "manufacturer": "Acme",
               "name": "Acme Old",
               "replacement_id": "acme_amp",
+              "simulated": true,
               "source_url": "https://example.com/protocol",
               "transport": "tcp",
               "version": "1.0.0"
@@ -1207,7 +1208,7 @@
               "files": {
                 "projectors/acme_py.py": "576b06f6b66604ec958f8387982f4ad225578fbf7ae763ec43f6404d5d09388a",
                 "projectors/acme_py_discovery.py": "6fcee505a0dad76caa02a7a28baef1594b5a49c29174637eb6da9a761982fcea",
-                "projectors/acme_py_sim.py": "5e4e594c58a367c61d7a98f81bc3712c46fb87905d18e6f5c2a23bfe27071e16"
+                "projectors/acme_py_sim.py": "15c97444a0b195fab2624ac3e5cd7d0b796ae405d6ad1daf35615ce2fdf0cead"
               },
               "format": "python",
               "id": "acme_py",
@@ -1216,6 +1217,7 @@
               "ports": [
                 4352
               ],
+              "simulated": true,
               "source_url": "https://example.com/protocol",
               "transport": "tcp",
               "verified": true,
@@ -1249,6 +1251,7 @@
               "id": "acme_sw",
               "manufacturer": "Acme",
               "name": "acme switch",
+              "simulated": true,
               "source_url": "https://example.com/protocol",
               "transport": "tcp",
               "version": "1.0.0"
@@ -1257,12 +1260,12 @@
         },
         "index/audio.json": "02d1c538e53c800c21eb520e90da824a74a8ec3b71e7a1780009dffeccea6143",
         "index/camera.json": "832bd975491f861cdb8d43d8c16d09967fa3f4d73fb16c4e5cab48c094e209c9",
-        "index/display.json": "5586461f592c078d6809477581b208111375cbfd59aae5a737011b3dfb9377b4",
+        "index/display.json": "da40e27b41c4604130eb43f6ba9f0ffc2228ff728cb7dbc06c4b99c0df53df58",
         "index/lighting.json": "39a19946b0acf073818dbb55b6a03b897e77bdb2a2d214142e8479728c96e6a5",
         "index/power.json": "63538a3d0c576ff632c84894dc6d221b26dfeef5295e3a9414bc75c5fa4ef538",
-        "index/projector.json": "dce7e1a50fc263025261342844c0dd68125cb1425c54d803cc9dc5dd7af1f5e8",
+        "index/projector.json": "0d7468aea95fa5a2e1af359766f5ee207516f5c78a726cc777a653092d1ba42c",
         "index/streaming.json": "af7444cb2c9669b495af87fec3c37ef7604884630b61ba9c5376428c2d02104f",
-        "index/switcher.json": "fb9f31418c4d9aff534bfaaf80b5785caa844e64352ed0c79490607d46989d4f",
+        "index/switcher.json": "894db8bb9bca00919e302b2c0347e9c09631fdfe777afd3ab521ce946333c763",
         "index/utility.json": "70b4c393fbd35a66251c86ebc3104e62c6515ab2c371288f817caf1e0bad0b6e",
         "index/video.json": "5dec762b62f84f87df9d74df5329dfd8a87d3f20c6a843aa20774a644f800a89"
       },
@@ -1447,6 +1450,7 @@
               "manufacturer": "Acme",
               "name": "Acme Old",
               "replacement_id": "acme_amp",
+              "simulated": true,
               "source_url": "https://example.com/protocol",
               "transport": "tcp",
               "version": "1.0.0"
@@ -1475,7 +1479,7 @@
               "files": {
                 "projectors/acme_py.py": "576b06f6b66604ec958f8387982f4ad225578fbf7ae763ec43f6404d5d09388a",
                 "projectors/acme_py_discovery.py": "6fcee505a0dad76caa02a7a28baef1594b5a49c29174637eb6da9a761982fcea",
-                "projectors/acme_py_sim.py": "5e4e594c58a367c61d7a98f81bc3712c46fb87905d18e6f5c2a23bfe27071e16"
+                "projectors/acme_py_sim.py": "15c97444a0b195fab2624ac3e5cd7d0b796ae405d6ad1daf35615ce2fdf0cead"
               },
               "format": "python",
               "id": "acme_py",
@@ -1484,6 +1488,7 @@
               "ports": [
                 4352
               ],
+              "simulated": true,
               "source_url": "https://example.com/protocol",
               "transport": "tcp",
               "verified": true,
@@ -1517,6 +1522,7 @@
               "id": "acme_sw",
               "manufacturer": "Acme",
               "name": "acme switch",
+              "simulated": true,
               "source_url": "https://example.com/protocol",
               "transport": "tcp",
               "version": "1.0.0"
@@ -1525,12 +1531,12 @@
         },
         "index/audio.json": "02d1c538e53c800c21eb520e90da824a74a8ec3b71e7a1780009dffeccea6143",
         "index/camera.json": "832bd975491f861cdb8d43d8c16d09967fa3f4d73fb16c4e5cab48c094e209c9",
-        "index/display.json": "5586461f592c078d6809477581b208111375cbfd59aae5a737011b3dfb9377b4",
+        "index/display.json": "da40e27b41c4604130eb43f6ba9f0ffc2228ff728cb7dbc06c4b99c0df53df58",
         "index/lighting.json": "39a19946b0acf073818dbb55b6a03b897e77bdb2a2d214142e8479728c96e6a5",
         "index/power.json": "63538a3d0c576ff632c84894dc6d221b26dfeef5295e3a9414bc75c5fa4ef538",
-        "index/projector.json": "dce7e1a50fc263025261342844c0dd68125cb1425c54d803cc9dc5dd7af1f5e8",
+        "index/projector.json": "0d7468aea95fa5a2e1af359766f5ee207516f5c78a726cc777a653092d1ba42c",
         "index/streaming.json": "af7444cb2c9669b495af87fec3c37ef7604884630b61ba9c5376428c2d02104f",
-        "index/switcher.json": "fb9f31418c4d9aff534bfaaf80b5785caa844e64352ed0c79490607d46989d4f",
+        "index/switcher.json": "894db8bb9bca00919e302b2c0347e9c09631fdfe777afd3ab521ce946333c763",
         "index/utility.json": "70b4c393fbd35a66251c86ebc3104e62c6515ab2c371288f817caf1e0bad0b6e",
         "index/video.json": "5dec762b62f84f87df9d74df5329dfd8a87d3f20c6a843aa20774a644f800a89"
       },
@@ -1695,13 +1701,14 @@
               "id": "acme_widget",
               "manufacturer": "Acme",
               "name": "Acme Widget",
+              "simulated": true,
               "source_url": "https://example.com/protocol",
               "transport": "tcp",
               "version": "1.0.0"
             }
           ]
         },
-        "index/audio.json": "365e0b7db89be874e1eb4946de4276e1afa5bb584541dc20a25a8e087e78a021",
+        "index/audio.json": "f3b28d529225702a730edb4182a039154dca1153a39f6beb2e945f1d3dd3497d",
         "index/camera.json": "832bd975491f861cdb8d43d8c16d09967fa3f4d73fb16c4e5cab48c094e209c9",
         "index/display.json": "a444289c04bd939384e388b977a843e75d202e93fbe623bd09a23a4cf3afaed6",
         "index/lighting.json": "39a19946b0acf073818dbb55b6a03b897e77bdb2a2d214142e8479728c96e6a5",
@@ -1773,13 +1780,14 @@
               "id": "acme_widget",
               "manufacturer": "Acme",
               "name": "Acme Widget",
+              "simulated": true,
               "source_url": "https://example.com/protocol",
               "transport": "tcp",
               "version": "1.0.0"
             }
           ]
         },
-        "index/audio.json": "283c57ad3f5ad290799907d29bb74aff8ec8aae875ae38993d2611f3dddbc349",
+        "index/audio.json": "2f592138188120b2bebf69fcd4f2e696b0ad169d0a89972d5065cc9cced386c6",
         "index/camera.json": "832bd975491f861cdb8d43d8c16d09967fa3f4d73fb16c4e5cab48c094e209c9",
         "index/display.json": "a444289c04bd939384e388b977a843e75d202e93fbe623bd09a23a4cf3afaed6",
         "index/lighting.json": "39a19946b0acf073818dbb55b6a03b897e77bdb2a2d214142e8479728c96e6a5",
@@ -1921,13 +1929,14 @@
               "id": "acme_widget",
               "manufacturer": "Acme",
               "name": "Acme Widget",
+              "simulated": true,
               "source_url": "https://example.com/protocol",
               "transport": "tcp",
               "version": "1.0.0"
             }
           ]
         },
-        "index/audio.json": "283c57ad3f5ad290799907d29bb74aff8ec8aae875ae38993d2611f3dddbc349",
+        "index/audio.json": "2f592138188120b2bebf69fcd4f2e696b0ad169d0a89972d5065cc9cced386c6",
         "index/camera.json": "832bd975491f861cdb8d43d8c16d09967fa3f4d73fb16c4e5cab48c094e209c9",
         "index/display.json": "a444289c04bd939384e388b977a843e75d202e93fbe623bd09a23a4cf3afaed6",
         "index/lighting.json": "39a19946b0acf073818dbb55b6a03b897e77bdb2a2d214142e8479728c96e6a5",
@@ -2530,13 +2539,14 @@
               "id": "acme_widget",
               "manufacturer": "Acme",
               "name": "Acme Widget",
+              "simulated": true,
               "source_url": "https://example.com/protocol",
               "transport": "tcp",
               "version": "1.0.0"
             }
           ]
         },
-        "index/audio.json": "283c57ad3f5ad290799907d29bb74aff8ec8aae875ae38993d2611f3dddbc349",
+        "index/audio.json": "2f592138188120b2bebf69fcd4f2e696b0ad169d0a89972d5065cc9cced386c6",
         "index/camera.json": "832bd975491f861cdb8d43d8c16d09967fa3f4d73fb16c4e5cab48c094e209c9",
         "index/display.json": "a444289c04bd939384e388b977a843e75d202e93fbe623bd09a23a4cf3afaed6",
         "index/lighting.json": "39a19946b0acf073818dbb55b6a03b897e77bdb2a2d214142e8479728c96e6a5",

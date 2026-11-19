@@ -288,6 +288,7 @@
       "ports": [
         3001
       ],
+      "simulated": true,
       "verified": true,
       "min_platform_version": "0.37.0",
       "tags": [

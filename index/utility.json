@@ -189,6 +189,7 @@
       "files": {
         "utility/generic_http.avcdriver": "43bd1439cbdbb99bf203aea25c4ef63f8776586c956645525352e7a0a1656737"
       },
+      "simulated": true,
       "tags": [
         "template",
         "rest",

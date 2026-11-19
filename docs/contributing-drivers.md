@@ -76,7 +76,7 @@ For YAML drivers, metadata sits at the top level alongside `transport` and `comm
 |-------|-------------|
 | `ports` | TCP/UDP ports the device listens on (e.g., `[23]`, `[4352]`). |
 | `protocols` | Protocol IDs that auto-discovery probes can identify (e.g., `["pjlink"]`). |
-| `simulated` | `true` if a simulator covers this driver. |
+| `simulated` | Set by the catalog build from the files (every YAML driver, and a Python driver whose `<driver>_sim.py` simulates it); a value written here is not used. |
 | `verified` | `true` only after testing on real hardware. New contributions: leave `false`. |
 | `min_platform_version` | Minimum OpenAVC version (semver). Computed for you — see below. Omit only when the driver uses no field that needs a particular release. |
 | `tags` | Lowercase, hyphen-separated keywords for Browse Drivers search (e.g., `["ndi", "ptz"]`). |

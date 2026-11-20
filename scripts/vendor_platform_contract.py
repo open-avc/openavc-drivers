@@ -466,6 +466,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         "scripts/_vendor/driver_model.py",
         (
             (
+                "from openavc.drivers.framing_checks import",
+                "from .framing_checks import",
+            ),
+            (
                 "from openavc.drivers.query_entry import",
                 "from .query_entry import",
             ),

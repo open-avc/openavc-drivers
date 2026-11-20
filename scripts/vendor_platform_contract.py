@@ -416,6 +416,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         "openavc/drivers/sign_in_checks.py",
         "scripts/_vendor/sign_in_checks.py",
         (
+            ("from openavc.drivers.auth_block import", "from .auth_block import"),
             ("from openavc.drivers.spec import", "from .spec import"),
             (
                 "from openavc.utils.regex_safety import",
@@ -462,9 +463,18 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         (("from openavc.drivers.spec import", "from .spec import"),),
     ),
     (
+        "openavc/drivers/auth_block.py",
+        "scripts/_vendor/auth_block.py",
+        (("from openavc.drivers.spec import", "from .spec import"),),
+    ),
+    (
         "openavc/drivers/driver_model.py",
         "scripts/_vendor/driver_model.py",
         (
+            (
+                "from openavc.drivers.auth_block import",
+                "from .auth_block import",
+            ),
             (
                 "from openavc.drivers.framing_checks import",
                 "from .framing_checks import",

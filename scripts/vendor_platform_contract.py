@@ -73,6 +73,11 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         (),
     ),
     (
+        "openavc/drivers/json_value_spec.py",
+        "scripts/_vendor/json_value_spec.py",
+        (),
+    ),
+    (
         "openavc/drivers/transport_choice.py",
         "scripts/_vendor/transport_choice.py",
         (),
@@ -515,6 +520,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
             (
                 "from openavc.drivers.declared_names import",
                 "from .declared_names import",
+            ),
+            (
+                "from openavc.drivers.json_value_spec import",
+                "from .json_value_spec import",
             ),
             (
                 "from openavc.utils.regex_safety import",

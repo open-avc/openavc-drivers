@@ -240,6 +240,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         "openavc/drivers/child_type_checks.py",
         "scripts/_vendor/child_type_checks.py",
         (
+            ("from openavc.drivers.child_ids import", "from .child_ids import"),
             (
                 "from openavc.drivers.declared_names import",
                 "from .declared_names import",
@@ -506,6 +507,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         "openavc/drivers/response_rule_checks.py",
         "scripts/_vendor/response_rule_checks.py",
         (
+            ("from openavc.drivers.child_ids import", "from .child_ids import"),
             (
                 "from openavc.drivers.condition_checks import",
                 "from .condition_checks import",

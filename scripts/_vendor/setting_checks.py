@@ -42,6 +42,7 @@ from typing import Any, Callable
 from .declared_names import UNEVALUATED_KEY, declared_enum_values
 from .send_shape import osc_args_errors
 from .spec import CONNECTION_FIELDS, VALUE_TYPES, is_secret_setting
+from .usable_number import is_number_value
 
 # A set, so a type that is not hashable raises at the lookup, as it always has.
 _SETTING_TYPES = set(VALUE_TYPES)
@@ -75,17 +76,18 @@ def _type_errors(where: str, setting_def: dict[str, Any]) -> list[str]:
 
 def _bounds_errors(where: str, setting_def: dict[str, Any]) -> list[str]:
     """``min`` above ``max`` leaves no value to set; a bound that is not a
-    number (a boolean included) is not compared."""
+    usable number (``is_number_value``: a boolean, an infinity or NaN) is not
+    compared, and the shape walk names it."""
     mn, mx = setting_def.get("min"), setting_def.get("max")
-    if not all(map(_is_number, (mn, mx))):
+    if not _comparable(mn, mx):
         return []
     if mn > mx:
         return [f"{where}: min ({mn}) is greater than max ({mx})"]
     return []
 
 
-def _is_number(value: Any) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
+def _comparable(low: Any, high: Any) -> bool:
+    return is_number_value(low) and is_number_value(high)
 
 
 def _write_errors(where: str, setting_def: dict[str, Any]) -> list[str]:

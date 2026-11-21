@@ -48,6 +48,7 @@ from .spec import (
     SILENCE_CHECK_TRANSPORTS,
     is_secret_setting,
 )
+from .usable_number import usable_number
 
 # The transports that wait `inter_command_delay` after each write themselves;
 # the driver adds no gap of its own there.
@@ -181,12 +182,7 @@ def _mapping(value: Any) -> dict[Any, Any]:
 
 
 def _number(value: Any) -> float | None:
-    if isinstance(value, bool):
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
+    return usable_number(value)
 
 
 def _seconds(value: float) -> str:

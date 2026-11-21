@@ -55,6 +55,7 @@ from .declared_names import (
 )
 from .spec import CHILD_ID_TYPES, INSTANCE_SOURCES
 from .state_variable_checks import CHILD_VARIABLE, state_variable_errors
+from .usable_number import is_number_value
 
 _GLOB_CHARACTERS = "*?["
 
@@ -482,8 +483,8 @@ def _child_id_bound_errors(
 ) -> list[str]:
     """A child_id param's declared bounds against its type's ``id_format``.
 
-    A bound that is not a number (a bool included) is not compared; a float
-    is, as the gate compares it.
+    A bound that is not a usable number (a bool, an infinity or NaN included)
+    is not compared; a float is, as the gate compares it.
     """
     errors: list[str] = []
     for bound, outside, word in _BOUNDS:
@@ -499,6 +500,5 @@ def _child_id_bound_errors(
 
 
 def _bound_number(value: Any) -> int | float | None:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        return None
-    return value
+    """The bound as written when it is a usable number (``is_number_value``)."""
+    return value if is_number_value(value) else None

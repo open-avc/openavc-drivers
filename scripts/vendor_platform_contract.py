@@ -249,6 +249,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from openavc.drivers.state_variable_checks import",
                 "from .state_variable_checks import",
             ),
+            ("from openavc.drivers.usable_number import", "from .usable_number import"),
         ),
     ),
     (
@@ -294,6 +295,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from openavc.utils.regex_safety import",
                 "from .regex_safety import",
             ),
+            ("from openavc.drivers.usable_number import", "from .usable_number import"),
         ),
     ),
     (
@@ -351,6 +353,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         (
             ("from openavc.drivers.child_ids import", "from .child_ids import"),
             ("from openavc.drivers.spec import (", "from .spec import ("),
+            ("from openavc.drivers.usable_number import", "from .usable_number import"),
         ),
     ),
     (
@@ -367,6 +370,11 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
     (
         "openavc/drivers/serial_line.py",
         "scripts/_vendor/serial_line.py",
+        (("from openavc.drivers.usable_number import", "from .usable_number import"),),
+    ),
+    (
+        "openavc/drivers/usable_number.py",
+        "scripts/_vendor/usable_number.py",
         (),
     ),
     (
@@ -387,6 +395,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from .send_shape import",
             ),
             ("from openavc.drivers.spec import", "from .spec import"),
+            ("from openavc.drivers.usable_number import", "from .usable_number import"),
         ),
     ),
     (
@@ -400,7 +409,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
     (
         "openavc/drivers/shape_checks.py",
         "scripts/_vendor/shape_checks.py",
-        (("from openavc.drivers.spec import", "from .spec import"),),
+        (
+            ("from openavc.drivers.spec import", "from .spec import"),
+            ("from openavc.drivers.usable_number import", "from .usable_number import"),
+        ),
     ),
     (
         "openavc/drivers/driver_id.py",
@@ -441,6 +453,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from openavc.utils.regex_safety import",
                 "from .regex_safety import",
             ),
+            ("from openavc.drivers.usable_number import", "from .usable_number import"),
         ),
     ),
     (
@@ -455,6 +468,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from openavc.drivers.query_entry import",
                 "from .query_entry import",
             ),
+            ("from openavc.drivers.usable_number import", "from .usable_number import"),
         ),
     ),
     (
@@ -465,7 +479,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
     (
         "openavc/drivers/auth_block.py",
         "scripts/_vendor/auth_block.py",
-        (("from openavc.drivers.spec import", "from .spec import"),),
+        (
+            ("from openavc.drivers.spec import", "from .spec import"),
+            ("from openavc.drivers.usable_number import", "from .usable_number import"),
+        ),
     ),
     (
         "openavc/drivers/driver_model.py",
@@ -501,6 +518,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from openavc.utils.regex_safety import",
                 "from .regex_safety import",
             ),
+            ("from openavc.drivers.usable_number import", "from .usable_number import"),
         ),
     ),
     (

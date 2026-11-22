@@ -259,9 +259,18 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         ),
     ),
     (
+        "openavc/drivers/command_form.py",
+        "scripts/_vendor/command_form.py",
+        (("from openavc.drivers.spec import", "from .spec import"),),
+    ),
+    (
         "openavc/drivers/command_checks.py",
         "scripts/_vendor/command_checks.py",
         (
+            (
+                "from openavc.drivers.command_form import",
+                "from .command_form import",
+            ),
             (
                 "from openavc.drivers.declared_names import",
                 "from .declared_names import",
@@ -393,6 +402,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         "scripts/_vendor/setting_checks.py",
         (
             (
+                "from openavc.drivers.command_form import",
+                "from .command_form import",
+            ),
+            (
                 "from openavc.drivers.declared_names import",
                 "from .declared_names import",
             ),
@@ -497,6 +510,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
             (
                 "from openavc.drivers.auth_block import",
                 "from .auth_block import",
+            ),
+            (
+                "from openavc.drivers.command_form import",
+                "from .command_form import",
             ),
             (
                 "from openavc.drivers.framing_checks import",

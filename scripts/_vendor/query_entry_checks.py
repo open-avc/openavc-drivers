@@ -44,7 +44,6 @@ driver contract (openavc-drivers' catalog CI, openavc-sdk).
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from .declared_names import (
@@ -53,10 +52,8 @@ from .declared_names import (
     declared_enum_values,
 )
 from .query_entry import EACH_CHILD, QueryEntry, read_query_entry
+from .spec import placeholder_names
 from .usable_number import is_number_value
-
-# A {child_id} / {child_id:spec} token in a query template.
-_CHILD_ID_TOKEN = re.compile(r"\{child_id(?::[^{}]*)?\}")
 
 # The shapes a mapping entry may take, for the message that names them.
 _ENTRY_SHAPES = (
@@ -112,7 +109,7 @@ class FollowUp:
             return []
         send = entry.get("send") if isinstance(entry, dict) else entry
         read = entry.get("query_for") if isinstance(entry, dict) else None
-        if isinstance(send, str) and _CHILD_ID_TOKEN.search(send):
+        if isinstance(send, str) and "child_id" in placeholder_names(send):
             return self._routed_errors(where, read)
         if isinstance(read, str) and read in self._written:
             return [
@@ -234,7 +231,7 @@ class QueryEntries:
             follow_up is not None
             and "each_child" not in entry
             and isinstance(entry.get("send"), str)
-            and _CHILD_ID_TOKEN.search(entry["send"]) is not None
+            and "child_id" in placeholder_names(entry["send"])
         )
         return [
             *self._when_errors(where, entry),
@@ -418,7 +415,7 @@ class QueryEntries:
         send = entry.send
         if not isinstance(send, str) or not send:
             errors.append(f"{where}: missing 'send' template")
-        elif not _CHILD_ID_TOKEN.search(send):
+        elif "child_id" not in placeholder_names(send):
             errors.append(
                 f"{where}: 'send' must contain {{child_id}} (a format spec like "
                 f"{{child_id:02d}} works too)"

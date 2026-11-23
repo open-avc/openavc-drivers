@@ -487,6 +487,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from openavc.drivers.query_entry import",
                 "from .query_entry import",
             ),
+            ("from openavc.drivers.spec import", "from .spec import"),
             ("from openavc.drivers.usable_number import", "from .usable_number import"),
         ),
     ),
@@ -523,6 +524,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from openavc.drivers.query_entry import",
                 "from .query_entry import",
             ),
+            ("from openavc.drivers.spec import", "from .spec import"),
         ),
     ),
     (

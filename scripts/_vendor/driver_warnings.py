@@ -47,13 +47,9 @@ from .spec import (
     PORT_OPEN_TRANSPORTS,
     SILENCE_CHECK_TRANSPORTS,
     is_secret_setting,
+    transport_has,
 )
 from .usable_number import usable_number
-
-# The transports that wait `inter_command_delay` after each write themselves;
-# the driver adds no gap of its own there.
-_DELAY_ONLY_TRANSPORTS = ("udp", "http")
-
 
 def masked_default_warnings(driver_def: dict[str, Any]) -> Iterator[tuple[Any, list[str]]]:
     """Each config field that draws the masked-default warning, with it."""
@@ -271,7 +267,7 @@ def _line_gap(transport: Any, delay: float) -> float | None:
     whose lines are not counted."""
     if transport in LINE_GAP_TRANSPORTS:
         return delay if delay > 0 else DEFAULT_LINE_GAP_S
-    if transport in _DELAY_ONLY_TRANSPORTS:
+    if transport_has(transport, "delay_only"):
         return delay
     return None
 

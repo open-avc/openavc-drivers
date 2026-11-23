@@ -27,6 +27,7 @@ NAMES = {
 
 class Dmp128PlusSimulator(TCPSimulator):
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "extron_dmp_128_plus",
         "name": "Extron DMP 128 Plus simulator",
         "category": "audio",

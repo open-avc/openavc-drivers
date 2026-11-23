@@ -315,7 +315,7 @@ class BssSoundwebOmniDriver(BaseDriver):
         "name": "BSS Soundweb OMNI",
         "manufacturer": "BSS Audio",
         "category": "audio",
-        "version": "1.0.0",
+        "version": "1.0.1",
         # Set by hand (the contract check cannot see a method call):
         # BaseDriver.child_fault, 0.29.0.
         "min_platform_version": "0.29.0",

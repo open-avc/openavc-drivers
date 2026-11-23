@@ -87,7 +87,7 @@ class CatchboxPlusHubDriver(BaseDriver):
         "name": "Catchbox Plus Hub",
         "manufacturer": "Catchbox",
         "category": "audio",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "author": "OpenAVC",
         "description": "Discover the Hub and its fitted microphone channels. Control input and mix output "
         "mute and monitor link, charging, battery and RF signal for each microphone.",

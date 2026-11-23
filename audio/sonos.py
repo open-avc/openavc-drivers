@@ -604,7 +604,7 @@ class SonosDriver(BaseDriver):
         "name": "Sonos Speaker",
         "manufacturer": "Sonos",
         "category": "audio",
-        "version": "2.1.0",
+        "version": "2.1.1",
         "author": "OpenAVC",
         "description": (
             "Controls Sonos speakers, amps and home theater products via the "

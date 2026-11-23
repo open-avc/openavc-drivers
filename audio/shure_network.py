@@ -306,7 +306,7 @@ class ShureNetworkDriver(BaseDriver):
         "name": "Shure Networked Devices",
         "manufacturer": "Shure",
         "category": "audio",
-        "version": "2.2.2",
+        "version": "2.2.3",
         # learned_from on Channel Count and Model landed in 0.37.0.
         "min_platform_version": "0.37.0",
         "author": "OpenAVC",

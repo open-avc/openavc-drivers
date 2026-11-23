@@ -972,7 +972,7 @@ class AllenHeathDLiveDriver(BaseDriver):
         "name": "Allen & Heath dLive Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "2.1.3",
+        "version": "2.1.4",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath dLive digital mixing systems "

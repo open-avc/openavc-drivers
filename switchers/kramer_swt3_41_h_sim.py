@@ -10,6 +10,7 @@ from openavc.simulator.tcp_simulator import TCPSimulator
 
 class KramerSwt3Simulator(TCPSimulator):
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "kramer_swt3_41_h",
         "name": "Kramer SWT3-21-H / SWT3-41-H Simulator",
         "category": "switcher",

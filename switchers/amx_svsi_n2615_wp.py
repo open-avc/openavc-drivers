@@ -150,7 +150,7 @@ class AMXN2615WPDriver(BaseDriver):
         "manufacturer": "AMX",
         "author": "OpenAVC",
         "category": "switcher",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "transport": "tcp",
         "ports": [50002, 50102],
         "web_ui": "{web_scheme}://{host}",

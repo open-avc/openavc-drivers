@@ -127,6 +127,7 @@ _INPUT = {"1": ("choice", ["0", "4", "12", "24"]), "2": _ONOFF, "3": _ONOFF}
 class BosePowerMatchSimulator(TCPSimulator):
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "bose_powermatch",
         "name": "Bose PowerMatch Amplifier Simulator",
         "category": "audio",

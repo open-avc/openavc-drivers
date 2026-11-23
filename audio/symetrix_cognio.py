@@ -183,7 +183,7 @@ class SymetrixCognioDriver(BaseDriver):
         "name": "Symetrix Cognio",
         "manufacturer": "Symetrix",
         "category": "audio",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
         "description": (

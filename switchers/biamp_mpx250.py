@@ -94,7 +94,7 @@ class BiampMPX250Driver(BaseDriver):
      'name': 'Biamp EasyConnect MPX 250',
      'manufacturer': 'Biamp',
      'category': 'switcher',
-     'version': '1.0.0',
+     'version': '1.0.1',
      'author': 'OpenAVC',
      'description': 'Select a USB-C laptop or room-system mode, read connection status and configure '
                     'the hub’s switching policies.',

@@ -107,7 +107,7 @@ class LightwareMMX2Driver(BaseDriver):
         "protocols": ["lightware_lw3"],
         "id": "lightware_mmx2_4x3_h20",
         "name": "Lightware MMX2-4x3-H20",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "min_platform_version": "0.36.0",
         "source_url": "https://assets.prod.pim.lightware.com/assets/File-Downloads/Guides-and-Manuals/User-Manual/MMX2_series_UserManual.pdf",
         "verified": False,

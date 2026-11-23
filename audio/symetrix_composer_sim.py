@@ -47,6 +47,7 @@ def _fmt_push(number: int, value: int) -> bytes:
 class SymetrixComposerSimulator(TCPSimulator):
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "symetrix_composer",
         "name": "Symetrix Composer DSP Simulator",
         "category": "audio",

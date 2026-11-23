@@ -173,6 +173,7 @@ def hc_line(verb, path, **data):
 
 class AMXN2622SSimulator(TCPSimulator):
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "amx_svsi_n2622s",
         "name": "AMX SVSI N2422A / N2622S / N3322D Decoder Simulator",
         "category": "switcher",

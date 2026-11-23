@@ -492,6 +492,8 @@ HTTP simulators are always poll-based regardless of the flag. State changes from
 
 A UDP device has no connections to push to, so it pushes to the last peer it heard from, which is the driver once it has sent anything. `push_state: true` and `notifications:` templates both deliver there, and so does a handler's `notify(text)`.
 
+**A Python simulator pushes in its own code** (`push()`, `push_to()`, `send_to_listener()`, `push_sse_event()`, `send_trap()`), so the platform cannot tell that it does. Put `"push_state": True` in its `SIMULATOR_INFO` and its card reads **Pushes state changes** (OpenAVC 0.41.0 and later; an older Simulator ignores it). It changes nothing else: the simulator still decides what it sends and when.
+
 ### Notifications (Custom Push Format Override)
 
 When `push_state: true` is set, the default push format uses the driver's existing `responses:` patterns. When more than one response rule sets the same value (a rule for the device's special codes ahead of the general one), a push takes the form of the first rule that reads the value back, so 400 goes out as `00400` when the general rule reads five digits. If your device's unsolicited message format differs from the standard response format (for example, different prefixes for pushed vs. polled responses, or value-specific messages like `Amt1` vs. `Amt0`), add a `notifications` section to override the push format:

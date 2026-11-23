@@ -489,7 +489,7 @@ class OnvifCameraDriver(BaseDriver):
         "name": "ONVIF Camera",
         "manufacturer": "ONVIF",
         "category": "camera",
-        "version": "2.0.10",
+        "version": "2.0.11",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",

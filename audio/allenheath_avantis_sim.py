@@ -89,6 +89,7 @@ ADDR_MAP = _build_addr_map()
 
 class AllenHeathAvantisSimulator(TCPSimulator):
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "allenheath_avantis",
         "name": "Allen & Heath Avantis Mixer (sim)",
         "transport": "tcp",

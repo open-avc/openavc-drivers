@@ -22,6 +22,7 @@ MODEL = ROOT + "system/$device/@items/1/@props/dev"
 
 class AnalogwayAquilonSimulator(TCPSimulator):
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "analogway_aquilon",
         "name": "Analog Way Aquilon",
         "category": "video",

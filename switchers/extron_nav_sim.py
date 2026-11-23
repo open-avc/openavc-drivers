@@ -107,6 +107,7 @@ class ExtronNavSimulator(TCPSimulator):
     """Simulated Extron NAVigator System Manager."""
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "extron_nav",
         "name": "Extron NAVigator System Manager Simulator",
         "category": "switcher",

@@ -1152,7 +1152,7 @@ class BSSSoundwebLondonDriver(BaseDriver):
         "name": "BSS Soundweb London (BLU)",
         "manufacturer": "BSS Audio",
         "category": "audio",
-        "version": "1.1.10",
+        "version": "1.1.11",
         # Set by hand (the contract check cannot see a method call): the
         # Test Connection socket binds to BaseDriver.local_address(), 0.37.0.
         "min_platform_version": "0.37.0",

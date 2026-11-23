@@ -176,7 +176,7 @@ class ContemporaryResearchTuner(BaseDriver):
         "name": "Contemporary Research 232-ATSC 4K",
         "manufacturer": "Contemporary Research",
         "category": "video",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         "min_platform_version": "0.37.1",
         "description": "Control a broadcast or cable TV tuner from its own channel memory. Select named stations, "

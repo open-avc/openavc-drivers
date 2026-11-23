@@ -143,7 +143,7 @@ class YamahaDMEDriver(BaseDriver):
      'name': 'Yamaha DME7/DME5/DME3',
      'manufacturer': 'Yamaha',
      'category': 'audio',
-     'version': '1.0.0',
+     'version': '1.0.1',
      'author': 'OpenAVC',
      'description': 'Controls Yamaha DME installation processors, importing their Remote Control Setup '
                     'List with live feedback, snapshots, optional metering, audio playback, and public '

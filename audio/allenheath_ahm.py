@@ -167,7 +167,7 @@ class AllenHeathAHM(BaseDriver):
         "name": "Allen & Heath AHM",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "min_platform_version": "0.37.2",
         "author": "OpenAVC",
         "source_url": "https://www.allen-heath.com/content/uploads/2024/10/AHM-TCP-Protocol-V1.5.pdf",

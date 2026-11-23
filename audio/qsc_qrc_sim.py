@@ -265,6 +265,7 @@ def _parse_channel_spec(spec: str, max_n: int = 64) -> list[int]:
 class QSCQRCSimulator(TCPSimulator):
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "qsc_qrc",
         "name": "QSC Q-SYS QRC Simulator",
         "category": "audio",

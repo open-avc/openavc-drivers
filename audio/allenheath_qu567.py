@@ -849,7 +849,7 @@ class AllenHeathQu567Driver(BaseDriver):
         "name": "Allen & Heath Qu-5/6/7 Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.2.2",
+        "version": "1.2.3",
         "author": "OpenAVC",
         "description": (
             "Controls the current Allen & Heath Qu generation (Qu-5, Qu-6, "

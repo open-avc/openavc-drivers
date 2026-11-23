@@ -126,6 +126,7 @@ _PANEL = {"1": _ONOFF, "2": _num(20, 22000), "3": _num(0.1, 40.0), "4": _ONOFF,
 class BosePowerShareXSimulator(TCPSimulator):
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "bose_powersharex",
         "name": "Bose PowerShareX Amplifier Simulator",
         "category": "audio",

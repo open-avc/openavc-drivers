@@ -107,6 +107,7 @@ RE_SESSION = re.compile(r"^SESSION\s+(.*)$", re.IGNORECASE)
 class BiampTesiraTTPSimulator(TCPSimulator):
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "biamp_tesira_ttp",
         "name": "Biamp Tesira TTP Simulator",
         "category": "audio",

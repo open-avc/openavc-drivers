@@ -220,6 +220,7 @@ class DatagramServer(asyncio.DatagramProtocol):
 
 class KNXIPSimulator(TCPSimulator):
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "knx_ip", "name": "KNX/IP Interface", "category": "utility", "transport": "tcp",
         "single_client": "reject",
         "initial_state": {"light_on": False, "brightness": 50.0, "shade_position": 25.0,

@@ -250,7 +250,7 @@ class BiampParleVBC2800Driver(BaseDriver):
         "name": "Biamp Parlé VBC 2800",
         "manufacturer": "Biamp",
         "category": "video",
-        "version": "1.0.0",
+        "version": "1.0.1",
         # The contract check computes 0.24.0 (the ssh transport), but 0.24.0
         # still shipped the platform as `server` and the code's hooks were
         # checked on 0.36.0, so this is the floor the driver was run on.

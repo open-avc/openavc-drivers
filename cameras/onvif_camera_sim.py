@@ -256,6 +256,7 @@ class OnvifCameraSimulator(HTTPSimulator):
     """A Profile S/T PTZ camera with I/O and events, over SOAP."""
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "onvif_camera",
         "name": "ONVIF Camera Simulator",
         "category": "camera",

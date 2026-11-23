@@ -289,6 +289,7 @@ class PhilipsHueSimulator(HTTPSimulator):
     """Simulated Hue Bridge (CLIP v2 + eventstream + v1 pairing)."""
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "philips_hue",
         "name": "Philips Hue Bridge Simulator",
         "category": "lighting",

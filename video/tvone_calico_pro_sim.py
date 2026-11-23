@@ -92,6 +92,7 @@ _WRITABLE = (
 
 class TvoneCalicoProSimulator(TCPSimulator):
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "tvone_calico_pro",
         "name": "tvONE CALICO PRO Simulator",
         "category": "video",

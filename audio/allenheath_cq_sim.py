@@ -128,6 +128,7 @@ _UI_KEYS: dict[str, tuple[tuple[int, int], str]] = {
 
 class AllenHeathCQSimulator(TCPSimulator):
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "allenheath_cq",
         "name": "Allen & Heath CQ Mixer (sim)",
         "category": "audio",

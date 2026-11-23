@@ -12,7 +12,7 @@
       "name": "AMX SVSI N2422A / N2622S / N3322D Decoders",
       "manufacturer": "AMX",
       "category": "switcher",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Routes named video and independent audio to an N2422A, N2622S or N3322D. Controls local playback, scaling, line levels and HDMI output. The N3322D supports named H.26x sources and Dante AV-H ownership feedback.",
@@ -20,8 +20,8 @@
       "file": "switchers/amx_svsi_n2622s.py",
       "format": "python",
       "files": {
-        "switchers/amx_svsi_n2622s.py": "0b8e09ace9320b93811d2d1c78c52e3073b78b84981623af0a007a023a749e62",
-        "switchers/amx_svsi_n2622s_sim.py": "39d585a23c554d97484253a0b2bbaa12c995a26383a7cd9407496caa15308bb6"
+        "switchers/amx_svsi_n2622s.py": "1414738889a19fd67c29daa9471214c68f033f9b92fd8101f8b840a52886f31f",
+        "switchers/amx_svsi_n2622s_sim.py": "07adf8a4f96e21c6a92625995412c6fcdd2f7e5d117539357471414b9fa527c9"
       },
       "ports": [
         50002,
@@ -94,7 +94,7 @@
       "name": "AMX SVSI N2612S and N3312D Encoders",
       "manufacturer": "AMX",
       "category": "switcher",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Select either HDMI input or Auto on the standalone encoder or rack card, monitor both inputs, and control the SVSI and H.26x streams. N3312D standalone and card encoders also offer USB recording.",
@@ -102,8 +102,8 @@
       "file": "switchers/amx_svsi_n2612s.py",
       "format": "python",
       "files": {
-        "switchers/amx_svsi_n2612s.py": "e22273056a77b82b67de709b02df824c344f51db306793d8d9c655442a6604ea",
-        "switchers/amx_svsi_n2612s_sim.py": "98033db04cb745cf0a1abf33a0ecca7018b429d9dbe2df99e270b8fb6b097d44"
+        "switchers/amx_svsi_n2612s.py": "182aefcd5b94ec5b45fd4387a7b53c5089463152ceb14f653022a7e9b2149e4e",
+        "switchers/amx_svsi_n2612s_sim.py": "e0e7a97ed07e321d34fcacc466bedfc7cd75caec7c1b69142a239df5319c92b3"
       },
       "ports": [
         50002,
@@ -172,7 +172,7 @@
       "name": "AMX SVSI N2615 HDMI / USB-C Wallplate Encoders",
       "manufacturer": "AMX",
       "category": "switcher",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Switch HDMI and USB-C or let the last-connected source win. Reports active input, cable presence and incoming resolution, and controls SVSI streaming, audio, USB and KVM.",
@@ -180,8 +180,8 @@
       "file": "switchers/amx_svsi_n2615_wp.py",
       "format": "python",
       "files": {
-        "switchers/amx_svsi_n2615_wp.py": "26753fb238aaf80439e1bb3ac95d254b4c0ea96d6c2d7cf948b8293cfcf97abe",
-        "switchers/amx_svsi_n2615_wp_sim.py": "5dac22f6db256ac2fb7843ea6c6e1bd05ff3bce65ac426d15300ef474d45e88b"
+        "switchers/amx_svsi_n2615_wp.py": "a03726e3aebcf7721c0fc23c20f668608a8e6ba8d7457a9be403d407e3c12371",
+        "switchers/amx_svsi_n2615_wp_sim.py": "0c2d4f090d430ee17cc20300869bb4bef7e69785374310f2bcc831c379ae45aa"
       },
       "ports": [
         50002,
@@ -241,7 +241,7 @@
       "name": "AMX SVSI N2625 Wallplate Decoders",
       "manufacturer": "AMX",
       "category": "switcher",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Route MWC video, audio and USB/KVM to a wallplate. Read the selected streams, HDMI connection, incoming signal and display timing.",
@@ -249,8 +249,8 @@
       "file": "switchers/amx_svsi_n2625_wp.py",
       "format": "python",
       "files": {
-        "switchers/amx_svsi_n2625_wp.py": "9154ec5f4d59c5124dbb77dc674044ba491bf1e02b89ad189287ee35133a3ce4",
-        "switchers/amx_svsi_n2625_wp_sim.py": "45b42f30c3c34b4afc76dfdcdea486a6042fa1a2efc7cdb00d143abf7a9484f9"
+        "switchers/amx_svsi_n2625_wp.py": "d977a051c8f53bdb3bb12f190ef0f010d678427f690e7ec41650f5db2cda93d4",
+        "switchers/amx_svsi_n2625_wp_sim.py": "3bf69bf987d8f7da3a52859bf39d56963025e4b211b193e8375bf80739858898"
       },
       "ports": [
         50002,
@@ -742,7 +742,7 @@
       "name": "AVPro Edge MXNet 10G",
       "manufacturer": "AVPro Edge",
       "category": "switcher",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls an AVPro Edge MXNet 10G AV-over-IP system through its 10G Control Box. Encoders and decoders appear as child entities with per-plane routing (video, audio, analog audio, USB, IR, RS-232), EDID, CEC/IR/RS-232 passthrough, and video wall, multiview and matrix recall.",
@@ -750,8 +750,8 @@
       "file": "switchers/avproedge_mxnet_10g.py",
       "format": "python",
       "files": {
-        "switchers/avproedge_mxnet_10g.py": "0bb17f50f55053c78ea62ca17384b24d8da6c090a71133a87ebd30bacaace6a1",
-        "switchers/avproedge_mxnet_10g_sim.py": "bbed39777d338d3ca1724666cc2d43a50d3f1086edc4e72852e7a4746a5f2293"
+        "switchers/avproedge_mxnet_10g.py": "5f8fb9142042d8881ca2c1d656c18f102dac7937b74d3f33beae017947d1eb57",
+        "switchers/avproedge_mxnet_10g_sim.py": "a99202fe136f11a46edfb63ccb4c6096a003f1fee62c752e62b699e5bf3e1f51"
       },
       "ports": [
         24
@@ -812,7 +812,7 @@
       "name": "AVPro Edge MXNet 1G",
       "manufacturer": "AVPro Edge",
       "category": "switcher",
-      "version": "1.4.5",
+      "version": "1.4.6",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls an AVPro Edge MXNet 1G AV-over-IP system through its MXNet Control Box (CBOX). Encoders and decoders appear as child entities with per-stream routing, EDID, scaling, CEC/IR/RS-232 passthrough, and video wall, scene, KVM and matrix preset recall.",
@@ -820,8 +820,8 @@
       "file": "switchers/avproedge_mxnet_1g.py",
       "format": "python",
       "files": {
-        "switchers/avproedge_mxnet_1g.py": "809ca1b55ffe886bd51c4610541210680f36f81d32913b99c91822559ae0d279",
-        "switchers/avproedge_mxnet_1g_sim.py": "95affbb8da8db55d0397ea543172311a5caf03658573587371cf48b34e47693a"
+        "switchers/avproedge_mxnet_1g.py": "012b4933b5e94c88e89754ac72a0e4c630e044a9e74fcb3262867c18aaf01362",
+        "switchers/avproedge_mxnet_1g_sim.py": "6c7c161fb05b60f512bf6bfa4ccd6f5fd0582e3bde2fce6964a8abd02ffed6a0"
       },
       "ports": [
         24
@@ -892,7 +892,7 @@
       "name": "AVPro Edge MXNet USP",
       "manufacturer": "AVPro Edge",
       "category": "switcher",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls an AVPro Edge MXNet USP AV-over-IP system through its control box. Encoders and decoders appear as child entities with per-plane routing (video, audio, USB, IR, RS-232), live encoder previews, EDID, CEC/IR/RS-232 passthrough, Dante and AVPro Flow settings, and video wall, multiview, matrix and playlist recall.",
@@ -900,8 +900,8 @@
       "file": "switchers/avproedge_mxnet_usp.py",
       "format": "python",
       "files": {
-        "switchers/avproedge_mxnet_usp.py": "660211100b856e1961f34a6e1d8f024459e5c3fbde1e26c2d81d44bac7e5b094",
-        "switchers/avproedge_mxnet_usp_sim.py": "896dc48e1f42ad4043cfa4917dd7fa1a408ba7cfe347f479497d8a40fa36368a"
+        "switchers/avproedge_mxnet_usp.py": "c2f804fe8817b2c90994f2997647f1a525666944adca3e384a7a09aaa6c875ad",
+        "switchers/avproedge_mxnet_usp_sim.py": "bb59043e06c44f421bab7321f66c3da1cc2c251eef609e7b28ecc81dea8745ff"
       },
       "ports": [
         24
@@ -972,7 +972,7 @@
       "name": "Biamp EasyConnect MPX 250",
       "manufacturer": "Biamp",
       "category": "switcher",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Select a USB-C laptop or room-system mode, read connection status and configure the hub\u2019s switching policies.",
@@ -980,8 +980,8 @@
       "file": "switchers/biamp_mpx250.py",
       "format": "python",
       "files": {
-        "switchers/biamp_mpx250.py": "71b6094658e8d8a324793b03a205156f105d3960090f8fbec7d240653ce54529",
-        "switchers/biamp_mpx250_sim.py": "0e3431ee1387b42b4ffb8c87065c6933eefe0e9894748e21cea2ea24ce150b3c"
+        "switchers/biamp_mpx250.py": "fb7630b391f09a6a8b96b8f9c21ddd28f7fbc11c88ae6509c51cea365e8c66f9",
+        "switchers/biamp_mpx250_sim.py": "0e94fcc93f8b9c1d31c39f33be9f8c5a58e97582907351f1eacfb442ded2394d"
       },
       "ports": [
         22
@@ -1333,7 +1333,7 @@
       "name": "Extron IN1806 / IN1808 Series",
       "manufacturer": "Extron",
       "category": "switcher",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Control IN1806 and IN1808 classroom presentation switchers using source names from the scaler. Includes signal and HDCP feedback, independent loop routing, room volume and model-specific amplifier channels.",
@@ -1341,8 +1341,8 @@
       "file": "switchers/extron_in1808.py",
       "format": "python",
       "files": {
-        "switchers/extron_in1808.py": "cba8d4ab585d646c152bd72729e57f37ca71a45a155143c046bead6518191392",
-        "switchers/extron_in1808_sim.py": "c4e99cfb4a8b9338ca85af2704b3cda5693fbfdac0bcaaffada5d5d03f3ed65a"
+        "switchers/extron_in1808.py": "0f5e7297f62cd587ea6daf13f68bf5e5e8997abb773d8c8f4d9beed5a4ea91fc",
+        "switchers/extron_in1808_sim.py": "61ee33fcea13689a27c2d08f1eb37e139e0573f115f2fa145bfd622509da1867"
       },
       "ports": [
         22023
@@ -1403,7 +1403,7 @@
       "name": "Extron NAV Pro AV-over-IP (NAVigator)",
       "manufacturer": "Extron",
       "category": "switcher",
-      "version": "1.1.4",
+      "version": "1.1.5",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Route and monitor an Extron NAV Pro AV-over-IP system through its NAVigator System Manager: video, audio and USB ties, WindoWall video-wall presets and windows, KVM workstation presets, system alarms, and every managed encoder and decoder as a child entity. Requires the free LinkLicense for Third-Party Control on the NAVigator.",
@@ -1411,8 +1411,8 @@
       "file": "switchers/extron_nav.py",
       "format": "python",
       "files": {
-        "switchers/extron_nav.py": "5b30086e4a2e5d4d21e38047051df19a43eb239183af75693d6d05299060c950",
-        "switchers/extron_nav_sim.py": "62f8618d94e8560234dc4c83df2b1dcdee3ad7e281d5dde604efce7d12fe6cc4"
+        "switchers/extron_nav.py": "1b7515dc7de8e1e80f2ab95be1e807fc38b49b696dd4c03eccf1cdf5fdee5b64",
+        "switchers/extron_nav_sim.py": "b81e3157f26886922ed78c8a396297f982f64a1d337e70b63b7d17e37bdf6f01"
       },
       "ports": [
         22023
@@ -1881,7 +1881,7 @@
       "name": "Kramer SWT3-21-H / SWT3-41-H",
       "manufacturer": "Kramer",
       "category": "switcher",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Auto-detected two- or four-input HDMI switcher with analog audio output and a bidirectional RS-232 gateway for a display or projector. Checks the gateway port, reply setting and serial format.",
@@ -1889,8 +1889,8 @@
       "file": "switchers/kramer_swt3_41_h.py",
       "format": "python",
       "files": {
-        "switchers/kramer_swt3_41_h.py": "1785c9ef14468a93d5937100106d98d8efe2885a2e63c7151eab0db1d70f5e86",
-        "switchers/kramer_swt3_41_h_sim.py": "7417d1d67cccd9d6b4f5e82d2564f92d20b0f1a81c297f92b476575a8df9c651"
+        "switchers/kramer_swt3_41_h.py": "254ee9de832284ab63f862f5585fadae7bfd94c7b2540dce7e4bb2af93661aeb",
+        "switchers/kramer_swt3_41_h_sim.py": "12d7c30a5ce25f6dcd1de82b3c9dd2c3b22b442b79140b28a4d2898ec028a973"
       },
       "ports": [
         5000
@@ -2026,7 +2026,7 @@
       "name": "Lightware MMX2-4x1-H20",
       "manufacturer": "Lightware",
       "category": "switcher",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the MMX2-4x1-H20 HDMI switcher and its analog audio output. Provides 1 two-way RS-232 bridge port(s) for connected equipment, with automatic serial line setup, live feedback and connection monitoring.",
@@ -2034,8 +2034,8 @@
       "file": "switchers/lightware_mmx2_4x1_h20.py",
       "format": "python",
       "files": {
-        "switchers/lightware_mmx2_4x1_h20.py": "597ba74450fbb3e28cee73b7c70ebc2b084ef503f68f49a14c120da34ef675f3",
-        "switchers/lightware_mmx2_4x1_h20_sim.py": "9963f5eaee977348beb296e76507880a204187c1c82d5a7ed7f44ad2690d3c5c"
+        "switchers/lightware_mmx2_4x1_h20.py": "7a82500da3ffe07d2a40abfdcbe5ab14313cbbe2d80f1b44c6ab0996069b4264",
+        "switchers/lightware_mmx2_4x1_h20_sim.py": "36b3da3a535180bc8562f015c540036136497c00862dd78d78216ce333b96756"
       },
       "ports": [
         6107
@@ -2086,7 +2086,7 @@
       "name": "Lightware MMX2-4x3-H20",
       "manufacturer": "Lightware",
       "category": "switcher",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the MMX2-4x3-H20 HDMI switcher and its analog audio output. Provides 2 two-way RS-232 bridge port(s) for connected equipment, with automatic serial line setup, live feedback and connection monitoring.",
@@ -2094,8 +2094,8 @@
       "file": "switchers/lightware_mmx2_4x3_h20.py",
       "format": "python",
       "files": {
-        "switchers/lightware_mmx2_4x3_h20.py": "5027a0d2529da6794387b0f861fab0a2b330054892e13f8fb0c8b0b8882c4bbb",
-        "switchers/lightware_mmx2_4x3_h20_sim.py": "58daf7c00af4742ba79bd2ab75a642fe77b7ad34fa24db9895d7828ed56c39cf"
+        "switchers/lightware_mmx2_4x3_h20.py": "87f376f2f2cfa1bd43f10a7042904de8d830d1e7b0941fb26a88ada2625b54ef",
+        "switchers/lightware_mmx2_4x3_h20_sim.py": "488362c61eab029fdc89579b0dc0cfb3f029924e1d3be6b53c1acb79a1c3513a"
       },
       "ports": [
         6107
@@ -2146,7 +2146,7 @@
       "name": "Lightware Taurus UCX-4x3-HC40",
       "manufacturer": "Lightware",
       "category": "switcher",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Routes USB-C and HDMI sources to three displays, selects the computer using the room USB peripherals, and controls analog audio. Two RS-232 connectors provide two-way serial control with automatic line setup.",
@@ -2154,8 +2154,8 @@
       "file": "switchers/lightware_ucx_4x3_hc40.py",
       "format": "python",
       "files": {
-        "switchers/lightware_ucx_4x3_hc40.py": "4b3aa97b333eea730b9899314468290bf0830ebcc98cea0f807cdda284d0d5d0",
-        "switchers/lightware_ucx_4x3_hc40_sim.py": "032b76f4e9dbf5f853e9a15e7d6ce0917565e03c8768604e71c26b00bb28a777"
+        "switchers/lightware_ucx_4x3_hc40.py": "5338516b1e25e3d924f421d5e0a85f23268d1e6e41e72ead8ca2b2f3acfcc696",
+        "switchers/lightware_ucx_4x3_hc40_sim.py": "5d84ca13839c994d461e8c5489babf5ae08fb8db71f727d6a9ad30d0584aa9dc"
       },
       "ports": [
         6107
@@ -2804,7 +2804,7 @@
       "name": "WyreStorm NetworkHD",
       "manufacturer": "WyreStorm",
       "category": "switcher",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a WyreStorm NetworkHD AV-over-IP system through its NHD-000-CTL or NHD-CTL-PRO controller. Every encoder (TX) and decoder (RX) the controller knows about appears as a child entity with live online, routing, and signal state. Covers matrix switching with per-stream breakaway (video, audio, USB, IR, RS-232), video wall scenes and windows, multiview layouts, display power proxy commands, and CEC / IR / RS-232 command injection to connected devices.",
@@ -2812,8 +2812,8 @@
       "file": "switchers/wyrestorm_networkhd.py",
       "format": "python",
       "files": {
-        "switchers/wyrestorm_networkhd.py": "aece22862625c6cb27525de23c23faddd15b8e7e185d9a5630b278094db90186",
-        "switchers/wyrestorm_networkhd_sim.py": "b7b37b35f92332c4d78fa7df559f9bf12f146ba9d81a6408e57d9615eab9cc57"
+        "switchers/wyrestorm_networkhd.py": "89778a0bee93b03b56f55b31f2e452e50aa14a88bf0627de904f0ba19fbce287",
+        "switchers/wyrestorm_networkhd_sim.py": "991576f3550cda042412c69679a8a33381520127a88280cc81a6973d62a557c4"
       },
       "ports": [
         23

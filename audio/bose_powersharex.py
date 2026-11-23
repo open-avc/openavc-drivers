@@ -595,7 +595,7 @@ class BosePowerShareXDriver(BaseDriver):
         "name": "Bose Professional PowerShareX (PSX1204D / PSX2404D / PSX4804D)",
         "manufacturer": "Bose Professional",
         "category": "audio",
-        "version": "1.0.1",
+        "version": "1.0.2",
         # BaseDriver.local_address(), which the Test Connection socket binds
         # to, needs 0.37.0 (set by hand: the contract check cannot see it).
         "min_platform_version": "0.37.0",

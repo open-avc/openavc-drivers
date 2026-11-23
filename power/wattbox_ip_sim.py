@@ -51,6 +51,7 @@ def _measures_power(model: str) -> bool:
 class WattBoxIPSimulator(TCPSimulator):
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "wattbox_ip",
         "name": "WattBox IP-Controlled PDU Simulator",
         "category": "power",

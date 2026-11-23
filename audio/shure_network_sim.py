@@ -98,6 +98,7 @@ _GAIN_WIRE_MAX = 1400
 class ShureNetworkSimulator(TCPSimulator):
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "shure_network",
         "name": "Shure Networked Audio Simulator",
         "category": "audio",

@@ -25,6 +25,7 @@ def _address(tree):
 
 class CatchboxPlusHubSimulator(UDPSimulator):
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "catchbox_plus_hub",
         "name": "Catchbox Plus Hub Simulator",
         "category": "audio",

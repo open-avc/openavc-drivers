@@ -93,6 +93,7 @@ class CognioSimError(Exception):
 class SymetrixCognioSimulator(TCPSimulator):
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "symetrix_cognio",
         "name": "Symetrix Cognio Simulator",
         "category": "audio",

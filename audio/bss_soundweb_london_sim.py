@@ -103,6 +103,7 @@ _SEED = {
 class BSSSoundwebLondonSimulator(TCPSimulator):
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "bss_soundweb_london",
         "name": "BSS Soundweb London Simulator",
         "category": "audio",

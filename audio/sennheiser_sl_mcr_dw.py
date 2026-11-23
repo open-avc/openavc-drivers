@@ -425,7 +425,7 @@ class SennheiserSlMcrDwDriver(BaseDriver):
         "name": "Sennheiser SpeechLine Multi-Channel Receiver DW",
         "manufacturer": "Sennheiser",
         "category": "audio",
-        "version": "1.0.1",
+        "version": "1.0.2",
         # learned_from (channel count, MAC address) landed in 0.37.0.
         "min_platform_version": "0.37.0",
         "author": "OpenAVC",

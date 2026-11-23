@@ -83,7 +83,7 @@
       "name": "ETC Paradigm",
       "manufacturer": "ETC",
       "category": "lighting",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Controls ETC Paradigm architectural lighting processors (P-ACP-E Mk2, P-ACP-D Mk2) through the Paradigm Serial Access Protocol over UDP or RS-232. List the channels, groups, presets, sequences, spaces, walls, macros and overrides to control by their LightDesigner names; each one shows its level or state.",
@@ -91,8 +91,8 @@
       "file": "lighting/etc_paradigm.py",
       "format": "python",
       "files": {
-        "lighting/etc_paradigm.py": "0df2d25a625968f3855d162434088a739f9c34706abe409ac087552582f23015",
-        "lighting/etc_paradigm_sim.py": "15088855ebf2311f9efb5778ff670d609a0a6f0d2033488c9d6ddac6e612559c"
+        "lighting/etc_paradigm.py": "0ade2dbc5238726509ff24ee6fcecb01c5b06f10233cb3382aa21ca95b71d491",
+        "lighting/etc_paradigm_sim.py": "8243ac2002fa56c7f1cd6ba4046d842dcfefc3c577ae483685d98fb3624ae8fd"
       },
       "ports": [
         4703
@@ -643,7 +643,7 @@
       "name": "Philips Hue Bridge",
       "manufacturer": "Signify",
       "category": "lighting",
-      "version": "3.0.3",
+      "version": "3.0.4",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Philips Hue lights, rooms, zones, and scenes via the CLIP v2 API on a Hue Bridge (HTTPS). Live push state from the bridge's event stream; every light and group is a child entity; pair with the bridge's link button straight from the device page. Requires the square v2 bridge (BSB002).",
@@ -651,8 +651,8 @@
       "file": "lighting/philips_hue.py",
       "format": "python",
       "files": {
-        "lighting/philips_hue.py": "5669ae050c5634aa8fa116a51ed533606f8481e3d18ad398efe19ce2866aa9e9",
-        "lighting/philips_hue_sim.py": "07b2365e117f674195e111ac28fced23d577d44f67746b6db98b97bf7abfd636"
+        "lighting/philips_hue.py": "6841075357c87dfdd9ac2a75cab45f47d2d406f71c91bd7f42494a6fbf8a34d1",
+        "lighting/philips_hue_sim.py": "3bad5e6fd00345582681fa00e3c24bc26abadb4e27501b308d1725def4a3ead9"
       },
       "ports": [
         443

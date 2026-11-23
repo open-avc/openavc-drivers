@@ -285,7 +285,7 @@ class AMXN2625WPDriver(BaseDriver):
         "manufacturer": "AMX",
         "category": "switcher",
         "author": "OpenAVC",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "transport": "tcp",
         "delimiter": "\r",
         "ports": [50002, 50102],

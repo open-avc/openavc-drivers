@@ -721,7 +721,7 @@ class AllenHeathAvantisDriver(BaseDriver):
         "name": "Allen & Heath Avantis Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "2.0.5",
+        "version": "2.0.6",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath Avantis digital mixing consoles via "

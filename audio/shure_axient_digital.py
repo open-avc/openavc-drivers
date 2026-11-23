@@ -205,7 +205,7 @@ class ShureAxientDigitalDriver(BaseDriver):
         "name": "Shure Axient Digital Receivers",
         "manufacturer": "Shure",
         "category": "audio",
-        "version": "1.1.3",
+        "version": "1.1.4",
         "min_platform_version": "0.37.0",
         "author": "OpenAVC",
         "description": (

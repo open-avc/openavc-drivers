@@ -58,7 +58,7 @@ class KramerSwt3Driver(BaseDriver):
         "name": "Kramer SWT3-21-H / SWT3-41-H",
         "manufacturer": "Kramer",
         "category": "switcher",
-        "version": "1.1.0",
+        "version": "1.1.1",
         "author": "OpenAVC",
         "min_platform_version": "0.27.0",
         "source_url": "https://cdn.kramerav.com/web/downloads/manuals/kramer-swt3-21-h__swt3-41-h_um_rev_7.pdf",

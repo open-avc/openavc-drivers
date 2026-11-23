@@ -126,6 +126,7 @@ def _amount(text: str | None) -> int | None:
 class EtcParadigmSimulator(DatagramServerMixin, TCPSimulator):
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "etc_paradigm",
         "name": "ETC Paradigm Simulator",
         "category": "lighting",

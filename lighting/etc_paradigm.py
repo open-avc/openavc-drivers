@@ -336,7 +336,7 @@ class EtcParadigmDriver(BaseDriver):
         "name": "ETC Paradigm",
         "manufacturer": "ETC",
         "category": "lighting",
-        "version": "1.1.1",
+        "version": "1.1.2",
         # Computed: commands.preset_record.confirm (0.36.0). Checked on the
         # v0.36.0 tag with its simulator: every hook the code calls is there.
         # The push block raises no floor for a Python driver: a release

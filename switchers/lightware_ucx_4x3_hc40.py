@@ -105,7 +105,7 @@ class LightwareTaurusDriver(BaseDriver):
         "protocols": ["lightware_lw3"],
         "id": "lightware_ucx_4x3_hc40",
         "name": "Lightware Taurus UCX-4x3-HC40",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "min_platform_version": "0.36.0",
         "source_url": "https://assets.prod.pim.lightware.com/assets/File-Downloads/Guides-and-Manuals/User-Manual/UCX_series_UserManual.pdf",
         "verified": False,

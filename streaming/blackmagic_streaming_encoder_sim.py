@@ -200,6 +200,7 @@ class _Session:
 class BlackmagicStreamingEncoderSimulator(TCPSimulator):
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "blackmagic_streaming_encoder",
         "name": "Blackmagic Streaming Encoder Simulator",
         "category": "streaming",

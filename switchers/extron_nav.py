@@ -185,7 +185,7 @@ class ExtronNavDriver(BaseDriver):
         "name": "Extron NAV Pro AV-over-IP (NAVigator)",
         "manufacturer": "Extron",
         "category": "switcher",
-        "version": "1.1.4",
+        "version": "1.1.5",
         "author": "OpenAVC",
         # Computed by `python -m openavc.drivers.check` from restarts_device_for
         # (0.34.0). BaseDriver.child_fault() -- which this driver calls on every

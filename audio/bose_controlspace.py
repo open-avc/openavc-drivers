@@ -1761,7 +1761,7 @@ class BoseControlSpaceDriver(BaseDriver):
         "name": "Bose Professional ControlSpace (ESP / EX / CSP)",
         "manufacturer": "Bose Professional",
         "category": "audio",
-        "version": "1.0.8",
+        "version": "1.0.9",
         # confirm on the commands that erase, delete or reset needs 0.36.0;
         # BaseDriver.local_address(), which the Test Connection socket binds
         # to, needs 0.37.0 (set by hand: the contract check cannot see it).

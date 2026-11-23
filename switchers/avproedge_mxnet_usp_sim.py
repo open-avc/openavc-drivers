@@ -157,6 +157,7 @@ class AVProEdgeMXNetUSPSimulator(TCPSimulator):
     """MXNet USP control box."""
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "avproedge_mxnet_usp",
         "name": "AVPro Edge MXNet USP Control Box Simulator",
         "category": "switcher",

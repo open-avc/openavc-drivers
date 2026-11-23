@@ -43,6 +43,7 @@ class HisenseSignageSimulator(TCPSimulator):
     """A Hisense signage display: binary frames, or the same frames as hex text."""
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "hisense_signage",
         "name": "Hisense Signage Display Simulator",
         "category": "display",

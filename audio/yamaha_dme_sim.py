@@ -45,6 +45,7 @@ EVENT_SONG = {
 
 class YamahaDMESimulator(TCPSimulator):
     SIMULATOR_INFO = {
+        'push_state': True,
         'driver_id': 'yamaha_dme', 'name': 'Yamaha DME Simulator',
         'category': 'audio', 'transport': 'tcp', 'default_port': 49280,
         'delimiter': '\n',

@@ -97,7 +97,7 @@
       "name": "Hisense Commercial Signage Display",
       "manufacturer": "Hisense",
       "category": "display",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Hisense commercial signage displays with Hisense's signage command set: the DM series (55OP90FE outdoor) over RS-232 and the 54DS012FE LED display over its IP Control service or RS-232. Power with Wake-on-LAN, screen on and off, input, volume and mute, picture and sound modes, brightness and backlight, rotation, the remote's keys, and status: signal, temperature, model, serial number and network.",
@@ -105,8 +105,8 @@
       "file": "displays/hisense_signage.py",
       "format": "python",
       "files": {
-        "displays/hisense_signage.py": "7eb7e30247b6a59ca495fe618f5d7782bc315cf7fb20ceac67ab41f69e7c8f5c",
-        "displays/hisense_signage_sim.py": "747c98b61167a715b29d1e0022cc422a29fef1e55d28d25073446935a3c3e4c2"
+        "displays/hisense_signage.py": "2236067cf09b9fc63d5cb0945f6a7c535cf692348d722ffa82afab84cb80853f",
+        "displays/hisense_signage_sim.py": "52bfb97568808b4b85a8cfda1dfa2cd4b42b1cac85df9d3a5982f12a9589db7b"
       },
       "ports": [
         8000

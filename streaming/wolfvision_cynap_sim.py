@@ -70,6 +70,7 @@ class WolfVisionCynapSimulator(TCPSimulator):
     """A WolfVision Cynap answering WolfProt on TCP 50915."""
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "wolfvision_cynap",
         "name": "WolfVision Cynap Simulator",
         "category": "streaming",

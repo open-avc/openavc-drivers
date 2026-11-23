@@ -165,7 +165,7 @@ class ExtronIN1808(BaseDriver):
         "name": "Extron IN1806 / IN1808 Series",
         "manufacturer": "Extron",
         "category": "switcher",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "min_platform_version": "0.27.0",
         "author": "OpenAVC",
         "source_url": "https://media.extron.com/public/download/files/userman/68-3131-01_B_IN1806-1808_UG.pdf",

@@ -42,6 +42,7 @@ def line(text):
 
 class ExtronIN1808Simulator(TCPSimulator):
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "extron_in1808",
         "name": "Extron IN1806 / IN1808",
         "transport": "tcp",

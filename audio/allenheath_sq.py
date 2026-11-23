@@ -1029,7 +1029,7 @@ class AllenHeathSQDriver(BaseDriver):
         "name": "Allen & Heath SQ Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "2.2.0",
+        "version": "2.2.1",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath SQ-5, SQ-6 and SQ-7 and SQ5+, SQ6+ and "

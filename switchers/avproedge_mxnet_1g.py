@@ -299,7 +299,7 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
         "name": "AVPro Edge MXNet 1G",
         "manufacturer": "AVPro Edge",
         "category": "switcher",
-        "version": "1.4.5",
+        "version": "1.4.6",
         # Gated on the platform surface this driver actually calls, which is
         # the newest thing it needs -- currently BaseDriver.local_address(),
         # which the Test Connection socket binds to (0.37.0), after

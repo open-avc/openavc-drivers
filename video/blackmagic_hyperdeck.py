@@ -151,7 +151,7 @@ class BlackmagicHyperDeckDriver(BaseDriver):
         "name": "Blackmagic HyperDeck",
         "manufacturer": "Blackmagic Design",
         "category": "video",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "author": "OpenAVC",
         # Computed: Restart's confirm needs 0.36.0. Everything newer the code
         # calls is looked up first (CommandRefusedError, local_address).

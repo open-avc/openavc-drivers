@@ -244,7 +244,7 @@ class RackLinkRLNKDriver(BaseDriver):
         "name": "Middle Atlantic RackLink PDU",
         "manufacturer": "Middle Atlantic",
         "category": "power",
-        "version": "1.3.11",
+        "version": "1.3.12",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",

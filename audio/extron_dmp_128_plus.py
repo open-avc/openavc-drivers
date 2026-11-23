@@ -83,7 +83,7 @@ class ExtronDmp128Plus(BaseDriver):
         "name": "Extron DMP 128 Plus",
         "manufacturer": "Extron",
         "category": "audio",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "source_url": "https://media.extron.com/public/download/files/userman/dmp_128_plus_68-2826-01_N.pdf",

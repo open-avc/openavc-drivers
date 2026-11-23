@@ -172,7 +172,7 @@ class BlackmagicStreamingEncoderDriver(BaseDriver):
         "name": "Blackmagic Streaming Encoder",
         "manufacturer": "Blackmagic Design",
         "category": "streaming",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         # Computed: the confirm on Restart and Factory Reset needs 0.36.0.
         # Everything newer the code calls is looked up first

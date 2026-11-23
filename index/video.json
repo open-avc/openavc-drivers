@@ -12,7 +12,7 @@
       "name": "Analog Way Aquilon",
       "manufacturer": "Analog Way",
       "category": "video",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Aquilon Cmini, C, C+ and Cmax presentation systems on firmware 6.2. Named screens, layers and sources, separate Preview and Program routing, preset recall, multiviewer control and subscribed status feedback.",
@@ -20,8 +20,8 @@
       "file": "video/analogway_aquilon.py",
       "format": "python",
       "files": {
-        "video/analogway_aquilon.py": "cd26ef17d9b99295426bf1da73bced88ff3807659379fef07be6b94fef61e3a5",
-        "video/analogway_aquilon_sim.py": "bb2f4d611c0b7d5afee6d93807b8f6430ef28707fc68ecf4faa3b7b296f0c1f9"
+        "video/analogway_aquilon.py": "dac4f19f3d72be0db741d5e4721eb8529496cb355cee0e712708f8336dc3cf51",
+        "video/analogway_aquilon_sim.py": "1aa837f1da187d0ef393fc839c288f3419dc72a156078232fe8a407b45c5f0e6"
       },
       "ports": [
         10606
@@ -76,7 +76,7 @@
       "name": "Biamp Parl\u00e9 VBC 2800",
       "manufacturer": "Biamp",
       "category": "video",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Controls the Biamp Parl\u00e9 VBC 2800 video bar over its Network API (SSH): camera autoframing, tiling, pan, tilt, zoom and presets, the USB, analog and assistive listening audio levels and mutes, source selection, and people count, updated as they change.",
@@ -84,8 +84,8 @@
       "file": "video/biamp_parle_vbc2800.py",
       "format": "python",
       "files": {
-        "video/biamp_parle_vbc2800.py": "5629965194a693b3ccc213a27e6ca4eea65cf64346ce678c3e52872560845e3d",
-        "video/biamp_parle_vbc2800_sim.py": "b96ae73b8d0ac2bdd57603dd398bb379e3d9c4d34f1b54d76ae6daf22dda1a4b"
+        "video/biamp_parle_vbc2800.py": "607ffc8c13c4692d9822b587c4d4f57ce971c99eef6784d1bd4715ceb27f8b8d",
+        "video/biamp_parle_vbc2800_sim.py": "dce6c1dcaf60a2b650ce369db83a707e6e3e43ef7b77201dec63ce066935eca0"
       },
       "ports": [
         22
@@ -198,7 +198,7 @@
       "name": "Blackmagic HyperDeck",
       "manufacturer": "Blackmagic Design",
       "category": "video",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Blackmagic Design HyperDeck disk recorders (HyperDeck Studio, Shuttle and Extreme) over the HyperDeck Ethernet Protocol (TCP 9993): record, play and stop, clip and timecode navigation, slot selection, recording settings, and transport, slot and remote status the deck reports as it changes.",
@@ -206,8 +206,8 @@
       "file": "video/blackmagic_hyperdeck.py",
       "format": "python",
       "files": {
-        "video/blackmagic_hyperdeck.py": "18ce5b47924e8db7585f2f7976f8e954f4bf90705acc6b133d54f223dfabd250",
-        "video/blackmagic_hyperdeck_sim.py": "342e098aaddc039cef82cdf036d26a33929a2bba534dc8393cd8c8d1b3b4028e"
+        "video/blackmagic_hyperdeck.py": "33d9f233844fb23bf9ee9587561f050d9eea31ae7924073ee5125e39240ba437",
+        "video/blackmagic_hyperdeck_sim.py": "3297dc0eadcfe5f0ae274d35153037bc3dbc8ba2d0b8377f6e4ca978696ffe60"
       },
       "ports": [
         9993
@@ -509,7 +509,7 @@
       "name": "Contemporary Research 232-ATSC 4K",
       "manufacturer": "Contemporary Research",
       "category": "video",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Control a broadcast or cable TV tuner from its own channel memory. Select named stations, step through channels, and monitor reception, received resolution, audio and captions.",
@@ -517,8 +517,8 @@
       "file": "video/contemporary_research_232_atsc_4k.py",
       "format": "python",
       "files": {
-        "video/contemporary_research_232_atsc_4k.py": "0077ef10687fb78b5dbc5e858640140bb0d70f1175b77d91ac3a30df752e8b0e",
-        "video/contemporary_research_232_atsc_4k_sim.py": "b361b8d690a4ecbeb11f3e1643573f7e7def0900796d27e7bfee12d5c2143fbe"
+        "video/contemporary_research_232_atsc_4k.py": "48ad5b382ef03170113aec6df2180e8ada3cf3c12e100d735d9ffbf7b97a3708",
+        "video/contemporary_research_232_atsc_4k_sim.py": "a3183b9cff5052a9287aa6049250e9b6b2b26e48776191088e27888a000d39a1"
       },
       "ports": [
         23
@@ -1119,7 +1119,7 @@
       "name": "vMix",
       "manufacturer": "StudioCoast",
       "category": "video",
-      "version": "2.3.7",
+      "version": "2.3.8",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls vMix video production software via the TCP API. Supports transitions, input switching, audio, overlays, recording, streaming, titles, replay, PTZ, and the numbered outputs including their SRT streams.",
@@ -1127,8 +1127,8 @@
       "file": "video/vmix.py",
       "format": "python",
       "files": {
-        "video/vmix.py": "018a07722f0a3029746e35ce6669a7e2650794d29f49eb42384ef6e6bf127622",
-        "video/vmix_sim.py": "f7bae5b332e1efbef077f7af21d2eca79c670b461039ba301ff6563d9ba7cabb"
+        "video/vmix.py": "5ae04794c4b29cdcab46c57be11bff25a8a0838c654ea74794160cde8b0c399d",
+        "video/vmix_sim.py": "1e1e935c474e77c675004d38c61e73833d7f782ed6c4b86da2d98b8d0d081e39"
       },
       "ports": [
         8099
@@ -1183,7 +1183,7 @@
       "name": "tvONE CALICO PRO",
       "manufacturer": "tvONE",
       "category": "video",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Control CALICO PRO video walls with named presets, window sources, canvas audio, blanking and media playback, with live feedback and signal and system diagnostics.",
@@ -1191,8 +1191,8 @@
       "file": "video/tvone_calico_pro.py",
       "format": "python",
       "files": {
-        "video/tvone_calico_pro.py": "dd8c28dd8d5c5c9f611bcc797a06213ae4f13222c8421217a2ab19c4eea699dc",
-        "video/tvone_calico_pro_sim.py": "65952aefdc8511a709903add69d0941d20162552ec30b891ef164c46ac0316e5"
+        "video/tvone_calico_pro.py": "4e5e5a814e7a1f044b88c1ddd7a53a1c8e842f40322c205fe7567f034fc58100",
+        "video/tvone_calico_pro_sim.py": "8910b768472fb3084215e73c6c28764855603bd15020d2fde0eac9e238f38b81"
       },
       "ports": [
         10001

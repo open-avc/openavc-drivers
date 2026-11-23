@@ -116,6 +116,7 @@ class ParleSimError(Exception):
 class BiampParleVBC2800Simulator(TCPSimulator):
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "biamp_parle_vbc2800",
         "name": "Biamp Parlé VBC 2800 Simulator",
         "category": "video",

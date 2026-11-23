@@ -187,7 +187,7 @@
       "name": "Middle Atlantic RackLink PDU",
       "manufacturer": "Middle Atlantic",
       "category": "power",
-      "version": "1.3.11",
+      "version": "1.3.12",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Middle Atlantic / Legrand RackLink RLNK power distribution units (Select, Premium, Premium+) over the RackLink Control Protocol on TCP port 60000. Outlet and dry-contact control, sequencing, naming, EPO, and live voltage / current / temperature / wattage telemetry. Premium models push unsolicited status changes; Select models fall back to polling.",
@@ -195,8 +195,8 @@
       "file": "power/racklink_rlnk.py",
       "format": "python",
       "files": {
-        "power/racklink_rlnk.py": "08317348be827e02e105b7de57eb8cc532dbc5210ab2b4ea97da7802f0a4b47e",
-        "power/racklink_rlnk_sim.py": "da9f1afe0b35bda849f5a1a3fb8dac74634b748adfb5c390d8d19e2ad3dfe32b"
+        "power/racklink_rlnk.py": "1bfd26ec1051bb10a6fe3b5a149a472d4a5d99ade943821cfdae86cf90ff182e",
+        "power/racklink_rlnk_sim.py": "680c89b34a80b35f6c7834c2fbc7262058b524a733d69010fcba6b75151b5c35"
       },
       "ports": [
         60000
@@ -463,7 +463,7 @@
       "name": "WattBox IP-Controlled PDU",
       "manufacturer": "WattBox",
       "category": "power",
-      "version": "1.4.1",
+      "version": "1.4.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls SnapAV WattBox IP-controlled power distribution units over the WattBox Integration Protocol (Telnet, port 23). Outlets are addressable children with per-outlet state, name, and power metering. Supports on/off/toggle/reset, per-outlet naming, auto-reboot configuration, system + per-outlet power metering on the models that measure it, and UPS status reporting on units with a connected UPS.",
@@ -471,8 +471,8 @@
       "file": "power/wattbox_ip.py",
       "format": "python",
       "files": {
-        "power/wattbox_ip.py": "6b1bfa8e773e71908d1d9444661530b8dd70dc84551d7f75565460af8692cff0",
-        "power/wattbox_ip_sim.py": "7743be86a473d9ec630152d5099b14edc65f6f439e31c396b1401977af54d7fb"
+        "power/wattbox_ip.py": "c5b3722fd0e30ac2ffd04d561153ff945ef4eb07dec71c8f314985e5d491d335",
+        "power/wattbox_ip_sim.py": "4c72d4556263d7fa4e880cc09a31f83fe5d6673a0fb8cbb768865f4f741ae33a"
       },
       "ports": [
         23

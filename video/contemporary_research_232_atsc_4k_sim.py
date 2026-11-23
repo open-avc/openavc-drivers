@@ -55,6 +55,7 @@ def tune_number(row):
 
 class ContemporaryResearchTunerSimulator(TCPSimulator):
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "contemporary_research_232_atsc_4k",
         "name": "Contemporary Research 232-ATSC 4K Simulator",
         "category": "video",

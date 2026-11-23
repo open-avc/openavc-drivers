@@ -100,6 +100,7 @@ class Cable:
 
 class AllenHeathAHMSimulator(TCPSimulator):
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "allenheath_ahm",
         "name": "Allen & Heath AHM",
         "transport": "tcp",

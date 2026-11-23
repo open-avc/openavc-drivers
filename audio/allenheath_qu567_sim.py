@@ -69,6 +69,7 @@ def _addr(base: int, offset: int) -> tuple[int, int]:
 
 class AllenHeathQu567Simulator(TCPSimulator):
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "allenheath_qu567",
         "name": "Allen & Heath Qu-5/6/7 Mixer (sim)",
         "transport": "tcp",

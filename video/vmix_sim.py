@@ -87,6 +87,7 @@ def fader_to_amplitude(fader: float) -> float:
 class VmixSimulator(TCPSimulator):
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "vmix",
         "name": "vMix Simulator",
         "category": "video",

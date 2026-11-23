@@ -259,6 +259,7 @@ def _didl_title(text: str | None) -> str | None:
 class SonosSimulator(HTTPSimulator):
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "sonos",
         "name": "Sonos Speaker Simulator",
         "category": "audio",

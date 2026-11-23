@@ -136,6 +136,7 @@ def _extract_json(buf: bytearray) -> tuple[bytes | None, bytearray]:
 class BarcoPulseSimulator(TCPSimulator):
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "barco_pulse",
         "name": "Barco Pulse Projector Simulator",
         "category": "projector",

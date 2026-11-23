@@ -97,6 +97,7 @@ class WyrestormNetworkHDSimulator(TCPSimulator):
     """NHD-CTL controller simulator (NetworkHD API v6.5 subset)."""
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "wyrestorm_networkhd",
         "name": "WyreStorm NetworkHD Controller Simulator",
         "category": "switcher",

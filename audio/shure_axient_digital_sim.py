@@ -82,6 +82,7 @@ def _new_slot(status: str = "EMPTY", model: str = "", name: str = "", **over) ->
 class ShureAxientDigitalSimulator(TCPSimulator):
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "shure_axient_digital",
         "name": "Shure Axient Digital Simulator",
         "category": "audio",

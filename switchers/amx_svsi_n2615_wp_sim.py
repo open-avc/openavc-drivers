@@ -77,6 +77,7 @@ def hc_line(verb, path, **values):
 
 class AMXN2615WPSimulator(TCPSimulator):
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "amx_svsi_n2615_wp",
         "name": "AMX SVSI N2615 Wallplate Simulator",
         "category": "switcher",

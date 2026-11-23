@@ -128,6 +128,7 @@ def _build_envelope(cmd: int, sub: int, data: bytes = b"") -> bytes:
 class RackLinkRLNKSimulator(TCPSimulator):
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "racklink_rlnk",
         "name": "Middle Atlantic RackLink PDU Simulator",
         "category": "power",

@@ -390,7 +390,7 @@ class VMixDriver(BaseDriver):
         "name": "vMix",
         "manufacturer": "StudioCoast",
         "category": "video",
-        "version": "2.3.7",
+        "version": "2.3.8",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",

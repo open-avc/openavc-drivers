@@ -105,6 +105,7 @@ class AVProEdgeMXNet10GSimulator(TCPSimulator):
     """AC-MXNET-10G-CBOX control box."""
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "avproedge_mxnet_10g",
         "name": "AVPro Edge MXNet 10G CBOX Simulator",
         "category": "switcher",

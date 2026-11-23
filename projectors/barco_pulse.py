@@ -256,7 +256,7 @@ class BarcoPulseDriver(BaseDriver):
         "name": "Barco Pulse Projector",
         "manufacturer": "Barco",
         "category": "projector",
-        "version": "1.1.5",
+        "version": "1.1.6",
         # learned_from on the MAC address setting landed in 0.37.0, and so
         # did BaseDriver.local_address(), which the Test Pulse socket binds
         # to (a method call the contract check cannot see).

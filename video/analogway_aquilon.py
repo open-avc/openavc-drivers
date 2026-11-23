@@ -64,7 +64,7 @@ class AnalogwayAquilonDriver(BaseDriver):
         "name": "Analog Way Aquilon",
         "manufacturer": "Analog Way",
         "category": "video",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "min_platform_version": "0.27.0",
         "author": "OpenAVC",
         "description": "Controls Aquilon Cmini, C, C+ and Cmax presentation systems on firmware 6.2. "

@@ -198,7 +198,7 @@
       "name": "Blackmagic Streaming Encoder",
       "manufacturer": "Blackmagic Design",
       "category": "streaming",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Blackmagic Streaming Encoder HD and 4K (formerly Web Presenter HD and 4K) over the Blackmagic Streaming Encoder Ethernet Protocol (TCP 9977): start and stop the live stream, choose the platform, server, quality and video mode, set the stream key, and see the stream's status, bitrate and duration as the encoder reports them.",
@@ -206,8 +206,8 @@
       "file": "streaming/blackmagic_streaming_encoder.py",
       "format": "python",
       "files": {
-        "streaming/blackmagic_streaming_encoder.py": "c8184f4d3eed69f531c86b1b84e277303556c47f6b43692a2ea5fd4aea6e1507",
-        "streaming/blackmagic_streaming_encoder_sim.py": "93cfb411bf99d101d7f029fca01fd0c1d35dc5dc65d0e7cce68d4ae7036bf4ec"
+        "streaming/blackmagic_streaming_encoder.py": "c54943f8cf3d50b0bd26e7966e116b12793e83dd724788cc6ed6dd597aeac478",
+        "streaming/blackmagic_streaming_encoder_sim.py": "c6434ec7abf6ff529d84015d2d3e04913ae198da3e5e4972ccd86e6531de365d"
       },
       "ports": [
         9977
@@ -568,7 +568,7 @@
       "name": "Extron SMP 352",
       "manufacturer": "Extron",
       "category": "streaming",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Control lecture recording and streaming. Detects the recorder model, reads saved input and layout names, and reports signal, storage and recording status.",
@@ -576,8 +576,8 @@
       "file": "streaming/extron_smp_352.py",
       "format": "python",
       "files": {
-        "streaming/extron_smp_352.py": "ebc0f20763cb4ba7fe0e2431bcea6234283e34728929a826ece3b39d44e9338a",
-        "streaming/extron_smp_352_sim.py": "46126a15dc0a9e9a079d952fc9856065701c40db8de0981b00af8086b31ea8dc"
+        "streaming/extron_smp_352.py": "eeac34c6aebe167635770d7efe8f5b2ad77804e1901120204a226a4c9d9a8c66",
+        "streaming/extron_smp_352_sim.py": "e1208ae2db19fed37d1b5a6698406fb29b165382d89b5334c0e541eaad2a586e"
       },
       "ports": [
         22023
@@ -1261,7 +1261,7 @@
       "name": "WolfVision Cynap",
       "manufacturer": "WolfVision",
       "category": "streaming",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls WolfVision Cynap presentation and collaboration systems (Cynap Pro, Cynap Core Pro, Cynap Pure Mini on firmware 1.7x) over WolfProt: standby and Wake-on-LAN, volume and mutes, freeze, the four presentation windows, opening an HDMI input or the whiteboard, recording and streaming, ending a presentation, and status pushed as it changes.",
@@ -1269,8 +1269,8 @@
       "file": "streaming/wolfvision_cynap.py",
       "format": "python",
       "files": {
-        "streaming/wolfvision_cynap.py": "767a242c91f12e767fd945bededa10bd2c7a0bb5cfbdab3fc8dec2bda6d29822",
-        "streaming/wolfvision_cynap_sim.py": "b532894fbe22c1390e21345cf69e82b06dfea161ba527cfa747dcf209ea9b1e4"
+        "streaming/wolfvision_cynap.py": "d2150d201fcf0dae5687441e4f5e1a7ae1f74873bd987f049f4e30b7ca495b6f",
+        "streaming/wolfvision_cynap_sim.py": "d119c97b5074c06e4d241ddc464ce25189991b256b2a64c462561330f5ca3409"
       },
       "ports": [
         50915

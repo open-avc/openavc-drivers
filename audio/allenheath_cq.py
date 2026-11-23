@@ -759,7 +759,7 @@ class AllenHeathCQDriver(BaseDriver):
         "name": "Allen & Heath CQ Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         "description": (
             "Controls the Allen & Heath CQ-12T, CQ-18T and CQ-20B compact "

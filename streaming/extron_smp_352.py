@@ -47,7 +47,7 @@ class ExtronSmp352(BaseDriver):
         "name": "Extron SMP 352",
         "manufacturer": "Extron",
         "category": "streaming",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "source_url": "https://media.extron.com/public/download/files/userman/smp_300_series_68-2238-01_R.pdf",

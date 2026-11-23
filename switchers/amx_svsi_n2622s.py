@@ -417,7 +417,7 @@ class AMXN2622SDriver(BaseDriver):
         "manufacturer": "AMX",
         "category": "switcher",
         "author": "OpenAVC",
-        "version": "1.2.0",
+        "version": "1.2.1",
         "transport": "tcp",
         "delimiter": "\r",
         "ports": [50002, 50102],

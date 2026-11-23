@@ -242,7 +242,7 @@ class HisenseSignageDriver(BaseDriver):
         "name": "Hisense Commercial Signage Display",
         "manufacturer": "Hisense",
         "category": "display",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         "description": (
             "Controls Hisense commercial signage displays with Hisense's "

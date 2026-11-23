@@ -104,6 +104,7 @@ def _typed(value: Any, kind: str) -> Any:
 
 class LightwareTaurusSimulator(TCPSimulator):
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "lightware_ucx_4x3_hc40",
         "name": "Lightware UCX-4x3-HC40 Simulator",
         "category": "switcher",

@@ -122,6 +122,7 @@ def _number(value: Any) -> float | None:
 class BssSoundwebOmniSimulator(TCPSimulator):
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "bss_soundweb_omni",
         "name": "BSS Soundweb OMNI Simulator",
         "category": "audio",

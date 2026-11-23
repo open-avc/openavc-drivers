@@ -139,7 +139,7 @@ class WyrestormNetworkHDDriver(BaseDriver):
         "name": "WyreStorm NetworkHD",
         "manufacturer": "WyreStorm",
         "category": "switcher",
-        "version": "1.1.0",
+        "version": "1.1.1",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.27.0",
         "author": "OpenAVC",

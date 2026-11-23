@@ -644,7 +644,7 @@ class AllenHeathQuDriver(BaseDriver):
         "name": "Allen & Heath Qu Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.3.3",
+        "version": "1.3.4",
         # learned_from on the Model setting landed in 0.37.0.
         "min_platform_version": "0.37.0",
         "author": "OpenAVC",

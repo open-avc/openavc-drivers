@@ -47,6 +47,7 @@ ACTIVE_SENSE_INTERVAL = 2.0
 
 class AllenHeathQuSimulator(TCPSimulator):
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "allenheath_qu",
         "name": "Allen & Heath Qu Mixer (sim)",
         "transport": "tcp",

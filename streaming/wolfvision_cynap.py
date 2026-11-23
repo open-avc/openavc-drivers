@@ -297,7 +297,7 @@ class WolfVisionCynapDriver(BaseDriver):
         "name": "WolfVision Cynap",
         "manufacturer": "WolfVision",
         "category": "streaming",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         "description": (
             "Controls WolfVision Cynap presentation and collaboration systems "

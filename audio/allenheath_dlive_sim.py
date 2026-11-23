@@ -98,6 +98,7 @@ ADDR_MAP = _build_addr_map()
 
 class AllenHeathDLiveSimulator(TCPSimulator):
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "allenheath_dlive",
         "name": "Allen & Heath dLive Mixer (sim)",
         "transport": "tcp",

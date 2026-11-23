@@ -86,6 +86,7 @@ _CALL_ACTIVE_ROWS = {"pstn_input": ("0", "8"), "voip_input": ("0", "6")}
 class BoseControlSpaceSimulator(TCPSimulator):
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "bose_controlspace",
         "name": "Bose ControlSpace Processor Simulator",
         "category": "audio",

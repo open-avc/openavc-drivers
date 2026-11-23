@@ -31,6 +31,7 @@ CONFIG_DEFAULTS = {
 
 class BiampMPX250Simulator(TCPSimulator):
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "biamp_mpx250",
         "name": "Biamp EasyConnect MPX 250 Simulator",
         "category": "switcher",

@@ -94,6 +94,7 @@ _LIM = {"1": ("num", 0.5, 142.0), "2": ("num", 0.5, 142.0), "3": ("num", 500, 10
 class BosePowerShareSimulator(TCPSimulator):
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "bose_powershare",
         "name": "Bose PowerShare Amplifier Simulator",
         "category": "audio",

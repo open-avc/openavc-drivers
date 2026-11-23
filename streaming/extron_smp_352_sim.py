@@ -28,6 +28,7 @@ def clock(seconds):
 
 class Smp352Simulator(TCPSimulator):
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "extron_smp_352",
         "name": "Extron SMP 352 recorder",
         "category": "streaming",

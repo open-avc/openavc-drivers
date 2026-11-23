@@ -177,7 +177,7 @@ class PhilipsHueDriver(BaseDriver):
         "name": "Philips Hue Bridge",
         "manufacturer": "Signify",
         "category": "lighting",
-        "version": "3.0.3",
+        "version": "3.0.4",
         # The connection lifecycle hooks this driver overrides landed in
         # 0.24.0 (which also covers the 0.23.0 needs: the HTTPS simulation
         # redirect and the SSE push generation).

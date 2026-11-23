@@ -145,6 +145,7 @@ class _Session:
 class BlackmagicHyperDeckSimulator(TCPSimulator):
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "blackmagic_hyperdeck",
         "name": "Blackmagic HyperDeck Simulator",
         "category": "video",

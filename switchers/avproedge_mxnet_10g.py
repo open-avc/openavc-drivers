@@ -462,7 +462,7 @@ class AVProEdgeMXNet10GDriver(BaseDriver):
         "name": "AVPro Edge MXNet 10G",
         "manufacturer": "AVPro Edge",
         "category": "switcher",
-        "version": "1.0.3",
+        "version": "1.0.4",
         # Computed, not chosen: `routing:` needs 0.27.0, sharing a route
         # property between the All-streams and Video planes needs 0.28.0,
         # BaseDriver.child_fault() needs 0.29.0, `restarts_device_for`

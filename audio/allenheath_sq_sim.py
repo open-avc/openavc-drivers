@@ -41,6 +41,7 @@ VALUE_MAX = 0x3FFF
 
 class AllenHeathSQSimulator(TCPSimulator):
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "allenheath_sq",
         "name": "Allen & Heath SQ Mixer (sim)",
         "transport": "tcp",

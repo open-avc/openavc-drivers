@@ -103,6 +103,7 @@ def _typed(value: Any, kind: str) -> Any:
 
 class LightwareMMX2Simulator(TCPSimulator):
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "lightware_mmx2_4x3_h20",
         "name": "Lightware MMX2-4x3-H20 Simulator",
         "category": "switcher",

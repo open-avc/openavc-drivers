@@ -195,6 +195,7 @@ def _int_range(lo: int, hi: int) -> Callable[[Any], bool]:
 class SennheiserSlMcrDwSimulator(UDPSimulator):
 
     SIMULATOR_INFO = {
+        "push_state": True,
         "driver_id": "sennheiser_sl_mcr_dw",
         "name": "Sennheiser SpeechLine Multi-Channel Receiver DW Simulator",
         "category": "audio",

@@ -577,14 +577,14 @@ The skeleton includes:
 - All command names listed as reference comments
 - A starting point for child entities, when your driver declares `child_entity_types`
 - Example code showing the pattern
-- The correct base class (`TCPSimulator`, `HTTPSimulator`, or `OSCSimulator`) chosen by transport type
+- The base class the simulator serves your driver's transport on: `TCPSimulator` (a serial or SSH driver too, served over TCP while simulated), `UDPSimulator`, `HTTPSimulator`, `OSCSimulator`, `MQTTSimulator` or `SNMPSimulator`. A driver whose transport is `bridge` has no simulator file of its own: its commands go out through its bridge, which is simulated instead
 
 **It is a skeleton, not a first draft — check these three before you go
 further.** It saves the typing, and it cannot know what the device actually
 does:
 
-1. **The framing.** The scaffold copies the `delimiter` your `DRIVER_INFO`
-   declares. If your driver instead sets it in code — `kwargs["delimiter"]`
+1. **The framing** (a TCP, serial, SSH or UDP driver). The scaffold copies
+   the `delimiter` your `DRIVER_INFO` declares. If your driver instead sets it in code — `kwargs["delimiter"]`
    inside `_transport_kwargs`, which most drivers do — nothing declares it, so
    the scaffold leaves a commented line telling you to fill it in. Without a
    delimiter the simulator reads raw byte chunks instead of lines (see [Custom

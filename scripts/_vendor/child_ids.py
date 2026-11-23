@@ -26,6 +26,9 @@ this (a typed id back to its padded string form). It does now answer whether
 an id is in the declared RANGE: see ``child_id_range_error``, and which ids the
 type declares at all: see ``declared_child_ids``.
 
+Which source an ``instances:`` block names, and the state variable it follows,
+is ``roster_source``'s reading, which ``declared_child_ids`` asks.
+
 Callers own the failure. Every function here returns ``None`` rather than
 raising, because the same bad input is a 404 to a REST route, a rejected
 parameter to the command dispatcher, and a skipped roster entry to a driver
@@ -36,6 +39,8 @@ share it too.
 from __future__ import annotations
 
 from typing import Any
+
+from .roster_source import config_child_ids, roster_source
 
 # Kept in step with spec.CHILD_ID_TYPES, imported here so this module stays a
 # leaf the simulator can use without pulling in the contract registry.
@@ -91,8 +96,10 @@ def declared_child_ids(
     ``None`` whenever the declaration cannot settle it, which is a real answer
     and the common one:
 
-    * ``count_from_state`` — the device resizes the roster once it answers, so
-      anything said here is a prediction rather than a fact.
+    * a roster that follows the device's count (``count_from_state`` beside
+      ``count_from``, ``roster_source(...).follows``) — the device resizes it
+      once it answers, so anything said here is a prediction rather than a fact.
+      ``config_child_ids`` is the roster before it answers.
     * ``count_from`` / ``ids_from`` naming a config field this device has not
       filled in. The FIELD is what the caller should name in that case; it is
       right there in ``instances``.
@@ -104,40 +111,10 @@ def declared_child_ids(
     Coercing them to the type's id kind is the caller's job (``ids`` on a
     string-keyed type is names), and so is what to do with the ``None``.
     """
-    if not isinstance(type_def, dict):
+    instances = type_def.get("instances") if isinstance(type_def, dict) else None
+    if roster_source(instances).follows:
         return None
-    instances = type_def.get("instances")
-    if not isinstance(instances, dict):
-        return None
-    # A device-reported count can exceed anything declared here.
-    if instances.get("count_from_state"):
-        return None
-    cfg = config if isinstance(config, dict) else {}
-
-    ids = instances.get("ids")
-    if isinstance(ids, list) and ids:
-        return list(ids)
-
-    count = instances.get("count")
-    if isinstance(count, bool):  # bool is an int; not a roster
-        return None
-    if isinstance(count, int) and count >= 1:
-        return list(range(1, count + 1))
-
-    if field := instances.get("count_from"):
-        try:
-            resolved = int(cfg.get(field))
-        except (TypeError, ValueError):
-            return None
-        return list(range(1, resolved + 1)) if resolved >= 1 else None
-
-    if field := instances.get("ids_from"):
-        raw = cfg.get(field)
-        if not isinstance(raw, str) or not raw.strip():
-            return None
-        return [part.strip() for part in raw.split(",") if part.strip()]
-
-    return None
+    return config_child_ids(type_def, config)
 
 
 def page_starts(ids: list[Any], page_size: Any) -> list[Any]:

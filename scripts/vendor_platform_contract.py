@@ -68,9 +68,14 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         (),
     ),
     (
+        "openavc/drivers/roster_source.py",
+        "scripts/_vendor/roster_source.py",
+        (),
+    ),
+    (
         "openavc/drivers/child_ids.py",
         "scripts/_vendor/child_ids.py",
-        (),
+        (("from openavc.drivers.roster_source import", "from .roster_source import"),),
     ),
     (
         "openavc/drivers/json_value_spec.py",
@@ -250,6 +255,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from openavc.drivers.declared_names import",
                 "from .declared_names import",
             ),
+            ("from openavc.drivers.roster_source import", "from .roster_source import"),
             ("from openavc.drivers.spec import", "from .spec import"),
             (
                 "from openavc.drivers.state_variable_checks import",
@@ -367,6 +373,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         "scripts/_vendor/driver_warnings.py",
         (
             ("from openavc.drivers.child_ids import", "from .child_ids import"),
+            ("from openavc.drivers.roster_source import", "from .roster_source import"),
             ("from openavc.drivers.spec import (", "from .spec import ("),
             ("from openavc.drivers.usable_number import", "from .usable_number import"),
         ),

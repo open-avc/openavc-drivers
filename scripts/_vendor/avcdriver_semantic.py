@@ -62,9 +62,9 @@ from .action_checks import (
 )
 from .child_fault_checks import child_fault_code_errors
 from .child_type_checks import (
-    RosterNames,
     child_param_reference_errors,
-    child_type_errors,
+    child_type_issues,
+    followed_count_issues,
     undeclared_child_type_reason as undeclared_child_type_reason,
 )
 from .command_checks import CommandSection
@@ -707,10 +707,8 @@ class _DefinitionWalk:
             if self.driver_def["child_entity_types"]:
                 errors.append("child_entity_types: must be a mapping")
             return
-        roster_names = RosterNames(self.driver_def)
-        for child_type, type_def in self.declared.child_types.items():
-            errors.ctx = f"child_entity_types.{child_type}"
-            errors.extend(child_type_errors(child_type, type_def, roster_names))
+        errors.at_each(child_type_issues(self.driver_def, self.declared.child_types))
+        self.authored.at_each(followed_count_issues(self.declared.child_types))
 
     def query_entries(self) -> None:
         """The poll's entries, the start-up's and each text rule's then_query,

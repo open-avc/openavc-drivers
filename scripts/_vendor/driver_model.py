@@ -40,7 +40,9 @@ What it holds so far:
   command whose only form is an address or IR code left empty, which sends
   nothing (``command_form.left_empty_forms``), and a command parameter or
   config field whose name no placeholder can carry, which is never filled in
-  (``spec.is_placeholder_name``).
+  (``spec.is_placeholder_name``), and a reply map's key, or a value it writes
+  where its variable holds text, that YAML did not read as text
+  (``yaml_text``).
 
 The rules worth knowing before changing anything here:
 
@@ -59,7 +61,7 @@ The rules worth knowing before changing anything here:
   rule reads through the model yet has no member here.
 
 Pure: the standard library, ``spec`` and the leaves it composes (``query_entry``,
-``framing_checks``, ``auth_block``, ``command_form``), with
+``framing_checks``, ``auth_block``, ``command_form``, ``yaml_text``), with
 absolute ``openavc.`` imports (``tests/test_avcdriver_semantic_purity.py``).
 Vendored with the driver contract (openavc-drivers' catalog CI, openavc-sdk).
 """
@@ -75,6 +77,7 @@ from .command_form import FORM_LEFT_EMPTY, left_empty_forms
 from .framing_checks import push_frame_field_issues
 from .query_entry import OSC_MESSAGE, QueryEntry, read_query_entry
 from .spec import is_placeholder_name
+from .yaml_text import reply_map_problems
 
 YAML = "yaml"
 PYTHON = "python"
@@ -97,6 +100,10 @@ _PLACEHOLDER_NAME_WORDS = (
     "a {placeholder} cannot name it, so it is never filled in; use only letters, "
     "digits and underscores, starting with a letter or underscore"
 )
+
+# The code of a reply map's key, or a value it writes where its variable holds
+# text, that YAML did not read as text (yaml_text).
+NOT_TEXT = "not_text"
 
 # The sections whose keys a placeholder fills from, beside each command's params.
 _CONFIG_SECTIONS = ("config_schema", "default_config", "config_derived")
@@ -173,23 +180,26 @@ def read_driver(definition: Mapping[str, Any], kind: str = YAML) -> DriverModel:
     if kind == PYTHON:
         return DriverModel(PYTHON, definition, None, ())
     queries = tuple(_query_lines(definition))
-    problems = tuple(
+    return DriverModel(YAML, definition, WireModel(queries), _problems(definition, queries))
+
+
+def _problems(definition: Mapping[str, Any], queries: tuple[QueryLine, ...]) -> tuple[ModelProblem, ...]:
+    """What the author's doors refuse, in the order they are said: the query
+    entries', then each leaf's, each a ``(place, words)`` under its code."""
+    found = [
         ModelProblem(line.place, line.entry.problem.code, line.entry.problem.words)
         for line in queries if line.entry.problem is not None
-    ) + tuple(
-        ModelProblem(place, FRAME_FIELD, words)
-        for place, words in push_frame_field_issues(definition)
-    ) + tuple(
-        ModelProblem(place, TIMEOUT_NOT_POSITIVE, words)
-        for place, words in auth_problems(definition.get("auth"))
-    ) + tuple(
-        ModelProblem(place, FORM_LEFT_EMPTY, words)
-        for place, words in left_empty_forms(definition.get("commands"))
-    ) + tuple(
-        ModelProblem(place, PLACEHOLDER_NAME, _PLACEHOLDER_NAME_WORDS)
-        for place in _unfillable_names(definition)
+    ]
+    sources = (
+        (FRAME_FIELD, push_frame_field_issues(definition)),
+        (TIMEOUT_NOT_POSITIVE, auth_problems(definition.get("auth"))),
+        (FORM_LEFT_EMPTY, left_empty_forms(definition.get("commands"))),
+        (PLACEHOLDER_NAME, ((place, _PLACEHOLDER_NAME_WORDS) for place in _unfillable_names(definition))),
+        (NOT_TEXT, reply_map_problems(definition)),
     )
-    return DriverModel(YAML, definition, WireModel(queries), problems)
+    for code, issues in sources:
+        found += [ModelProblem(place, code, words) for place, words in issues]
+    return tuple(found)
 
 
 def query_lines(

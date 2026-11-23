@@ -112,6 +112,8 @@ simulator:
     model: "DXP 168"
 ```
 
+Each key is a state key, written as text. Quote a key made of digits (`"5": 1`): YAML reads `5: 1` as a number, which Validate refuses (OpenAVC 0.41.0 and later; the simulator reads it as `"5"`).
+
 ### Delays
 
 Add realistic response timing:

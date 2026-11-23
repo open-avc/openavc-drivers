@@ -196,6 +196,8 @@ The handler code has access to:
 
 The same set is available to both TCP/serial and OSC handlers. (For OSC handlers the match-related variable is `address` plus an `args` list, and `respond(address, args)` sends an OSC message.)
 
+**On an HTTP device, the handler decides the answer's status.** A reply is sent as the body of a 200. A template handler with no `respond:`, and a command or setting write the simulator carries out on its own with nothing to report, answer an empty 200. A script handler that calls no `respond()` answers 404, which is how a script plays a device refusing a request; call `respond("")` for an empty 200 instead. A request no handler matches is a 404 too, and so is a command a state machine refuses or one that names a child the device does not have. The driver reports a command answered 400 or above as not done (OpenAVC 0.41.0 and later), so a handler that forgets to answer shows up as a failed command.
+
 State changes made via `state["key"] = value` are reflected in the Simulator UI in real time. Child-entity state uses the dotted key form — `state["output.2.input"] = 5` moves output 2's routed input, and the auto-generated per-child query for that child answers with the new value.
 
 **When to use script vs template handlers:** Use template handlers (`receive:` + `respond:`) for simple command/response patterns. Use script handlers (`match:` + `handler:`) when you need conditionals, math, config access, or complex state logic.

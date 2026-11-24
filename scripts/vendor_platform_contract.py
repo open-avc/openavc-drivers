@@ -558,8 +558,23 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from openavc.drivers.query_entry import",
                 "from .query_entry import",
             ),
+            (
+                "from openavc.drivers.reply_rule import",
+                "from .reply_rule import",
+            ),
             ("from openavc.drivers.spec import", "from .spec import"),
             ("from openavc.drivers.yaml_text import", "from .yaml_text import"),
+        ),
+    ),
+    (
+        "openavc/drivers/reply_rule.py",
+        "scripts/_vendor/reply_rule.py",
+        (
+            ("from openavc.drivers.capture_ref import", "from .capture_ref import"),
+            (
+                "from openavc.drivers.json_value_spec import",
+                "from .json_value_spec import",
+            ),
         ),
     ),
     (

@@ -40,7 +40,7 @@ from collections.abc import Callable, Iterator
 from typing import Any, NamedTuple
 
 from .setting_checks import python_setting_map_errors
-from .spec import CONVERSION_KEYS, NUMERIC_TYPES
+from .spec import CONVERSION_KEYS, NUMERIC_TYPES, PARAM_CONVERSION_KEYS
 
 # A conversion needs a number to work on, named as the message says it.
 _NUMERIC_WORDS = ", ".join(NUMERIC_TYPES[:-1]) + " or " + NUMERIC_TYPES[-1]
@@ -75,21 +75,38 @@ def value_conversion_issues(
         (site.place, message)
         for sites in _PLACES
         for site in sites(driver_def)
-        for message in _declaration_errors(
-            site.where, site.decl, python=python, in_action=site.in_action
-        )
+        for message in _declaration_errors(site, python=python)
+    ]
+
+
+def param_unknown_issues(driver_def: Any) -> list[tuple[str, str]]:
+    """Each command parameter that declares ``unknown``, by its place, with
+    THE sentence saying where it goes. Refused where a driver is written and
+    named where one loads (the definition walk); the unknown-key walk leaves
+    the key to it."""
+    if not isinstance(driver_def, dict):
+        return []
+    return [
+        (site.place, f"{site.where}: remove unknown. It marks a value the device sends "
+         "when it has no reading, so it goes on the state variable a reply sets, never "
+         "on a parameter.")
+        for site in _command_param_sites(driver_def)
+        if isinstance(site.decl, dict) and "unknown" in site.decl
     ]
 
 
 class _Site(NamedTuple):
     """One declaration that may carry a conversion: its ``place`` in the
     definition, the ``where`` its messages open with, the declaration itself,
-    and whether it is an action's parameter (never converted)."""
+    whether it is an action's parameter (never converted), and the keys it
+    converts through (a command parameter's have no ``unknown``, which the
+    definition walk refuses in words of its own)."""
 
     place: str
     where: str
     decl: Any
     in_action: bool = False
+    keys: tuple[str, ...] = CONVERSION_KEYS
 
 
 def _variable_sites(driver_def: dict[str, Any]) -> Iterator[_Site]:
@@ -106,7 +123,8 @@ def _child_variable_sites(driver_def: dict[str, Any]) -> Iterator[_Site]:
 def _command_param_sites(driver_def: dict[str, Any]) -> Iterator[_Site]:
     for cmd_name, pname, pdef in _inner_entries(driver_def.get("commands"), "params"):
         yield _Site(
-            f"commands.{cmd_name}.params.{pname}", f"Command '{cmd_name}' param '{pname}'", pdef
+            f"commands.{cmd_name}.params.{pname}", f"Command '{cmd_name}' param '{pname}'", pdef,
+            keys=PARAM_CONVERSION_KEYS,
         )
 
 
@@ -153,15 +171,15 @@ def _entries(block: Any) -> list[tuple[Any, Any]]:
     return list(block.items()) if isinstance(block, dict) else []
 
 
-def _declaration_errors(
-    where: str, decl: Any, *, python: bool, in_action: bool
-) -> list[str]:
-    """What one declaration is held to: nothing without a conversion key; on
-    the Python surface, its removal; on an action's parameter, the move to
-    the command's own; otherwise a numeric type and a scale that is not 0."""
+def _declaration_errors(site: _Site, *, python: bool) -> list[str]:
+    """What one declaration is held to: nothing without a conversion key (on
+    the Python surface every key is one, as nothing there converts); on the
+    Python surface, its removal; on an action's parameter, the move to the
+    command's own; otherwise a numeric type and a scale that is not 0."""
+    where, decl, in_action = site.where, site.decl, site.in_action
     if not isinstance(decl, dict):
         return []
-    present = [k for k in CONVERSION_KEYS if k in decl]
+    present = [k for k in (CONVERSION_KEYS if python else site.keys) if k in decl]
     if not present:
         return []
     if python:

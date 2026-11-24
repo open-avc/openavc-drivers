@@ -131,17 +131,29 @@ def page_starts(ids: list[Any], page_size: Any) -> list[Any]:
     One rule for the runtime that sends the queries, the simulator that
     answers them and the validator that counts them.
     """
-    if (
-        isinstance(page_size, bool)
-        or not isinstance(page_size, int)
-        or page_size < 2
-    ):
+    if not _pages(page_size):
         return list(ids)
-    if not ids or not all(isinstance(i, int) and not isinstance(i, bool) for i in ids):
+    if not ids or not all(_whole(i) for i in ids):
         return list(ids)[::page_size]
-    starts: list[Any] = []
+    return _stretch_starts(sorted(ids), page_size)
+
+
+def _whole(value: Any) -> bool:
+    """A whole number, never a boolean."""
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _pages(page_size: Any) -> bool:
+    """Whether ``page_size`` pages a query: a whole number of 2 or more."""
+    return _whole(page_size) and page_size >= 2
+
+
+def _stretch_starts(ids: list[int], page_size: int) -> list[int]:
+    """The lowest of ``ids`` (sorted), then each first id at or past the end
+    of the page before it."""
+    starts: list[int] = []
     next_start: int | None = None
-    for local_id in sorted(ids):
+    for local_id in ids:
         if next_start is None or local_id >= next_start:
             starts.append(local_id)
             next_start = local_id + page_size
@@ -151,12 +163,11 @@ def page_starts(ids: list[Any], page_size: Any) -> list[Any]:
 def child_id_range_error(
     type_def: dict[str, Any] | None, value: int | str,
 ) -> str | None:
-    """Why ``value`` is outside the type's declared ``id_format`` range.
+    """Why ``value`` is outside the type's ``id_format`` range
+    (``integer_id_range_error``), or ``None`` when it is in it.
 
-    Returns ``None`` when the id is in range, or when the type declares no
-    bounds to check it against — an undeclared bound means "unbounded", not
-    "invalid". String-id types are never range-checked: their ids are names,
-    and ``min``/``max`` on them describe nothing orderable.
+    String-id types are never range-checked: their ids are names, and
+    ``min``/``max`` on them describe nothing orderable.
 
     Callers own the failure, as everywhere else in this module. The message is
     a reason fragment, not a sentence, so each surface can frame it its own
@@ -172,30 +183,33 @@ def child_id_range_error(
         return None
     if isinstance(value, bool) or not isinstance(value, int):
         return None
-    id_format = (type_def or {}).get("id_format")
-    if not isinstance(id_format, dict):
+    return integer_id_range_error((type_def or {}).get("id_format"), value)
+
+
+#: The lowest integer child id when a type declares no ``min``.
+DEFAULT_MIN_CHILD_ID = 1
+
+
+def integer_id_range_error(id_format: Any, value: int) -> str | None:
+    """THE integer child id range: [``min``, ``max``], ``min`` 1 when the
+    type declares none (``DEFAULT_MIN_CHILD_ID``) and ``max`` unbounded. Why
+    ``value`` is outside it, as a fragment each door frames (a command
+    parameter refused before it is sent, a registration), or ``None``. A
+    bound that is not a whole number reads as undeclared."""
+    low = _whole_bound(id_format, "min")
+    low = DEFAULT_MIN_CHILD_ID if low is None else low
+    high = _whole_bound(id_format, "max")
+    if high is None:
+        return None if value >= low else f"must be at least {low}"
+    if low <= value <= high:
         return None
+    return f"must be between {low} and {high}"
 
-    def _bound(key: str) -> int | None:
-        raw = id_format.get(key)
-        if isinstance(raw, bool) or not isinstance(raw, int):
-            return None
-        return raw
 
-    low, high = _bound("min"), _bound("max")
-    if low is not None and value < low:
-        return (
-            f"must be at least {low}"
-            if high is None
-            else f"must be between {low} and {high}"
-        )
-    if high is not None and value > high:
-        return (
-            f"must be at most {high}"
-            if low is None
-            else f"must be between {low} and {high}"
-        )
-    return None
+def _whole_bound(id_format: Any, key: str) -> int | None:
+    """An ``id_format`` bound that is a whole number, else None."""
+    raw = id_format.get(key) if isinstance(id_format, dict) else None
+    return raw if _whole(raw) else None
 
 
 def child_display_name(
@@ -244,19 +258,23 @@ def child_display_name(
     text = "" if project_label is None else str(project_label).strip()
     if text:
         return text
-
     state = child_state or {}
-    field = (type_def or {}).get("label_field")
-    if isinstance(field, str) and field.strip():
-        reported = state.get(field.strip())
-        # A bool is never a name; it means the driver pointed label_field at
-        # a flag, which is an authoring mistake rather than an empty name.
-        if reported is not None and not isinstance(reported, bool):
-            name = str(reported).strip()
-            if name:
-                return name
+    return _reported_name(state, type_def) or _name_text(state.get("label"))
 
-    seeded = state.get("label")
-    if seeded is None or isinstance(seeded, bool):
+
+def _reported_name(state: dict[str, Any], type_def: dict[str, Any] | None) -> str:
+    """The name the device reports, in the variable the type's
+    ``label_field`` names; "" when it names none or the device has none."""
+    field = (type_def or {}).get("label_field")
+    if not isinstance(field, str) or not field.strip():
         return ""
-    return str(seeded).strip()
+    return _name_text(state.get(field.strip()))
+
+
+def _name_text(value: Any) -> str:
+    """A value as a child's name, "" for none. A bool is never a name; it
+    means the driver pointed label_field at a flag, which is an authoring
+    mistake rather than an empty name."""
+    if value is None or isinstance(value, bool):
+        return ""
+    return str(value).strip()

@@ -210,6 +210,17 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from openavc.drivers.tagged_errors import",
                 "from .tagged_errors import",
             ),
+            ("from openavc.drivers.unknown_keys import", "from .unknown_keys import"),
+        ),
+    ),
+    (
+        "openavc/drivers/unknown_keys.py",
+        "scripts/_vendor/unknown_keys.py",
+        (
+            ("from openavc.drivers.conversion_checks import", "from .conversion_checks import"),
+            ("from openavc.drivers.shape_checks import", "from .shape_checks import"),
+            ("from openavc.drivers.spec import", "from .spec import"),
+            ("from openavc.drivers.tagged_errors import", "from .tagged_errors import"),
             ("from openavc.drivers.yaml_text import", "from .yaml_text import"),
         ),
     ),
@@ -376,6 +387,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         (
             ("from openavc.drivers.child_ids import", "from .child_ids import"),
             ("from openavc.drivers.roster_source import", "from .roster_source import"),
+            ("from openavc.drivers.transport_choice import", "from .transport_choice import"),
             ("from openavc.drivers.spec import (", "from .spec import ("),
             ("from openavc.drivers.usable_number import", "from .usable_number import"),
         ),
@@ -627,6 +639,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from openavc.drivers.serial_line import",
                 "from .serial_line import",
             ),
+            ("from openavc.drivers.shape_checks import", "from .shape_checks import"),
             ("from openavc.drivers.spec import", "from .spec import"),
             (
                 "from openavc.drivers.state_variable_checks import",

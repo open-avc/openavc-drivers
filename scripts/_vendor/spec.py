@@ -1013,10 +1013,14 @@ VALUE_UNKNOWN: dict = {
 }
 
 # The keys a declaration converts through, in the order the checks name them:
-# what compiled_protocol reads off a state variable or param, and what
+# what compiled_protocol reads off a state variable, and what
 # conversion_checks refuses where nothing would apply them. The registry
 # entries above carry the same names (tests/test_conversion_keys.py).
 CONVERSION_KEYS: tuple[str, ...] = ("scale", "offset", "unknown")
+# A command parameter's: it is sent, never read as a reading, so it has no
+# unknown, which goes on the state variable a reply sets
+# (conversion_checks.param_unknown_issues, compiled_protocol.param_conversion).
+PARAM_CONVERSION_KEYS: tuple[str, ...] = ("scale", "offset")
 
 # Column types for a table config field: the scalar config types (a table
 # inside a table cell is not a thing).
@@ -4103,7 +4107,7 @@ def platform_requirements(
             text[location] = version
 
     def walk(node: object, value: object, loc: str, depth: int = 0) -> None:
-        if not isinstance(node, dict) or depth > 40:
+        if not _sets_floors(node, depth):
             return
         if "ref" in node:
             if node.get("since"):
@@ -4155,6 +4159,16 @@ def platform_requirements(
     ordered = sorted((loc, text[loc]) for loc in found)
     ordered.sort(key=lambda item: found[item[0]], reverse=True)
     return ordered
+
+
+def _sets_floors(node: object, depth: int) -> bool:
+    """Whether ``platform_requirements`` reads floors at ``node``: a node, not
+    too deep, and not an enhancement. Nothing inside an enhancement sets a
+    floor: the driver runs correctly on a platform that ignores the field, so
+    it does on one that acts on the field but not yet on something inside it."""
+    if not isinstance(node, dict) or depth > 40:
+        return False
+    return not node.get("enhancement_since")
 
 
 def required_platform_version(driver_def: object, tier: str = "yaml") -> str | None:

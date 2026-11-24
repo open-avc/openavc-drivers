@@ -109,6 +109,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         "openavc/drivers/avcdriver_semantic.py",
         "scripts/_vendor/avcdriver_semantic.py",
         (
+            ("from openavc.drivers.capture_ref_checks import", "from .capture_ref_checks import"),
             (
                 "from openavc.drivers.action_checks import (",
                 "from .action_checks import (",
@@ -251,6 +252,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         "openavc/drivers/child_fault_checks.py",
         "scripts/_vendor/child_fault_checks.py",
         (
+            ("from openavc.drivers.capture_ref import", "from .capture_ref import"),
             (
                 "from openavc.drivers.declared_names import",
                 "from .declared_names import",
@@ -414,6 +416,16 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         (),
     ),
     (
+        "openavc/drivers/capture_ref.py",
+        "scripts/_vendor/capture_ref.py",
+        (),
+    ),
+    (
+        "openavc/drivers/capture_ref_checks.py",
+        "scripts/_vendor/capture_ref_checks.py",
+        (("from openavc.drivers.capture_ref import", "from .capture_ref import"),),
+    ),
+    (
         "openavc/drivers/python_source.py",
         "scripts/_vendor/python_source.py",
         (),
@@ -500,6 +512,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         "openavc/drivers/query_entry_checks.py",
         "scripts/_vendor/query_entry_checks.py",
         (
+            ("from openavc.drivers.capture_ref import", "from .capture_ref import"),
             (
                 "from openavc.drivers.declared_names import",
                 "from .declared_names import",
@@ -558,6 +571,8 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         "openavc/drivers/response_rule_checks.py",
         "scripts/_vendor/response_rule_checks.py",
         (
+            ("from openavc.drivers.capture_ref import", "from .capture_ref import"),
+            ("from openavc.drivers.capture_ref_checks import", "from .capture_ref_checks import"),
             ("from openavc.drivers.child_ids import", "from .child_ids import"),
             (
                 "from openavc.drivers.condition_checks import",

@@ -38,6 +38,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .capture_ref import names_a_capture
 from .declared_names import did_you_mean
 from .spec import CHILD_DRIVER_FAULT_CODES, CHILD_PARENT_OFFLINE
 
@@ -97,7 +98,7 @@ class _Form:
         """Each code the file writes, with how it writes it."""
         if isinstance(expr, dict):
             return self._long_form(expr)
-        if self.json or _is_capture(expr):
+        if self.json or names_a_capture(expr):
             return []
         return [("writes", expr)]
 
@@ -116,11 +117,6 @@ class _Form:
         """A long form's ``value:`` is written when it names no wire source;
         a JSON spec has none to write."""
         return "value" in expr and self.source not in expr and not self.json
-
-
-def _is_capture(expr: Any) -> bool:
-    """``$N`` text: a regex capture, read off the wire."""
-    return isinstance(expr, str) and expr.startswith("$")
 
 
 def _may_write(code: Any) -> bool:

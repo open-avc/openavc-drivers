@@ -59,6 +59,7 @@ from .action_checks import (
     validate_actions as validate_actions,
     yaml_action_errors,
 )
+from .capture_ref_checks import capture_ref_errors
 from .child_fault_checks import child_fault_code_errors
 from .child_type_checks import (
     child_param_reference_errors,
@@ -333,6 +334,7 @@ class _DefinitionWalk:
         return [
             (self.rule_names, "responses"),
             (self.child_fault_codes, "responses"),
+            (self.capture_refs, "responses"),
             (self.line_settings, "default_config"),
             (self.discovery_authored, "discovery"),
             (self.model_problems, ""),
@@ -383,6 +385,15 @@ class _DefinitionWalk:
         for i, rule in enumerate(self.declared.responses):
             errors.ctx = f"responses[{i}]"
             errors.extend(child_fault_code_errors(i, rule))
+
+    def capture_refs(self) -> None:
+        """Each capture reference a text rule writes that names no capture,
+        or one its pattern does not have (capture_ref_checks); the runtime
+        skips it, so the value is never written."""
+        errors = self.authored
+        for i, rule in enumerate(self.declared.responses):
+            errors.ctx = f"responses[{i}]"
+            errors.extend(capture_ref_errors(i, rule))
 
     def model_problems(self) -> None:
         """What the driver model reads and what a send carries that only the

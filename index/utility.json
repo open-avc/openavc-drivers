@@ -94,7 +94,7 @@
       "name": "BACnet/IP",
       "manufacturer": "Generic",
       "category": "utility",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Named building automation points with live feedback, opt-in writes and priority release.",
@@ -102,7 +102,7 @@
       "file": "utility/bacnet_ip.py",
       "format": "python",
       "files": {
-        "utility/bacnet_ip.py": "a0885688f45813df2926c21c9d0c66bd202d07a9879f3f3ba3324eb65d5d0b62",
+        "utility/bacnet_ip.py": "5f3daa57fc5d786d8f610d69175f394122d09e8bf58516f63ca9b862c13dae1e",
         "utility/bacnet_ip_sim.py": "36a41772b58119116e312ff54e96ba4a04c4e6cef80da0552e60a295d99925c9"
       },
       "ports": [
@@ -112,7 +112,7 @@
         "bacnet-ip"
       ],
       "simulated": true,
-      "min_platform_version": "0.40.1",
+      "min_platform_version": "0.41.0",
       "tags": [
         "bacnet",
         "bms",
@@ -205,7 +205,7 @@
       "name": "KNX/IP",
       "manufacturer": "Generic",
       "category": "utility",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Named KNX lights, shades, scenes and sensors, ETS project import and secure tunnelling.",
@@ -213,7 +213,7 @@
       "file": "utility/knx_ip.py",
       "format": "python",
       "files": {
-        "utility/knx_ip.py": "441b29d7d92a294f3952e87cde55e4bfb3e36e28d81a3725e5f559c6b00fe00e",
+        "utility/knx_ip.py": "6320187f02b13548c5f5f1af38780d1448246bc60658369879269cf9b18a7ffd",
         "utility/knx_ip_sim.py": "5a114af3092a43d819d7d685f85e6fa5ca1293e85466fb7fb016a1f3dc817152"
       },
       "ports": [
@@ -223,7 +223,7 @@
         "knx-ip"
       ],
       "simulated": true,
-      "min_platform_version": "0.40.1",
+      "min_platform_version": "0.41.0",
       "tags": [
         "knx",
         "lighting",

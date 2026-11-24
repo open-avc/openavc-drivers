@@ -4,7 +4,7 @@ Use a KNX/IP tunnelling interface to connect OpenAVC to an existing KNX
 installation. One connection exposes named lights, shades, scenes and sensors
 as child entities, available to UI bindings, macros and triggers. This Python
 driver handles the binary protocol, encrypted sessions and an installation's
-imported controls. It requires OpenAVC 0.40.1 or newer.
+imported controls. It requires OpenAVC 0.41.0 or newer.
 
 ## Set up the connection
 

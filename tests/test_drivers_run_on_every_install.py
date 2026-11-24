@@ -41,8 +41,8 @@ PLATFORM_PACKAGES = frozenset({
     "openavc", "httpx", "httpcore", "websockets", "aiohttp", "defusedxml",
     "cryptography", "yaml", "serial", "serial_asyncio", "gmqtt", "croniter",
     "ifaddr", "psutil", "pydantic", "packaging", "certifi", "tzdata",
-    "bacpypes3",  # Core dependency from the release after 0.40.0.
-    "xknx", "pyzipper", "Cryptodome",  # Bundled with setup imports from 0.40.1.
+    "bacpypes3",  # Core dependency from 0.41.0.
+    "xknx", "pyzipper", "Cryptodome",  # Bundled with setup imports from 0.41.0.
 })
 
 # Standard-library modules a driver cannot rely on:

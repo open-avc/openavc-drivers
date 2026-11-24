@@ -246,9 +246,9 @@ class BACnetClient(Application):
 class BACnetIPDriver(BaseDriver):
     DRIVER_INFO = {
         "id": "bacnet_ip", "name": "BACnet/IP", "manufacturer": "Generic",
-        "category": "utility", "version": "1.1.1", "author": "OpenAVC",
+        "category": "utility", "version": "1.1.2", "author": "OpenAVC",
         "transport": "udp", "ports": [47808], "protocols": ["bacnet-ip"],
-        "simulated": True, "verified": False, "min_platform_version": "0.40.1",
+        "simulated": True, "verified": False, "min_platform_version": "0.41.0",
         "description": "Named building automation points with live feedback, opt-in writes and priority release.",
         "source_url": "https://bacpypes3.readthedocs.io/en/latest/gettingstarted/running.html",
         "tags": ["bacnet", "bms", "hvac", "occupancy", "building-automation"],

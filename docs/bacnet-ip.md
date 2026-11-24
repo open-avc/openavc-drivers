@@ -4,8 +4,7 @@ Use this driver to expose a controller's analog, binary and multistate inputs,
 outputs and values to OpenAVC. Each configured point has its own name, value
 and status for controls, macros, triggers and monitoring.
 
-The driver requires the OpenAVC release that includes BACpypes3. OpenAVC 0.40.0
-and earlier do not include it. No separate application or Python installation
+The driver requires OpenAVC 0.41.0 or newer, which includes BACpypes3. No separate application or Python installation
 is required on supported releases.
 
 ## Connect and choose points

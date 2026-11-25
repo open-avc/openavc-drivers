@@ -528,7 +528,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
     (
         "openavc/drivers/query_entry.py",
         "scripts/_vendor/query_entry.py",
-        (("from openavc.drivers.spec import", "from .spec import"),),
+        (
+            ("from openavc.drivers.pattern_fill import", "from .pattern_fill import"),
+            ("from openavc.drivers.spec import", "from .spec import"),
+        ),
     ),
     (
         "openavc/drivers/auth_block.py",

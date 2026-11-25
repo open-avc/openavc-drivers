@@ -3130,7 +3130,7 @@ DEFS = {
             },
             'state_key': {
                 'type': 'string',
-                'doc': 'State variable providing the current value. Defaults to the setting key.',
+                'doc': 'State variable providing the current value. Left out or empty, the setting key.',
             },
             'default': ANY,
             'setup': {

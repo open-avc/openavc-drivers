@@ -63,6 +63,7 @@ from .child_type_checks import (
 from .command_checks import SharedCommandChecks, state_name_errors
 from .declared_names import DeclaredSections
 from .discovery_block import discovery_refusals
+from .enum_options import repeated_option_errors
 from .param_aid_checks import one_param_aid_errors, sibling_refs
 from .push_block_checks import push_block_errors
 from .python_driver_class import driver_class_info
@@ -279,7 +280,7 @@ def check_python_driver_info(
     both kinds of driver declare alike (``_SHARED_SECTIONS``: the state
     variables, the child types, each command's parameter aids and its
     ``sets:`` and ``query_for:``, the push block, the serial line settings in
-    ``default_config``, the ``discovery:`` block, the ``transport``; the routing block is one of the first kind) refuse only in ``strict`` mode, where a driver is written
+    ``default_config``, the ``discovery:`` block, the ``transport``, a ``values:`` list naming one option twice; the routing block is one of the first kind) refuse only in ``strict`` mode, where a driver is written
     (``drivers.check``, catalog CI, the Code view's save). Where a driver is
     loaded or a device connects they are the ``notices``, so a driver that
     worked before still does and the door can say what is wrong with it. A
@@ -642,6 +643,7 @@ _SHARED_SECTIONS: tuple[tuple[str, Callable[[dict[str, Any], _Coverage], list[st
     ("default_config", _line_setting_section),
     ("discovery", _whole_block("discovery", discovery_refusals)),
     ("transport", _transport_section),
+    ("", lambda info, coverage: repeated_option_errors(info, coverage.judged)),
 )
 
 

@@ -49,9 +49,10 @@ What it holds so far:
   config field whose name no placeholder can carry, which is never filled in
   (``spec.is_placeholder_name``), a reply map's key, or a value it writes
   where its variable holds text, that YAML did not read as text
-  (``yaml_text``), and a regex rule's pattern that compiles as written and not
+  (``yaml_text``), a regex rule's pattern that compiles as written and not
   once the driver's declared defaults are filled in, each as literal text
-  (``pattern_fill``).
+  (``pattern_fill``), and an enum ``values:`` entry naming an option an
+  earlier entry names (``enum_options``).
 
 The rules worth knowing before changing anything here:
 
@@ -71,7 +72,7 @@ The rules worth knowing before changing anything here:
 
 Pure: the standard library, ``spec`` and the leaves it composes (``query_entry``,
 ``reply_rule``, ``framing_checks``, ``auth_block``, ``command_form``, ``yaml_text``,
-``pattern_fill``), with
+``pattern_fill``, ``enum_options``), with
 absolute ``openavc.`` imports (``tests/test_avcdriver_semantic_purity.py``).
 Vendored with the driver contract (openavc-drivers' catalog CI, openavc-sdk).
 """
@@ -84,6 +85,7 @@ from typing import Any
 
 from .auth_block import TIMEOUT_NOT_POSITIVE, auth_problems
 from .command_form import FORM_LEFT_EMPTY, left_empty_forms
+from .enum_options import repeated_option_problems
 from .framing_checks import push_frame_field_issues
 from .pattern_fill import effective_config, unfillable_pattern
 from .query_entry import OSC_MESSAGE, QueryEntry, read_query_entry
@@ -116,6 +118,10 @@ _PLACEHOLDER_NAME_WORDS = (
 # The code of a reply map's key, or a value it writes where its variable holds
 # text, that YAML did not read as text (yaml_text).
 NOT_TEXT = "not_text"
+
+# The code of an enum values: list entry naming an option an earlier entry
+# names (enum_options).
+REPEATED_OPTION = "repeated_option"
 
 # The code of a reply pattern that compiles as written and not once the
 # declared defaults are filled in (pattern_fill), and the words said there.
@@ -232,6 +238,7 @@ def _problems(definition: Mapping[str, Any], queries: tuple[QueryLine, ...]) -> 
         (PLACEHOLDER_NAME, ((place, _PLACEHOLDER_NAME_WORDS) for place in _unfillable_names(definition))),
         (NOT_TEXT, reply_map_problems(definition)),
         (PATTERN_FILL, _unfillable_patterns(definition)),
+        (REPEATED_OPTION, repeated_option_problems(definition)),
     )
     for code, issues in sources:
         found += [ModelProblem(place, code, words) for place, words in issues]

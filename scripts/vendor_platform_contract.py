@@ -551,6 +551,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from .command_form import",
             ),
             (
+                "from openavc.drivers.enum_options import",
+                "from .enum_options import",
+            ),
+            (
                 "from openavc.drivers.framing_checks import",
                 "from .framing_checks import",
             ),
@@ -567,6 +571,21 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from .reply_rule import",
             ),
             ("from openavc.drivers.spec import", "from .spec import"),
+            ("from openavc.drivers.yaml_text import", "from .yaml_text import"),
+        ),
+    ),
+    (
+        "openavc/drivers/enum_options.py",
+        "scripts/_vendor/enum_options.py",
+        (
+            (
+                "from openavc.drivers.declared_names import",
+                "from .declared_names import",
+            ),
+            (
+                "from openavc.drivers.tagged_errors import",
+                "from .tagged_errors import",
+            ),
             ("from openavc.drivers.yaml_text import", "from .yaml_text import"),
         ),
     ),
@@ -657,6 +676,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
             (
                 "from openavc.drivers.discovery_block import",
                 "from .discovery_block import",
+            ),
+            (
+                "from openavc.drivers.enum_options import",
+                "from .enum_options import",
             ),
             (
                 "from openavc.drivers.param_aid_checks import",

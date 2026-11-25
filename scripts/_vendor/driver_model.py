@@ -52,7 +52,9 @@ What it holds so far:
   (``yaml_text``), a regex rule's pattern that compiles as written and not
   once the driver's declared defaults are filled in, each as literal text
   (``pattern_fill``), and an enum ``values:`` entry naming an option an
-  earlier entry names (``enum_options``).
+  earlier entry names (``enum_options``), and a command's
+  ``restarts_device_for`` that is not a whole number of seconds from 1 to
+  600 (``restart_window``).
 
 The rules worth knowing before changing anything here:
 
@@ -72,7 +74,7 @@ The rules worth knowing before changing anything here:
 
 Pure: the standard library, ``spec`` and the leaves it composes (``query_entry``,
 ``reply_rule``, ``framing_checks``, ``auth_block``, ``command_form``, ``yaml_text``,
-``pattern_fill``, ``enum_options``), with
+``pattern_fill``, ``enum_options``, ``restart_window``), with
 absolute ``openavc.`` imports (``tests/test_avcdriver_semantic_purity.py``).
 Vendored with the driver contract (openavc-drivers' catalog CI, openavc-sdk).
 """
@@ -90,6 +92,7 @@ from .framing_checks import push_frame_field_issues
 from .pattern_fill import effective_config, unfillable_pattern
 from .query_entry import OSC_MESSAGE, QueryEntry, read_query_entry
 from .reply_rule import REGEX, ReplyRule, read_reply_rule, rule_form
+from .restart_window import RESTART_RANGE, restart_problems
 from .spec import is_placeholder_name
 from .yaml_text import reply_map_problems
 
@@ -239,6 +242,7 @@ def _problems(definition: Mapping[str, Any], queries: tuple[QueryLine, ...]) -> 
         (NOT_TEXT, reply_map_problems(definition)),
         (PATTERN_FILL, _unfillable_patterns(definition)),
         (REPEATED_OPTION, repeated_option_problems(definition)),
+        (RESTART_RANGE, restart_problems(definition.get("commands"))),
     )
     for code, issues in sources:
         found += [ModelProblem(place, code, words) for place, words in issues]

@@ -573,8 +573,20 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from openavc.drivers.reply_rule import",
                 "from .reply_rule import",
             ),
+            (
+                "from openavc.drivers.restart_window import",
+                "from .restart_window import",
+            ),
             ("from openavc.drivers.spec import", "from .spec import"),
             ("from openavc.drivers.yaml_text import", "from .yaml_text import"),
+        ),
+    ),
+    (
+        "openavc/drivers/restart_window.py",
+        "scripts/_vendor/restart_window.py",
+        (
+            ("from openavc.drivers.spec import", "from .spec import"),
+            ("from openavc.drivers.usable_number import", "from .usable_number import"),
         ),
     ),
     (
@@ -699,6 +711,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
             (
                 "from openavc.drivers.python_source import",
                 "from .python_source import",
+            ),
+            (
+                "from openavc.drivers.restart_window import",
+                "from .restart_window import",
             ),
             (
                 "from openavc.drivers.serial_line import",

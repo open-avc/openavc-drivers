@@ -555,6 +555,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from .framing_checks import",
             ),
             (
+                "from openavc.drivers.pattern_fill import",
+                "from .pattern_fill import",
+            ),
+            (
                 "from openavc.drivers.query_entry import",
                 "from .query_entry import",
             ),
@@ -565,6 +569,11 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
             ("from openavc.drivers.spec import", "from .spec import"),
             ("from openavc.drivers.yaml_text import", "from .yaml_text import"),
         ),
+    ),
+    (
+        "openavc/drivers/pattern_fill.py",
+        "scripts/_vendor/pattern_fill.py",
+        (("from openavc.drivers.spec import", "from .spec import"),),
     ),
     (
         "openavc/drivers/reply_rule.py",

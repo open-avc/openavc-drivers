@@ -632,7 +632,7 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
     (
         "openavc/drivers/yaml_text.py",
         "scripts/_vendor/yaml_text.py",
-        (("from openavc.drivers.spec import", "from .spec import"),),
+        (("from openavc.drivers.declared_names import", "from .declared_names import"),),
     ),
     (
         "openavc/drivers/response_rule_checks.py",

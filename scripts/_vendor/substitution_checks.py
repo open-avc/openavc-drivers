@@ -53,7 +53,7 @@ from .declared_names import (
     closest_name,
     config_field_names,
 )
-from .driver_model import READ_BACK, read_driver
+from .driver_model import READ_BACK, read_driver, runs_as_command
 from .send_shape import (
     COMMAND,
     START_UP_MESSAGE,
@@ -282,7 +282,7 @@ def _read_back_templates(
     listed = isinstance(read_back, list)
     entries = read_back if listed else [read_back] if isinstance(read_back, str) else []
     for i, entry in enumerate(entries):
-        if isinstance(entry, str) and entry not in commands:
+        if isinstance(entry, str) and not runs_as_command(commands, entry):
             yield at + ".read_back" + (f"[{i}]" if listed else ""), entry
 
 

@@ -589,7 +589,7 @@ class AVProEdgeMXNetUSPDriver(BaseDriver):
         "name": "AVPro Edge MXNet USP",
         "manufacturer": "AVPro Edge",
         "category": "switcher",
-        "version": "1.0.1",
+        "version": "1.0.2",
         # Computed, not chosen: `routing:` needs 0.27.0, sharing a route
         # property between the All-streams and Video planes needs 0.28.0,
         # BaseDriver.child_fault() needs 0.29.0, `restarts_device_for`
@@ -1886,6 +1886,7 @@ class AVProEdgeMXNetUSPDriver(BaseDriver):
                         "type": "string",
                         "required": True,
                         "label": "Stream Key",
+                        "secret": True,
                         "pattern": r"^\S{1,128}$",
                         "help": "The stream's key or name, with no spaces.",
                     },

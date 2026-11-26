@@ -892,7 +892,7 @@
       "name": "AVPro Edge MXNet USP",
       "manufacturer": "AVPro Edge",
       "category": "switcher",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls an AVPro Edge MXNet USP AV-over-IP system through its control box. Encoders and decoders appear as child entities with per-plane routing (video, audio, USB, IR, RS-232), live encoder previews, EDID, CEC/IR/RS-232 passthrough, Dante and AVPro Flow settings, and video wall, multiview, matrix and playlist recall.",
@@ -900,7 +900,7 @@
       "file": "switchers/avproedge_mxnet_usp.py",
       "format": "python",
       "files": {
-        "switchers/avproedge_mxnet_usp.py": "c2f804fe8817b2c90994f2997647f1a525666944adca3e384a7a09aaa6c875ad",
+        "switchers/avproedge_mxnet_usp.py": "3810eed81ae15db3e0e0963f26be73a660a0d3b539af1550fbc16a0f2dd1af11",
         "switchers/avproedge_mxnet_usp_sim.py": "bb59043e06c44f421bab7321f66c3da1cc2c251eef609e7b28ecc81dea8745ff"
       },
       "ports": [

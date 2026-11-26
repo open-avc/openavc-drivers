@@ -160,6 +160,10 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
                 "from .liveness_checks import",
             ),
             (
+                "from openavc.drivers.param_aid_checks import",
+                "from .param_aid_checks import",
+            ),
+            (
                 "from openavc.drivers.push_block_checks import",
                 "from .push_block_checks import",
             ),
@@ -325,7 +329,9 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         "openavc/drivers/param_aid_checks.py",
         "scripts/_vendor/param_aid_checks.py",
         (
+            ("from openavc.drivers.declared_names import", "from .declared_names import"),
             ("from openavc.drivers.spec import", "from .spec import"),
+            ("from openavc.drivers.tagged_errors import", "from .tagged_errors import"),
             (
                 "from openavc.utils.regex_safety import",
                 "from .regex_safety import",
@@ -388,9 +394,11 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         "scripts/_vendor/driver_warnings.py",
         (
             ("from openavc.drivers.child_ids import", "from .child_ids import"),
+            ("from openavc.drivers.param_aid_checks import", "from .param_aid_checks import"),
             ("from openavc.drivers.roster_source import", "from .roster_source import"),
             ("from openavc.drivers.transport_choice import", "from .transport_choice import"),
             ("from openavc.drivers.spec import (", "from .spec import ("),
+            ("from openavc.drivers.tagged_errors import", "from .tagged_errors import"),
             ("from openavc.drivers.usable_number import", "from .usable_number import"),
         ),
     ),

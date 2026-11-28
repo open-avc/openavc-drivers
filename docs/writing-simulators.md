@@ -1272,14 +1272,14 @@ python -m openavc.simulator.validate ../openavc-drivers/ --summary
 | **Simulator build** | A driver the simulator cannot be built from, on any transport: an error naming what stopped the build. Correct that part of the file; if the driver passes `python -m openavc.drivers.check`, report the message as an OpenAVC problem |
 | **State coverage** | State variables missing from `simulator.initial_state` |
 | **Command coverage** | Commands with no matching simulator handler. For OSC drivers this checks command addresses against handler `address:` patterns, response addresses, and the simulator's built-in system addresses (`/xremote`, `/info`, `/status`, `/-action/`, `/-show/`) |
-| **Response parsing** | A query the driver polls whose answer matches no driver response pattern — nothing reads the reply, so the state behind that query never updates. A reply to a *write* is an acknowledgement (`<cmd> ACK`, `<cmd> NAK 04`) and carries no state, so those are counted and listed, not warned about |
+| **Response parsing** | A query the driver polls whose answer no driver response rule reads, so the state behind that query never updates. A rule reads a reply as the running driver does: a `json: true` rule needs every key its `require:` names, and a rule with `only_when:` reads only while its condition holds in the simulator's starting state (its `initial_state`, and every other variable at its type's starting value). A reply to a *write* is an acknowledgement (`<cmd> ACK`, `<cmd> NAK 04`) and carries no state, so those are counted and listed, not warned about |
 | **Reply framing** | A reply written by hand (a `respond:` template, a `respond()` call) that never contains the driver's `delimiter` (CR when the driver names none, as the driver itself splits on CR then): the driver completes no frame and reads nothing in it, so it is an error. A driver whose `frame_parser` reads its replies is not checked, since it splits none of them on a line ending. A reply that ends with text after its last delimiter is a warning, because that text is read only when the next reply arrives, joined to its first line. The exception is a prompt the device prints after each reply (`volume=55` CR LF `>`): when every reply opens with the delimiter and a response rule reads the prompt on its own line, it is noted instead |
 | **Poll coverage** | Polling queries with no matching handler. `each_child` queries are checked with a sample child id; OSC queries that name a command are checked as that command |
 | **Type consistency** | Boolean state used in `respond:` templates (produces `True` not `true`), wrong initial value types, enum values not in the allowed list |
 | **State machines** | Malformed `state_machines` entries (missing states/initial/transitions, off-list states, transitions that can never fire, duplicate `from`/`trigger` pairs where the later one is unreachable) |
 | **Handler syntax** | `handler:` bodies that don't compile — the simulator silently skips those at runtime |
 | **Explicit handlers** | `set_state:` targets that aren't state keys, `{N}` capture references beyond what the `receive:` pattern captures, `{state.X}` references to unknown keys, invalid `receive:` regexes |
-| **Notifications** | `notifications:` keys that aren't state keys, boolean value keys that never match (must be quoted lowercase `'true'`/`'false'`), `{value}` templates on boolean variables (emit `True` not `true`), and templates whose output no driver response pattern parses |
+| **Notifications** | `notifications:` keys that aren't state keys, boolean value keys that never match (must be quoted lowercase `'true'`/`'false'`), `{value}` templates on boolean variables (emit `True` not `true`), and templates whose output no driver response rule reads (judged as **Response parsing** judges a reply) |
 | **Controls** | `controls:` entries with unknown types, missing per-type required fields (`min`/`max`, `options`, `state_pattern`, …), or keys that don't exist in state |
 | **Child entities** | A heads-up for drivers with `child_entity_types`: per-child state IS modelled for a YAML driver (platform 0.24.0+), but only where the pairing is declared — check that each `child_id` command carries `sets:` / `query_for:` and each `each_child` poll carries `query_for:`, or write handlers for the ones that don't |
 
@@ -1303,8 +1303,8 @@ PASS: kramer_p3000 [yaml]
 FAIL: biamp_tesira_ttp [yaml] (../openavc-drivers/audio/biamp_tesira_ttp.avcdriver)
   ERROR [command_coverage] No simulator handler matches command 'recall_preset' (sample: 'Preset1 recall 1')
   ERROR [type_consistency] Handler uses {state.mute} in respond: template, but 'mute' is boolean...
-  WARN  [response_parsing] Simulator answers a query this driver polls with a reply no response rule matches...
-  INFO  [response_parsing] 12 simulator reply/replies match no driver response rule, none of them the only answer to a polled query...
+  WARN  [response_parsing] Simulator answers a query this driver polls with a reply no response rule reads...
+  INFO  [response_parsing] No driver response rule reads 12 simulator reply/replies, none of them the only answer to a polled query...
 ```
 
 - **ERROR** = something that will break at runtime. Fix before testing.
@@ -1332,9 +1332,9 @@ FAIL: biamp_tesira_ttp [yaml] (../openavc-drivers/audio/biamp_tesira_ttp.avcdriv
 
 **"No simulator handler matches polling query"** -- Your polling section sends a query that no handler recognizes. Add a handler for it, or check that the query text matches what the handler expects (including config variable substitution).
 
-**"Simulator answers a query this driver polls with a reply no response rule matches"** -- The driver polls for a value and the simulator answers with something the driver's `responses:` block cannot read, so that state variable stays at its startup value. Either the driver is missing a response rule, or the simulator is answering in the wrong format -- compare the reply against the device's manual. This only fires when *none* of that handler's replies parses; an error branch beside a real answer (a `NAK` reply next to the data reply) is not a finding.
+**"Simulator answers a query this driver polls with a reply no response rule reads"** -- The driver polls for a value and the simulator answers with something the driver's `responses:` block cannot read, so that state variable stays at its startup value. Either the driver is missing a response rule, or the simulator is answering in the wrong format -- compare the reply against the device's manual. When a rule does match the reply, look at its `require:` (a key the reply does not carry) and its `only_when:` (a condition the simulator's `initial_state` does not meet). This only fires when *none* of that handler's replies parses; an error branch beside a real answer (a `NAK` reply next to the data reply) is not a finding.
 
-**"N simulator reply/replies match no driver response rule..."** -- An info, not a problem. These are replies to writes -- the `<cmd> ACK` / `<cmd> NAK <code>` acknowledgements most protocols send -- which carry no state, so no response rule should match them. The line is there so "not checked" doesn't look like "checked and clean". If one of the listed replies actually carries a value you want, add a response rule for it.
+**"No driver response rule reads N simulator reply/replies..."** -- An info, not a problem. These are replies to writes -- the `<cmd> ACK` / `<cmd> NAK <code>` acknowledgements most protocols send -- which carry no state, so no response rule should match them. The line is there so "not checked" doesn't look like "checked and clean". If one of the listed replies actually carries a value you want, add a response rule for it.
 
 **"State variable X not in initial_state"** -- Add the variable to your `simulator.initial_state` with a realistic default value.
 

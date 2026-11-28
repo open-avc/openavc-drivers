@@ -1269,6 +1269,7 @@ python -m openavc.simulator.validate ../openavc-drivers/ --summary
 
 | Check | What it catches |
 |-------|----------------|
+| **Simulator build** | A driver the simulator cannot be built from, on any transport: an error naming what stopped the build. Correct that part of the file; if the driver passes `python -m openavc.drivers.check`, report the message as an OpenAVC problem |
 | **State coverage** | State variables missing from `simulator.initial_state` |
 | **Command coverage** | Commands with no matching simulator handler. For OSC drivers this checks command addresses against handler `address:` patterns, response addresses, and the simulator's built-in system addresses (`/xremote`, `/info`, `/status`, `/-action/`, `/-show/`) |
 | **Response parsing** | A query the driver polls whose answer matches no driver response pattern — nothing reads the reply, so the state behind that query never updates. A reply to a *write* is an acknowledgement (`<cmd> ACK`, `<cmd> NAK 04`) and carries no state, so those are counted and listed, not warned about |

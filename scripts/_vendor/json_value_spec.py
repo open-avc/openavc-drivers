@@ -18,8 +18,8 @@ so a new field on the spec is one edit to the compile; what the runtime does
 with the compiled mapping is ``json_replies.read_json_mapping``.
 
 The other readers ask it rather than reading the spec for themselves: the
-simulator validator counts the keys the compile gives
-(``openavc.simulator.reply_reading.json_rule_keys``), and the loader's checks
+simulator validator reads a body with the rules this compiles, as the runtime
+does (``openavc.simulator.reply_reading``), and the loader's checks
 read the key a child's spec names through ``written_key``
 (``response_rule_checks``, vendored with the driver contract). The Driver
 Builder's json rows (``getJsonRows`` in ``responseBuilderHelpers.ts``) are a

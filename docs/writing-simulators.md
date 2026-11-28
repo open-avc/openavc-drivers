@@ -496,6 +496,8 @@ HTTP simulators are always poll-based regardless of the flag. State changes from
 
 A UDP device has no connections to push to, so it pushes to the last peer it heard from, which is the driver once it has sent anything. `push_state: true` and `notifications:` templates both deliver there, and so does a handler's `notify(text)`.
 
+An OSC device answers a query of one of your `responses` addresses (the address sent with no arguments), and pushes a change, with that address's whole message: every variable the rule's mappings name, each at the argument its `arg` names and in that mapping's own `map:` words. A value the map does not name goes out as the device's own number, which the driver reads as it came. A variable that more than one address reports is pushed on the last of them. A value no argument can carry, such as text where the mapping's `type` is a number, is neither answered nor pushed.
+
 **A Python simulator pushes in its own code** (`push()`, `push_to()`, `send_to_listener()`, `push_sse_event()`, `send_trap()`), so the platform cannot tell that it does. Put `"push_state": True` in its `SIMULATOR_INFO` and its card reads **Pushes state changes** (OpenAVC 0.41.0 and later; an older Simulator ignores it). It changes nothing else: the simulator still decides what it sends and when.
 
 ### Notifications (Custom Push Format Override)

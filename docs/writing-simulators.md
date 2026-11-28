@@ -150,8 +150,8 @@ simulator:
 | Field | Description |
 |-------|-------------|
 | `receive` | Regex pattern to match incoming data (anchored to full line) |
-| `respond` | Response template. `{1}`, `{2}` are regex capture groups. `{state.key}` inserts current state, as the device's own number when the variable declares `scale` or `offset` (openavc 0.37.1). |
-| `set_state` | Dict of state changes to apply when matched. A value made from a capture (`{1}`) or `{state.key}` is read as the device's own number and stored in real units when the variable declares `scale` or `offset` (openavc 0.37.1); a value with neither is stored as written. |
+| `respond` | Response template. `{1}`, `{2}` are regex capture groups. `{state.key}` inserts current state, as the device's own number when the variable declares `scale` or `offset` (openavc 0.37.1). A child's value is `{state.<type>.<id>.<variable>}`, for example `{state.zone.1.level}`. In releases after OpenAVC 0.41.0, `{state.key}` takes a format spec here as it does in a notification: `{state.level:03d}` zero-pads, and `{state.mute:d}` sends a boolean as `1`/`0`. An earlier release's simulator sends a placeholder with a spec as written. |
+| `set_state` | Dict of state changes to apply when matched, in the order written, before `respond` is filled. A value made from a capture (`{1}`) or `{state.key}` is read as the device's own number and stored in real units when the variable declares `scale` or `offset` (openavc 0.37.1); a value with neither is stored as written. |
 
 **Regex escaping in YAML:** Use single quotes for patterns. Within single quotes, backslashes are literal, so `'\d+'` is the regex `\d+`. If you need a literal backslash in the regex, use `'\\'`. Do NOT double-escape: `'\\d+'` would be the regex `\\d+` (literal backslash followed by d), which is wrong.
 
@@ -1275,11 +1275,11 @@ python -m openavc.simulator.validate ../openavc-drivers/ --summary
 | **Response parsing** | A query the driver polls whose answer no driver response rule reads, so the state behind that query never updates. A rule reads a reply as the running driver does: a `json: true` rule needs every key its `require:` names, and a rule with `only_when:` reads only while its condition holds in the simulator's starting state (its `initial_state`, and every other variable at its type's starting value). A reply to a *write* is an acknowledgement (`<cmd> ACK`, `<cmd> NAK 04`) and carries no state, so those are counted and listed, not warned about |
 | **Reply framing** | A reply written by hand (a `respond:` template, a `respond()` call) that never contains the driver's `delimiter` (CR when the driver names none, as the driver itself splits on CR then): the driver completes no frame and reads nothing in it, so it is an error. A driver whose `frame_parser` reads its replies is not checked, since it splits none of them on a line ending. A reply that ends with text after its last delimiter is a warning, because that text is read only when the next reply arrives, joined to its first line. The exception is a prompt the device prints after each reply (`volume=55` CR LF `>`): when every reply opens with the delimiter and a response rule reads the prompt on its own line, it is noted instead |
 | **Poll coverage** | Polling queries with no matching handler. `each_child` queries are checked with a sample child id; OSC queries that name a command are checked as that command |
-| **Type consistency** | Boolean state used in `respond:` templates (produces `True` not `true`), wrong initial value types, enum values not in the allowed list |
+| **Type consistency** | Boolean state used in `respond:` templates with no format spec (produces `True` not `true`), wrong initial value types, enum values not in the allowed list |
 | **State machines** | Malformed `state_machines` entries (missing states/initial/transitions, off-list states, transitions that can never fire, duplicate `from`/`trigger` pairs where the later one is unreachable) |
 | **Handler syntax** | `handler:` bodies that don't compile — the simulator silently skips those at runtime |
-| **Explicit handlers** | `set_state:` targets that aren't state keys, `{N}` capture references beyond what the `receive:` pattern captures, `{state.X}` references to unknown keys, invalid `receive:` regexes |
-| **Notifications** | `notifications:` keys that aren't state keys, boolean value keys that never match (must be quoted lowercase `'true'`/`'false'`), `{value}` templates on boolean variables (emit `True` not `true`), and templates whose output no driver response rule reads (judged as **Response parsing** judges a reply) |
+| **Explicit handlers** | `set_state:` targets that aren't state keys, `{N}` capture references beyond what the `receive:` pattern captures, `{state.X}` references to keys the simulated device does not hold (a child's value counts when its type and variable are declared), invalid `receive:` regexes |
+| **Notifications** | `notifications:` keys that aren't state keys, boolean value keys that never match (must be quoted lowercase `'true'`/`'false'`), `{value}` templates on boolean variables (emit `True` not `true`), `{state.X}` references to keys the simulated device does not hold, and templates whose output no driver response rule reads (judged as **Response parsing** judges a reply) |
 | **Controls** | `controls:` entries with unknown types, missing per-type required fields (`min`/`max`, `options`, `state_pattern`, …), or keys that don't exist in state |
 | **Child entities** | A heads-up for drivers with `child_entity_types`: per-child state IS modelled for a YAML driver (platform 0.24.0+), but only where the pairing is declared — check that each `child_id` command carries `sets:` / `query_for:` and each `each_child` poll carries `query_for:`, or write handlers for the ones that don't |
 
@@ -1316,7 +1316,7 @@ FAIL: biamp_tesira_ttp [yaml] (../openavc-drivers/audio/biamp_tesira_ttp.avcdriv
 
 **"No simulator handler matches command"** -- Your simulator section is missing a handler for this command. Either add a `command_handler` entry or let the auto-gen handle it (remove the conflicting explicit handler).
 
-**"Handler uses {state.X} in respond: template, but X is boolean"** -- Python's `str(True)` produces `"True"` (capitalized), but your driver's response pattern probably expects `"true"` (lowercase). Convert the handler to a script handler:
+**"Handler uses {state.X} in respond: template, but X is boolean"** -- Python's `str(True)` produces `"True"` (capitalized), but your driver's response pattern probably expects `"true"` (lowercase). When the device sends `1`/`0` instead, write `{state.X:d}` (releases after OpenAVC 0.41.0). For `true`/`false`, convert the handler to a script handler:
 
 ```yaml
 # Before (broken):
